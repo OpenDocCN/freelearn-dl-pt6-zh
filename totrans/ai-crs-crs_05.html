@@ -1,0 +1,538 @@
+<html><head></head><body>
+		<div id="_idContainer129">
+			<h1 class="chapterNumber sigil_not_in_toc">5</h1>
+			<h1 class="chapterTitle" xml:lang="en-GB" id="sigil_toc_id_66" lang="en-GB"><a id="_idTextAnchor096"/>Your First AI Model – Beware the Bandits!</h1>
+</div>
+
+			<p class="normal">In this chapter, you'll get to grips with your very
+ first AI model! You're going to make a model that will solve the very 
+well-known multi-armed bandit problem. This is a classic problem in AI, 
+and it's also widely encountered in many real-world business problems.</p>
+			<h2 class="title" xml:lang="en-GB" id="sigil_toc_id_67" lang="en-GB"><a id="_idTextAnchor097"/>The multi-armed bandit problem</h2>
+			<p class="normal">Imagine you are in<a id="_idIndexMarker103"/> 
+Las Vegas, in your favorite casino. You are in a room containing five 
+slot machines. For each of them the game is the same: you bet a certain 
+amount of money, say 1 dollar, you pull the arm, and then the machine 
+will either take your money, or give you twice your money back. Remember
+ the rewards we talked about in the previous chapter? Let's say that if 
+the machine takes your money, your reward is -1, and if the machine 
+returns you twice your money, your reward is +1.</p>
+			<p class="normal">As you can see, you're already starting to define 
+an AI environment, which I'll remind you is absolutely fundamental when 
+solving a problem with AI. So far, the AI isn't there, but it will come 
+soon. You always start by defining the environment.</p>
+			<p class="normal">You've defined the rewards; you'll define the 
+states (inputs) and actions (outputs) later. Now, still in the process 
+of defining the environment, let's say that you know, somehow, that one 
+of these machines has a higher probability of giving you a +1 reward 
+than the others when you pull its arm. It doesn't matter how you know 
+this info, but it must be part of the problem assumptions. Rest assured,
+ this assumption is always naturally verified in the real-world business
+ problems mentioned above where the multi-armed bandit problem can be 
+applied.</p>
+			<p class="normal">Your goal, as in any AI environment, is to obtain 
+the highest accumulated reward during your time of play. Let's say you 
+are going to bet 1,000 dollars in total, meaning that you are going to 
+bet 1 dollar, 1,000 times, each time by pulling the arm of any of these 
+five slot machines. The question is:</p>
+			<p class="normal">What should be your strategy, so that after having 
+played 1,000 times, you get the maximum amount of money to take home 
+with you?</p>
+			<p class="normal">The first step of your strategy <a id="_idIndexMarker104"/>must
+ be to figure out, in the minimum number of plays, which of these five 
+slot machines has the highest chance of giving you a 1 reward. In other 
+words, you have to quickly figure out the slot machine with the highest 
+success rate. Then, as soon as you figure it out, you simply need to 
+keep playing on that most successful slot machine.</p>
+			<p class="normal">Finding the most successful slot machine is not 
+hard; one simple strategy could be to play 100 times on each of these 
+five slot machines and then, at the end, look at which of them gave you 
+more money. Statistically, this gives you a good chance of finding that 
+most generous slot machine.</p>
+			<p class="normal">All the challenge is in "quickly". The hardest part is to find the best slot machine <strong class="bold">in a minimum number of trials</strong>. This is where your first AI model comes into play.</p>
+			<h2 class="title" xml:lang="en-GB" id="sigil_toc_id_68" lang="en-GB"><a id="_idTextAnchor098"/>The Thompson Sampling model</h2>
+			<p class="normal">You're going to build this model <a id="_idIndexMarker105"/>straight
+ away. Right now, you'll build a simple implementation of this method, 
+and later you will be shown the theory behind it. Let's get right into 
+it!</p>
+			<p class="normal">As we defined previously, our problem is trying to 
+find the best slot machine with the highest winning chance out of many. A
+ not-so-optimal solution would be to play 100 rounds on each of our slot
+ machines and see which one has the highest winning rate. A better 
+solution is a method called Thompson Sampling.</p>
+			<p class="normal">I won't go too deeply into the theory behind it; 
+we'll cover that later. For now, it is enough to say that Thompson 
+Sampling uses a distribution function (distributions will be explained 
+further in this chapter), called Beta, that takes two arguments. For 
+simplicity's sake, let's say that the higher the first argument is, the 
+better our slot machine is, and the higher the second argument is, the 
+worse our slot machine is.</p>
+			<p class="normal">Therefore, we can define this function as:</p>
+			<figure class="mediaobject" xml:lang="en-GB" lang="en-GB"><img src="../Images/B14110_05_001.png" style="height: 1.75em;" alt=""/></figure>
+			<p class="normal">where:</p>
+			<ul>
+				<li class="list"><em class="italics">x</em> – a random choice from our Beta distribution</li>
+				<li class="list"><span class="mediaobject"><img src="../Images/B14110_05_002.png" style="height: 1em;" alt=""/></span> – our Beta function</li>
+				<li class="list"><em class="italics">a</em> – the first argument</li>
+				<li class="list"><em class="italics">b</em> – the second argument</li>
+			</ul>
+			<p class="normal">Don't worry if you don't understand this<a id="_idIndexMarker106"/> entirely quite yet; you'll read all about it later.</p>
+			<h3 class="title" xml:lang="en-GB" id="sigil_toc_id_69" lang="en-GB">Coding the mode<a id="_idTextAnchor099"/>l</h3>
+			<p class="normal">Let's start coding our solution. All this <a id="_idIndexMarker107"/>code is also available on the GitHub page of this book in the <code class="Code-In-Text--PACKT-">Chapter 05</code> folder. Here we go with the first code section:</p>
+			<pre class="programlisting language-markup"><code class="hljs capnproto"><span class="hljs-comment"># Importing the libraries</span>
+<span class="hljs-keyword">import</span> numpy <span class="hljs-keyword">as</span> np
+</code></pre>
+			
+			<p class="normal">You'll only need one library, called NumPy. This is
+ a very useful library, helping when we are dealing with 
+multi-dimensional arrays and lists in general. Give it the abbreviation <code class="Code-In-Text--PACKT-">np</code>, which is the industry standard, so that it will be easier to use.</p>
+			<p class="normal">Now we have to understand something very important.
+ You are creating a simulation whose aim is to simulate real-life 
+situations. In reality, every slot machine gives us some chance of 
+winning, and some machines have it higher than others. Therefore, when 
+simulating this environment, you have to do the same thing. It is 
+important to remember, however, that our AI will not know these 
+predefined winning rates. It cannot just read them and judge, based on 
+these rates, which machine is the best.</p>
+			<p class="normal">For this example, let's call this list of winning chances <code class="Code-In-Text--PACKT-">conversionRates</code>.</p>
+			<pre class="programlisting language-markup"><code class="hljs pgsql"># Setting <span class="hljs-keyword">conversion</span> rates <span class="hljs-keyword">and</span> the number <span class="hljs-keyword">of</span> samples
+conversionRates = [<span class="hljs-number">0.15</span>, <span class="hljs-number">0.04</span>, <span class="hljs-number">0.13</span>, <span class="hljs-number">0.11</span>, <span class="hljs-number">0.05</span>]
+N = <span class="hljs-number">10000</span>
+d = len(conversionRates)
+</code></pre>
+			
+			
+			
+			<p class="normal">Here, you have five slot machines. They have some 
+win chance; for example, slot machine no. 1 offers a 15% chance of a 
+win. Then you create a number of samples, <code class="Code-In-Text--PACKT-">N</code>.
+ Remember, you are performing a simulation, so you need to have a 
+predefined dataset that will tell you whether you won or not when you're
+ playing. You also introduce a variable, <code class="Code-In-Text--PACKT-">d</code>,
+ which is the length of your conversion rates list; that is, the number 
+of slot machines. It's useful to use short variable names like that, 
+because the code would be longer and less readable otherwise.</p>
+			<p class="normal">Do you have an idea of what you <a id="_idIndexMarker108"/>should
+ do next? You are running a simulation, so you need to have a predefined
+ set of wins and losses for every slot machine for every sample. I 
+highly recommend that you try to do this on your own. You need to have a
+ set that will tell you if at some timestep <code class="Code-In-Text--PACKT-">i</code> you have won or not by playing a certain slot machine. The answer is in the next snippet of code.</p>
+			<pre class="programlisting language-markup"><code class="hljs properties"><span class="hljs-comment"># Creating the dataset</span>
+<span class="hljs-attr">X</span> = <span class="hljs-string">np.zeros((N, d))</span>
+<span class="hljs-attr">for</span> <span class="hljs-string">i in range(N):</span>
+    <span class="hljs-attr">for</span> <span class="hljs-string">j in range(d):</span>
+        <span class="hljs-attr">if</span> <span class="hljs-string">np.random.rand() &lt; conversionRates[j]:</span>
+            <span class="hljs-meta">X[i][j]</span> = <span class="hljs-string">1</span>
+</code></pre>
+			
+			
+			
+			
+			
+			<p class="normal">In the first line, you create a 2d-array full of zeros, of size <code class="Code-In-Text--PACKT-">N * d</code>. This means that you've created an array with <code class="Code-In-Text--PACKT-">N</code> (in this case <code class="Code-In-Text--PACKT-">10000</code>) rows and <code class="Code-In-Text--PACKT-">d</code> (in this case <code class="Code-In-Text--PACKT-">5</code>) columns. Then, in a <code class="Code-In-Text--PACKT-">for</code> loop, you iterate through every row in that 2d-array <code class="Code-In-Text--PACKT-">X</code>. In a nested <code class="Code-In-Text--PACKT-">for</code>
+ loop, you iterate through each column in that row. In line 5 of the 
+preceding code snippet, for each slot machine (each column), we check if
+ a random float number from range (0,1) is smaller than the conversion 
+rate for the corresponding slot machine.</p>
+			<p class="normal">That's just like playing the slot machine; since 
+there is an equal chance of getting any float number from this range, 
+the chances of getting a number smaller than <code class="Code-In-Text--PACKT-">x</code> (where <code class="Code-In-Text--PACKT-">x</code> is also in range (0,1)) is equal to <code class="Code-In-Text--PACKT-">x</code>. For example, for <code class="Code-In-Text--PACKT-">d</code>
+ = 0.15, there are 15 instances out of 100 of getting a smaller float 
+number than 0.15, and thus a 15% chance of returning a high reward for 
+slot machine 1. In other words, if the random float is smaller, then 
+that means you will win if you play this certain machine at this certain
+ timestep.</p>
+			<p class="normal">To make sure you understand, if one of the <code class="Code-In-Text--PACKT-">N</code> samples from your dataset <code class="Code-In-Text--PACKT-">X</code> looks like this: <code class="Code-In-Text--PACKT-">[0, 1, 0, 0, 1]</code>, you would win at that point in time by playing slot machine no. 2 or no. 5.</p>
+			<p class="normal">Next, you need to create two arrays that will count
+ how many times you have lost and won by playing each slot machine, like
+ this:</p>
+			<pre class="programlisting language-markup"><code class="hljs ini"><span class="hljs-comment"># Making arrays to count our losses and wins</span>
+<span class="hljs-attr">nPosReward</span> = np.zeros(d)
+<span class="hljs-attr">nNegReward</span> = np.zeros(d)
+</code></pre>
+			
+			
+			<p class="normal">Name them <code class="Code-In-Text--PACKT-">nPosReward</code> (number of wins) and <code class="Code-In-Text--PACKT-">nNegReward</code> (number of losses).</p>
+			<p class="normal">Now that you have made a simulation set and these 
+two counters, you can start coding some Thompson Sampling. Keep in mind 
+that the theory, as well as another example, will be covered later.</p>
+			<p class="normal">Next, initialize a <code class="Code-In-Text--PACKT-">for</code> loop that will iterate<a id="_idIndexMarker109"/> through every sample in our dataset and choose the best slot machine. Initially, only create two variables, one called <code class="Code-In-Text--PACKT-">selected</code>, which will tell you which slot machine was chosen, and <code class="Code-In-Text--PACKT-">maxRandom</code>, which you will use to get the highest Beta distribution guess across all slot machines:</p>
+			<pre class="programlisting language-markup"><code class="hljs armasm"># Taking our <span class="hljs-keyword">best </span>slot machine through <span class="hljs-keyword">beta </span>distribution <span class="hljs-keyword">and </span>updating <span class="hljs-keyword">its </span>losses <span class="hljs-keyword">and </span>wins
+<span class="hljs-symbol">for</span> i in range(N):
+    <span class="hljs-keyword">selected </span>= <span class="hljs-number">0</span>
+    maxRandom = <span class="hljs-number">0</span>
+</code></pre>
+			
+			
+			
+			<p class="normal">So now you can get to the core of Thompson 
+Sampling. You'll take random guesses from our Beta distribution and find
+ the highest value across all your slot machines.</p>
+			<p class="normal">You can use a method taken from NumPy, called <code class="Code-In-Text--PACKT-">np.random.beta(a,b)</code>,
+ that returns this random guess. Knowing that, try to find the highest 
+guess and the best machine on your own! It is totally fine if you 
+fail—we haven't covered the theory yet—and I will provide you with an 
+answer. Good luck!</p>
+			<p class="normal">I hope you've given it a try. Whether it's worked out for you or not, here's my answer:</p>
+			<pre class="programlisting language-markup"><code class="hljs pf">    <span class="hljs-keyword">for</span> j <span class="hljs-keyword">in</span> range(d):
+        <span class="hljs-keyword">random</span>Beta = np.<span class="hljs-keyword">random</span>.beta(nP<span class="hljs-keyword">os</span>Reward[j] + <span class="hljs-number">1</span>, nNegReward[j] + <span class="hljs-number">1</span>)
+        if <span class="hljs-keyword">random</span>Beta &gt; <span class="hljs-keyword">max</span>Random:
+            <span class="hljs-keyword">max</span>Random = <span class="hljs-keyword">random</span>Beta
+            selected = j
+</code></pre>
+			
+			
+			
+			
+			<p class="normal">You haven't missed anything—this is all the<a id="_idIndexMarker110"/> code needed for this task. You create a <code class="Code-In-Text--PACKT-">for</code> loop to iterate through every slot machine and find the best one. For each slot machine of index <code class="Code-In-Text--PACKT-">j</code> (remember that you are still in the bigger <code class="Code-In-Text--PACKT-">for</code> loop with index <code class="Code-In-Text--PACKT-">i</code>), you take a random draw, called <code class="Code-In-Text--PACKT-">randomBeta</code>, from our Beta distribution, and check if it is greater than <code class="Code-In-Text--PACKT-">maxRandom</code>.</p>
+			<p class="normal">If it is, then you reassign <code class="Code-In-Text--PACKT-">maxRandom</code> to be equal to <code class="Code-In-Text--PACKT-">randomBeta</code>, and set <code class="Code-In-Text--PACKT-">selected</code> to be equal to the index of this new highest-guess slot machine <code class="Code-In-Text--PACKT-">j</code>. It is also worth mentioning what the <code class="Code-In-Text--PACKT-">a</code> and <code class="Code-In-Text--PACKT-">b</code>
+ arguments of the Beta function are in this case; they're the number of 
+wins and losses we've had on the specific slot machine. Remember, the 
+bigger the first argument, the better, and the higher our random guess 
+will be; the bigger the second argument, the worse, and the lower our 
+random guess will be.</p>
+			<p class="normal">Now that you have selected the best slot machine, what do you think you should do next?</p>
+			<p class="normal">You have to update your <code class="Code-In-Text--PACKT-">nPosReward</code> or <code class="Code-In-Text--PACKT-">nNegReward</code> depending on whether you have won or not. We can do that with this code:</p>
+			<pre class="programlisting language-markup"><code class="hljs angelscript">    <span class="hljs-keyword">if</span> X[i][selected] == <span class="hljs-number">1</span>:
+        nPosReward[selected] += <span class="hljs-number">1</span>
+    <span class="hljs-keyword">else</span>:
+        nNegReward[selected] += <span class="hljs-number">1</span>
+</code></pre>
+			
+			
+			
+			<p class="normal">Here, you can see the use of the <code class="Code-In-Text--PACKT-">X</code> array you created earlier. You check if you have won this round by checking if there's a <code class="Code-In-Text--PACKT-">1</code> in the appropriate place in your <code class="Code-In-Text--PACKT-">X</code> array. If you win, you update the index corresponding to the selected machine in <code class="Code-In-Text--PACKT-">nPosReward</code> by adding <code class="Code-In-Text--PACKT-">1</code>. If you lose, however, you update <code class="Code-In-Text--PACKT-">nNegReward</code> by adding <code class="Code-In-Text--PACKT-">1</code>
+ in the same index there. You can clearly see that if you win, next 
+time, your random guess from the Beta distribution for that machine will
+ be higher; and if you lose, it will be lower.</p>
+			<p class="normal">This code works already, although it is worth 
+adding a few lines of code to display which slot machine your code 
+considers the best:</p>
+			<pre class="programlisting language-markup"><code class="hljs hsp"><span class="hljs-meta"># Showing which slot machine is considered the best</span>
+nSelected = nPosReward + nNegReward 
+<span class="hljs-keyword">for</span> i in range(d):
+    <span class="hljs-keyword">print</span>(<span class="hljs-string">'Machine number '</span> + <span class="hljs-keyword">str</span>(i + <span class="hljs-number">1</span>) + <span class="hljs-string">' was selected '</span> + <span class="hljs-keyword">str</span>(nSelected[i]) + <span class="hljs-string">' times'</span>)
+<span class="hljs-keyword">print</span>(<span class="hljs-string">'Conclusion: Best machine is machine number '</span> + <span class="hljs-keyword">str</span>(np.argmax(nSelected) + <span class="hljs-number">1</span>))
+</code></pre>
+			
+			
+			
+			
+			<p class="normal">Here, you simply display how many times each slot 
+machine was chosen by your algorithm. To get these numbers you can add 
+together the lists <code class="Code-In-Text--PACKT-">nPosReward</code> and <code class="Code-In-Text--PACKT-">nNegReward</code>. In the final line, you<a id="_idIndexMarker111"/> show which machine was chosen the highest number of times, making it the slot machine that is considered the best.</p>
+			<p class="normal">Now, you can just run your code and see the results:</p>
+			<pre class="programlisting language-markup"><code class="hljs angelscript">Machine number <span class="hljs-number">1</span> was selected <span class="hljs-number">7927.0</span> times
+Machine number <span class="hljs-number">2</span> was selected <span class="hljs-number">82.0</span> times
+Machine number <span class="hljs-number">3</span> was selected <span class="hljs-number">1622.0</span> times
+Machine number <span class="hljs-number">4</span> was selected <span class="hljs-number">306.0</span> times
+Machine number <span class="hljs-number">5</span> was selected <span class="hljs-number">63.0</span> times
+Conclusion: Best machine <span class="hljs-keyword">is</span> machine number <span class="hljs-number">1</span>
+</code></pre>
+			
+			
+			
+			
+			
+			<p class="normal">As we can see, your algorithm <strong class="bold">quickly</strong> found out that machine no. 1 is the best. It did it in around 2,000 rounds (2,000 samples in your <code class="Code-In-Text--PACKT-">X</code> <a id="_idTextAnchor100"/>set).</p>
+			<h3 class="title" xml:lang="en-GB" id="sigil_toc_id_70" lang="en-GB"><a id="_idTextAnchor101"/>Understanding the model</h3>
+			<p class="normal">Thompson Sampling is, by far, the best<a id="_idIndexMarker112"/>
+ model for this kind of problem; at the end of this chapter, you will 
+see a comparison with another method. Here's how it works its magic. The
+ first thing we do, when finding the best slot machine, is obviously to 
+play the arm of each of the five slot machines one by one. So here we 
+go:</p>
+			<p class="normal"><strong class="bold">Round 1</strong>: We play the arm of slot machine number 1. Let's say we get reward 0.</p>
+			<p class="normal"><strong class="bold">Round 2</strong>: We play the arm of slot machine number 2. Let's say we get reward 1.</p>
+			<p class="normal"><strong class="bold">Round 3</strong>: We play the arm of slot machine number 3. Let's say we get reward 0.</p>
+			<p class="normal"><strong class="bold">Round 4</strong>: We play the arm of slot machine number 4. Let's say we get reward 0.</p>
+			<p class="normal"><strong class="bold">Round 5</strong>: We play the arm of slot machine number 5. Let's say we get reward 1.</p>
+			<p class="normal">Now, why do you think we had to do this? We only 
+did that to collect some starting information from each of the slot 
+machines. This information will be needed in future rounds.</p>
+			<p class="normal">Now, things start to get interesting. What are we going to do at round 6? Which arm are we going to play?</p>
+			<p class="normal">Well, we need to look back at what happened during 
+the first five rounds. For each slot machine, we introduce two new 
+variables, one that counts the number of times the slot machine returned
+ a 0 reward, and another one that counts the number of times the slot 
+machine returned a 1 reward.</p>
+			<p class="normal">Let's denote these variables as <img src="../Images/B14110_05_003.png" alt=""/> and <span class="mediaobject"><img src="../Images/B14110_05_004.png" alt=""/></span>, where <span class="mediaobject"><img src="../Images/B14110_05_005.png" alt=""/></span> is the number of times slot machine number <em class="italics">i</em> returned reward 0 up to round <em class="italics">n</em>, and <span class="mediaobject"><img src="../Images/B14110_05_006.png" alt=""/></span> is the number of times slot machine number <em class="italics">i</em> returned<a id="_idIndexMarker113"/> reward 1 up to round <em class="italics">n</em>. These two variables are denoted by <code class="Code-In-Text--PACKT-">nNegReward</code> and <code class="Code-In-Text--PACKT-">nPosReward</code> in our code. So, based on what we've obtained so far at round 5, let's give some values examples of these variables:</p>
+			<p class="normal"><span class="mediaobject"><img src="../Images/B14110_05_007.png" alt=""/></span> means that slot machine 1 has returned 1 loss over 1 round.</p>
+			<p class="normal"><span class="mediaobject"><img src="../Images/B14110_05_008.png" alt=""/></span> means that slot machine 1 has returned 0 wins over 1 round.</p>
+			<p class="normal"><span class="mediaobject"><img src="../Images/B14110_05_009.png" alt=""/></span> means that slot machine 2 has returned 0 losses over 1 round.</p>
+			<p class="normal"><span class="mediaobject"><img src="../Images/B14110_05_010.png" alt=""/></span> means that slot machine 2 has returned 1 win over 1 round.</p>
+			<p class="normal"><span class="mediaobject"><img src="../Images/B14110_05_011.png" alt=""/></span> means that slot machine 5 has returned 0 losses over 4 rounds.</p>
+			<p class="normal"><span class="mediaobject"><img src="../Images/B14110_05_012.png" alt=""/></span> means that slot machine 5 has returned 0 wins over 4 rounds.</p>
+			<p class="normal"><span class="mediaobject"><img src="../Images/B14110_05_013.png" alt=""/></span> means that slot machine 5 has returned 0 losses over 5 rounds.</p>
+			<p class="normal"><span class="mediaobject"><img src="../Images/B14110_05_014.png" alt=""/></span> means that slot machine 5 has returned 1 win over 5 rounds.</p>
+			<p class="normal">Alright, that was the easy part. The good news is 
+that we've created all the variables we needed for our AI. The bad news 
+is that now<a id="_idIndexMarker114"/> comes the hard part, the math.
+ If you think math is good news, I like your spirit; but don't worry if 
+you don't like math, I won't let you down.</p>
+			<h3 class="title" xml:lang="en-GB" id="sigil_toc_id_71" lang="en-GB">Wha<a id="_idTextAnchor102"/>t is a distribution?</h3>
+			<p class="normal">The next step of our AI journey is to introduce<a id="_idIndexMarker115"/>
+ distributions in mathematics. For this, I'll give you a simple 
+definition with my own words, not the very formal ones you find in math 
+books. I want to make sure everybody understands. Here it is: the 
+distribution of a variable is a function that will give, for each value 
+in the possible range of values the variable could take, the probability
+ that this variable is equal to that value.</p>
+			<p class="normal">Let's really understand what it is through an example:</p>
+			<figure class="mediaobject" xml:lang="en-GB" lang="en-GB"><img src="../Images/B14110_05_01.png" alt=""/></figure>
+			<p class="packt_figref">Figure 1: The normal distribution</p>
+			<p class="normal">In the preceding graph, you can see an example of a
+ distribution. Now, remember in the definition I gave you, I mentioned 
+two measures: "range of values the variable could take", and 
+"probability that this variable is equal to that value". In any 
+distribution, on the <em class="italics">x</em>-axis you have the range of values the variable could take, and on the <em class="italics">y</em>-axis you have the probability that the variable is equal to each value.</p>
+			<p class="normal">Don't worry if this isn't clear yet. To extend our 
+example, let's say that on the preceding graph, this variable is the 
+annual salary people have in a specific country.</p>
+			<p class="normal">On the <em class="italics">x</em>-axis, we would have the <a id="_idIndexMarker116"/>range
+ of annual salaries from the minimum wage to the maximum wage, let's say
+ from 15,000 dollars to 150,000 dollars. And on the <em class="italics">y</em>-axis, we would have the probabilities that a person would have that salary.</p>
+			<p class="normal">Now it should make more sense. For the low 
+salaries, the curve is low, meaning that the probability that an 
+individual earns a salary of around 15,000 dollars is low.</p>
+			<p class="normal">Then, up to the center of the <em class="italics">x</em>-axis, marked as <span class="mediaobject"><img src="../Images/B14110_05_015.png" alt=""/></span>, which is the average of the salaries, the probabilities of people's salaries increase. Let's say that <span class="mediaobject"><img src="../Images/B14110_05_016.png" alt=""/></span>
+ is equal to 45,000 dollars. We intuitively understand that the 
+probability that an individual in a specific country earns 45,000 
+dollars per year is the highest, simply because the majority of people 
+earn something in the region of 45,000 dollars per year. And that's 
+exactly why the distribution in the graph is the highest at this salary.</p>
+			<p class="normal">The higher we go above an annual salary of 45,000 
+dollars, the fewer people we'll find earning such salaries, and 
+therefore the probability of people earning such salaries will decrease,
+ until we go beyond an annual salary of 150,000 dollars, where very few 
+people earn that much, therefore leading to a close-to-zero probability.</p>
+			<p class="normal">Alright, that was the distribution explained 
+intuitively. Now, you have to know that there are many types of 
+distributions: Gaussian distributions (that look like the preceding 
+graph), normal distributions (Gaussian distribution of mean 0 and 
+variance 1), Beta distributions, and many more.</p>
+			<p class="normal">That's the next step: <strong class="bold">Beta distributions</strong>.
+ The Beta distribution is at the heart of the AI we built to solve our 
+bandit problem. Here are what Beta distributions look like:</p>
+			<figure class="mediaobject" xml:lang="en-GB" lang="en-GB"><img src="../Images/B14110_05_02.png" alt=""/></figure>
+			<p class="packt_figref">Figure 2: Three Beta distributions</p>
+			<p class="normal">Let's do some practice to make sure you <a id="_idIndexMarker117"/>understand
+ how distributions work. Imagine these three distributions correspond to
+ three different countries, and again let's say that they are the 
+distributions of salaries in these countries. Which country has the 
+highest salaries? Is it the purple one, the green one, or the yellow 
+one? The answer is the yellow one, of course! It is in this country that
+ we have positive probabilities for the highest salaries (remember, the 
+salaries are on the <em class="italics">x</em>-axis, and the probabilities are on the <em class="italics">y</em>-axis).</p>
+			<p class="normal">That was just a quick test to make sure you were 
+with me. Now, you don't have to remember the exact formula of a Beta 
+distribution, but you do have to know that it has two parameters and how
+ they impact the distribution. Don't forget that this was already 
+mentioned when we solved the problem in practice, now it is explained in
+ much more detail.</p>
+			<p class="normal">If we denote these two parameters as <em class="italics">a</em> and <em class="italics">b</em> again, we can denote the Beta distribution with the following:</p>
+			<figure class="mediaobject" xml:lang="en-GB" lang="en-GB"><img src="../Images/B14110_05_0011.png" alt=""/></figure>
+			<p class="normal">You might be asking what just happened—Why did <span class="mediaobject"><img src="../Images/B14110_05_018.png" alt=""/></span> appear? Don't worry, we will demystify all this. In the formula above, <span class="mediaobject"><img src="../Images/B14110_05_019.png" alt=""/></span> is the probability, <span class="mediaobject"><img src="../Images/B14110_05_020.png" alt=""/></span> is a function of <span class="mediaobject"><img src="../Images/B14110_05_021.png" alt=""/></span> only, <span class="mediaobject"><img src="../Images/B14110_05_022.png" alt=""/></span> is the salary, and <span class="mediaobject"><img src="../Images/B14110_05_023.png" alt=""/></span> are the two parameters present in any Beta distribution. Again, you don't have to know the exact definition of the function <span class="mediaobject"><img src="../Images/B14110_05_024.png" alt=""/></span>, but just keep in mind the shape of its curve as given in the preceding graph.</p>
+			<p class="normal">However, what is really important for<a id="_idIndexMarker118"/> you to understand now is the role of the two parameters <span class="mediaobject"><img src="../Images/B14110_05_025.png" alt=""/></span> and <span class="mediaobject"><img src="../Images/B14110_05_026.png" alt=""/></span>. Following are the two points that you must know and visualize in your head:</p>
+			<ol>
+				<li class="list">Given two Beta distributions with the same parameter <span class="mediaobject"><img src="../Images/B14110_05_027.png" alt=""/></span>, the one having a larger parameter <span class="mediaobject"><img src="../Images/B14110_05_028.png" alt=""/></span> will be shifted more to the right.</li>
+				<li class="list">Given two Beta distributions with the same parameter <span class="mediaobject"><img src="../Images/B14110_05_029.png" alt=""/></span>, the one having a larger parameter <span class="mediaobject"><img src="../Images/B14110_05_030.png" alt=""/></span> will be shifted more to the left.</li>
+			</ol>
+			<p class="normal">That's it! That's enough to have an intuitive 
+understanding of how our AI will solve the Bandit problem. In other 
+words, the larger the parameter <span class="mediaobject"><img src="../Images/B14110_05_031.png" alt=""/></span>, the more it will shift the Beta distribution to the right, and the larger the parameter <span class="mediaobject"><img src="../Images/B14110_05_032.png" alt=""/></span>, the more it will shift the Beta distribution to the left.</p>
+			<p class="normal">Let's practice this! If I give you the following three Beta distributions:</p>
+			<ol>
+				<li class="list" value="1"><img src="../Images/B14110_05_033.png" alt=""/></li>
+				<li class="list"><img src="../Images/B14110_05_034.png" alt=""/></li>
+				<li class="list"><img src="../Images/B14110_05_035.png" alt=""/></li>
+			</ol>
+			<p class="normal">Could you tell me which of the three Beta distributions in the following graph they would approximately look like?</p>
+			<figure class="mediaobject" xml:lang="en-GB" lang="en-GB"><img src="../Images/B14110_05_03.png" alt=""/></figure>
+			<p class="packt_figref">Figure 3: Three Beta distributions</p>
+			<p class="normal">Based on the two statements above, <img src="../Images/B14110_05_036.png" alt=""/> is the purple one, <img src="../Images/B14110_05_037.png" alt=""/> is the yellow one, and <img src="../Images/B14110_05_038.png" alt=""/> is the green one. Congratulations<a id="_idIndexMarker119"/> to you if you guessed that right!</p>
+			<p class="normal">Now you are ready to solve our bandit problem. But 
+let me ask you a question first, which might lead you to understand the 
+magic faster than this book:</p>
+			<p class="normal">If, instead of the salaries in a country, the <em class="italics">x</em>-axis
+ contained the success rates of the machines in the casino, and if each 
+of the three Beta distributions represented one particular slot machine,
+ which one would you choose to bet your 1,000 dollars?</p>
+			<p class="normal">You would choose the yellow one!</p>
+			<p class="normal">Of course! This distribution has positive 
+probabilities for the highest conversion rates, since it is the one most
+ shifted to the right.</p>
+			<p class="normal">This was already discussed in the previous code 
+section of this chapter; I told you there that the higher the first 
+parameter, the better the slot machine. Indeed, the Beta distribution 
+will be shifted more to the right, meaning that this slot machine has a 
+higher chance of giving us a win. Additionally, the higher the second 
+parameter, the worse the slot machine is and now, the Beta distribution 
+will be shifted to the left, meaning that this machine has a lower 
+chance of us winning.</p>
+			<p class="normal">And now another question, before we <a id="_idIndexMarker120"/>solve
+ our bandit problem. Remembering that you have five slot machines to 
+play with, try to answer this question: if the five slot machines are 
+associated with the following five Beta distributions of success rates:</p>
+			<p class="normal"><span class="mediaobject"><img src="../Images/B14110_05_039.png" alt=""/></span>, <span class="mediaobject"><img src="../Images/B14110_05_040.png" alt=""/></span>, <span class="mediaobject"><img src="../Images/B14110_05_041.png" alt=""/></span>, <span class="mediaobject"><img src="../Images/B14110_05_042.png" alt=""/></span>, and <span class="mediaobject"><img src="../Images/B14110_05_043.png" alt=""/></span>,</p>
+			<p class="normal">Which one would you pick to bet your 1,000 dollars?</p>
+			<p class="normal">The answer is <span class="mediaobject"><img src="../Images/B14110_05_044.png" alt=""/></span>!</p>
+			<p class="normal">Of course, again! Because it is the one with the largest parameter <span class="mediaobject"><img src="../Images/B14110_05_045.png" alt=""/></span> and the lowest parameter <span class="mediaobject"><img src="../Images/B14110_05_046.png" alt=""/></span>, therefore the most shifted to the right, and hence the one having the positive probabilities for the highest conversion rates.</p>
+			<p class="normal">If you are still with me, you are definitely ready 
+to understand the AI magic. If not, please read through this section 
+again. In the next section, I will finally reveal what happens next 
+after Round 5.</p>
+			<h3 class="title" xml:lang="en-GB" id="sigil_toc_id_72" lang="en-GB"><a id="_idTextAnchor103"/>Tackling the MABP</h3>
+			<p class="normal">What we are goi<a id="_idTextAnchor104"/>ng to do from now <a id="_idIndexMarker121"/>on before playing each round is to<a id="_idIndexMarker122"/> associate each slot machine with a specific Beta distribution. At each round <em class="italics">n</em>, the slot machine number <em class="italics">i</em> (<em class="italics">i</em>=1,2,3,4,5) will be associated with the following Beta distribution:</p>
+			<figure class="mediaobject" xml:lang="en-GB" lang="en-GB"><img src="../Images/B14110_05_048.png" style="height: 2em;" alt=""/></figure>
+			<p class="normal">Here, you should recall the following:</p>
+			<ul>
+				<li class="list"><img src="../Images/B14110_05_049.png" alt=""/> is the number of times the slot machine number <img src="../Images/B14110_05_050.png" alt=""/> returned a 1 reward up to round <img src="../Images/B14110_05_051.png" alt=""/>.</li>
+				<li class="list"><img src="../Images/B14110_05_052.png" alt=""/> is the number of times the slot machine number <img src="../Images/B14110_05_053.png" alt=""/> returned a 0 reward up to round <img src="../Images/B14110_05_054.png" alt=""/>.</li>
+			</ul>
+			<p class="normal">Remember, in the Beta distribution <span class="mediaobject"><img src="../Images/B14110_05_055.png" alt=""/></span>, the higher the parameter <span class="mediaobject"><img src="../Images/B14110_05_056.png" alt=""/></span>, the more that shifts the distribution to the right. The higher the parameter <span class="mediaobject"><img src="../Images/B14110_05_057.png" alt=""/></span>, the more that shifts the distribution to the left. Therefore, since at each round <span class="mediaobject"><img src="../Images/B14110_05_058.png" alt=""/></span> and for each slot machine, the parameter <span class="mediaobject"><img src="../Images/B14110_05_059.png" alt=""/></span> is the number of times (plus 1) it returned 1 up to round <span class="mediaobject"><img src="../Images/B14110_05_060.png" alt=""/></span>,
+and the parameter <span class="mediaobject"><img src="../Images/B14110_05_061.png" alt=""/></span> is the number of times (plus 1) it returned 0 up to round <span class="mediaobject"><img src="../Images/B14110_05_062.png" alt=""/></span>,
+ then that means the following: the more the slot machine returns 1 
+(success), the more its distribution will be shifted to the right; and 
+the more the slot machine returns 0 (failure), the more its distribution
+ will be shifted to the left.</p>
+			<p class="normal">Congratulations if you<a id="_idIndexMarker123"/> figured out what <span class="mediaobject"><img src="../Images/B14110_05_063.png" alt=""/></span> and <span class="mediaobject"><img src="../Images/B14110_05_064.png" alt=""/></span> should be on your own. We<a id="_idIndexMarker124"/> already used them in the practical tutorial above; we had two arrays, <code class="Code-In-Text--PACKT-">nPosReward</code> and <code class="Code-In-Text--PACKT-">nNegReward</code>, that correspond to <span class="mediaobject"><img src="../Images/B14110_05_065.png" alt=""/></span> and <span class="mediaobject"><img src="../Images/B14110_05_066.png" alt=""/> </span>respectively.</p>
+			<p class="normal">Once you understand this, try to figure out the strategy before I give you the solution.</p>
+			<p class="normal">Alright, you are about to see the magic. What we 
+are going to do, before playing the arm at each round, is take a random 
+draw from each of the five distributions corresponding to the five slot 
+machines. In case you're not clear what that means, I'll explain. Let me
+ show you again the graph of the three Beta distributions:</p>
+			<figure class="mediaobject" xml:lang="en-GB" lang="en-GB"><img src="../Images/B14110_05_04.png" alt=""/></figure>
+			<p class="packt_figref">Figure 4: Three Beta distributions</p>
+			<p class="normal">What did I mean by taking a random draw? First, remember that for our bandit problem, on the <em class="italics">x</em>-axis, we<a id="_idIndexMarker125"/> have the success rates from 0 to 1. For example, <em class="italics">x</em> = 0.25 means that the machine returns a 1 reward (success) 25% of the time. Then, on the <em class="italics">y</em>-axis, we still have the probabilities to have these success rates.</p>
+			<p class="normal">Let's focus on one <a id="_idIndexMarker126"/>distribution,
+ for example, the purple one. What would it mean to take a random draw 
+from that distribution? That would mean very simply that we randomly 
+pick a value on the <em class="italics">x</em>-axis where the distribution is positive, such that the <em class="italics">x</em>
+ values where the probability is the highest will get the highest chance
+ to be picked. For example, let's say the top of the purple curve 
+corresponds to <em class="italics">x</em> = 0.2 and <em class="italics">y</em> = 0.35.</p>
+			<p class="normal">Then, taking a random draw from that purple 
+distribution means that we will have a 35% chance to pick a success rate
+ of 20%. To generalize this, let's say that <span class="mediaobject"><img src="../Images/B14110_05_067.png" alt=""/></span>
+ is the function associated with the purple distribution, so taking a 
+random draw from that purple distribution means that for each success 
+rate <em class="italics">x</em> on the <em class="italics">x</em>-axis, we will have <span class="mediaobject"><img src="../Images/B14110_05_068.png" alt=""/></span> chance of picking <em class="italics">x</em>. That is what "to take a random draw from a distribution" means, and this is also called "to sample a distribution".</p>
+			<p class="normal">Now that you understand this, let's see where we 
+left off. We said that before playing the arm at each round, we were 
+going to take a random draw from each of the five distributions 
+corresponding to the five slot machines. We thus obtain five values on 
+the <em class="italics">x</em>-axis, each one corresponding to each of 
+the five slot machines. Then, here comes the crucial question, the one 
+that will tell whether you have the right intuition about the strategy.</p>
+			<p class="normal"><strong class="bold">According to you, which slot machine are you going to play, based on the observation of these five values?</strong>
+ I really want you to take some time to answer this question, because 
+right now, we are at the heart of the strategy (you can also have a look
+ at our previously written code). The answer can be found in the next 
+paragraph.</p>
+			<p class="normal">I really hope you tried figuring this out by 
+yourself: the slot machine that you are going to play next is the one 
+for which we got the highest of the five random draws. Why? Because the 
+highest random draws correspond to the highest success rate, and for 
+this highest success rate, the Beta distribution associated with the 
+slot machine picked has positive probabilities around that highest 
+success rate.</p>
+			<p class="normal">Since we want to maximize the success rate of the 
+machines we play (because we want to make money), we must pick the slot 
+machine for which the Beta distribution has positive probabilities 
+around the highest success rates. In the following graph, that's the 
+yellow distribution.</p>
+			<figure class="mediaobject" xml:lang="en-GB" lang="en-GB"><img src="../Images/B14110_05_02.png" alt=""/></figure>
+			<p class="packt_figref">Figure 5: Three Beta distributions</p>
+			<p class="normal">Now, we <a id="_idIndexMarker127"/>must take a step back. I've <a id="_idIndexMarker128"/>been
+ in your situation many times when I am learning something new and 
+technical, which sometimes felt overwhelming. In that case, the best 
+move is to take a step back, which is exactly what we are going to do 
+now by giving a recap of the strategy and its intuition.</p>
+			<h3 class="title" xml:lang="en-GB" id="sigil_toc_id_73" lang="en-GB"><a id="_idTextAnchor105"/>The Thompson Sampling strategy in three steps</h3>
+			<p class="normal">Af<a id="_idTextAnchor106"/>ter we play each of the five slot<a id="_idIndexMarker129"/> machines over the first five rounds, here's what the AI will do at each round <img src="../Images/B14110_05_069.png" alt=""/>:</p>
+			<ol>
+				<li class="list" value="1">For each slot machine <em class="italics">i</em> (<em class="italics">i</em>=1,2,3,4,5), we take a random draw <img src="../Images/B14110_05_070.png" alt=""/> from its Beta distribution:<p class="Bullet-Without-Bullet-Within-Bullet--PACKT-"><span class="mediaobject"><img src="../Images/B14110_05_071.png" alt=""/></span></p><p class="Bullet-Without-Bullet-Within-Bullet--PACKT-">where:</p><p class="Bullet-Without-Bullet-Within-Bullet--PACKT-"><span class="mediaobject"><img src="../Images/B14110_05_072.png" alt=""/></span> is the number of times the slot machine number <span class="mediaobject"><img src="../Images/B14110_05_073.png" alt=""/></span> returned a 1 reward up to round <span class="mediaobject"><img src="../Images/B14110_05_074.png" alt=""/></span>.</p><p class="Bullet-Without-Bullet-Within-Bullet-End--PACKT-"><span class="mediaobject"><img src="../Images/B14110_05_075.png" alt=""/></span> is the number of times the slot machine number <span class="mediaobject"><img src="../Images/B14110_05_076.png" alt=""/></span> returned a 0 reward up to round <span class="mediaobject"><img src="../Images/B14110_05_062.png" alt=""/></span>.</p></li>
+				<li class="list">We pull the arm of the slot machine <span class="mediaobject"><img src="../Images/B14110_05_078.png" alt=""/></span> that has the highest sampled <span class="mediaobject"><img src="../Images/B14110_05_079.png" alt=""/></span>:<p class="Bullet-Without-Bullet-Within-Bullet-End--PACKT-"><span class="mediaobject"><img src="../Images/B14110_05_080.png" alt=""/></span></p></li>
+				<li class="list">We don't<a id="_idIndexMarker130"/> forget to update <span class="mediaobject"><img src="../Images/B14110_05_081.png" alt=""/></span> or <span class="mediaobject"><img src="../Images/B14110_05_082.png" alt=""/></span>:<p class="Bullet-Without-Bullet-Within-Bullet--PACKT-">If the played slot machine <img src="../Images/B14110_05_083.png" alt=""/> returned a 1 reward:</p><p class="Bullet-Without-Bullet-Within-Bullet--PACKT-"><span class="mediaobject"><img src="../Images/B14110_05_084.png" alt=""/></span></p><p class="Bullet-Without-Bullet-Within-Bullet--PACKT-">If the played slot machine <img src="../Images/B14110_05_085.png" alt=""/> returned a 0 reward:</p><p class="Bullet-Without-Bullet-Within-Bullet-End--PACKT-"><span class="mediaobject"><img src="../Images/B14110_05_086.png" alt=""/></span></p></li>
+			</ol>
+			<p class="normal">Then, we repeat these three steps at each round until we spend our 1,000 dollars. This strategy, called Thompson Sampling, is a<a id="_idIndexMarker131"/> basic but powerful model of a specific branch of AI, called Reinforcement Learning.</p>
+			<h3 class="title" xml:lang="en-GB" id="sigil_toc_id_74" lang="en-GB"><a id="_idTextAnchor107"/>The final touch of shaping your Thompson Sampling intuition</h3>
+			<p class="normal">You<a id="_idTextAnchor108"/>r intuition about why and how this <a id="_idIndexMarker132"/>works should be as follows (try to keep it in mind or visualize it on the graphic):</p>
+			<p class="normal">Each slot machine has its own Beta distribution. 
+Over the rounds, the Beta distribution of the slot machine with the 
+highest conversion rate will be progressively shifted to the right, and 
+the Beta distributions of the strategies with lower conversion rates 
+will be progressively shifted to the left (Steps 1 and 3). Therefore, 
+because of Step 2, the slot machine with the highest conversion rate 
+will be selected more and more.</p>
+			<p class="normal">And voilà! Congratulations—you just learned about a
+ powerful AI model, a massive step in your journey. To see Thompson 
+Sampling in action and check that it indeed works, I won't force you to 
+go to a casino and try it out; We'll apply it to another real-life model
+ in <em class="italics">Chapter 6</em>, <em class="italics">AI for Sales and Advertising – Sell like the Wolf of AI Street</em>. </p>
+			<p class="normal">Finally, let me finish this theory tutorial with a question fo<a id="_idTextAnchor109"/>r
+ you. Remember earlier in the book I told you that any AI we build today
+ takes as input a state, returns as output an action to play, and, after
+ playing the action, gets a reward (positive or negative). <strong class="bold">For this particular bandit problem, what are the input states, the actions played, and the rewards received?</strong> Think about this before reading the next paragraph.</p>
+			<p class="normal">Here we go with the answer:</p>
+			<ul>
+				<li class="list">The input state is the exact round we've reached, including the information of the two parameters <span class="mediaobject"><img src="../Images/B14110_05_087.png" alt=""/></span> and <span class="mediaobject"><img src="../Images/B14110_05_088.png" alt=""/></span>.</li>
+				<li class="list">The output action is the arm we pull from the selected slot machine.</li>
+				<li class="list">The reward is 1 or 0, 1 if the slot machine returns twice our dollar invested, and 0 if we lose our dollar.</li>
+			</ul>
+			<p class="normal">Congratulations to you if you answered that one 
+correctly, and for tackling this first AI model, Thompson Sampling. And 
+don't forget, in <em class="italics">Chapter 6</em>, <em class="italics">AI for Sales and Advertising – Sell like the Wolf of AI Street</em>, we put this into <a id="_idIndexMarker133"/>practice to solve a real-world business problem.</p>
+			<h3 class="title" xml:lang="en-GB" id="sigil_toc_id_75" lang="en-GB"><a id="_idTextAnchor110"/>Thompson Sampling against the standard model</h3>
+			<p class="normal">When I learned Thompso<a id="_idTextAnchor111"/>n <a id="_idIndexMarker134"/>Sampling
+ for the first time, I had one main question in my mind: is it really 
+that good? In fact, if you were to run the standard model (by "standard 
+model" I mean playing every slot machine a certain number of times) and<a id="_idIndexMarker135"/>
+ Thompson Sampling separately you might not see much difference; you 
+would likely come to the conclusion that they work pretty much as well 
+as each other.</p>
+			<p class="normal">To check whether it is true that Thompson Sampling 
+isn't any better, I implemented a code to test both solutions on many 
+different scenarios. The changes included: number of samples (200 or 
+1,000 or 5,000), number of slot machines (from 3 to 20), and conversion 
+rate ranges (ranges in which conversion rates could be set: 0-0.1; 
+0-0.3; 0-0.5).</p>
+			<p class="normal">Every scenario was tested 100 times to compute the accuracy of each model.</p>
+			<p class="normal">The results and the code used are provided in the <code class="Code-In-Text--PACKT-">resultsModified.xlsx</code> and <code class="Code-In-Text--PACKT-">comparison.py</code> files, respectively, in <code class="Code-In-Text--PACKT-">Chapter 05</code> of this book's GitHub page. Here, you can see some graphs taken from this Excel file that show the performance of both models:</p>
+			<figure class="mediaobject" xml:lang="en-GB" lang="en-GB"><img src="../Images/B14110_05_06.png" alt=""/></figure>
+			<p class="packt_figref">Figure 6: Accuracy vs. Number of slot machines (200 samples)</p>
+			<p class="normal">This first graph in <em class="italics">Figure 6</em> illustrates the<a id="_idIndexMarker136"/>
+ accuracy of both models depending on the number of slot machines. The 
+number of samples was set to 200 and the conversion rate ranges were set
+ to 0-0.1, meaning that the differences between these rates were minor. 
+This is the toughest setting for this comparison. Overall, Thompson 
+Sampling performed better than the standard model (22% better).</p>
+			<figure class="mediaobject" xml:lang="en-GB" lang="en-GB"><img src="../Images/B14110_05_07.png" alt=""/></figure>
+			<p class="packt_figref">Figure 7: Accuracy vs. Number of slot machines (5,000 samples)</p>
+			<p class="normal">This second graph in <em class="italics">Figure 7</em> shows the<a id="_idIndexMarker137"/>
+ performance under the easiest conditions. The number of samples was set
+ to 5,000 and the conversion rate ranges were set to 0-0.5, meaning that
+ the differences were clearly visible. The overall drop of accuracy for 
+Thompson Sampling is smaller than the drop in accuracy for the standard 
+solution. Thompson Sampling performed significantly better this time 
+(41% better).</p>
+			<p class="normal">Taking all scenarios into consideration, Thompson 
+Sampling achieved a mean accuracy of 57% and the standard model achieved
+ 43% accuracy. This is a significant difference taking into account the 
+fact that very tough scenarios were tested (for example, only 200 
+samples, a range of 0-0.1, and 20 slot machines).</p>
+			<h2 class="title" xml:lang="en-GB" id="sigil_toc_id_76" lang="en-GB"><a id="_idTextAnchor112"/>Summary</h2>
+			<p class="normal">Thompson Sampling is a powerful sampling technique 
+that enables you to quickly figure out the highest of a number of 
+unknown conversion rates. It is always applied in the same frame, called
+ the multi-armed bandit problem, which in the classic sense is composed 
+of several slot machines, each one having a different conversion rate of
+ positive outcomes. We had a first glance at how this AI solves this 
+problem better and faster than standard methods.</p>
+			<p class="normal">In the next chapter, we will perform a full 
+practical activity where we will see how the multi-armed bandit frame 
+can easily model a business problem—online advertising—and how Thompson 
+Sampling can bring significant added value.</p>
+</body></html>

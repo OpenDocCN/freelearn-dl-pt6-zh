@@ -1,0 +1,1125 @@
+<html><head></head><body>
+		<div id="_idContainer424">
+			<h1 class="chapterNumber sigil_not_in_toc">10</h1>
+			<h1 class="chapterTitle" xml:lang="en-GB" id="sigil_toc_id_153" lang="en-GB"><a id="_idTextAnchor219"/>AI for Autonomous Vehicles – Build a Self-Driving Car</h1>
+</div>
+
+			<p class="normal">I'm really pumped up for you to start this new 
+chapter. It's probably the most challenging, and most fun, adventure 
+we'll have in this book. You're literally about to build a self-driving 
+car from scratch, on a 2D map, using the powerful deep Q-learning model.
+ I think that's incredibly exciting!</p>
+			<p class="normal">Think fast; what's our first step?</p>
+			<p class="normal">If you answered "building the environment," you're 
+absolutely right. I hope that's getting so familiar to you that you 
+answered before I even finished the question. Let's start by building an
+ environment in which a car can learn how to drive by itself.</p>
+			<h2 class="title" xml:lang="en-GB" id="sigil_toc_id_154" lang="en-GB"><a id="_idTextAnchor220"/>Building the environment</h2>
+			<p class="normal">This time, we have<a id="_idIndexMarker335"/> much more to define than just the states, actions, and rewards. Building a self-driving car is a seriously complex <a id="_idIndexMarker336"/>problem.
+ Now, I'm not going to ask you to go to your garage and turn yourself 
+into a hybrid AI mechanic; you're simply going to build a virtual 
+self-driving car that moves around a 2D map.</p>
+			<p class="normal">You'll build this 2D map inside a Kivy web app. 
+Kivy is a free and open source Python framework, used for the 
+development of applications like games, or really any kind of mobile 
+app. Check <a id="_idIndexMarker337"/>out the website here: <a href="https://kivy.org/#home"><span class="url">https://kivy.org/#home</span></a>.</p>
+			<p class="normal">The whole environment for this project is built 
+with Kivy, from start to finish. The development of the map and the 
+virtual car has nothing to do with AI, so we won't go line by line 
+through the code that implements it. </p>
+			<p class="normal">However, I am going to describe the features of the
+ map. For those of you curious to know about exactly how the map is 
+built, I've provided a fully commented Python file in the GitHub named <code class="Code-In-Text--PACKT-">map_commented.py</code> that builds the environment from scratch with a full explanation.</p>
+			<p class="normal">Before we look at<a id="_idIndexMarker338"/> all the features, let's have a look at this map with the little virtual car inside:</p>
+			<figure class="mediaobject" xml:lang="en-GB" lang="en-GB"><img src="../Images/B14110_10_01.png" alt=""/></figure>
+			<p class="packt_figref">Figure 1: The map</p>
+			<p class="normal">The first thing you'll notice is a black screen, 
+which is the Kivy user interface. You build your games or apps inside 
+this interface. As you might guess, it's actually the container of the 
+whole environment.</p>
+			<p class="normal">You can see <a id="_idIndexMarker339"/>something
+ weird inside, a white rectangle with three colored dots in front of it.
+ Well, that's the car! My apologies for not being a better artist, but 
+it's important to keep things simple. The white little rectangle is the 
+shape of the car, and the three little dots are the sensors of the car. 
+Why do we need sensors? Because on this map, we will have the option to 
+build roads, delimited by sand, which the car will have to avoid going 
+through.</p>
+			<p class="normal">To put some sand on the map, simply keep pressing 
+left with your mouse and draw whatever you want. It doesn't have to just
+ be roads; you can add some obstacles as well. In any case, the car will
+ have to avoid going through the sand. </p>
+			<p class="normal">If you remember that everything<a id="_idIndexMarker340"/>
+ works from the rewards, I'm sure you already know how to make that 
+happen; it's by penalizing the self-driving car with a bad reward when 
+it goes onto the sand. We'll take care of that later. In the meantime, 
+let's have a look at one of my nice drawings of roads with sand:</p>
+			<figure class="mediaobject" xml:lang="en-GB" lang="en-GB"><img src="../Images/B14110_10_02.png" alt=""/></figure>
+			<p class="packt_figref">Figure 2: Map with a drawn road</p>
+			<p class="normal">The sensors are there to detect the sand, so the 
+car can avoid it. The blue sensor covers an area at the left of the car,
+ the red sensor covers an area at the front of the car, and the yellow 
+sensor covers an area at the right of the car.</p>
+			<p class="normal">Finally, there are three buttons to click on at the bottom left corner of the screen, which are:</p>
+			<p class="normal"><strong class="screen-text">clear</strong>: Removes all the sand drawn on the map</p>
+			<p class="normal"><strong class="screen-text">save</strong>: Saves the weights (parameters) of the AI</p>
+			<p class="normal"><strong class="screen-text">load</strong>: Loads the last saved weights</p>
+			<p class="normal">Now we've had<a id="_idIndexMarker341"/> a look at our little map, let's move on to defining our goals.</p>
+			<h3 class="title" xml:lang="en-GB" id="sigil_toc_id_155" lang="en-GB"><a id="_idTextAnchor221"/>Defining the goal</h3>
+			<p class="normal">We understand that our<a id="_idIndexMarker342"/>
+ goal is to build a self-driving car. Good. But how are we going to 
+formalize that goal, in terms of AI and reinforcement learning? Your 
+intuition should hopefully make you think about the rewards we're going 
+to set. I agree—we're going to give a high reward to our car if it 
+manages to self-drive. But how can we tell that it's managing to 
+self-drive?</p>
+			<p class="normal">We've got plenty of ways to evaluate this. For 
+example, we could simply draw some obstacles on the map, and train our 
+self-driving car to move around the map without hitting the obstacles. 
+That's a simple challenge, but we could try something a little more fun.
+ Remember the road I drew earlier? How about we train our car to go from
+ the upper left corner of the map, to the bottom right corner, through 
+any road we build between these two spots? That's a real challenge, and 
+that's what we'll do. Let's imagine that the map is a city, where the 
+upper left corner is the Airport, and the bottom right corner is 
+Downtown:</p>
+			<figure class="mediaobject" xml:lang="en-GB" lang="en-GB"><img src="../Images/B14110_10_03.png" alt=""/></figure>
+			<p class="packt_figref">Figure 3: The two destinations – Airport and Downtown</p>
+			<p class="normal">Now we can clearly formulate a goal; to train the self-driving car to make round trips between the Airport <a id="_idIndexMarker343"/>and
+ Downtown. As soon as it reaches the Airport, it will then have to go to
+ Downtown, and as soon as it reaches Downtown, it will then have to go 
+to the Airport. More than that, it should be able to make these round 
+trips along any road connecting these two locations. It should also be 
+able to cope with any obstacles along that road it has to avoid. Here is
+ an example of another, more challenging road:</p>
+			<figure class="mediaobject" xml:lang="en-GB" lang="en-GB"><img src="../Images/B14110_10_04.png" alt=""/></figure>
+			<p class="packt_figref">Figure 4: A more challenging road</p>
+			<p class="normal">If you think that <a id="_idIndexMarker344"/>road look too easy, here's a more challenging example; this time with not only a more difficult road but also many obstacles:</p>
+			<figure class="mediaobject" xml:lang="en-GB" lang="en-GB"><img src="../Images/B14110_10_05.png" alt=""/></figure>
+			<p class="packt_figref">Figure 5: An even more challenging road</p>
+			<p class="normal">As a final example, I want to<a id="_idIndexMarker345"/> share this last map, designed by one of my students, which could belong in the movie <em class="italics">Inception</em>:</p>
+			<figure class="mediaobject" xml:lang="en-GB" lang="en-GB"><img src="../Images/B14110_10_06.png" alt=""/></figure>
+			<p class="packt_figref">Figure 6: The most challenging road ever</p>
+			<p class="normal">If you look closely, it's <a id="_idIndexMarker346"/>still
+ a path that goes from Airport to Downtown and vice versa, just much 
+more challenging. The AI we create will be able to cope with any 
+of these maps.</p>
+			<p class="normal">I hope you find that as exciting as I do! Keep that level of energy up, because we have quite a lot of work to do.</p>
+			<h3 class="title" xml:lang="en-GB" id="sigil_toc_id_156" lang="en-GB"><a id="_idTextAnchor222"/>Setting the parameters</h3>
+			<p class="normal">Before you define the<a id="_idIndexMarker347"/>
+ input states, the output actions, and the rewards, you must set all of 
+the parameters of the map and the car that will be part of your 
+environment. The inputs, outputs, and rewards are all functions of these
+ parameters. Let's list them all, using the same names as in the code, 
+so that you can easily understand the file <code class="Code-In-Text--PACKT-">map.py</code>:</p>
+			<ol>
+				<li class="list"><strong class="bold">angle</strong>: The angle between the <em class="italics">x</em>-axis of the map and the axis of the car</li>
+				<li class="list"><strong class="bold">rotation</strong>: The last rotation made by the car (we will see later that when playing an action, the car makes a rotation)</li>
+				<li class="list"><strong class="bold">pos = (self.car.x, self.car.y)</strong>: The position of the car (<code class="Code-In-Text--PACKT-">self.car.x</code> is the <em class="italics">x</em>-coordinate of the car, <code class="Code-In-Text--PACKT-">self.car.y</code> is the <em class="italics">y</em>-coordinate of the car)</li>
+				<li class="list"><strong class="bold">velocity = (velocity_x, velocity_y)</strong>: The velocity vector of the car</li>
+				<li class="list"><strong class="bold">sensor1 = (sensor1_x, sensor1_y)</strong>: The position of the first sensor</li>
+				<li class="list"><strong class="bold">sensor2 = (sensor2_x, sensor2_y)</strong>: The position of the second sensor</li>
+				<li class="list"><strong class="bold">sensor3 = (sensor3_x, sensor3_y)</strong>: The position of the third sensor</li>
+				<li class="list"><strong class="bold">signal1</strong>: The signal received by sensor 1</li>
+				<li class="list"><strong class="bold">signal2</strong>: The signal<a id="_idIndexMarker348"/> received by sensor 2</li>
+				<li class="list"><strong class="bold">signal3</strong>: The signal received by sensor 3</li>
+			</ol>
+			<p class="normal">Now let's slow down; we've got to define how these 
+signals are computed. The signals are a measure of the density of sand 
+around their sensor. How are you going to compute that density? You 
+start by introducing a new variable, called <code class="Code-In-Text--PACKT-">sand</code>, which you initialize as an array that has as many cells as our graphic interface has pixels. Simply put, the <code class="Code-In-Text--PACKT-">sand</code> array is the black map itself and the pixels are the cells of the array. Then, each cell of the <code class="Code-In-Text--PACKT-">sand</code> array will get a 1 if there is sand, and a 0 if there is not.</p>
+			<p class="normal">For example, here the <code class="Code-In-Text--PACKT-">sand</code> array has only 1s in its first few rows, and the rest is all 0s:</p>
+			<figure class="mediaobject" xml:lang="en-GB" lang="en-GB"><img src="../Images/B14110_10_07.png" alt=""/></figure>
+			<p class="packt_figref">Figure 7: The map with only sand in the first rows</p>
+			<p class="normal">I know the border is<a id="_idIndexMarker349"/> a little wobbly—like I said, I'm no great artist—and that just means those rows of the <code class="Code-In-Text--PACKT-">sand</code> array would have 1s where the sand is and 0s where there's no sand.</p>
+			<p class="normal">Now that you have this <code class="Code-In-Text--PACKT-">sand</code>
+ array it's very easy to compute the density of sand around each sensor.
+ You surround your sensor by a square of 20 by 20 cells (which the 
+sensor reads from the <code class="Code-In-Text--PACKT-">sand</code> 
+array), then you count the number of ones in these cells, and finally 
+you divide that number by the total number of cells in that square, that
+ is, 20 x 20 = 400 cells.</p>
+			<p class="normal">Since the <code class="Code-In-Text--PACKT-">sand</code>
+ array only contains 1s (where there's sand) and 0s (where there's no 
+sand), we can very easily count the number of 1s by simply summing the 
+cells of the <code class="Code-In-Text--PACKT-">sand</code> array in 
+this 20 by 20 square. That gives us exactly the density of sand around 
+each sensor, and that's what's computed at lines 81, 82, and 83 in the <code class="Code-In-Text--PACKT-">map.py</code> file:</p>
+			<pre class="programlisting language-markup"><code class="hljs angelscript">       self.signal1 = <span class="hljs-built_in">int</span>(np.sum(sand[<span class="hljs-built_in">int</span>(self.sensor1_x)<span class="hljs-number">-10</span>:<span class="hljs-built_in">int</span>(self.sensor1_x)+<span class="hljs-number">10</span>, <span class="hljs-built_in">int</span>(self.sensor1_y)<span class="hljs-number">-10</span>:<span class="hljs-built_in">int</span>(self.sensor1_y)+<span class="hljs-number">10</span>]))/<span class="hljs-number">400.</span>   #<span class="hljs-number">81</span>
+        self.signal2 = <span class="hljs-built_in">int</span>(np.sum(sand[<span class="hljs-built_in">int</span>(self.sensor2_x)<span class="hljs-number">-10</span>:<span class="hljs-built_in">int</span>(self.sensor2_x)+<span class="hljs-number">10</span>, <span class="hljs-built_in">int</span>(self.sensor2_y)<span class="hljs-number">-10</span>:<span class="hljs-built_in">int</span>(self.sensor2_y)+<span class="hljs-number">10</span>]))/<span class="hljs-number">400.</span>   #<span class="hljs-number">82</span>
+        self.signal3 = <span class="hljs-built_in">int</span>(np.sum(sand[<span class="hljs-built_in">int</span>(self.sensor3_x)<span class="hljs-number">-10</span>:<span class="hljs-built_in">int</span>(self.sensor3_x)+<span class="hljs-number">10</span>, <span class="hljs-built_in">int</span>(self.sensor3_y)<span class="hljs-number">-10</span>:<span class="hljs-built_in">int</span>(self.sensor3_y)+<span class="hljs-number">10</span>]))/<span class="hljs-number">400.</span>   #<span class="hljs-number">83</span>
+</code></pre>
+			
+			
+			<p class="normal">Now that we've covered how the signals are 
+computed, let's continue with the rest of the parameters. The last 
+parameters, which I've highlighted in the list below, are important 
+because they're the last pieces that we need to reveal the final input 
+state vector. Here they<a id="_idIndexMarker350"/> are:</p>
+			<ol>
+				<li class="list" value="1"><strong class="bold">goal_x</strong>: The <em class="italics">x</em>-coordinate of the goal (which can either be the Airport or Downtown)</li>
+				<li class="list"><strong class="bold">goal_y</strong>: The <em class="italics">y</em>-coordinate of the goal (which can either be the Airport or Downtown)</li>
+				<li class="list"><strong class="bold">xx = (goal_x - self.car.x)</strong>: The difference of <em class="italics">x</em>-coordinates between the goal and the car</li>
+				<li class="list"><strong class="bold">yy = (goal_y - self.car.y)</strong>: The difference of <em class="italics">y</em>-coordinates between the goal and the car</li>
+				<li class="list"><strong class="bold">orientation</strong>: The angle that measures the direction of the car with respect to the goal</li>
+			</ol>
+			<p class="normal">Let's slow down again for a moment. We need to know
+ how orientation is computed; it's the angle between the axis of the car
+ (the <code class="Code-In-Text--PACKT-">velocity</code> vector from our
+ first list of parameters) and the axis that joins the goal and the 
+center of the car. The goal has the coordinates (<code class="Code-In-Text--PACKT-">goal_x</code>, <code class="Code-In-Text--PACKT-">goal_y</code>) and the center of the car has the coordinates (<code class="Code-In-Text--PACKT-">self.car.x</code>, <code class="Code-In-Text--PACKT-">self.car.y</code>).
+ For example, if the car is heading perfectly toward the goal, then 
+orientation = 0°. If you're curious as to how we can compute the angle 
+between the two axes in Python, here's the code that gets the <code class="Code-In-Text--PACKT-">orientation</code> (lines 126, 127, and 128 in the <code class="Code-In-Text--PACKT-">map.py</code> file):</p>
+			<pre class="programlisting language-markup"><code class="hljs stylus">       xx = goal_x - self<span class="hljs-selector-class">.car</span><span class="hljs-selector-class">.x</span>   <span class="hljs-number">#126</span>
+        yy = goal_y - self<span class="hljs-selector-class">.car</span><span class="hljs-selector-class">.y</span>   <span class="hljs-number">#127</span>
+        orientation = Vector(*self<span class="hljs-selector-class">.car</span>.velocity).angle((xx,yy))/<span class="hljs-number">180</span>.   <span class="hljs-number">#128</span>
+</code></pre>
+			
+			
+			<p class="normal">Good news—we're finally ready to define the main 
+pillars of the environment. I'm talking, of course, about the input 
+states, the actions, and the rewards.</p>
+			<p class="normal">Before I define them, try to guess what they're 
+going to be. Check out all the preceding parameters again, and remember 
+the goal: making round trips between two locations, the Airport and 
+Downtown, while avoiding any obstacles along the road. The solution's in
+ the next section.</p>
+			<h3 class="title" xml:lang="en-GB" id="sigil_toc_id_157" lang="en-GB"><a id="_idTextAnchor223"/>The input states</h3>
+			<p class="normal">What do you think the input states are? You might 
+have answered "the position of the car." In that case, the input state 
+would be a vector of two elements, the coordinates of the car: <code class="Code-In-Text--PACKT-">self.car.x</code> and <code class="Code-In-Text--PACKT-">self.car.y</code>.</p>
+			<p class="normal">That's a good <a id="_idIndexMarker351"/>start. From the intuition and foundation techniques of deep Q-learning you learned in <em class="italics">Chapter 9</em>, <em class="italics">Going Pro with Artificial Brains – Deep Q-Learning</em>,
+ you know that when you're doing deep Q-learning, the input state 
+doesn't have to be a single element as in Q-learning. In fact, in deep 
+Q-learning the input state can be a vector of many elements, allowing 
+you to supply many sources of information to your AI to help it predict 
+smart actions to play.</p>
+			
+				<div id="_idContainer359" class="packt_tip">
+					<p class="Information-Box--PACKT-">The input state can even be bigger than a simple vector: it can be an image! In that case, the AI model is called <strong class="bold">deep convolutional Q-learning</strong>.
+ It's the same as deep Q-learning, except that you add a convolutional 
+neural network at the entrance of the neural network that allows your AI
+ (machine) to visualize images. We'll cover this technique in <em class="italics">Chapter 12</em>, <em class="italics">Deep Convolution Q-Learning</em>.</p>
+				</div>
+			
+			<p class="normal">We can do better than just supplying the car 
+position coordinates. They tell us where the self-driving car is 
+located, but there's another parameter that's better, simpler, and more 
+directly related to the goal. I'm talking about the <code class="Code-In-Text--PACKT-">orientation</code>
+ variable. The orientation is a single input that directly tells us if 
+we are pointed in the right direction, toward the goal. If we have that 
+orientation, we don't need the car position coordinates at all to 
+navigate toward the goal; we can just change the orientation by a 
+certain angle to point the car more in the direction of the goal. The 
+actions that the AI performs will be what changes that orientation. 
+We'll discuss those in the next section.</p>
+			<p class="normal">We have the first element of our input state: the orientation.</p>
+			<p class="normal">But that's not enough. Remember that we also have 
+another goal, or, should I say, constraint. Our car needs to stay on the
+ road and avoid any obstacles along that road. </p>
+			<p class="normal">In the input state, we need information telling the
+ AI whether it is about to move off the road or hit an obstacle. Try and
+ work it out for yourself—do we have a way to get this information?</p>
+			<p class="normal">The solution is the sensors. Remember that our car 
+has three sensors giving us signals about how much sand is around them. 
+The blue sensor tells us if there's any sand at the left of the car, the
+ red sensor tells us if there is any sand in front of the car, and the 
+yellow sensor tells us if there is any sand at the right of the car. The
+ signals of these sensors are already coded into three variables: <code class="Code-In-Text--PACKT-">signal1</code>, <code class="Code-In-Text--PACKT-">signal2</code>, and <code class="Code-In-Text--PACKT-">signal3</code>.
+ These signals will tell the AI if it's about to hit some obstacle or 
+about to get out of the road, since the road is delimited by sand. </p>
+			<p class="normal">That's the rest of the<a id="_idIndexMarker352"/> information you need for your input state. With these four elements, <code class="Code-In-Text--PACKT-">signal1</code>, <code class="Code-In-Text--PACKT-">signal2</code>, <code class="Code-In-Text--PACKT-">signal3</code>, and <code class="Code-In-Text--PACKT-">orientation</code>,
+ you have everything you need to be able to drive from one location to 
+another, while staying on the road, and without hitting any obstacles.</p>
+			<p class="normal">In conclusion, here's what the input state is going to be at each time:</p>
+			<p class="normal">Input state = (<code class="Code-In-Text--PACKT-">orientation</code>, <code class="Code-In-Text--PACKT-">signal1</code>, <code class="Code-In-Text--PACKT-">signal2</code>, <code class="Code-In-Text--PACKT-">signal3</code>)</p>
+			<p class="normal">And that's exactly what's coded at line 129 in the <code class="Code-In-Text--PACKT-">map.py</code> file:</p>
+			<pre class="programlisting language-markup"><code class="hljs pf">        <span class="hljs-keyword">state</span> = [orientation, <span class="hljs-literal">self</span>.car.signal1, <span class="hljs-literal">self</span>.car.signal2, <span class="hljs-literal">self</span>.car.signal3]   <span class="hljs-comment">#129</span>
+</code></pre>
+			<p class="normal"><code class="Code-In-Text--PACKT-">state</code> is the variable name given to the input state.</p>
+			
+				<div id="_idContainer360" class="packt_tip">
+					<p class="Information-Box--PACKT-">Don't worry too much about the code syntax difference between <code class="Code-In-Text--PACKT-">signal</code>, <code class="Code-In-Text--PACKT-">self.signal</code>, and <code class="Code-In-Text--PACKT-">self.car.signal</code>; they're all the same. The reason we use these different variables is because the AI is coded with classes (as in <strong class="bold">Object Oriented Programming</strong> (<strong class="bold">OOP</strong>)), which allows us to create several self-driving cars on the same map. </p>
+					<p class="Information-Box--PACKT-">If you do want to have several 
+self-driving cars on your map, for example, if you want them racing, 
+then you can distinguish the cars better thanks to <code class="Code-In-Text--PACKT-">self.car.signal</code>. For example, if you have two cars, you can name the two objects <code class="Code-In-Text--PACKT-">car1</code> and <code class="Code-In-Text--PACKT-">car2</code> so that you can distinguish the first sensor signals of the two cars, by using <code class="Code-In-Text--PACKT-">self.car1.signal1</code> and <code class="Code-In-Text--PACKT-">self.car2.signal1</code>. In this chapter, we just have one car, so whether we use <code class="Code-In-Text--PACKT-">signal1</code>, <code class="Code-In-Text--PACKT-">car.signal1</code> or <code class="Code-In-Text--PACKT-">self.car.signal1</code>, we get the same thing.</p>
+				</div>
+			
+			<p class="normal">We've covered the input state; now let's tackle the actions.</p>
+			<h3 class="title" xml:lang="en-GB" id="sigil_toc_id_158" lang="en-GB"><a id="_idTextAnchor224"/>The output actions</h3>
+			<p class="normal">I've already briefly<a id="_idIndexMarker353"/> 
+mentioned or suggested what the actions are going to be. Given our input
+ state, it's easy to guess. Naturally, since you're building a 
+self-driving car, you might think that the actions should be: move 
+forward, turn left, or turn right. You'd be absolutely right! That's 
+exactly what the actions are going to be.</p>
+			<p class="normal">Not only is this intuitive, but it aligns extremely well with our choice of input states. They contain the <code class="Code-In-Text--PACKT-">orientation</code> variable that tells us if we're aimed in the right direction toward the goal. Simply put, if the <code class="Code-In-Text--PACKT-">orientation</code> input tells us our car is pointed in the right direction, we perform the action of moving forward. If the <code class="Code-In-Text--PACKT-">orientation</code> input tells us that the goal is on the right of our car, we perform the action of turning right. Finally, if the <code class="Code-In-Text--PACKT-">orientation</code> tells us that the goal is on the left of our car, we perform the action of turning left.</p>
+			<p class="normal">At the same time, if any of the signals spot some 
+sand around the car, the car will turn left or right to avoid it. The 
+three possible actions of move forward, turn left, and turn right make 
+logical sense with the goal, constraint, and input states we have, and 
+we can define them as the<a id="_idIndexMarker354"/> three following rotations:</p>
+			<p class="normal"><em class="italics">rotations</em> = [turn 0° (that is, move forward), turn 20° to the left, turn 20° to the right]</p>
+			<p class="normal">The choice of 20° is quite arbitrary. You could very well choose 10°, 30°, or 40°. I'd avoid more than 40°, because then your <a id="_idIndexMarker355"/>car would have twitchy, fidgety movements, and wouldn't look like a smoothly moving car.</p>
+			<p class="normal">However, the actions the ANN outputs will not be 0°, 20°, and -20°; they will be 0, 1 and 2.</p>
+			<p class="normal"><em class="italics">actions</em> = [0, 1, 2]</p>
+			<p class="normal">It's always better to use simple categories like 
+those when you're dealing with the output of an artificial neural 
+network. Since 0, 1, and 2 will be the actions the AI returns, how do 
+you think we end up with the rotations?</p>
+			<p class="normal">You'll use a simple mapping, called <code class="Code-In-Text--PACKT-">action2rotation</code>
+ in our code, which maps the actions 0, 1, 2 to the respective rotations
+ of 0°, 20°, -20°. This is exactly what's coded on lines 34 and 131 of 
+the <code class="Code-In-Text--PACKT-">map.py</code> file:</p>
+			<pre class="programlisting language-markup"><code class="hljs lsl">action2rotation = [<span class="hljs-number">0</span>,<span class="hljs-number">20</span>,<span class="hljs-number">-20</span>]   #<span class="hljs-number">34</span>
+
+        <span class="hljs-type">rotation</span> = action2rotation[action]   #<span class="hljs-number">131</span>
+</code></pre>
+			
+			<p class="normal">Now, let's move on to the rewards. This one's going
+ to be fun, because this is where you decide how you want to reward or 
+punish your car. Try to figure out how by yourself first, and then take a
+ look at the solution in the following section.</p>
+			<h3 class="title" xml:lang="en-GB" id="sigil_toc_id_159" lang="en-GB"><a id="_idTextAnchor225"/>The rewards</h3>
+			<p class="normal">To define the system of rewards, we <a id="_idIndexMarker356"/>have to answer the following questions:</p>
+			<ul>
+				<li class="list">In which cases do we give the AI a good reward? How good for each case?</li>
+				<li class="list">In which cases do we give the AI a bad reward? How bad for each case?</li>
+			</ul>
+			<p class="normal">To answer these questions, we must simply remember what the goal and constraints are:</p>
+			<ul>
+				<li class="list">The goal is to make<a id="_idIndexMarker357"/> round trips between the Airport and Downtown.</li>
+				<li class="list">The constraints are to stay on the road and avoid 
+obstacles if any. In other words, the constraint is to stay away from 
+the sand.</li>
+			</ul>
+			<p class="normal">Hence, based on this goal and constraints, the answers to our preceding questions are:</p>
+			<ol>
+				<li class="list" value="1">We give the AI a good reward when it gets closer to the destination.</li>
+				<li class="list">We give the AI a bad reward when it gets further away from the destination.</li>
+				<li class="list">We give the AI a bad reward if it's about to drive onto some sand.</li>
+			</ol>
+			<p class="normal">That's it! That should work, because these good and bad rewards have a direct effect on the goal and constraints.</p>
+			<p class="normal">To answer the second part of each question, how 
+good and how bad the reward should be for each case, we'll play the 
+tough card; it's often more effective. The tough card consists of 
+punishing the car more when it makes mistakes than we reward it when it 
+does well. In other words, the bad reward is going to be stronger than 
+the good reward.</p>
+			<p class="normal">This works well in reinforcement learning, but that
+ doesn't mean you should do the same with your dog or your kids. When 
+you're dealing with a biological system, the other way around (high good
+ reward and small bad reward) is a much more effective way to train or 
+educate. Just food for thought.</p>
+			<p class="normal">On that note, here are the rewards we'll give in each case:</p>
+			<ol>
+				<li class="list" value="1">The AI gets a bad reward of -1 if it drives onto some sand. Nasty!</li>
+				<li class="list">The AI gets a bad reward of -0.2 if it moves away from the destination.</li>
+				<li class="list">The AI gets a good reward of 0.1 if it moves closer to the destination.</li>
+			</ol>
+			<p class="normal">The reason we attribute the worst reward (-1) to 
+the case when the car drives onto some sand makes sense. Driving onto 
+sand is what we absolutely want to avoid. The sand on the map represents
+ obstacles in real life; in real life, you would train your self-driving
+ car not to hit any obstacle, so as to avoid any accident. To do so, we 
+penalize the AI with a highly bad reward when it does hit an obstacle 
+during its training.</p>
+			<p class="normal">How's that translated that into code? That's easy; you just take your <code class="Code-In-Text--PACKT-">sand</code>
+ array and check if the car has just moved onto a cell that contains a 
+1. If it does, that means the car has moved onto some sand and must 
+therefore get a bad reward of -1. That's exactly what's coded here at 
+lines 138, 139, and 140 of the <code class="Code-In-Text--PACKT-">map.py</code>
+ file (including an update of the car velocity vector, which not only 
+updates the speed by slowing the car down to 1, but also updates the 
+direction of the car by a certain angle, <code class="Code-In-Text--PACKT-">self.car.angle</code>):</p>
+			<pre class="programlisting language-markup"><code class="hljs angelscript">       <span class="hljs-keyword">if</span> sand[<span class="hljs-built_in">int</span>(self.car.x),<span class="hljs-built_in">int</span>(self.car.y)] &gt; <span class="hljs-number">0</span>:   #<span class="hljs-number">138</span>
+            self.car.velocity = Vector(<span class="hljs-number">1</span>, <span class="hljs-number">0</span>).rotate(self.car.angle)   #<span class="hljs-number">139</span>
+            reward = <span class="hljs-number">-1</span>   #<span class="hljs-number">140</span>
+</code></pre>
+			
+			
+			<p class="normal">Then for the other reward attributions, you just have to complete the <code class="Code-In-Text--PACKT-">if</code> condition preceding with an <code class="Code-In-Text--PACKT-">else</code>, which will say what happens in the case where the car has not driven onto some sand.</p>
+			<p class="normal"><a id="_idTextAnchor226"/>In that case, you start a new <code class="Code-In-Text--PACKT-">if</code> and <code class="Code-In-Text--PACKT-">else</code> condition, saying that if the car has moved away from the <a id="_idIndexMarker358"/>destination, you give it a bad reward of <code class="Code-In-Text--PACKT-">-0.2</code>, and, if the car has moved closer to the destination, you give it a good reward of <code class="Code-In-Text--PACKT-">0.1</code>.
+ The way you measure if the car is getting away from or closer to the 
+goal is by comparing two distances put into two separate variables: <code class="Code-In-Text--PACKT-">last_distance</code>, which is the previous distance between the car and the destination at time <em class="italics">t</em>-1, and <code class="Code-In-Text--PACKT-">distance</code>, which is the current distance between the car and the destination at time <em class="italics">t</em>. If you put all that together, you get the following code, which completes the preceding lines of code:</p>
+			<pre class="programlisting language-markup"><code class="hljs angelscript">       <span class="hljs-keyword">if</span> sand[<span class="hljs-built_in">int</span>(self.car.x),<span class="hljs-built_in">int</span>(self.car.y)] &gt; <span class="hljs-number">0</span>:   #<span class="hljs-number">138</span>
+            self.car.velocity = Vector(<span class="hljs-number">1</span>, <span class="hljs-number">0</span>).rotate(self.car.angle)   #<span class="hljs-number">139</span>
+            reward = <span class="hljs-number">-1</span>   #<span class="hljs-number">140</span>
+        <span class="hljs-keyword">else</span>:   #<span class="hljs-number">141</span>
+            self.car.velocity = Vector(<span class="hljs-number">6</span>, <span class="hljs-number">0</span>).rotate(self.car.angle)   #<span class="hljs-number">142</span>
+            reward = <span class="hljs-number">-0.2</span>   #<span class="hljs-number">143</span>
+            <span class="hljs-keyword">if</span> distance &lt; last_distance:   #<span class="hljs-number">144</span>
+                reward = <span class="hljs-number">0.1</span>   #<span class="hljs-number">145</span>
+</code></pre>
+			
+			
+			
+			
+			
+			
+			
+			<p class="normal">To keep the car from trying to veer off the map, lines 147 to 158 of the <code class="Code-In-Text--PACKT-">map.py</code> file punish the AI with a bad reward of <code class="Code-In-Text--PACKT-">-1</code> if the self-driving car gets within <code class="Code-In-Text--PACKT-">10</code> pixels of any of the map's 4 borders of the map. Finally, lines 160 to 162 of the <code class="Code-In-Text--PACKT-">map.py</code>
+ file update the goal, switching it from the Airport to Downtown, or 
+vice versa, anytime the car gets within 100 pixels of the current goal.</p>
+			<h2 class="title" xml:lang="en-GB" id="sigil_toc_id_160" lang="en-GB"><a id="_idTextAnchor227"/>AI solution refresher</h2>
+			<p class="normal">Let's refresh our memory by<a id="_idIndexMarker359"/> reminding ourselves of the steps of the deep Q-learning process, while adapting them to our self-driving car application.</p>
+			<p class="normal">Initialization:</p>
+			<ol>
+				<li class="list" value="1">The memory of the experience replay is initialized to an empty list, called <strong class="bold">memory</strong> in the code.</li>
+				<li class="list">The maximum size of the memory is set, called <strong class="bold">capacity</strong> in the code.</li>
+			</ol>
+			<p class="normal">At each time <em class="italics">t</em>, the AI repeats the following process, until the end of the epoch:</p>
+			<ol>
+				<li class="list" value="1">The AI predicts the Q-values of the current state <em>S<sub>t</sub></em>.
+ Therefore, since three actions can be played (0 &lt;-&gt; 0°, 1 
+&lt;-&gt; 20°, or 2 &lt;-&gt; -20°), it gets three predicted Q-values.</li>
+				<li class="list">The AI performs an action selected by the Softmax method (see <em class="italics">Chapter 5</em>, <em class="italics">Your First AI Model – Beware the Bandits!</em>):<figure class="mediaobject" xml:lang="en-GB" lang="en-GB"><img src="../Images/B14110_10_002.png" style="height:2em;" alt=""/></figure></li>
+				<li class="list">The AI receives a reward <img src="../Images/B14110_10_003.png" alt=""/>, which is one of -1, -0.2 or +0.1.</li>
+				<li class="list">The AI reaches the next state <img src="../Images/B14110_10_004.png" alt=""/>, which is composed of the next three signals from the three sensors, plus the orientation of the car.</li>
+				<li class="list">The AI appends the transition <img src="../Images/B14110_10_005.png" alt=""/> to the memory.</li>
+				<li class="list">The AI takes a random batch <img src="../Images/B14110_10_006.png" style="height:1em;" alt=""/> of transitions. For all the transitions <img src="../Images/B14110_10_007.png" alt=""/> of the random batch <img src="../Images/B14110_10_008.png" style="height:1em;" alt=""/>:<ul><li class="Bullet-Within-Bullet--PACKT-">The AI gets the predictions: <img src="../Images/B14110_10_009.png" alt=""/></li>
+<li class="Bullet-Within-Bullet--PACKT-">The AI gets the targets: <img src="../Images/B14110_10_010.png" alt=""/></li>
+<li class="Bullet-Within-Bullet--PACKT-">The AI computes the loss between the predictions and the targets over the whole batch <img src="../Images/B14110_10_011.png" style="height:1em;" alt=""/>:
+			<figure class="mediaobject" xml:lang="en-GB" lang="en-GB"><img src="../Images/B14110_10_012.png" style="height:3em;" alt=""/></figure>
+</li>
+<li>Finally, the<a id="_idIndexMarker360"/> AI backpropagates this 
+loss error into the neural network, and through stochastic gradient 
+descent updates the weights according to how much they contributed to 
+the loss error.</li>
+</ul>
+</li>
+</ol>
+
+
+			<h2 class="title" xml:lang="en-GB" id="sigil_toc_id_161" lang="en-GB"><a id="_idTextAnchor228"/>Implementation</h2>
+			<p class="normal">Now it's time for<a id="_idIndexMarker361"/> the
+ implementation! The first thing you need is a professional toolkit, 
+because you're not going to build an artificial brain with simple Python
+ libraries. What you need is an advanced framework, which allows fast 
+computation for the training of neural networks.</p>
+			<p class="normal">Today, the best frameworks to build and<a id="_idIndexMarker362"/> train AIs are <strong class="bold">TensorFlow</strong> (by Google) and <strong class="bold">PyTorch</strong> (by Facebook). How <a id="_idIndexMarker363"/>should
+ you choose between the two? They're both great to work with and equally
+ powerful. They both have dynamic graphs, which allow the fast 
+computation of the gradients of complex functions needed to train the 
+model during backpropagation with mini-batch gradient descent. Really, 
+it doesn't matter which framework you choose; both work very well for 
+our self-driving car. As far as I'm concerned, I have slightly more 
+experience with PyTorch, so I'm going to opt for PyTorch and that's how 
+the example in this chapter will continue to play out.</p>
+			<p class="normal">To take a step back, our self-driving car implementation is composed of three Python files:</p>
+			<ol>
+				<li class="list" value="1"><code class="Code-In-Text--PACKT-">car.kv</code>, which contains the Kivy objects (rectangle shape of the car and the three sensors)</li>
+				<li class="list"><code class="Code-In-Text--PACKT-">map.py</code>, which builds the environment (map, car, input states, output actions, rewards)</li>
+				<li class="list"><code class="Code-In-Text--PACKT-">deep_q_learning.py</code>, which builds and trains the AI through deep Q-learning</li>
+			</ol>
+			<p class="normal">We've already covered the <a id="_idIndexMarker364"/>major elements of <code class="Code-In-Text--PACKT-">map.py</code>, and now we're about to tackle <code class="Code-In-Text--PACKT-">deep_q_learning.py</code>,
+ where you'll not only build an artificial neural network, but also 
+implement the deep Q-learning training process. Let's get started!</p>
+			<h3 class="title" xml:lang="en-GB" id="sigil_toc_id_162" lang="en-GB">Step 1<a id="_idTextAnchor229"/> – Importing the libraries</h3>
+			<p class="normal">As usual, you start by<a id="_idIndexMarker365"/> importing the libraries and modules you need to build your AI. These include:</p>
+			<ol>
+				<li class="list" value="1"><code class="Code-In-Text--PACKT-">os</code>: The operating system library, used to load the saved AI models.</li>
+				<li class="list"><code class="Code-In-Text--PACKT-">random</code>: Used to sample some random transitions from the memory for experience replay.</li>
+				<li class="list"><code class="Code-In-Text--PACKT-">torch</code>: 
+The main library from PyTorch, which will be used to build our neural 
+network with tensors, as opposed to simple matrices like <code class="Code-In-Text--PACKT-">numpy</code> arrays. While a matrix is a 2-D array, a tensor can be a <em class="italics">n</em>-dimensional
+ array, with more than just a single number in its cells. Here's a 
+diagram so you can clearly understand the difference between a matrix 
+and a tensor:<figure class="mediaobject" xml:lang="en-GB" lang="en-GB"><img src="../Images/B14110_10_013.png" alt=""/></figure></li>
+				<li class="list"><code class="Code-In-Text--PACKT-">torch.nn</code>: The <code class="Code-In-Text--PACKT-">nn</code> module from the torch library, used to build the fully connected layers in the artificial neural network of our AI.</li>
+				<li class="list"><code class="Code-In-Text--PACKT-">torch.nn.functional</code>: The <code class="Code-In-Text--PACKT-">functional</code> sub-module from the <code class="Code-In-Text--PACKT-">nn</code> module, used to call the activation functions (rectifier and Softmax), as well as the loss function for backpropagation.</li>
+				<li class="list"><code class="Code-In-Text--PACKT-">torch.optim</code>: The <code class="Code-In-Text--PACKT-">optim</code>
+ module from the torch library, used to call the Adam optimizer, which 
+computes the gradients of the loss with respect to the weights and 
+updates those weights in directions that reduce the loss.</li>
+				<li class="list"><code class="Code-In-Text--PACKT-">torch.autograd</code>: The <code class="Code-In-Text--PACKT-">autograd</code> module from the torch library, used to call the <code class="Code-In-Text--PACKT-">Variable</code> class, which<a id="_idIndexMarker366"/> associates each tensor and its gradient into the same variable.</li>
+			</ol>
+			<p class="normal">That makes up your first code section:</p>
+			<pre class="programlisting language-markup"><code class="hljs clean"># AI for Autonomous Vehicles - Build a Self-Driving Car   #<span class="hljs-number">1</span>
+#<span class="hljs-number">2</span>
+# Importing the libraries   #<span class="hljs-number">3</span>
+#<span class="hljs-number">4</span>
+<span class="hljs-keyword">import</span> os   #<span class="hljs-number">5</span>
+<span class="hljs-keyword">import</span> random   #<span class="hljs-number">6</span>
+<span class="hljs-keyword">import</span> torch   #<span class="hljs-number">7</span>
+<span class="hljs-keyword">import</span> torch.nn <span class="hljs-keyword">as</span> nn   #<span class="hljs-number">8</span>
+<span class="hljs-keyword">import</span> torch.nn.functional <span class="hljs-keyword">as</span> F   #<span class="hljs-number">9</span>
+<span class="hljs-keyword">import</span> torch.optim <span class="hljs-keyword">as</span> optim   #<span class="hljs-number">10</span>
+<span class="hljs-keyword">from</span> torch.autograd <span class="hljs-keyword">import</span> Variable   #<span class="hljs-number">11</span>
+</code></pre>
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			<h3 class="title" xml:lang="en-GB" id="sigil_toc_id_163" lang="en-GB"><a id="_idTextAnchor230"/>Step 2 – Creating the architecture of the neural network</h3>
+			<p class="normal">This code section is<a id="_idIndexMarker367"/> 
+where you really become the architect of the brain in your AI. You're 
+about to build the input layer, the fully connected layers, and the 
+output layer, while choosing some activation functions that will 
+forward-propagate the signal inside the brain.</p>
+			<p class="normal">First, you build this brain inside a class, which we are going to call <code class="Code-In-Text--PACKT-">Network</code>.</p>
+			<p class="normal">What is a class? Let's explain that before we 
+explain why you're using one. A class is an advanced structure in Python
+ that contains the instructions of an object we want to build. Taking 
+the example of your neural network (the object), these instructions 
+include how many layers you want, how many neurons you want inside each 
+layer, which activation function you choose, and so on. These parameters
+ define your artificial brain and are all gathered in what we call the <code class="Code-In-Text--PACKT-">__init__()</code>
+ method, which is what we always start with when building a class. But 
+that's not all—a class can also contain tools, called methods, which are
+ functions that either perform some operations or return something. Your
+ <code class="Code-In-Text--PACKT-">Network</code> class will contain 
+one method, which forward-propagates the signal inside the neural 
+network and returns the predicted Q-values. Call this method <code class="Code-In-Text--PACKT-">forward</code>.</p>
+			<p class="normal">Now, why use a class? That's because<a id="_idIndexMarker368"/>
+ building a class allows you to create as many objects (also called 
+instances) as you want, and easily switch from one to another by just 
+changing the arguments of the class. For example, your <code class="Code-In-Text--PACKT-">Network</code> class contains two arguments: <code class="Code-In-Text--PACKT-">input_size</code> (the number of inputs) and <code class="Code-In-Text--PACKT-">nb_actions</code>
+ (the number of actions). If you ever want to build an AI with more 
+inputs (besides the signals and the orientation) or more outputs (you 
+could add an action that brakes the car), you'll do it in a flash thanks
+ to the advanced structure of the class. It's super practical, and if 
+you're not already familiar with classes you'll have to get familiar 
+with them. Nearly all AI implementations are done with classes.</p>
+			<p class="normal">That was just a short technical aside to make sure I
+ don't lose anybody on the way. Now let's build this class. As there are
+ many important elements to explain in the code, and since you're 
+probably new to PyTorch, I'll show you the code first and then explain 
+it line by line from the <code class="Code-In-Text--PACKT-">deep_q_learning.py</code> file:</p>
+			<pre class="programlisting language-markup"><code class="hljs pf"><span class="hljs-comment"># Creating the architecture of the Neural Network   #13</span>
+<span class="hljs-comment">#14</span>
+class Network(nn.Module):   <span class="hljs-comment">#15</span>
+    <span class="hljs-comment">#16</span>
+    def __init__(<span class="hljs-literal">self</span>, input_size, nb_action):   <span class="hljs-comment">#17</span>
+        super(Network, <span class="hljs-literal">self</span>).__init__()   <span class="hljs-comment">#18</span>
+        <span class="hljs-literal">self</span>.input_size = input_size   <span class="hljs-comment">#19</span>
+        <span class="hljs-literal">self</span>.nb_action = nb_action   <span class="hljs-comment">#20</span>
+        <span class="hljs-literal">self</span>.fc1 = nn.Linear(input_size, <span class="hljs-number">30</span>)   <span class="hljs-comment">#21</span>
+        <span class="hljs-literal">self</span>.fc2 = nn.Linear(<span class="hljs-number">30</span>, nb_action)   <span class="hljs-comment">#22</span>
+    <span class="hljs-comment">#23</span>
+    def forward(<span class="hljs-literal">self</span>, <span class="hljs-keyword">state</span>):   <span class="hljs-comment">#24</span>
+        x = F.relu(<span class="hljs-literal">self</span>.fc1(<span class="hljs-keyword">state</span>))   <span class="hljs-comment">#25</span>
+        q_values = <span class="hljs-literal">self</span>.fc2(x)   <span class="hljs-comment">#26</span>
+        return q_values   <span class="hljs-comment">#27</span>
+</code></pre>
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			<p class="normal"><strong class="bold">Line 15</strong>: You introduce the <code class="Code-In-Text--PACKT-">Network</code> class. In the parenthesis of this class, you can see <code class="Code-In-Text--PACKT-">nn.Module</code>. That means you're calling the <code class="Code-In-Text--PACKT-">Module</code> class, which is an existing class taken from the <code class="Code-In-Text--PACKT-">nn</code> module, in order to get all the properties and tools of the <code class="Code-In-Text--PACKT-">Module</code> class and use them inside your <code class="Code-In-Text--PACKT-">Network</code> class. This trick of calling another existing class inside a new class is called <strong class="bold">inheritance</strong>.</p>
+			<p class="normal"><strong class="bold">Line 17</strong>: You start with the <code class="Code-In-Text--PACKT-">__init__()</code>
+ method, which defines all the parameters (number of inputs, number of 
+outputs, and so on) of your artificial neural network. You can see three
+ arguments: <code class="Code-In-Text--PACKT-">self</code>, <code class="Code-In-Text--PACKT-">input_size</code>, and <code class="Code-In-Text--PACKT-">nb_action.self</code>
+ refer to the object, that is, to the future instance of the class that 
+will be created after the class is done. Any time you see <code class="Code-In-Text--PACKT-">self</code> before a variable, and separated by a dot (like <code class="Code-In-Text--PACKT-">self.variable</code>), that means the variable belongs to the object. That should clear up any mystery about <code class="Code-In-Text--PACKT-">self</code>!</p>
+			<p class="normal">Then, <code class="Code-In-Text--PACKT-">input_size</code> is the<a id="_idIndexMarker369"/> number of inputs in your input state vector (thus 4), and <code class="Code-In-Text--PACKT-">nb_action</code> is the number of output actions (thus 3). What's important to understand is that the arguments (other than self) of the <code class="Code-In-Text--PACKT-">__init__()</code> method are the ones you will enter when creating the future object, which is the future artificial brain of your AI.</p>
+			<p class="normal"><strong class="bold">Line 18</strong>: You use the <code class="Code-In-Text--PACKT-">super()</code> function to activate the inheritance (explained in Line 15), inside the <code class="Code-In-Text--PACKT-">__init__()</code> method.</p>
+			<p class="normal"><strong class="bold">Line 19</strong>: Here you introduce the first object variable, <code class="Code-In-Text--PACKT-">self.input_size</code>, set equal to the argument <code class="Code-In-Text--PACKT-">input_size</code> (which will later be entered as <code class="Code-In-Text--PACKT-">4</code>, since the input state has 4 elements).</p>
+			<p class="normal"><strong class="bold">Line 20</strong>: You introduce the second object variable, <code class="Code-In-Text--PACKT-">self.nb_action</code>, set equal to the argument <code class="Code-In-Text--PACKT-">nb_action</code> (which will later be entered as <code class="Code-In-Text--PACKT-">3</code>, since there are three actions that can be performed).</p>
+			<p class="normal"><strong class="bold">Line 21</strong>: You introduce the third object variable, <code class="Code-In-Text--PACKT-">self.fc1</code>,
+ which is the first full connection between the input layer (composed of
+ the input state) and the hidden layer. That first full connection is 
+created as an object of the <code class="Code-In-Text--PACKT-">nn.Linear</code> class, which takes two arguments: the first one is the number of elements in the left layer (the input layer), so <code class="Code-In-Text--PACKT-">input_size</code>
+ is the right argument to use, and the second one is the number of 
+hidden neurons in the right layer (the hidden layer). Here, you choose 
+to have 30 neurons, and therefore the second argument is <code class="Code-In-Text--PACKT-">30</code>. The choice of 30 is purely arbitrary, and the self-driving car could work well with any other numbers.</p>
+			<p class="normal"><strong class="bold">Line 22</strong>: You introduce the fourth object variable, <code class="Code-In-Text--PACKT-">self.fc2</code>,
+ which is the second full connection between the hidden layer (composed 
+of 30 hidden neurons) and the output layer. It could have been a full 
+connection with a new hidden layer, but your problem is not complex 
+enough to need more than one hidden layer, so you'll just have one 
+hidden layer in your artificial brain. Just like before, that second 
+full connection is created as an object of the <code class="Code-In-Text--PACKT-">nn.Linear</code> class, which takes two arguments: the first one is the number of elements in the left layer (the hidden layer), therefore <code class="Code-In-Text--PACKT-">30</code>, and the second one is the number of hidden neurons in the right layer (the output layer), therefore <code class="Code-In-Text--PACKT-">3</code>.</p>
+			<p class="normal"><strong class="bold">Line 24</strong>: You start building the first and only method of the class, the <code class="Code-In-Text--PACKT-">forward</code>
+ method, which will propagate the signal from the input layer to the 
+output layer, after which it will return the predicted Q-values. This <code class="Code-In-Text--PACKT-">forward</code> method takes two arguments: <code class="Code-In-Text--PACKT-">self</code>, because you'll use the object variables inside the <code class="Code-In-Text--PACKT-">forward</code> method, and <code class="Code-In-Text--PACKT-">state</code>, the input state vector composed of four elements (orientation plus the three signals).</p>
+			<p class="normal"><strong class="bold">Line 25</strong>: You forward 
+propagate the signal from the input layer to the hidden layer while 
+activating the signal with a rectifier activation function, also called <strong class="bold">ReLU</strong> (<strong class="bold">Rectified Linear Unit</strong>). You do<a id="_idIndexMarker370"/>
+ this in two steps. First, the forward propagation from the input layer 
+to the hidden layer is done by calling the first full connection <code class="Code-In-Text--PACKT-">self.fc1</code> with the input state vector <code class="Code-In-Text--PACKT-">state</code> as input: <code class="Code-In-Text--PACKT-">self.fc1(state)</code>. </p>
+			<p class="normal">That returns the hidden layer. And then we call the <code class="Code-In-Text--PACKT-">relu</code> function with that hidden layer as input to break the linearity of the signal the following way:</p>
+			<figure class="mediaobject" xml:lang="en-GB" lang="en-GB"><img src="../Images/B14110_10_08.png" alt=""/></figure>
+			<p class="packt_figref">Figure 8: The Rectifier activation function</p>
+			<p class="normal">The purpose of the ReLU layer is to break linearity
+ by creating non-linear operations along the fully connected layers. 
+You'll want to have that, because you're trying to solve a nonlinear 
+problem. Finally, <code class="Code-In-Text--PACKT-">F.relu(self.fc1(state))</code> returns <code class="Code-In-Text--PACKT-">x</code>, the hidden layer with a nonlinear signal.</p>
+			<p class="normal"><strong class="bold">Line 26</strong>: You forward-<a id="_idIndexMarker371"/>propagate
+ the signal from the hidden layer to the output layer containing the 
+Q-values. In the same way as the previous line, this is done by calling 
+the second full connection <code class="Code-In-Text--PACKT-">self.fc2</code> with the hidden layer <code class="Code-In-Text--PACKT-">x</code> as input: <code class="Code-In-Text--PACKT-">self.fc2(x)</code>. That returns the Q-values, which you name <code class="Code-In-Text--PACKT-">q_values</code>. Here, no activation function is needed because you'll select the action to play with Softmax, later, in another class.</p>
+			<p class="normal"><strong class="bold">Line 27</strong>: Finally, here, the <code class="Code-In-Text--PACKT-">forward</code> method returns the Q-values.</p>
+			<p class="normal">Let's have a look at what <a id="_idIndexMarker372"/>you've just created!</p>
+			<figure class="mediaobject" xml:lang="en-GB" lang="en-GB"><img src="../Images/B14110_10_09.png" alt=""/></figure>
+			<p class="packt_figref">Figure 9: The neural network (the brain) of our AI</p>
+			<p class="normal"><code class="Code-In-Text--PACKT-">self.fc1</code> are all the blue connection lines between the <strong class="bold">Input Layer</strong> and the <strong class="bold">Hidden Layer</strong>.</p>
+			<p class="normal"><code class="Code-In-Text--PACKT-">self.fc2</code> are all the blue connection lines between the <strong class="bold">Hidden Layer</strong> and the <strong class="bold">Output Layer</strong>.</p>
+			<p class="normal">That should help you visualize the full connections better. Great job<a id="_idTextAnchor231"/>!</p>
+			<h3 class="title" xml:lang="en-GB" id="sigil_toc_id_164" lang="en-GB"><a id="_idTextAnchor232"/>Step 3 – Implementing experience replay</h3>
+			<p class="normal">Time for the next step! You'll now<a id="_idIndexMarker373"/> build another class, which builds the memory object for experience replay (as seen in <em class="italics">Chapter 5</em>, <em class="italics">Your First AI Model – Beware the Bandits!</em>). Call this class <code class="Code-In-Text--PACKT-">ReplayMemory</code>. Let's have a look at the code first and then I'll explain everything line by line from the <code class="Code-In-Text--PACKT-">deep_q_learning.py</code> file.</p>
+			<pre class="programlisting language-markup"><code class="hljs ruby"><span class="hljs-comment"># Implementing Experience Replay   #29</span>
+<span class="hljs-comment">#30</span>
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ReplayMemory</span>(<span class="hljs-title">object</span>):   <span class="hljs-comment">#31</span></span>
+    <span class="hljs-comment">#32</span>
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">__init__</span><span class="hljs-params">(<span class="hljs-keyword">self</span>, capacity)</span></span>:   <span class="hljs-comment">#33</span>
+        <span class="hljs-keyword">self</span>.capacity = capacity   <span class="hljs-comment">#34</span>
+        <span class="hljs-keyword">self</span>.memory = []   <span class="hljs-comment">#35</span>
+    <span class="hljs-comment">#36</span>
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">push</span><span class="hljs-params">(<span class="hljs-keyword">self</span>, event)</span></span>:   <span class="hljs-comment">#37</span>
+        <span class="hljs-keyword">self</span>.memory.append(event)   <span class="hljs-comment">#38</span>
+        <span class="hljs-keyword">if</span> len(<span class="hljs-keyword">self</span>.memory) &gt; <span class="hljs-keyword">self</span>.<span class="hljs-symbol">capacity:</span>   <span class="hljs-comment">#39</span>
+            del <span class="hljs-keyword">self</span>.memory[<span class="hljs-number">0</span>]   <span class="hljs-comment">#40</span>
+    <span class="hljs-comment">#41</span>
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">sample</span><span class="hljs-params">(<span class="hljs-keyword">self</span>, batch_size)</span></span>:   <span class="hljs-comment">#42</span>
+        samples = zip(*random.sample(<span class="hljs-keyword">self</span>.memory, batch_size))   <span class="hljs-comment">#43</span>
+        <span class="hljs-keyword">return</span> map(lambda <span class="hljs-symbol">x:</span> Variable(torch.cat(x, <span class="hljs-number">0</span>)), samples)   <span class="hljs-comment">#44</span>
+</code></pre>
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			<p class="normal"><strong class="bold">Line 31</strong>: You introduce the <code class="Code-In-Text--PACKT-">ReplayMemory</code> class. This time you don't need to inherit from any other class, so just input <code class="Code-In-Text--PACKT-">object</code> in the parenthesis of the class.</p>
+			<p class="normal"><strong class="bold">Line 33</strong>: As always, you<a id="_idIndexMarker374"/> start with the <code class="Code-In-Text--PACKT-">__init__()</code> method, which only takes two arguments: <code class="Code-In-Text--PACKT-">self</code>, the object, and <code class="Code-In-Text--PACKT-">capacity</code>, the maximum size of the memory.</p>
+			<p class="normal"><strong class="bold">Line 34</strong>: You introduce the first object variable, <code class="Code-In-Text--PACKT-">self.capacity</code>, set equal to the argument <code class="Code-In-Text--PACKT-">capacity</code>, which will be entered later when creating an object of the class.</p>
+			<p class="normal"><strong class="bold">Line 35</strong>: You introduce the second object variable, <code class="Code-In-Text--PACKT-">self.memory</code>, initialized as an empty list.</p>
+			<p class="normal"><strong class="bold">Line 37</strong>: You start building the first tool of the class, the <code class="Code-In-Text--PACKT-">push</code>
+ method, which takes a transition as input and adds it to the memory. 
+However, if adding that transition exceeds the memory's capacity, the <code class="Code-In-Text--PACKT-">push</code> method also deletes the first element of the memory. The <code class="Code-In-Text--PACKT-">event</code> argument you can see is the transition to be added.</p>
+			<p class="normal"><strong class="bold">Line 38</strong>: Using the <code class="Code-In-Text--PACKT-">append</code> function, you add the transition to the memory.</p>
+			<p class="normal"><strong class="bold">Line 39</strong>: You start an <code class="Code-In-Text--PACKT-">if</code> condition that checks if the length of the memory (meaning its number of transitions) is larger than the capacity.</p>
+			<p class="normal"><strong class="bold">Line 40</strong>: If that is indeed the case, you delete the first element of the memory.</p>
+			<p class="normal"><strong class="bold">Line 42</strong>: You start building<a id="_idIndexMarker375"/> the second tool of the class, the <code class="Code-In-Text--PACKT-">sample</code> method, which samples some random transitions from the experience replay memory. It takes <code class="Code-In-Text--PACKT-">batch_size</code> as input, which is the size of the batches of transitions with which you'll train your neural network.</p>
+			<p class="normal">Remember how it works: instead of 
+forward-propagating single input states into the neural network and 
+updating the weights after each transition resulting from the input 
+state, you forward-propagate small batches of input states and update 
+the weights after backpropagating the same whole batches of transitions 
+with mini-batch gradient descent. That's different from stochastic 
+gradient descent (weight update every single input) and batch gradient 
+descent (weight update every batch of inputs) as explained in <em class="italics">Chapter 9</em>, <em class="italics">Going Pro with Artificial Brains – Deep Q-Learning</em>:</p>
+			<figure class="mediaobject" xml:lang="en-GB" lang="en-GB"><img src="../Images/B14110_10_10.png" alt=""/></figure>
+			<p class="packt_figref">Figure 10: Batch gradient descent versus stochastic gradient descent</p>
+			<p class="normal"><strong class="bold">Line 43</strong>: You sample some random transitions from the memory and put them into a batch of size <code class="Code-In-Text--PACKT-">batch_size</code>. For example, if <code class="Code-In-Text--PACKT-">batch_size = 100</code>, you sample 100 random transitions from the memory. The sampling is done with the <code class="Code-In-Text--PACKT-">sample()</code> function from the random library. Then, <code class="Code-In-Text--PACKT-">zip(*list)</code> is used to regroup the states, actions, and rewards into separate batches of the same size (<code class="Code-In-Text--PACKT-">batch_size</code>), in order to put the sampled transitions into the format expected by PyTorch (the <code class="Code-In-Text--PACKT-">Variable</code> format, which comes next in Line 44).</p>
+			<p class="normal">This is probably a good time to take a step back. Let's see what Line 43 gives you:</p>
+			<figure class="mediaobject" xml:lang="en-GB" lang="en-GB"><img src="../Images/B14110_10_11.png" alt=""/></figure>
+			<p class="packt_figref">Figure 11: The batches of last states, actions, rewards, and next states</p>
+			<p class="normal"><strong class="bold">Line 44</strong>: Using the <code class="Code-In-Text--PACKT-">map()</code> function, wrap each sample into a <code class="Code-In-Text--PACKT-">torch Variable</code> object (as <code class="Code-In-Text--PACKT-">Variable()</code> is actually a class), so that each tensor inside the samples is associated to a gradient. Simply put, you can see a <code class="Code-In-Text--PACKT-">torch Variable</code> as an advanced structure that encompasses a tensor and a gradient.</p>
+			<p class="normal">This is the beauty<a id="_idIndexMarker376"/> of PyTorch. These <code class="Code-In-Text--PACKT-">torch Variables</code>
+ are all in a dynamic graph which allows fast computation of the 
+gradient of complex functions. Those fast computations are required for 
+the weight updates happening during backpropagation with mini-batch 
+gradient descent. Inside the <code class="Code-In-Text--PACKT-">Variable</code> class we see <code class="Code-In-Text--PACKT-">torch.cat(x,0)</code>. That's just a concatenation trick, along the vertical axis, to put the samples in the format expected by the <code class="Code-In-Text--PACKT-">Variable</code> class.</p>
+			<p class="normal">The most important thing to remember is this: when training a neural network with PyTorch, we always work with <code class="Code-In-Text--PACKT-">torch Variables</code>, as opposed to just tensors. You can find more details about this in the PyTorch documentation.</p>
+			<h3 class="title" xml:lang="en-GB" id="sigil_toc_id_165" lang="en-GB"><a id="_idTextAnchor233"/>Step 4 – Implementing deep Q-learning</h3>
+			<p class="normal">You've made it! You're finally <a id="_idIndexMarker377"/>about to start coding the whole deep Q-learning process. Again, you'll wrap all of it into a class, this time called <code class="Code-In-Text--PACKT-">Dqn</code>, as in deep Q-network. This is your final run before the finish line. Let's smash this.</p>
+			<p class="normal">This time, the class is quite long so I'll show and explain the lines of code method by method from the <code class="Code-In-Text--PACKT-">deep_q_learning.py</code> file. Here's the first one, the <code class="Code-In-Text--PACKT-">__init__()</code> method:</p>
+			<pre class="programlisting language-markup"><code class="hljs ruby"><span class="hljs-comment"># Implementing Deep Q-Learning   #46</span>
+<span class="hljs-comment">#47</span>
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Dqn</span>(<span class="hljs-title">object</span>):   <span class="hljs-comment">#48</span></span>
+    <span class="hljs-comment">#49</span>
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">__init__</span><span class="hljs-params">(<span class="hljs-keyword">self</span>, input_size, nb_action, gamma)</span></span>:   <span class="hljs-comment">#50</span>
+        <span class="hljs-keyword">self</span>.gamma = gamma   <span class="hljs-comment">#51</span>
+        <span class="hljs-keyword">self</span>.model = Network(input_size, nb_action)   <span class="hljs-comment">#52</span>
+        <span class="hljs-keyword">self</span>.memory = ReplayMemory(capacity = <span class="hljs-number">100000</span>)   <span class="hljs-comment">#53</span>
+        <span class="hljs-keyword">self</span>.optimizer = optim.Adam(params = <span class="hljs-keyword">self</span>.model.parameters())   <span class="hljs-comment">#54</span>
+        <span class="hljs-keyword">self</span>.last_state = torch.Tensor(input_size).unsqueeze(<span class="hljs-number">0</span>)   <span class="hljs-comment">#55</span>
+        <span class="hljs-keyword">self</span>.last_action = <span class="hljs-number">0</span>   <span class="hljs-comment">#56</span>
+        <span class="hljs-keyword">self</span>.last_reward = <span class="hljs-number">0</span>   <span class="hljs-comment">#57</span>
+</code></pre>
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			<p class="normal"><strong class="bold">Line 48</strong>: You introduce the <code class="Code-In-Text--PACKT-">Dqn</code> class. You don't need to inherit from any other class so just input <code class="Code-In-Text--PACKT-">object</code> in the parenthesis of the class.</p>
+			<p class="normal"><strong class="bold">Line 50</strong>: As always, you start with the <code class="Code-In-Text--PACKT-">__init__()</code> method, which this time takes four arguments:</p>
+			<ol>
+				<li class="list" value="1"><code class="Code-In-Text--PACKT-">self</code>: The object</li>
+				<li class="list"><code class="Code-In-Text--PACKT-">input_size</code>: The number of inputs in the input state vector (that is, 4)</li>
+				<li class="list"><code class="Code-In-Text--PACKT-">nb_action</code>: The number of actions (that is, 3)</li>
+				<li class="list"><code class="Code-In-Text--PACKT-">gamma</code>: The discount factor in the temporal difference formula</li>
+			</ol>
+			<p class="normal"><strong class="bold">Line 51</strong>: You introduce<a id="_idIndexMarker378"/> the first object variable, <code class="Code-In-Text--PACKT-">self.gamma</code>, set equal to the argument <code class="Code-In-Text--PACKT-">gamma</code> (which will be entered later when you create an object of the <code class="Code-In-Text--PACKT-">Dqn</code> class).</p>
+			<p class="normal"><strong class="bold">Line 52</strong>: You introduce the second object variable, <code class="Code-In-Text--PACKT-">self.model</code>, an object of the <code class="Code-In-Text--PACKT-">Network</code>
+ class you built before. This object is your neural network; in other 
+words, the brain of our AI. When creating this object, you input the two
+ arguments of the <code class="Code-In-Text--PACKT-">__init__()</code> method in the <code class="Code-In-Text--PACKT-">Network</code> class, which are <code class="Code-In-Text--PACKT-">input_size</code> and <code class="Code-In-Text--PACKT-">nb_action</code>. You'll enter their real values (respectively <code class="Code-In-Text--PACKT-">4</code> and <code class="Code-In-Text--PACKT-">3</code>) later, when creating an object of the <code class="Code-In-Text--PACKT-">Dqn</code> class.</p>
+			<p class="normal"><strong class="bold">Line 53</strong>: You introduce the third object variable, <code class="Code-In-Text--PACKT-">self.memory</code>, as an object of the <code class="Code-In-Text--PACKT-">ReplayMemory</code> class you built before. This object is the experience replay memory. Since the <code class="Code-In-Text--PACKT-">__init__</code> method of the <code class="Code-In-Text--PACKT-">ReplayMemory</code> class only expects one argument, the <code class="Code-In-Text--PACKT-">capacity</code>, that's exactly what you input here as <code class="Code-In-Text--PACKT-">100,000</code>.
+ In other words, you're creating a memory of size 100,000, which means 
+that instead of remembering just the last transition, the AI will 
+remember the last 100,000 transitions.</p>
+			<p class="normal"><strong class="bold">Line 54</strong>: You introduce the fourth object variable, <code class="Code-In-Text--PACKT-">self.optimizer</code>, as an object of the <code class="Code-In-Text--PACKT-">Adam</code> class, which is an existing class built in the <code class="Code-In-Text--PACKT-">torch.optim</code>
+ module. This object is the optimizer, which updates the weights through
+ mini-batch gradient descent during backpropagation. In the<a id="_idIndexMarker379"/>
+ arguments, keep most of the default parameter values (you can check 
+them in the PyTorch documentation) and only enter the model parameters 
+(the <code class="Code-In-Text--PACKT-">params</code> argument), which you access with <code class="Code-In-Text--PACKT-">self.model.parameters</code>, one of the attributes of the <code class="Code-In-Text--PACKT-">nn.Module</code> class from which the <code class="Code-In-Text--PACKT-">Network</code> class inherits.</p>
+			<p class="normal"><strong class="bold">Line 55</strong>: You introduce the fifth object variable, <code class="Code-In-Text--PACKT-">self.last_state</code>,
+ which will be the last state in each (last state, action, reward, next 
+state) transition. This last state is initialized as an object of the <code class="Code-In-Text--PACKT-">Tensor</code> class from the torch library, into which you only have to enter the <code class="Code-In-Text--PACKT-">input_size</code> argument. Then <code class="Code-In-Text--PACKT-">.unsqueeze(0)</code>
+ is used to create an additional dimension at index 0, which will 
+correspond to the batch. This allows us to do something like this, 
+matching each last state to the appropriate batch:</p>
+			<figure class="mediaobject" xml:lang="en-GB" lang="en-GB"><img src="../Images/B14110_10_12.png" alt=""/></figure>
+			<p class="packt_figref">Figure 12: Adding a dimension for the batch</p>
+			<p class="normal"><strong class="bold">Line 56</strong>: You introduce the sixth object variable, <code class="Code-In-Text--PACKT-">self.last_action</code>, initialized as <code class="Code-In-Text--PACKT-">0</code>, which is the last action played at each iteration.</p>
+			<p class="normal"><strong class="bold">Line 57</strong>: We introduce the last object variable, <code class="Code-In-Text--PACKT-">self.last_reward</code>, initialized as <code class="Code-In-Text--PACKT-">0</code>, which is the last reward received after playing the last action <code class="Code-In-Text--PACKT-">self.last_action</code>, in the last state <code class="Code-In-Text--PACKT-">self.last_state</code>.</p>
+			<p class="normal">Now, you're all good for the <code class="Code-In-Text--PACKT-">__init__</code> method. Let's move on to the next code section with the next method: the <code class="Code-In-Text--PACKT-">select_action</code> method, which selects the action to play at each iteration using Softmax.</p>
+			<pre class="programlisting language-markup"><code class="hljs pf">   def select_action(<span class="hljs-literal">self</span>, <span class="hljs-keyword">state</span>):   <span class="hljs-comment">#59</span>
+        probs = F.softmax(<span class="hljs-literal">self</span>.model(Variable(<span class="hljs-keyword">state</span>))*<span class="hljs-number">100</span>)   <span class="hljs-comment">#60</span>
+        action = probs.multinomial(len(probs))   <span class="hljs-comment">#61</span>
+        return action.data[<span class="hljs-number">0</span>,<span class="hljs-number">0</span>]   <span class="hljs-comment">#62</span>
+</code></pre>
+			
+			
+			
+			<p class="normal"><strong class="bold">Line 59</strong>: You start defining the <code class="Code-In-Text--PACKT-">select_action</code>
+ method, which takes as input an input state vector (orientation, signal
+ 1, signal 2, signal 3), and returns as output the selected action to 
+play.</p>
+			<p class="normal"><strong class="bold">Line 60</strong>: You get the<a id="_idIndexMarker380"/> probabilities of the three actions thanks to the Softmax function taken from the <code class="Code-In-Text--PACKT-">torch.nn.functional</code> module. This Softmax function takes the Q-values as input, which are exactly returned by <code class="Code-In-Text--PACKT-">self.model(Variable(state))</code>. Remember, <code class="Code-In-Text--PACKT-">self.model</code> is an object of the <code class="Code-In-Text--PACKT-">Network</code> class, which has the <code class="Code-In-Text--PACKT-">forward</code> method, which takes as input an input state tensor wrapped into a <code class="Code-In-Text--PACKT-">torch</code> <code class="Code-In-Text--PACKT-">Variable</code>, and returns as output the Q-values for the three actions. </p>
+			
+				<div id="_idContainer379" class="packt_tip">
+					<p class="Information-Box--PACKT-"><strong class="screen-text">Geek note</strong>: Usually we would specify that we call the <code class="Code-In-Text--PACKT-">forward</code> method this way – <code class="Code-In-Text--PACKT-">self.model.forward(Variable(state))</code> – but since <code class="Code-In-Text--PACKT-">forward</code> is the only method of the <code class="Code-In-Text--PACKT-">Network</code> class, it is sufficient to just call <code class="Code-In-Text--PACKT-">self.model</code>.</p>
+				</div>
+			
+			<p class="normal">Multiplying the Q-values by a number (here <code class="Code-In-Text--PACKT-">100</code>) inside <code class="Code-In-Text--PACKT-">softmax</code>
+ is a good trick to remember: it allows you to regulate the Exploration 
+versus Exploitation. The lower that number is, the more you'll explore, 
+and therefore the longer it will take to get optimized actions. Here, 
+the problem's not too complex, so choose a large number (<code class="Code-In-Text--PACKT-">100</code>) in order to have confident actions and a smooth trajectory to the goal. You'll clearly see the difference if you remove <code class="Code-In-Text--PACKT-">*100</code> from the code. Simply put, with the <code class="Code-In-Text--PACKT-">*100</code>, you'll see a car sure of itself; without the <code class="Code-In-Text--PACKT-">*100</code>, you'll see a car fidgeting.</p>
+			<p class="normal"><strong class="bold">Line 61</strong>: You take a random draw from the distribution of actions created by the <code class="Code-In-Text--PACKT-">softmax</code> function at line 60, by calling the <code class="Code-In-Text--PACKT-">multinomial()</code> function from your probabilities <code class="Code-In-Text--PACKT-">probs</code>.</p>
+			<p class="normal"><strong class="bold">Line 62</strong>: You return the selected action to perform, which you access in <code class="Code-In-Text--PACKT-">action.data[0,0]</code>. The returned <code class="Code-In-Text--PACKT-">action</code> has an advanced tensor structure, and the action index (0, 1, or 2) that you're interested in is located in the <code class="Code-In-Text--PACKT-">data</code> attribute of the action tensor at the first cell of indexes [0,0].</p>
+			<p class="normal">Let's move on to the next code section, the <code class="Code-In-Text--PACKT-">learn</code>
+ method. This one is pretty interesting because it's where the heart of 
+deep Q-learning beats. It's in this method that we compute the temporal 
+difference, and accordingly the loss, and update the weights with our 
+optimizer in order to reduce that loss. That's why this method is called
+ <code class="Code-In-Text--PACKT-">learn</code>, because it is here 
+that the AI learns to perform better and better actions that increase 
+the accumulated reward. Let's continue:</p>
+			<pre class="programlisting language-markup"><code class="hljs mipsasm">   def learn(self, <span class="hljs-keyword">batch_states, </span><span class="hljs-keyword">batch_actions, </span><span class="hljs-keyword">batch_rewards, </span><span class="hljs-keyword">batch_next_states): </span>  <span class="hljs-comment">#64</span>
+        <span class="hljs-keyword">batch_outputs </span>= self.model(<span class="hljs-keyword">batch_states).gather(1, </span><span class="hljs-keyword">batch_actions.unsqueeze(1)).squeeze(1) </span>  <span class="hljs-comment">#65</span>
+        <span class="hljs-keyword">batch_next_outputs </span>= self.model(<span class="hljs-keyword">batch_next_states).detach().max(1)[0] </span>  <span class="hljs-comment">#66</span>
+        <span class="hljs-keyword">batch_targets </span>= <span class="hljs-keyword">batch_rewards </span>+ self.gamma * <span class="hljs-keyword">batch_next_outputs </span>  <span class="hljs-comment">#67</span>
+        td_loss = F.smooth_l1_loss(<span class="hljs-keyword">batch_outputs, </span><span class="hljs-keyword">batch_targets) </span>  <span class="hljs-comment">#68</span>
+        self.optimizer.zero_grad()   <span class="hljs-comment">#69</span>
+        td_loss.<span class="hljs-keyword">backward() </span>  <span class="hljs-comment">#70</span>
+        self.optimizer.step()   <span class="hljs-comment">#71</span>
+</code></pre>
+			
+			
+			
+			
+			
+			
+			
+			<p class="normal"><strong class="bold">Line 64</strong>: You start by defining the <code class="Code-In-Text--PACKT-">learn()</code> method, which takes as inputs the batches of the four elements<a id="_idIndexMarker381"/> composing a transition (input state, action, reward, next state):</p>
+			<ol>
+				<li class="list" value="1"><code class="Code-In-Text--PACKT-">batch_states</code>: A batch of input states.</li>
+				<li class="list"><code class="Code-In-Text--PACKT-">batch_actions</code>: A batch of actions played.</li>
+				<li class="list"><code class="Code-In-Text--PACKT-">batch_rewards</code>: A batch of the rewards received.</li>
+				<li class="list" value="4"><code class="Code-In-Text--PACKT-">batch_next_states</code>: A batch of the next states reached.</li>
+			</ol>
+			<p class="normal">Before I explain Lines 65, 66, and 67, let's take a step back and see what you'll have to do. As you know, the goal of this <code class="Code-In-Text--PACKT-">learn</code>
+ method is to update the weights in directions that reduce the 
+back-propagated loss at each iteration of the training. First let's 
+remind ourselves of the formula for the loss:</p>
+			<figure class="mediaobject" xml:lang="en-GB" lang="en-GB"><img src="../Images/B14110_10_014.png" style="height:3em;" alt=""/></figure>
+			<p class="normal">Inside the formula for the loss, we clearly recognize the outputs (predicted Q-values) and the targets:</p>
+			<figure class="mediaobject" xml:lang="en-GB" lang="en-GB"><span class="mediaobject"><img src="../Images/B14110_10_015.png" style="height:2em;" alt=""/></span></figure>
+			<figure class="mediaobject" xml:lang="en-GB" lang="en-GB"><img src="../Images/B14110_10_016.png" style="height:2em;" alt=""/></figure>
+			<p class="normal">Therefore, to compute the loss, you proceed this way over the next four lines of code:</p>
+			<p class="normal"><strong class="bold">Line 65</strong>: You collect the batch of outputs, <img src="../Images/B14110_10_017.png" alt=""/>.</p>
+			<p class="normal"><strong class="bold">Line 66</strong>: You compute the <img src="../Images/B14110_10_018.png" alt=""/> part of the targets, which you call <code class="Code-In-Text--PACKT-">batch_next_outputs</code>.</p>
+			<p class="normal"><strong class="bold">Line 67</strong>: You get the batch of targets.</p>
+			<p class="normal"><strong class="bold">Line 68</strong>: Since you have the outputs and targets, you're ready to get the loss.</p>
+			<p class="normal">Now let's do this in detail.</p>
+			<p class="normal"><strong class="bold">Line 65</strong>: You collect<a id="_idIndexMarker382"/> the batch of outputs <img src="../Images/B14110_10_019.png" alt=""/>,
+ meaning the predicted Q-values of the input states and the actions 
+played in the batch. Getting them takes several steps. First, you call <code class="Code-In-Text--PACKT-">self.model(batch_states)</code>, which, as seen in Line 60, returns the Q-values of each input state in <code class="Code-In-Text--PACKT-">batch_states</code> and for all the three actions 0, 1, and 2. To help you visualize it better, it returns something like this:</p>
+			<figure class="mediaobject" xml:lang="en-GB" lang="en-GB"><img src="../Images/B14110_10_13.png" alt=""/></figure>
+			<p class="packt_figref">Figure 13: What is returned by self.model(batch_states)</p>
+			<p class="normal">You only want the predicted Q-values for the 
+selected actions from the batch of outputs, which are found in the batch
+ of actions <code class="Code-In-Text--PACKT-">batch_actions</code>. That's exactly what the <code class="Code-In-Text--PACKT-">.gather(1, batch_actions.unsqueeze(1)).squeeze(1)</code> trick does: for each input state of the<a id="_idIndexMarker383"/>
+ batch, it picks the Q-value that corresponds to the action that was 
+selected in the batch of actions. To help visualize this better, let's 
+suppose the batch of actions is the following:</p>
+			<figure class="mediaobject" xml:lang="en-GB" lang="en-GB"><img src="../Images/B14110_10_14.png" alt=""/></figure>
+			<p class="packt_figref">Figure 14: Batch of actions</p>
+			<p class="normal">Then you would get the following batch of outputs composed of the red Q-values:</p>
+			<figure class="mediaobject" xml:lang="en-GB" lang="en-GB"><img src="../Images/B14110_10_15.png" alt=""/></figure>
+			<p class="packt_figref">Figure 15: Batch of outputs</p>
+			<p class="normal">I hope this is clear; I'm doing my best not to lose you along the way.</p>
+			<p class="normal"><strong class="bold">Line 66</strong>: Now you get the <img src="../Images/B14110_10_020.png" alt=""/> part of the target. Call this <code class="Code-In-Text--PACKT-">batch_next_outputs</code>; you get it in two steps. First, call <code class="Code-In-Text--PACKT-">self.model(batch_next_states)</code>
+ to get the predicted Q-values for each next state of the batch of next 
+states and for each of the three actions. Then, for each next state of 
+the batch, take the<a id="_idIndexMarker384"/> maximum of the three Q-values using <code class="Code-In-Text--PACKT-">.detach().max(1)[0]</code>. That gives you the batch of the <img src="../Images/B14110_10_021.png" alt=""/> values part of the targets.</p>
+			<p class="normal"><strong class="bold">Line 67</strong>: Since you have the batch of rewards <img src="../Images/B14110_10_022.png" alt=""/> (it's part of the arguments), and since you just got the batch of the <img src="../Images/B14110_10_023.png" alt=""/> values part of the targets at Line 66, then you're ready to get the batch of targets:</p>
+			<figure class="mediaobject" xml:lang="en-GB" lang="en-GB"><img src="../Images/B14110_10_024.png" style="height:2.5em;" alt=""/></figure>
+			<p class="normal">That's exactly what you do at Line 67, by summing <code class="Code-In-Text--PACKT-">batch_rewards</code> and <code class="Code-In-Text--PACKT-">batch_next_outputs</code> multiplied by <code class="Code-In-Text--PACKT-">self.gamma</code>, one of the object variables in the <code class="Code-In-Text--PACKT-">Dqn</code> class. Now you have both the batch of outputs and the batch of targets, so you're ready to get the loss.</p>
+			<p class="normal"><strong class="bold">Line 68</strong>: Let's remind ourselves of the formula for the loss:</p>
+			<figure class="mediaobject" xml:lang="en-GB" lang="en-GB"><img src="../Images/B14110_10_025.png" style="height:3em;" alt=""/></figure>
+			<figure class="mediaobject" xml:lang="en-GB" lang="en-GB"><img src="../Images/B14110_10_026.png" style="height:3em;" alt=""/></figure>
+			<figure class="mediaobject" xml:lang="en-GB" lang="en-GB"><img src="../Images/B14110_10_027.png" style="height:3em;" alt=""/></figure>
+			<p class="normal">Therefore, in order to get the loss, you just have 
+to get the sum of the squared differences between our targets and 
+outputs in the batch. That's exactly what the <code class="Code-In-Text--PACKT-">smooth_l1_loss</code> function will do. Taken from the <code class="Code-In-Text--PACKT-">torch.nn.functional</code> module, it takes as inputs the<a id="_idIndexMarker385"/> two batches of outputs and targets and returns the loss as given in the preceding formula. In the code, call this loss <code class="Code-In-Text--PACKT-">td_loss</code> as in <strong class="bold">temporal difference loss</strong>.</p>
+			<p class="normal">Excellent progress! Now that you have the loss, 
+representing the error between the predictions and the targets, you're 
+ready to backpropagate this loss into the neural network and update our 
+weights to reduce this loss through mini-batch gradient descent. That's 
+why the next step to take here is to use your optimizer, which is the 
+tool that will perform the updates to the weights.</p>
+			<p class="normal"><strong class="bold">Line 69</strong>: You first initialize the gradients, by calling the <code class="Code-In-Text--PACKT-">zero_grad()</code> method from your <code class="Code-In-Text--PACKT-">self.optimizer</code> object (<code class="Code-In-Text--PACKT-">zero_grad</code> is a method of the <code class="Code-In-Text--PACKT-">Adam</code> class), which will basically set all the gradients of the weights to zero.</p>
+			<p class="normal"><strong class="bold">Line 70</strong>: You backpropagate the loss error <code class="Code-In-Text--PACKT-">td_loss</code> into the neural network by calling the <code class="Code-In-Text--PACKT-">backward()</code> function from <code class="Code-In-Text--PACKT-">td_loss</code>.</p>
+			<p class="normal"><strong class="bold">Line 71</strong>: You perform the weights updates by calling the <code class="Code-In-Text--PACKT-">step()</code> method from your <code class="Code-In-Text--PACKT-">self.optimizer</code> object (<code class="Code-In-Text--PACKT-">step</code> is a method of the <code class="Code-In-Text--PACKT-">Adam</code> class).</p>
+			<p class="normal">Congratulations! You've built yourself a tool in the <code class="Code-In-Text--PACKT-">Dqn</code>
+ class that will train your car to drive better. You've done the 
+toughest part. Now all you have left to do is to wrap things up into a 
+last method, called <code class="Code-In-Text--PACKT-">update</code>, which will simply update the weights after reaching a new state.</p>
+			<p class="normal">Now, in case you are thinking, "but isn't what I've already done with the <code class="Code-In-Text--PACKT-">learn</code>
+ method?," well, you're right; but you need to make an extra function 
+that will update the weights at the right time. The right time to update
+ the weights is right after our AI reaches a new state. Simply put, this
+ final <code class="Code-In-Text--PACKT-">update</code> method you're about to implement will connect the dots between the <code class="Code-In-Text--PACKT-">learn</code> method and the dynamic environment.</p>
+			<p class="normal">That's the finish line! Are you ready? Here's the code:</p>
+			<pre class="programlisting language-markup"><code class="hljs haxe">   def update(self, <span class="hljs-keyword">new</span><span class="hljs-type">_state</span>, <span class="hljs-keyword">new</span><span class="hljs-type">_reward</span>):   <span class="hljs-type"/>#<span class="hljs-number">73</span>
+        <span class="hljs-keyword">new</span><span class="hljs-type">_state</span> = torch.Tensor(<span class="hljs-keyword">new</span><span class="hljs-type">_state</span>).float().unsqueeze(<span class="hljs-number">0</span>)   <span class="hljs-meta">#74</span>
+        self.memory.push((self.last_state, torch.LongTensor([int(self.last_action)]), torch.Tensor([self.last_reward]), <span class="hljs-keyword">new</span><span class="hljs-type">_state</span>))   <span class="hljs-meta">#75</span>
+        <span class="hljs-keyword">new</span><span class="hljs-type">_action</span> = self.select_action(<span class="hljs-keyword">new</span><span class="hljs-type">_state</span>)   <span class="hljs-meta">#76</span>
+        <span class="hljs-keyword">if</span> len(self.memory.memory) &gt; <span class="hljs-number">100</span>:   <span class="hljs-type"/>#<span class="hljs-number">77</span>
+            batch_states, batch_actions, batch_rewards, batch_next_states = self.memory.sample(<span class="hljs-number">100</span>)   <span class="hljs-meta">#78</span>
+            self.learn(batch_states, batch_actions, batch_rewards, batch_next_states)   <span class="hljs-meta">#79</span>
+        self.last_state = <span class="hljs-keyword">new</span><span class="hljs-type">_state</span>   <span class="hljs-meta">#80</span>
+        self.last_action = <span class="hljs-keyword">new</span><span class="hljs-type">_action</span>   <span class="hljs-meta">#81</span>
+        self.last_reward = <span class="hljs-keyword">new</span><span class="hljs-type">_reward</span>   <span class="hljs-meta">#82</span>
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span><span class="hljs-type">_action</span>   <span class="hljs-meta">#83</span>
+</code></pre>
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			<p class="normal"><strong class="bold">Line 73</strong>: You introduce the <code class="Code-In-Text--PACKT-">update()</code>
+ method, which takes as input the new state reached and the new reward 
+received right after playing an action. This new state entered here will
+ be the <code class="Code-In-Text--PACKT-">state</code> variable you can see in Line 129 of the <code class="Code-In-Text--PACKT-">map.py</code> file and this new reward<a id="_idIndexMarker386"/> will be the <code class="Code-In-Text--PACKT-">reward</code> variable you can see in Lines 138 to 145 of the <code class="Code-In-Text--PACKT-">map.py</code> file. This <code class="Code-In-Text--PACKT-">update</code> method performs some operations including the weights updates and, in the end, returns the new action to perform.</p>
+			<p class="normal"><strong class="bold">Line 74</strong>: You first 
+convert the new state into a torch tensor and unsqueeze it to create an 
+additional dimension (placed first in index 0) corresponding to the 
+batch. To ease future operations, you also make sure that all the 
+elements of the new state (orientation plus the three signals) are 
+converted into floats by adding <code class="Code-In-Text--PACKT-">.float()</code>.</p>
+			<p class="normal"><strong class="bold">Line 75</strong>: Using the <code class="Code-In-Text--PACKT-">push()</code> method from your memory object, add a new transition to the memory. This new transition is composed of:</p>
+			<ol>
+				<li class="list" value="1"><code class="Code-In-Text--PACKT-">self.last_state</code>: The last state reached before reaching that new state</li>
+				<li class="list"><code class="Code-In-Text--PACKT-">self.last_action</code>: The last action played that led to that new state</li>
+				<li class="list"><code class="Code-In-Text--PACKT-">self.last_reward</code>: The last reward received after performing that last action</li>
+				<li class="list"><code class="Code-In-Text--PACKT-">new_state</code>: The new state that was just reached</li>
+			</ol>
+			<p class="normal">All the elements of this new transition are converted into torch tensors.</p>
+			<p class="normal"><strong class="bold">Line 76</strong>: Using the <code class="Code-In-Text--PACKT-">select_action()</code> method from your <code class="Code-In-Text--PACKT-">Dqn</code> class, perform a new action from the new state just reached.</p>
+			<p class="normal"><strong class="bold">Line 77</strong>: Check if the size of the memory is larger than 100. In <code class="Code-In-Text--PACKT-">self.memory.memory</code>, the first <code class="Code-In-Text--PACKT-">memory</code> is the object created at Line 53 and the second <code class="Code-In-Text--PACKT-">memory</code> is the variable object introduced at Line 35.</p>
+			<p class="normal"><strong class="bold">Line 78</strong>: If that's the case, sample 100 transitions from the memory, using the <code class="Code-In-Text--PACKT-">sample()</code> method from your <code class="Code-In-Text--PACKT-">self.memory</code> object. This returns four batches of size 100:</p>
+			<ol>
+				<li class="list" value="1"><code class="Code-In-Text--PACKT-">batch_states</code>: The batch of current states (current at the time of the transition).</li>
+				<li class="list"><code class="Code-In-Text--PACKT-">batch_actions</code>: The batch of actions performed in the current states.</li>
+				<li class="list"><code class="Code-In-Text--PACKT-">batch_rewards</code>: The batch of rewards received after playing the actions of <code class="Code-In-Text--PACKT-">batch_actions</code> in the current states of <code class="Code-In-Text--PACKT-">batch_states</code>.</li>
+				<li class="list"><code class="Code-In-Text--PACKT-">batch_next_states</code>: The batch of next states reached after playing the actions of <code class="Code-In-Text--PACKT-">batch_actions</code> in the current states of <code class="Code-In-Text--PACKT-">batch_states</code>.</li>
+			</ol>
+			<p class="normal"><strong class="bold">Line 79</strong>: Still in the <code class="Code-In-Text--PACKT-">if</code> condition, proceed to the weights updates using the <code class="Code-In-Text--PACKT-">learn()</code> method called from<a id="_idIndexMarker387"/> the same <code class="Code-In-Text--PACKT-">Dqn</code> class, with the four previous batches as inputs.</p>
+			<p class="normal"><strong class="bold">Line 80</strong>: Update the last state reached, <code class="Code-In-Text--PACKT-">self.last_state</code>, which becomes <code class="Code-In-Text--PACKT-">new_state</code>.</p>
+			<p class="normal"><strong class="bold">Line 81</strong>: Update the last action performed, <code class="Code-In-Text--PACKT-">self.last_action</code>, which becomes <code class="Code-In-Text--PACKT-">new_action</code>.</p>
+			<p class="normal"><strong class="bold">Line 82</strong>: Update the last reward received, <code class="Code-In-Text--PACKT-">self.last_reward</code>, which becomes <code class="Code-In-Text--PACKT-">new_reward</code>.</p>
+			<p class="normal"><strong class="bold">Line 83</strong>: Return the new action performed.</p>
+			<p class="normal">That's it for the <code class="Code-In-Text--PACKT-">update()</code>
+ method! I hope you can see how we connected the dots. Now, to connect 
+the dots even better, let's see where and how you call that <code class="Code-In-Text--PACKT-">update</code> method in the <code class="Code-In-Text--PACKT-">map.py</code> file.</p>
+			<p class="normal">First, before calling that <code class="Code-In-Text--PACKT-">update()</code> method, you have to create an object of the <code class="Code-In-Text--PACKT-">Dqn</code> class, which here is called <code class="Code-In-Text--PACKT-">brain</code>. That's exactly what you do in Line 33 of the <code class="Code-In-Text--PACKT-">map.py</code> file.</p>
+			<pre class="programlisting language-markup"><code class="hljs lsl">brain = Dqn(<span class="hljs-number">4</span>,<span class="hljs-number">3</span>,<span class="hljs-number">0.9</span>)   #<span class="hljs-number">33</span>
+</code></pre>
+			<p class="normal">The arguments entered here are the three arguments we see in the <code class="Code-In-Text--PACKT-">__init__()</code> method of the <code class="Code-In-Text--PACKT-">Dqn</code> class:</p>
+			<ul>
+				<li class="list"><code class="Code-In-Text--PACKT-">4</code> is the number of elements in the input state (<code class="Code-In-Text--PACKT-">input_size</code>).</li>
+				<li class="list"><code class="Code-In-Text--PACKT-">3</code> is the number of possible actions (<code class="Code-In-Text--PACKT-">nb_action</code>).</li>
+				<li class="list"><code class="Code-In-Text--PACKT-">0.9</code> is the discount factor (<code class="Code-In-Text--PACKT-">gamma</code>).</li>
+			</ul>
+			<p class="normal">Then, from this <code class="Code-In-Text--PACKT-">brain</code> object, you call on the <code class="Code-In-Text--PACKT-">update()</code> method in Line 130 of the <code class="Code-In-Text--PACKT-">map.py</code> file, right after reaching a new state, called <code class="Code-In-Text--PACKT-">state</code> in the code:</p>
+			<pre class="programlisting language-markup"><code class="hljs pf">       <span class="hljs-keyword">state</span> = [orientation, <span class="hljs-literal">self</span>.car.signal1, <span class="hljs-literal">self</span>.car.signal2, <span class="hljs-literal">self</span>.car.signal3]   <span class="hljs-comment">#129</span>
+        action = brain.update(<span class="hljs-keyword">state</span>, reward)   <span class="hljs-comment">#130</span>
+</code></pre>
+			
+			<p class="normal">Going back to your <code class="Code-In-Text--PACKT-">Dqn</code> class, you <a id="_idIndexMarker388"/>need two extra methods:</p>
+			<ol>
+				<li class="list" value="1">The <code class="Code-In-Text--PACKT-">save()</code>
+ method, which saves the weights of the AI's network after their last 
+updates. This method will be called as soon as you click the <strong class="screen-text">save</strong> button while running the map. The weights of your AI will be then saved and put into a file named <code class="Code-In-Text--PACKT-">last_brain.pth</code>,
+ which will automatically be populated in the folder that contains your 
+Python files. That's what allows you to have a pre-trained AI.</li>
+				<li class="list">The <code class="Code-In-Text--PACKT-">load()</code> method, which loads the saved weights in the <code class="Code-In-Text--PACKT-">last_brain.pth</code> file. This method will be called as soon as you click the <strong class="screen-text">load</strong>
+ button while running the map. It allows you to start the map with a 
+pre-trained self-driving car, without having to wait for it to train.</li>
+			</ol>
+			<p class="normal">These last two methods aren't AI-related, so we 
+won't spend time explaining each line of their code. Still, it's good 
+for you to be able to recognize these two tools in case you want to use 
+them for another AI model that you build with PyTorch. </p>
+			<p class="normal">Here's how they're implemented:</p>
+			<pre class="programlisting language-markup"><code class="hljs pgsql">    def save(self):   #<span class="hljs-number">85</span>
+        torch.save({<span class="hljs-string">'state_dict'</span>: self.model.state_dict(),   #<span class="hljs-number">86</span>
+                    <span class="hljs-string">'optimizer'</span> : self.optimizer.state_dict(),   #<span class="hljs-number">87</span>
+                   }, <span class="hljs-string">'last_brain.pth'</span>)   #<span class="hljs-number">88</span>
+    #<span class="hljs-number">89</span>
+    def <span class="hljs-keyword">load</span>(self):   #<span class="hljs-number">90</span>
+        <span class="hljs-keyword">if</span> os.path.isfile(<span class="hljs-string">'last_brain.pth'</span>):   #<span class="hljs-number">91</span>
+            print("=&gt; loading checkpoint... ")   #<span class="hljs-number">92</span>
+            <span class="hljs-keyword">checkpoint</span> = torch.<span class="hljs-keyword">load</span>(<span class="hljs-string">'last_brain.pth'</span>)   #<span class="hljs-number">93</span>
+            self.model.load_state_dict(<span class="hljs-keyword">checkpoint</span>[<span class="hljs-string">'state_dict'</span>])   #<span class="hljs-number">94</span>
+            self.optimizer.load_state_dict(<span class="hljs-keyword">checkpoint</span>[<span class="hljs-string">'optimizer'</span>])   #<span class="hljs-number">95</span>
+            print("done !")   #<span class="hljs-number">96</span>
+        <span class="hljs-keyword">else</span>:   #<span class="hljs-number">97</span>
+            print("no checkpoint found...")   #<span class="hljs-number">98</span>
+</code></pre>
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			<p class="normal">Congratulations!</p>
+			<p class="normal">That's right! You've finished this 100 lines of 
+code implementation of the AI inside our self-driving car. That's quite 
+an accomplishment, especially when coding deep Q-learning for the first 
+time. You really can be proud to have gone this far.</p>
+			<p class="normal">After all this hard<a id="_idIndexMarker389"/> 
+work, you definitely deserve to have some fun, and I think it'll be the 
+most fun to watch the result of your hard work. In other words, you're 
+about to see your self-driving car in action! I remember I was so 
+excited the first time I ran this. You'll feel it too; it's pretty cool!</p>
+			<h2 class="title" xml:lang="en-GB" id="sigil_toc_id_166" lang="en-GB"><a id="_idTextAnchor234"/>The demo</h2>
+			<p class="normal">I have some good news and some bad news.</p>
+			<p class="normal">I'll start with the bad news: we can't run the <code class="Code-In-Text--PACKT-">map.py</code>
+ file with a simple plug and play on Google Colab. The reason for that 
+is that Kivy is very tricky to install through Colab. So, we'll go for 
+the classic method of running a Python file: through the terminal.</p>
+			<p class="normal">The good news is that once we install Kivy and PyTorch through the terminal, you'll have a fantastic demo!</p>
+			<p class="normal">Let's install everything we <a id="_idIndexMarker390"/>need to run our self-driving car. Here's what we have to install, in the following order:</p>
+			<ol>
+				<li class="list" value="1"><strong class="bold">Anaconda</strong>: A free and<a id="_idIndexMarker391"/> open source distribution of Python that offers an easy way to install packages thanks to the <code class="Code-In-Text--PACKT-">conda</code> command. This is what we'll use to install PyTorch and Kivy.</li>
+				<li class="list"><strong class="bold">Virtual environment with Python 3.6</strong>: Anaconda is installed with Python 3.7 or higher; however, that 3.7 version is <a id="_idIndexMarker392"/>not
+ compatible with Kivy. We'll create a virtual environment in which we 
+install Python 3.6, a version compatible with both Kivy and our 
+implementation. Don't worry if that sounds intimidating, I'll give you 
+all the details you need to set this up.</li>
+				<li class="list"><strong class="bold">PyTorch</strong>: Then, inside<a id="_idIndexMarker393"/>
+ the virtual environment, we'll install PyTorch, the AI framework used 
+to build our deep Q-network. We'll install a specific version of PyTorch
+ that's compatible with our implementation, so that everyone can be on 
+the same page and run it with no issues. PyTorch upgrades sometimes 
+include changes in the names of the modules, which can make an old 
+implementation incompatible with the newest PyTorch versions. Here, 
+we know we have the right PyTorch version for our implementation.</li>
+				<li class="list"><strong class="bold">Kivy</strong>: To finish, still inside<a id="_idIndexMarker394"/> the virtual environment, we'll install Kivy, the open source Python framework on which we will run our map.</li>
+			</ol>
+			<p class="normal">Let's start with Anaconda.</p>
+			<h3 class="title" xml:lang="en-GB" id="sigil_toc_id_167" lang="en-GB"><a id="_idTextAnchor235"/>Installing Anaconda</h3>
+			<p class="normal">On Google, or your<a id="_idIndexMarker395"/> favorite browser, go to <a href="https://www.anaconda.com/"><span class="url">www.anaconda.com</span></a>. On the Anaconda <a id="_idIndexMarker396"/>website, click <strong class="screen-text">Download</strong> on the upper right corner of the screen. Scroll down and you'll find the Python versions to download:</p>
+			<figure class="mediaobject" xml:lang="en-GB" lang="en-GB"><img src="../Images/B14110_10_16.png" alt=""/></figure>
+			<p class="packt_figref">Figure 16: Installing Anaconda – Step 2</p>
+			<p class="normal">At the top, make<a id="_idIndexMarker397"/> sure that your system (Windows, macOS, or Linux) is correctly selected. If it is, click the <strong class="screen-text">Download</strong> button in the Python 3.7 version box. This will download Anaconda with Python 3.7.</p>
+			<p class="normal">Then double-click the downloaded file and keep clicking <strong class="screen-text">Continue </strong>and <strong class="screen-text">Agree </strong>to install, until the end. If you're prompted to choose who or how to install it for, choose <strong class="screen-text">install for me only</strong>.</p>
+			<h3 class="title" xml:lang="en-GB" id="sigil_toc_id_168" lang="en-GB"><a id="_idTextAnchor236"/>Creating a virtual environment with Python 3.6</h3>
+			<p class="normal">Now that Anaconda's installed, you<a id="_idIndexMarker398"/> can create a virtual <a id="_idIndexMarker399"/>environment, named <code class="Code-In-Text--PACKT-">selfdrivingcar</code>,
+ with Python 3.6 installed. To do this you need to open a terminal and 
+enter some commands. Here's how to open it for the three systems:</p>
+			<ol>
+				<li class="list" value="1">For Linux users, just press <kbd class="Key--PACKT-">Ctrl</kbd> + <kbd class="Key--PACKT-">Alt</kbd> + <kbd class="Key--PACKT-">T</kbd>.</li>
+				<li class="list">For Mac users, press <kbd class="Key--PACKT-">Cmd</kbd> + <kbd class="Key--PACKT-">Space</kbd>, and then in the Spotlight Search enter <code class="Code-In-Text--PACKT-">Terminal</code>.</li>
+				<li class="list">For Windows users, click the Windows button at the lower left corner of your screen, find <code class="Code-In-Text--PACKT-">anaconda</code> in the list of programs, and click to open Anaconda prompt. A <a id="_idIndexMarker400"/>black window will open; that's the terminal you'll use to install the packages.</li>
+			</ol>
+			<p class="normal">Inside the terminal, enter the following command:</p>
+			<pre class="programlisting language-markup"><code class="hljs routeros">conda create -n selfdrivingcar <span class="hljs-attribute">python</span>=3.6
+</code></pre>
+			<p class="normal">Just like so:</p>
+			<figure class="mediaobject" xml:lang="en-GB" lang="en-GB"><img src="../Images/B14110_10_17.png" alt=""/></figure>
+			<p class="normal">This command creates<a id="_idIndexMarker401"/> a virtual environment called <code class="Code-In-Text--PACKT-">selfdrivingcar</code> with Python 3.6 and other packages installed.</p>
+			<p class="normal">After pressing <kbd class="Key--PACKT-">Enter</kbd>, you'll get this in a few seconds:</p>
+			<figure class="mediaobject" xml:lang="en-GB" lang="en-GB"><img src="../Images/B14110_10_18.png" alt=""/></figure>
+			<p class="normal">Press <code class="Code-In-Text--PACKT-">y</code> to proceed. This <a id="_idIndexMarker402"/>will download and extract the packages. After a few seconds, you'll get this, which marks the end of the installation:</p>
+			<figure class="mediaobject" xml:lang="en-GB" lang="en-GB"><img src="../Images/B14110_10_19.png" alt=""/></figure>
+			<p class="normal">Then we're going to activate the <code class="Code-In-Text--PACKT-">selfdrivingcar</code> virtual environment, meaning we're going to get inside it in order to install PyTorch and Kivy within the <code class="Code-In-Text--PACKT-">selfdrivingcar</code> virtual environment.</p>
+			<p class="normal">As you can see<a id="_idIndexMarker403"/> just preceding, to activate the environment, we<a id="_idIndexMarker404"/> will enter the following command:</p>
+			<pre class="programlisting language-markup"><code class="hljs nginx"><span class="hljs-attribute">conda</span> activate selfdrivingcar
+</code></pre>
+			<p class="normal">Enter that command, and then you'll get inside the virtual environment:</p>
+			<figure class="mediaobject" xml:lang="en-GB" lang="en-GB"><img src="../Images/B14110_10_20.png" alt=""/></figure>
+			<p class="normal">Now we can see <code class="Code-In-Text--PACKT-">(selfdrivingcar)</code> before my computer's name, <code class="Code-In-Text--PACKT-">hadelins-macbook-pro</code>, which means we are inside the <code class="Code-In-Text--PACKT-">selfdrivingcar</code> virtual environment.</p>
+			<p class="normal">We're ready for the<a id="_idIndexMarker405"/> 
+next steps, which are the installation of PyTorch and Kivy inside this 
+virtual environment. Don't close your terminal, or when you open it 
+again you'll be back in the main environment.</p>
+			<h3 class="title" xml:lang="en-GB" id="sigil_toc_id_169" lang="en-GB"><a id="_idTextAnchor237"/>Installing PyTorch</h3>
+			<p class="normal">Now we're going to<a id="_idIndexMarker406"/> install PyTorch inside the virtual environment by<a id="_idIndexMarker407"/> entering the following command:</p>
+			<pre class="programlisting language-markup"><code class="hljs lsl">conda install pytorch==<span class="hljs-number">0.3</span><span class="hljs-number">.1</span> -c pytorch
+</code></pre>
+			<p class="normal">Just like so:</p>
+			<figure class="mediaobject" xml:lang="en-GB" lang="en-GB"><img src="../Images/B14110_10_21.png" alt=""/></figure>
+			<p class="normal">After a<a id="_idIndexMarker408"/> few seconds, we get this:</p>
+			<figure class="mediaobject" xml:lang="en-GB" lang="en-GB"><img src="../Images/B14110_10_22.png" alt=""/></figure>
+			<p class="normal">Press <code class="Code-In-Text--PACKT-">y</code> again, and<a id="_idIndexMarker409"/> then press <kbd class="Key--PACKT-">Enter</kbd>.</p>
+			<p class="normal">After a few seconds, PyTorch is installed:</p>
+			<figure class="mediaobject" xml:lang="en-GB" lang="en-GB"><img src="../Images/B14110_10_23.png" alt=""/></figure>
+			<h3 class="title" xml:lang="en-GB" id="sigil_toc_id_170" lang="en-GB"><a id="_idTextAnchor238"/>Installing Kivy</h3>
+			<p class="normal">Now let's proceed<a id="_idIndexMarker410"/> to Kivy. In the same virtual environment, we're going to install Kivy by<a id="_idIndexMarker411"/> entering the following command:</p>
+			<pre class="programlisting language-markup"><code class="hljs dockerfile">conda install -c conda-forge/<span class="hljs-keyword">label</span><span class="bash">/cf201901 kivy</span>
+</code></pre>
+			<figure class="mediaobject" xml:lang="en-GB" lang="en-GB"><img src="../Images/B14110_10_24.png" alt=""/></figure>
+			<p class="normal">Again, we get <a id="_idIndexMarker412"/>this:</p>
+			<figure class="mediaobject" xml:lang="en-GB" lang="en-GB"><img src="../Images/B14110_10_25.png" alt=""/></figure>
+			<p class="normal">Enter <code class="Code-In-Text--PACKT-">y</code> again, and after a<a id="_idIndexMarker413"/> few seconds more, Kivy is installed.</p>
+			<figure class="mediaobject" xml:lang="en-GB" lang="en-GB"><img src="../Images/B14110_10_26.png" alt=""/></figure>
+			<p class="normal">Now I have some<a id="_idIndexMarker414"/> 
+terrific news for you: you're ready to run the self-driving car! To do 
+that, we need to run our code in the terminal, still inside our virtual 
+environment.</p>
+			
+				<div id="_idContainer408" class="packt_tip">
+					<p class="Information-Box--PACKT-">If you already closed your terminal, then when you open it again enter the <code class="Code-In-Text--PACKT-">conda activate selfdrivingcar</code> command in order to get back inside the virtual environment.</p>
+				</div>
+			
+			<p class="normal">So, let's run the code! If you haven't already, download the whole repository by clicking the <strong class="screen-text">Clone or download</strong> button on<span id="_idIndexMarker415"/> the GitHub page:</p>
+			<p class="normal">(<a href="https://github.com/PacktPublishing/AI-Crash-Course"><span class="url">https://github.com/PacktPublishing/AI-Crash-Course</span></a>)</p>
+			<figure class="mediaobject" xml:lang="en-GB" lang="en-GB"><img src="../Images/B14110_10_27.png" alt=""/></figure>
+			<p class="packt_figref">Figure 17: The GitHub repository</p>
+			<p class="normal">Then unzip it and <a id="_idIndexMarker416"/>move the unzipped folder to your desktop, just like so:</p>
+			<figure class="mediaobject" xml:lang="en-GB" lang="en-GB"><img src="../Images/B14110_10_28.png" alt=""/></figure>
+			<p class="normal">Now go into <code class="Code-In-Text--PACKT-">Chapter 10 </code>and select and<a id="_idIndexMarker417"/> copy all the files inside:</p>
+			<figure class="mediaobject" xml:lang="en-GB" lang="en-GB"><img src="../Images/B14110_10_29.png" alt=""/></figure>
+			<p class="normal">Then, because <a id="_idIndexMarker418"/>we're 
+only interested in these files right now, and to simplify the command 
+lines in the terminal, paste these files inside the main <code class="Code-In-Text--PACKT-">AI-Crash-Course-master</code> folder and remove all the rest, which we don't need, so that you eventually end up with this:</p>
+			<figure class="mediaobject" xml:lang="en-GB" lang="en-GB"><img src="../Images/B14110_10_30.png" alt=""/></figure>
+			<p class="normal">Now we're going to <a id="_idIndexMarker419"/>access this folder from the terminal. Since we put the repository folder in<a id="_idIndexMarker420"/> the desktop, we will find it in a flash. Back into the terminal, enter <code class="Code-In-Text--PACKT-">ls</code> (l as in lion) to see in which folder you are in your machine:</p>
+			<figure class="mediaobject" xml:lang="en-GB" lang="en-GB"><img src="../Images/B14110_10_31.png" alt=""/></figure>
+			<p class="normal">I can see that I'm in my main root folder, which contains the <code class="Code-In-Text--PACKT-">Desktop</code> folder. It should usually be the case for you too. So now we're going to go into the <code class="Code-In-Text--PACKT-">Desktop</code> folder by entering the following command:</p>
+			<pre class="programlisting language-markup"><code class="hljs vim"><span class="hljs-keyword">cd</span> Desktop
+</code></pre>
+			<figure class="mediaobject" xml:lang="en-GB" lang="en-GB"><img src="../Images/B14110_10_32.png" alt=""/></figure>
+			<p class="normal">Enter <code class="Code-In-Text--PACKT-">ls</code> again <a id="_idIndexMarker421"/>and check that you<a id="_idIndexMarker422"/> indeed see the <code class="Code-In-Text--PACKT-">AI-Crash-Course-master</code> folder:</p>
+			<figure class="mediaobject" xml:lang="en-GB" lang="en-GB"><img src="../Images/B14110_10_33.png" alt=""/></figure>
+			<p class="normal">Then go into the <code class="Code-In-Text--PACKT-">AI-Crash-Course-master</code> folder by entering the following command:</p>
+			<pre class="programlisting language-markup"><code class="hljs crmsh">cd AI-Crash-Course-<span class="hljs-keyword">master</span>
+<span class="hljs-title"/></code></pre>
+			<figure class="mediaobject" xml:lang="en-GB" lang="en-GB"><img src="../Images/B14110_10_34.png" alt=""/></figure>
+			<p class="normal">Perfect! Now<a id="_idIndexMarker423"/> we're in the right spot! By entering <code class="Code-In-Text--PACKT-">ls</code> again, you can see all the files of the repo, including<a id="_idIndexMarker424"/> the <code class="Code-In-Text--PACKT-">map.py</code> file, which is the one we have to run to see our self-driving car in action!</p>
+			<figure class="mediaobject" xml:lang="en-GB" lang="en-GB"><img src="../Images/B14110_10_35.png" alt=""/></figure>
+			<p class="normal">If by any chance you had trouble getting to this point, that may be because your main root folder doesn't contain your <code class="Code-In-Text--PACKT-">Desktop</code> folder. If that's the case, just put the <code class="Code-In-Text--PACKT-">AI-Crash-Course-master</code> repo folder inside one of the folders that you see when entering the <code class="Code-In-Text--PACKT-">ls</code> command in the terminal, and redo the same process.</p>
+			<p class="normal">What you have to do is just find and enter the <code class="Code-In-Text--PACKT-">AI-Crash-Course-master</code> folder with the <code class="Code-In-Text--PACKT-">cd</code> commands. That's it! Don't forget to make sure your <code class="Code-In-Text--PACKT-">AI-Crash-Course-master</code> folder only contains the self-driving car files:</p>
+			<figure class="mediaobject" xml:lang="en-GB" lang="en-GB"><img src="../Images/B14110_10_36.png" alt=""/></figure>
+			<p class="normal">Now you're only one<a id="_idIndexMarker425"/> 
+command line away from running your self-driving car. I hope you're 
+excited to see the results of your hard work; I know exactly how you 
+feel, I was in <a id="_idIndexMarker426"/>your shoes not so long ago!</p>
+			<p class="normal">So, without further ado, let's enter the final command, right now. It's this:</p>
+			<pre class="programlisting language-markup"><code class="hljs vim"><span class="hljs-keyword">python</span> <span class="hljs-keyword">map</span>.<span class="hljs-keyword">py</span>
+</code></pre>
+			<figure class="mediaobject" xml:lang="en-GB" lang="en-GB"><img src="../Images/B14110_10_37.png" alt=""/></figure>
+			<p class="normal">As soon as you enter it, the map with the car will pop up just like so:</p>
+			<figure class="mediaobject" xml:lang="en-GB" lang="en-GB"><img src="../Images/B14110_10_38.png" alt=""/></figure>
+			<p class="packt_figref">Figure 18: The map</p>
+			<p class="normal">For the first minute <a id="_idIndexMarker427"/>or
+ so, your self-driving car will explore its actions by performing 
+nonsense movements; you might see it spinning around. After each 100 
+movements, the weights inside the <a id="_idIndexMarker428"/>neural 
+network of the AI get updated, and the car improves its actions to get 
+higher rewards. And suddenly, maybe after another 30 seconds or so, you 
+should see your car making round trips between the Airport and Downtown,
+ which I highlighted here again:</p>
+			<figure class="mediaobject" xml:lang="en-GB" lang="en-GB"><img src="../Images/B14110_10_39.png" alt=""/></figure>
+			<p class="packt_figref">Figure 19: The destinations</p>
+			<p class="normal">Now have some fun! Draw <a id="_idIndexMarker429"/>some obstacles on the map to see if the car avoids them.</p>
+			<p class="normal">On my side I have<a id="_idIndexMarker430"/> just drawn this, and after a few more minutes of training, I can clearly see the car avoiding the obstacles:</p>
+			<figure class="mediaobject" xml:lang="en-GB" lang="en-GB"><img src="../Images/B14110_10_40.png" alt=""/></figure>
+			<p class="packt_figref">Figure 20: Road with obstacles</p>
+			<p class="normal">And you can have <a id="_idIndexMarker431"/>even more fun! By, for <a id="_idIndexMarker432"/>example, drawing a road like so:</p>
+			<figure class="mediaobject" xml:lang="en-GB" lang="en-GB"><img src="../Images/B14110_10_41.png" alt=""/></figure>
+			<p class="packt_figref">Figure 21: The road of the demo</p>
+			<p class="normal">After a few minutes of training, the car becomes 
+able to self-drive along that road, while making many road trips between
+ the Airport and Downtown.</p>
+			<p class="normal">Quick question for<a id="_idIndexMarker433"/> you: how did you program the car to travel between the destinations?</p>
+			<p class="normal">You did it by giving a small positive<a id="_idIndexMarker434"/> reward to the AI when the car gets closer to the goal. That's programmed in rows 144 and 145 inside the <code class="Code-In-Text--PACKT-">map.py</code> file:</p>
+			<pre class="programlisting language-markup"><code class="hljs yaml">           <span class="hljs-string">if</span> <span class="hljs-string">distance</span> <span class="hljs-string">&lt;</span> <span class="hljs-attr">last_distance:</span>   <span class="hljs-comment">#144</span>
+                <span class="hljs-string">reward</span> <span class="hljs-string">=</span> <span class="hljs-number">0.1</span>   <span class="hljs-comment">#145</span>
+</code></pre>
+			
+			<p class="normal">Congratulations to you for completing this massive 
+chapter on this not-so-basic self-driving car application! I hope you 
+had fun, and that you feel proud to have mastered such an advanced model
+ in deep reinforcement learning.</p>
+			<h2 class="title" xml:lang="en-GB" id="sigil_toc_id_171" lang="en-GB">Summary</h2>
+			<p class="normal">In this chapter, we learned how to build a deep 
+Q-learning model to drive a self-driving car. As inputs it took the 
+information fro<a id="_idTextAnchor239"/>m the three sensors and its 
+current orientation. As outputs it decided the Q-values for each of the 
+actions of going straight, turning left, or turning right. As for the 
+rewards, we punished it badly for hitting the sand, punished it slightly
+ for going in the wrong direction, and rewarded it slightly for going in
+ the right direction. We made the AI implementation in PyTorch and used 
+Kivy for the graphics. To run all of this we used the Anaconda 
+environment.</p>
+			<p class="normal"><a id="_idTextAnchor240"/>Now take a long break,
+ you deserve it! I'll see you in the next chapter for our next AI 
+challenge, where this time we will solve a real-world business problem 
+with cost implications running into the millions.</p>
+</body></html>
