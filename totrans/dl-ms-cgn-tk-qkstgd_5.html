@@ -1,0 +1,387 @@
+<html><head></head><body>
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Working with Images</h1>
+                </header>
+            
+            <article>
+                
+<p><span>In this chapter, we're going to explore some more deep learning models with CNTK. Specifically, we're going to look at using neural networks for classifying image data. All that you've learned in the past chapters will come back in this chapter as we discuss how to train convolutional neural networks. </span></p>
+<p>The following topics will be covered in this chapter:</p>
+<ul>
+<li>Convolutional neural network architecture</li>
+<li>How to build a convolutional neural network</li>
+<li>How to feed image data into a convolutional network</li>
+<li>How to improve network performance with data augmentation</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Technical requirements</h1>
+                </header>
+            
+            <article>
+                
+<p>We assume you have a recent version of Anaconda installed on your computer and have followed the steps in <a href="9a2c8c46-f9a0-4e05-86ef-31300a28a7ba.xhtml">Chapter 1</a>, <em>Getting Started with CNTK</em>, to install CNTK on your computer. The sample code for this chapter can be found in our<span> GitHub </span>repository at:<span> <a href="https://github.com/PacktPublishing/Deep-Learning-with-Microsoft-Cognitive-Toolkit-Quick-Start-Guide/tree/master/ch5">https://github.com/PacktPublishing/Deep-Learning-with-Microsoft-Cognitive-Toolkit-Quick-Start-Guide/tree/master/ch5</a></span>.</p>
+<p>In this<span> </span>chapter,<span> </span>we'll work on an example stored in a Jupyter notebook. To access the sample code, run the following commands inside an Anaconda prompt in the directory where you've downloaded the code:</p>
+<pre><strong>cd ch5</strong><br/><strong>jupyter notebook</strong></pre>
+<p>We'll mention relevant notebooks in each of the sections so you can follow along and try out the different techniques yourself.</p>
+<p>The dataset for this chapter is not available in the GitHub repository. It would be too big to store there. Please open the <kbd>Prepare the dataset.ipynb</kbd> <span>notebook </span>and follow the instructions there to obtain the data for this chapter.</p>
+<p class="mce-root">Check out the following video to see the code in action:</p>
+<p><a href="http://bit.ly/2Wm6U49">http://bit.ly/2Wm6U49</a></p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Convolutional neural network architecture</h1>
+                </header>
+            
+            <article>
+                
+<p class="mce-root">In previous chapters, we've learned how to use regular feed-forward network architectures to build neural networks. In a feed-forward neural network, we assume that there are interactions between the different input features. But we don't make any assumptions about the nature of these interactions. This is, however, not always the right thing to do.</p>
+<p>When you work with complex data such as images, a feed-forward neural network won't do a very good job. This comes from the fact that we assume that there's an interaction between the inputs of our network. But we don't account for the fact that they are organized in a spatial way. When you look at the pixels in an image, there's a horizontal and vertical relationship between them. There's also a relationship between the colors in an image and the position of certain colored pixels in that image.</p>
+<p>A convolutional network is a special kind of neural network that makes the explicit assumption that we're dealing with data that has a spatial relationship to it. This makes it really good at recognizing images. But other spatially organized data will work too. Let's explore the architecture of a convolutional neural network used for image classification tasks.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Network architecture used for image classification</h1>
+                </header>
+            
+            <article>
+                
+<p>Convolutional networks used for image classification typically contain one or more convolution layers followed by pooling layers, and usually end in regular fully-connected layers to provide the final output as shown in the following screenshot:</p>
+<div class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-581 image-border" src="assets/3bf0afaf-b58a-413f-ab2f-4caa7b6c68ee.png" style=""/></div>
+<div class="packt_figref CDPAlignCenter CDPAlign">This image is from: https://en.wikipedia.org/wiki/File:Typical_cnn.png</div>
+<p>When you take a closer look at the structure of a convolutional network, you'll see that it starts with a set of <strong>convolution</strong> and <strong>pooling</strong> layers. You can consider this part a complex, trainable photo filter. The <strong>convolution layers</strong> filter out interesting details that are needed to classify the image, and the <strong>pooling</strong> <strong>layers</strong> summarize these features so that there are<span> </span>fewer<span> </span>data points to crunch near the end of the network.</p>
+<p>Usually, you will find several sets of convolution layers and pooling layers in a neural network for image classification. This is done to be able to extract more complex details from the image. The first layer of the network extracts simple details, such as lines, from the image. The next set of layers then combines the output of the previous set of layers to learn more complex features, such as corners or curves. As you can imagine, the layers after that are used to learn increasingly more complex features.</p>
+<p>Often, when you build a neural network, you want to classify what's in the image. This is where the classic dense layers play an important role. Typically, a model used for image recognition will end in one output layer and one or more dense layers.</p>
+<p>Let's take a look at how to work with convolutional and pooling layers to create a convolutional neural network.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Working with convolution layers</h1>
+                </header>
+            
+            <article>
+                
+<p>Now that you've seen what a convolutional network looks like, let's look at the convolution layer that is used in the convolutional network: </p>
+<div class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-580 image-border" src="assets/ad85d578-6750-4eaf-8626-068c79382417.png" style=""/></div>
+<div class="packt_figref CDPAlignCenter CDPAlign">This image is from: https://en.wikipedia.org/wiki/File:Conv_layer.png</div>
+<p>The convolution layer is the core building block of the convolutional network. You can consider the convolution layer a trainable filter that you can use to extract important details from the input and remove data that is considered noise. A convolution layer contains a set of weights that cover a small area (width and height) but cover all channels of the input given to the layer. <span>When you create a convolution layer, you need to specify its depth in neurons. You'll find that most frameworks, including CNTK, talk about filters when talking about the depth of the layer. </span></p>
+<p>When we perform a forward pass, we slide the filters of the layer across the input and perform a dot product operation between the input and the weights for each of the filters. The sliding motion is controlled by a stride setting. When you specify a stride of 1, you will end up with an output matrix that has the same width and height as the input, but with the same depth as the number of filters in the layer. You can set a different stride, which will reduce the width and height of the output matrix. </p>
+<p>In addition to the input size and number of filters, you can configure the padding of the layer. Adding padding to a convolution layer will add a border of zeros around the processed input data. This may sound like a weird thing to do but can come in quite handy in some situations.</p>
+<p>When you look at the output size of a convolution layer, it will be determined based on the input size, the number of filters, the stride, and padding. The formula looks like this:</p>
+<div class="CenterAlign"><img class="fm-editor-equation" src="assets/29379922-0057-4588-808c-60406285ff02.png" style="width:13.75em;height:2.50em;"/></div>
+<p><em>W</em> is the input size, <em>F</em> is the number of filters or depth of the layer, <em>P</em> the padding, and <em>S</em> the stride.</p>
+<p>Not all combinations of input size, filters, stride, and padding are valid, though. For example, when you have an input size <em>W</em> = 10 and a layer depth <em>F</em> = 3 and a stride <em>S</em> = 2, then you'll end up with an output volume of 5.5. Not all inputs will perfectly map to this output size, so CNTK will raise an exception. This is where the padding setting comes in. By specifying padding, we can make sure that all inputs are mapped to output neurons.</p>
+<p>The settings for input size and filters we've just discussed may feel a little abstract, but there's sense to them. Setting a larger input size will cause the layer to capture coarser patterns from the input. Setting a smaller input size will make the layer better at detecting finer patterns. The depth or number of filters controls how many different patterns can be detected in the input image. At a high level, you could say that a convolutional filter with one filter detects one pattern; for example, horizontal lines. A layer with two filters can detect two different patterns: horizontal and vertical lines.</p>
+<p>Coming up with the right settings for a convolutional network can be quite a bit of work. Luckily, CNTK has settings that help make this process a little less complex.</p>
+<p>Training a convolutional layer is done in the same way as a regular dense layer. This means that we'll perform a forward pass, calculate the gradients, and use the learner to come up with better values for the parameters in a backward pass.</p>
+<p>Convolution layers are often followed by a pooling layer to compress the features learned by the convolutional layer. Let's look at pooling layers next.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Working with pooling layers</h1>
+                </header>
+            
+            <article>
+                
+<p>In the previous section we've looked at convolutional layers and how they can be used to extract details from pixel data. Pooling layers are used to summarize the extracted details. Pooling layers help reduce the volume of data so that it becomes easier to classify this data.</p>
+<p>It's important to understand that neural networks have a harder time to classify a sample when the sample has a lot of different input features. That's why we use a combination of convolution layers and pooling layers to extract details and summarize them:</p>
+<div class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-579 image-border" src="assets/14a89752-593c-4dcb-a9ad-ecbc785bfe33.png" style=""/></div>
+<div class="packt_figref CDPAlignCenter CDPAlign">This image is from: https://en.wikipedia.org/wiki/File:Max_pooling.png</div>
+<p>A pooling layer features a downsampling algorithm that you configure with an input size and stride. We will feed the output of each filter in the previous convolution layer into the pooling layer. The pooling layer moves across the slices of data and takes small windows equal to the configured input size. It takes the small areas of values and grabs the highest value from them as the output for that area. Just like with the convolution layer, it uses the stride to control how fast it moves across the input. For example, a size of 1 combined with a stride of 2 will reduce the data dimensions by half. By using only the highest input value, it discards 75% of the input data.</p>
+<p>Max-sampling, as this pooling technique is called, is not the only way in which a pooling layer can reduce the dimensionality of the input data. You can also use average-pooling. In this case, the average value of the input area is used as output in the pooling layer. </p>
+<div class="packt_infobox">Note that pooling layers only reduce the size of the input along the width and height. The depth remains the same as before, so you can rest assured that features are only downsampled and not removed completely.</div>
+<p class="mce-root"/>
+<p>Since pooling layers have a fixed algorithm to downsample input data, there are no trainable parameters in them. This means that it takes no time to train pooling layers.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Other uses for convolutional networks</h1>
+                </header>
+            
+            <article>
+                
+<p>We're focusing our efforts on using convolutional networks for image classification, but you can use this kind of neural network for many more scenarios, for example:</p>
+<ul>
+<li>Object detection in images. <span>The CNTK website includes a nice example that shows how to build an object detection model: </span><a href="https://docs.microsoft.com/en-us/cognitive-toolkit/Object-Detection-using-Fast-R-CNN">https://docs.microsoft.com/en-us/cognitive-toolkit/Object-Detection-using-Fast-R-CNN</a></li>
+<li>Detect faces in photos and predict the age of the person in the photo</li>
+<li>Caption images using a combination of convolutional and recurrent neural networks that we discuss in <a href="a5da9ef2-399a-4c30-b751-318d64939369.xhtml">Chapter 6</a>, <em>Working with Time Series Data</em></li>
+<li>Predict the distance to the bottom of a lake from sonar images</li>
+</ul>
+<p>When you start to combine convolutional networks for different tasks, you can build some pretty powerful applications; for example, a security camera that detects people in the videostream and warns the security guard about trespassers.</p>
+<p>Countries such as China are investing heavily in this kind of technology. Convolutional networks are used in smart city applications to monitor crossings. Using a deep learning model, the authorities can detect accidents at traffic lights and reroute the traffic automatically so that the police have an easier job.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Building convolutional networks</h1>
+                </header>
+            
+            <article>
+                
+<p>Now that you've seen the basics behind convolutional networks and some common use cases for them, let's take a look at how to build one with CNTK. </p>
+<p>We're going to build a model that can recognize handwritten digits in images. There's a free dataset available called the MNIST dataset that contains 60,000 samples of handwritten digits. There's also a test set available with 10,000 samples for the MNIST dataset.</p>
+<p>Let's get started and see what building a convolutional network looks like in CNTK. First, we'll look at how to put together the structure of the convolutional neural network, we then will take a look at how to train the parameters of a convolutional neural network. Finally, we'll explore how to improve the neural network by changing it's structure with different layer setups.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Building the network structure</h1>
+                </header>
+            
+            <article>
+                
+<p>Typically, when you build a neural network for recognizing patterns in images, you will use a combination of convolution and pooling layers. The end of the network should contain one or more hidden layers, ending with a softmax layer for classification purposes.</p>
+<p>Let's build the network structure:</p>
+<pre>from cntk.layers import Convolution2D, Sequential, Dense, MaxPooling<br/>from cntk.ops import log_softmax, relu<br/>from cntk.initializer import glorot_uniform<br/>from cntk import input_variable, default_options<br/><br/>features = input_variable((3,28,28))<br/>labels = input_variable(10)<br/><br/>with default_options(initialization=glorot_uniform, activation=relu):<br/>    model = Sequential([<br/>        Convolution2D(filter_shape=(5,5), strides=(1,1), num_filters=8, pad=True),<br/>        MaxPooling(filter_shape=(2,2), strides=(2,2)),<br/>        Convolution2D(filter_shape=(5,5), strides=(1,1), num_filters=16, pad=True),<br/>        MaxPooling(filter_shape=(3,3), strides=(3,3)),<br/>        Dense(10, activation=log_softmax)<br/>    ])<br/><br/>z = model(features)</pre>
+<p><span>Follow the given steps:</span></p>
+<ol>
+<li>First, import the required layers for the neural network.</li>
+<li>Then, import the activation functions for the network.</li>
+<li>Next, import the <kbd>glorot_uniform initializer</kbd> function to initialize the convolutional layers later.</li>
+<li>After that, import the <kbd>input_variable</kbd> function to create input variables and the <kbd>default_options</kbd> function to make configuration of the neural network a little easier.</li>
+<li>Create a new <kbd>input_variable</kbd> store the input images, they will contain <kbd>3</kbd> channels (red, green, and blue) and have a size of <kbd>28</kbd> by <kbd>28</kbd> pixels.</li>
+<li>Create another <kbd>input_variable</kbd> to store the labels to predict.</li>
+<li>Next, create the <kbd>default_options</kbd> for the network and use the <kbd>glorot_uniform</kbd> as the initialization function.</li>
+<li>Then, create a new <kbd>Sequential</kbd> layer set to structure the neural network</li>
+<li>Within the <kbd>Sequential</kbd> layer set, add a <kbd>Convolutional2D</kbd> layer with a <kbd>filter_shape</kbd> of <kbd>5</kbd> and a <kbd>strides</kbd> setting of <kbd>1</kbd> and set the number of filters to <kbd>8</kbd>. Enable <kbd>padding</kbd> so the image is padded to retain the original dimensions.</li>
+<li>Add a <kbd>MaxPooling</kbd> layer with a <kbd>filter_shape</kbd> of <kbd>2</kbd> and a <kbd>strides</kbd> setting of <kbd>2</kbd> to compress the image by half.</li>
+<li>Add another <kbd>Convolution2D</kbd> layer with a <kbd>filter_shape</kbd> of 5 and a <kbd>strides</kbd> setting of 1, use 16 filters. Add <kbd>padding</kbd> to retain the size of the image produced by the previous pooling layer.</li>
+<li>Next, add another <kbd>MaxPooling</kbd> layer with a <kbd>filter_shape</kbd> of 3 and a <kbd>strides</kbd> setting of 3 to reduce the image to a third.</li>
+<li>Finally, add a <kbd>Dense</kbd> layer with 10 neurons for the 10 possible classes the network can predict. Use a <kbd>log_softmax</kbd> activation function to turn the network into a classification model.</li>
+</ol>
+<p>We're using images of 28x28 pixels as the input for the model. This size is fixed, so when you want to make a prediction with this model, you need to provide the same size images as input.</p>
+<div class="packt_infobox">Note that this model is still very basic and will not produce perfect results, but it is a good start. Later on, we can start to tune it should we need to.</div>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Training the network with images</h1>
+                </header>
+            
+            <article>
+                
+<p>Now that we have the structure of the convolutional neural network, let's explore how to train it. Training a neural network that works with images requires more memory than most computers have available. This is where the minibatch sources from <a href="f7cd9148-99e8-427c-acf4-d74c3e52df58.xhtml">Chapter 3</a>, <em>Getting Data into Your Neural Network</em>, come into play. We're going to set up a set of two minibatch sources to train and evaluate the neural network we've just created. Let's first take a look at how to construct a minibatch source for images:</p>
+<pre>import os<br/>from cntk.io import MinibatchSource, StreamDef, StreamDefs, ImageDeserializer, INFINITELY_REPEAT<br/>import cntk.io.transforms as xforms<br/><br/>def create_datasource(folder, max_sweeps=INFINITELY_REPEAT):<br/>    mapping_file = os.path.join(folder, 'mapping.bin')<br/>    <br/>    stream_definitions = StreamDefs(<br/>        features=StreamDef(field='image', transforms=[]),<br/>        labels=StreamDef(field='label', shape=10)<br/>    )<br/>    <br/>    deserializer = ImageDeserializer(mapping_file, stream_definitions)<br/>    <br/>    return MinibatchSource(deserializer, max_sweeps=max_sweeps)</pre>
+<p><span>Follow the given steps:</span></p>
+<ol>
+<li>First, Import the <kbd>os</kbd> package to get access to some useful filesystem functions.</li>
+<li>Next, import the necessary components to create a new <kbd>MinibatchSource</kbd>.</li>
+<li>Create a new function <kbd>create_datasource</kbd> which takes the path to an input folder and a <kbd>max_sweeps</kbd> setting to control how often we can iterate over the dataset.</li>
+<li>Within the <kbd>create_datasource</kbd> function, locate the mapping.bin file within the source folder. This file will contain a mapping between the image on disk and its associated label.</li>
+<li>Then create a set of stream definitions to read from the mapping.bin file. </li>
+<li>Add a <kbd>StreamDef</kbd> for the image file. Make sure to include the <kbd>transforms</kbd> keyword argument and initialize it with an empty array.</li>
+<li>Add another <kbd>StreamDef</kbd> for the labels field with 10 features.</li>
+<li>Create a new <kbd>ImageDeserializer</kbd> and provide it the <kbd>mapping_file</kbd> and the <kbd>stream_definitions</kbd> variables.</li>
+<li>Finally, create a <kbd>MinibatchSource</kbd> and provide it with the deserializer and the <kbd>max_sweeps</kbd> setting.</li>
+</ol>
+<p><span>Note, you can create the files necessary for training using the code in the <kbd>Preparing the dataset.ipynb</kbd> Python notebook. Make sure you have enough room on your hard drive to store the images. 1 GB of hard drive space is enough to store all samples for training and validation.</span></p>
+<p>Once we have the <span><span><kbd>create_datasource</kbd> </span></span>function, we can create two separate data sources to train the model: </p>
+<pre>train_datasource = create_datasource('mnist_train')<br/>test_datasource = create_datasource('mnist_test', max_sweeps=1, train=False)</pre>
+<ol>
+<li>First, call the <kbd>create_datasource</kbd> function with the <kbd>mnist_train</kbd> folder to create the data source for training.</li>
+<li>Next, call the <kbd>create_datasource</kbd> function with the <kbd>mnist_test</kbd> folder and set the <kbd>max_sweeps</kbd> to 1 to create the datasource for validating the neural network.</li>
+</ol>
+<p>Once you've prepared the images, it's time to start training the neural network. We can use the <kbd>train</kbd> method on the <kbd>loss</kbd> function to kick off the training process:</p>
+<pre>from cntk import Function<br/>from cntk.losses import cross_entropy_with_softmax<br/>from cntk.metrics import classification_error<br/>from cntk.learners import sgd<br/><br/>@Function<br/>def criterion_factory(output, targets):<br/>    loss = cross_entropy_with_softmax(output, targets)<br/>    metric = classification_error(output, targets)<br/>    <br/>    return loss, metric<br/><br/>loss = criterion_factory(z, labels)<br/>learner = sgd(z.parameters, lr=0.2)</pre>
+<p><span>Follow the given steps:</span></p>
+<ol>
+<li>First, import the Function decorator from the cntk package.</li>
+<li>Next, import the <kbd>cross_entropy_with_softmax</kbd> function from the losses module.</li>
+<li>Then, import the <kbd>classification_error</kbd> function from the metrics module.</li>
+<li>After that, import the <kbd>sgd</kbd> learner from the learners module.</li>
+<li>Create a new function <kbd>criterion_factory</kbd> with two parameters, output and targets.</li>
+<li>Mark the function with the <kbd>@Function</kbd> decorator to turn it into a CNTK function object.</li>
+<li>Within the function, create a new instance of the <kbd>cross_entropy_with_softmax</kbd> function.</li>
+<li>Next, create a new instance of the <kbd>classification_error</kbd> metric.</li>
+<li>Return both the loss and metric as a result of the function.</li>
+<li>After creating the <kbd>criterion_factory</kbd> function, initialize a new loss with it.</li>
+<li>Finally, setup the <kbd>sgd</kbd> learner with the parameters of the model and a learning rate of 0.2.</li>
+</ol>
+<p>Now that we've setup the loss and learner for the neural network, let's look at how to train and validate the <span>neural network</span>:</p>
+<pre>from cntk.logging import ProgressPrinter<br/>from cntk.train import TestConfig<br/><br/>progress_writer = ProgressPrinter(0)<br/>test_config = TestConfig(test_datasource)<br/><br/>input_map = {<br/>    features: train_datasource.streams.features,<br/>    labels: train_datasource.streams.labels<br/>}<br/><br/>loss.train(train_datasource, <br/>           max_epochs=1,<br/>           minibatch_size=64,<br/>           epoch_size=60000, <br/>           parameter_learners=[learner], <br/>           model_inputs_to_streams=input_map, <br/>           callbacks=[progress_writer, test_config])</pre>
+<p><span>Follow the given steps:</span></p>
+<ol>
+<li>First import the <kbd>ProgressPrinter</kbd> class from the <kbd>logging</kbd> module</li>
+<li>Next, import the <kbd>TestConfig</kbd> class from the <kbd>train</kbd> module.</li>
+<li>Create a new instance of the <kbd>ProgressPrinter</kbd> so we can log the output of the training process.</li>
+<li>Then, create the <kbd>TestConfig</kbd> for the neural network using the <kbd>test_datasource</kbd> that we made earlier as input.</li>
+<li>Create a new dictionary to map the data streams from the <kbd>train_datasource</kbd> to the input variables of the neural network.</li>
+<li>Finally, call the <kbd>train</kbd> method on the <kbd>loss</kbd> and provide the <kbd>train_datasource</kbd>, the settings for the trainer, the <kbd>learner</kbd>, <kbd>input_map</kbd> and callbacks to use during training.</li>
+</ol>
+<p>When you execute the python code, you will get back output that looks similar to this:</p>
+<pre><strong>average      since    average      since      examples
+    loss       last     metric       last              
+ ------------------------------------------------------
+Learning rate per minibatch: 0.2
+      105        105      0.938      0.938            64
+ 1.01e+07   1.51e+07      0.901      0.883           192
+ 4.31e+06          2      0.897      0.895           448
+ 2.01e+06          2      0.902      0.906           960
+ 9.73e+05          2      0.897      0.893          1984
+ 4.79e+05          2      0.894      0.891          4032</strong><br/><strong>[...]</strong></pre>
+<p>Notice how the loss decreases over time. It does take quite a long time to reach a low enough value for the model to be usable. Training an image classification model will take a very long time, so this is one of the cases where using GPU will make a big difference to the amount of time it takes to train the model.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Picking the right combination of layers</h1>
+                </header>
+            
+            <article>
+                
+<p>In previous sections we've seen how to use convolutional and pooling layers to build a neural network.</p>
+<p>We've just seen that it takes quite a long time to train a model used for image recognition. Aside from the long training time, picking the right setup for a convolutional network is very hard and takes a long time. Often you will need hours of running experiments to find a network structure that works. This can be very demotivating for aspiring AI developers.</p>
+<p>Lucky for us, there are several research groups working on finding the best architecture for neural networks used in image classification tasks. There are several different architectures that have been used successfully in competitions and real-life scenarios:</p>
+<ul>
+<li>VGG-16</li>
+<li>ResNet</li>
+<li>Inception</li>
+</ul>
+<p>And there are several more. While we can't go into detail on how to build each of these architectures work, let's explore them on a functional level to see how they work so that you can make a more informed choice about which network architecture to try in your own application.</p>
+<p>The VGG network architecture was invented by the Visual Geometry Group as a way to classify images in 1,000 different categories. This is quite hard to do, but the team managed to get an accuracy of 70.1%, which is quite good, considering how hard it is to differentiate between 1,000 different categories</p>
+<p>The VGG network architecture uses stacks of convolution layers with an input size of 3x3. The layers get an ever-increasing depth. Starting at layers with 32 filters, continuing with 48 filters, all the way up to 512 filters. The reduction of the data volume is done using 2x2 pooling filters. The VGG network architecture was state-of-the-art when it was invented in 2015, as it had much better accuracy than the models invented previously.</p>
+<p>There are other ways to build neural networks for image recognition, though. The ResNet architecture uses what's called a micro-architecture. It still uses convolution layers, but this time they are arranged in blocks. The architecture is still very similar to other convolutional networks, but where the VGG network has long chain layers, the ResNet architecture has skip connections around blocks of convolution layers:</p>
+<div class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-577 image-border" src="assets/b8cff3e4-456c-49b2-934b-f9e9cc603f31.png" style=""/></div>
+<div class="packt_figref CDPAlignCenter CDPAlign"><span>ResNet architecture</span></div>
+<p>This is where the term micro-architecture comes from. Each of the blocks is a micro-network capable of learning patterns from the input. Each block has several convolution layers and a residual connection. This connection bypasses the block of convolution layers, and the data coming from this residual connection is added to the output of the convolution layers. The idea behind this is that the residual connection shakes up the learning process in the network so that it learns better and faster.</p>
+<p>Compared to the VGG network architecture, the ResNet architecture is deeper but easier to train since it has fewer parameters that you need to optimize. The VGG network architecture takes up 599 MB of memory, while the ResNet architecture takes only 102 MB.</p>
+<p>The final network architecture that we'll explore is the Inception architecture. This architecture is also one from the micro-architecture category. Instead of the residual blocks that are used in the ResNet architecture, the inception network uses inception blocks:</p>
+<div class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-578 image-border" src="assets/d0d66db2-9de6-4355-a709-34d0e87c754d.png" style=""/></div>
+<div class="packt_figref CDPAlignCenter CDPAlign">Inception Network</div>
+<p>The inception blocks in the Inception architecture use convolution layers with different input sizes of 1x1, 3x3, and 5x5, which are then concatenated along the channel axis. This generates a matrix that has the same width and height as the input but has more channels than the input. The idea is that when you do this, you have a much better spread of features extracted from the input and thus much better quality data to perform the classification task on. The Inception architecture depicted here is very shallow; the full version used normally can have more than two inception blocks.</p>
+<p>When you start to work on the other convolutional network architectures you will quickly find that you need a lot more computational power to train them. Often, the dataset won't fit into memory and your computer will just be too slow to train the model within a reasonable amount of time. This is where distributed training can help out. If you're interested in training models using multiple machines, you should definitely take a look at this chapter in the CNTK manual: <a href="https://docs.microsoft.com/en-us/cognitive-toolkit/Multiple-GPUs-and-machines">https://docs.microsoft.com/en-us/cognitive-toolkit/Multiple-GPUs-and-machines</a>.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Improving model performance with data augmentation</h1>
+                </header>
+            
+            <article>
+                
+<p><span>Neural networks used for image recognition not only are difficult to set up and train, they also require a lot of data to train. Also, they tend to overfit on the images used during training. For example, when you only use photos of faces in an upright position, your model will have a hard time recognizing faces that are rotated in another direction.</span></p>
+<p>To help overcome problems with rotation and shifts in certain directions, you can use image augmentation. CNTK supports specific transforms when creating a minibatch source for images.</p>
+<p>We've included an additional notebook for this chapter that demonstrates how to use the transformations. You can find the sample code for this section in the <kbd>Recognizing hand-written digits with augmented data.ipynb</kbd> <span>file </span>in the samples for this chapter.</p>
+<p>There are several transformations that you can use. For example, you can randomly crop images used for training with just a few lines of code. <span>Other transformations you can use are</span> scale<span> and</span> color<span>. You can find more information about these transformations on the CNTK website: <a href="https://cntk.ai/pythondocs/cntk.io.transforms.html">https://cntk.ai/pythondocs/cntk.io.transforms.html</a>.</span></p>
+<p>Within the function used to create the minibatch source earlier in this chapter, we can change the list of transforms by including a cropping transform as shown in the following code:</p>
+<pre>import os<br/>from cntk.io import MinibatchSource, StreamDef, StreamDefs, ImageDeserializer, INFINITELY_REPEAT<br/>import cntk.io.transforms as xforms<br/><br/>def create_datasource(folder, train=True, max_sweeps=INFINITELY_REPEAT):<br/>    mapping_file = os.path.join(folder, 'mapping.bin')<br/>    <br/>    image_transforms = []<br/>    <br/>    if train:<br/>        <strong>image_transforms += [</strong><br/><strong>            xforms.crop(crop_type='randomside', side_ratio=0.8),</strong><br/><strong>            xforms.scale(width=28, height=28, channels=3, interpolations='linear')</strong><br/><strong>        ]</strong><br/>            <br/>    stream_definitions = StreamDefs(<br/>        features=StreamDef(field='image', <strong>transforms=image_transforms</strong>),<br/>        labels=StreamDef(field='label', shape=10)<br/>    )<br/>    <br/>    deserializer = ImageDeserializer(mapping_file, stream_definitions)<br/>    <br/>    return MinibatchSource(deserializer, max_sweeps=max_sweeps)<br/><br/></pre>
+<p>We've enhanced the function to include a set of image transforms. When we're training, we will randomly crop the image so we get more variations of the image. This changes the dimensions of the image, however, so we need to also include a scale transformation to make sure that it fits the size expected by the input layer of our neural network.</p>
+<p>Using these transforms during training will increase the variation in the training data, which reduces the chance that your neural network gets stuck on images that have a slightly different color, rotation, or size.</p>
+<p>Be aware, though, that these transforms don't generate new samples. They simply change the data before it is fed into the trainer. You will want to increase the maximum number of epochs to allow for enough random samples to be generated with these transforms applied. How many extra epochs of training you need will depend on the size of your dataset.</p>
+<p><span>It's also important to keep in mind that the dimensions of the input layer and intermediate layers have a large impact on the capabilities of the convolutional network. Larger images will naturally work better when you want to detect small objects. Scaling images back to a much smaller size will make the smaller object </span>disappear<span> or lose too much detail to be recognizable by the network.</span></p>
+<p><span>Convolutional networks that support larger images will, however, take a lot more computation power to optimize, so it will take longer to train them and it will be harder to get optimal results.</span></p>
+<p>Ultimately, you will need to balance a combination of image size, layer dimensions, and what data augmentation you use to get optimal results.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Summary</h1>
+                </header>
+            
+            <article>
+                
+<p>In this chapter, we've looked at using neural networks to classify images. It's very different from working with normal data. Not only do we need a lot more training data to get the right result, we also need a different architecture to work with images that is better suited for the job. </p>
+<p>We've seen how convolution layers and pooling layers can be used to essentially create an advanced photo filter that extracts important details from the data and summarize these details to reduce the dimensionality of the input to a manageable size. </p>
+<p>Once we have used the advanced properties of the convolution filters and pooling filters, it's back to business as usual with dense layers to produce a classification network.</p>
+<p>It can be quite hard to come up with a good structure for an image classification model, so it's always a good idea to check out one of the existing architectures before venturing into image classification. Also, using the right kind of augmentation techniques can help quite a bit to get better performance.</p>
+<p>Working with images is just one of the scenarios where deep learning is powerful. In the next chapter, we'll look at how to use deep learning to train models on time-series data, such as stock exchange information, or course information for things such as Bitcoin. We'll learn how to use sequences in CNTK and how to build a neural network that can reason over time. See you in the next chapter.</p>
+
+
+            </article>
+
+            
+        </section>
+    </body></html>

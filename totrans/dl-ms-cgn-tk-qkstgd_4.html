@@ -1,0 +1,760 @@
+<html><head></head><body>
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Validating Model Performance</h1>
+                </header>
+            
+            <article>
+                
+<p>When you've built a deep learning model using neural networks, you are left with the question of how well it can predict when presented with new data. Are the predictions made by the model accurate enough to be usable in a real-world scenario? In this chapter, we will look at how to measure the performance of your deep learning models. We'll also dive into tooling to monitor and debug your models.</p>
+<p>By the end of this chapter, you'll have a solid understanding of different validation techniques you can use to measure the performance of your model. You'll also know how to use a tool such as TensorBoard to get into the details of your neural network. Finally, you will know how to apply different visualizations to debug your neural network.</p>
+<p>The following topics will be covered in this chapter:</p>
+<ul>
+<li>Choosing a good strategy to validate model performance</li>
+<li>Validating the performance of a classification model</li>
+<li>Validating the performance of a regression model</li>
+<li>Measuring performance of a for out-of-memory datasets</li>
+<li>Monitoring your model</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Technical requirements</h1>
+                </header>
+            
+            <article>
+                
+<p>We assume you have a recent version of Anaconda installed on your computer and have followed the steps in <a href="9a2c8c46-f9a0-4e05-86ef-31300a28a7ba.xhtml">Chapter 1</a>, <em>Getting Started with CNTK</em>, to install CNTK on your computer. The sample code for this chapter can be found in our<span> G</span>itHub<span> </span>repository at<span> <a href="https://github.com/PacktPublishing/Deep-Learning-with-Microsoft-Cognitive-Toolkit-Quick-Start-Guide/tree/master/ch4">https://github.com/PacktPublishing/Deep-Learning-with-Microsoft-Cognitive-Toolkit-Quick-Start-Guide/tree/master/ch4</a></span>.</p>
+<p>In this<span> </span>chapter,<span> </span>we'll work on a few examples stored in Jupyter Notebooks. To access the sample code, run the following commands inside an Anaconda prompt in the directory where you've downloaded the code:</p>
+<pre><strong>cd ch4</strong><br/><strong>jupyter notebook</strong></pre>
+<p>We'll mention relevant notebooks in each of the sections so you can follow along and try out different techniques yourself. </p>
+<p class="mce-root">Check out the following video to see the code in action:</p>
+<p><a href="http://bit.ly/2TVuoR3">http://bit.ly/2TVuoR3</a></p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Choosing a good strategy to validate model performance</h1>
+                </header>
+            
+            <article>
+                
+<p>Before we dive into different validation techniques for various kinds of models, let's talk a little bit about validating deep learning models in general.</p>
+<p>When you build a machine learning model, you're training it with a set of data samples. The machine learning model learns these samples and derives general rules from them. When you feed the same samples to the model, it will perform pretty well on those samples. However, when you feed new samples to the model that you haven't used in training, the model will behave differently. It will most likely be worse at making a good prediction on those samples. This happens because your model will always tend to lean toward data it has seen before.</p>
+<p>But we don't want our model to be good at predicting the outcome for samples it has seen before. It needs to work well for samples that are new to the model, because in a production environment you will get different input that you need to predict an outcome for. To make sure that our model works well, we need to validate it using a set of samples that we didn't use for training.</p>
+<p>Let's take a look at two different techniques for creating a dataset for validating a neural network. First, we'll explore how to use a hold-out dataset. After that we'll focus on a more complex method of creating a separate validation dataset.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Using a hold-out dataset for validation</h1>
+                </header>
+            
+            <article>
+                
+<p class="mce-root">The first and easiest method to create a dataset to validate a neural network is to use a hold-out set. You're holding back one set of samples from training and using those samples to measure the performance of your model after you're done training the model:</p>
+<div class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-673 image-border" src="assets/710ddb8c-46f1-4a27-840c-ef361f390092.png" style=""/></div>
+<p>The ratio between training and validation samples is usually around 80% training samples versus 20% test samples. This ensures that you have enough data to train the model and a reasonable amount of samples to get a good measurement of the performance.</p>
+<p>Usually, you choose random samples from the main dataset to include in the training and test set. This ensures that you get an even distribution between the sets. </p>
+<p>You can produce your own hold-out set using the <kbd>train_test_split</kbd> function from the <kbd>scikit-learn</kbd> library. It accepts any number of datasets and splits them into two segments based on either the <kbd>train_size</kbd> or the <kbd>test_size</kbd> keyword parameter:</p>
+<pre>from sklearn.model_selection import train_test_split<br/><br/>X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)</pre>
+<p>It is good practice to randomly split your dataset each time you run a training session. Deep learning algorithms, such as the ones used in CNTK, are highly influenced by random-number generators, and the order in which you provide samples to the neural network during training. So, to even out the effect of the sample order, you need to randomize the order of your dataset each time you train the model.</p>
+<p><span>Using a hold-out set works well when you want to quickly measure the performance of your model. It's also great when you have a large dataset or a model that takes a long time to train. But there are downsides to using the hold-out technique.</span></p>
+<p>Your model is sensitive to the order in which samples were provided during training. Also, each time you start a new training session, the random-number generator in your computer will provide different values to initialize the parameters in your neural network. This can cause swings in performance metrics. Sometimes, you will get really good results, but sometimes you get really bad results. In the end, this is bad because it is unreliable.</p>
+<p>Be careful when randomizing datasets that contain sequences of samples that should be handled as a single input, such as when working with a time series dataset. Libraries such as <kbd>scikit-learn</kbd> don't handle this kind of dataset correctly and you may need to write your own randomization logic.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Using k-fold cross-validation</h1>
+                </header>
+            
+            <article>
+                
+<p>You can increase the reliability of the performance metrics for your model by using a technique called k-fold cross-validation. Cross-validation performs the same technique as the hold-out set. But it does it a number of times—usually about 5 to 10 times:</p>
+<div class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-674 image-border" src="assets/d61537b3-a199-4972-8a7f-9378d9c2548b.png" style=""/></div>
+<p><span>The process of k-fold cross-validation works like this: First, you split the dataset into a training and test set. You then train the model using the training set. Finally, you use the test set to calculate the performance metrics for your model. This process then gets repeated as many times as needed—usually 5 to 10 times. At the end of the cross-validation process, the average is calculated over all the performance metrics, which gives you the final performance metrics. Most tools will also give you the individual values so you can see how much variation there is between different training runs.</span></p>
+<p>Cross-validation gives you a much more stable performance measurement, because you use a more realistic training and test scenario. The order of samples isn't defined in production, which is simulated by running the same training process a number of times. Also, we're using separate hold-out sets to simulate unseen data.</p>
+<p>Using k-fold cross-validation takes a lot of time when validating deep learning models, so use it wisely. If you're still experimenting with the setup of your model, you're better off using the basic hold-out technique. Later, when you're done experimenting, you can use k-fold cross-validation to make sure that the model performs well in a production environment.</p>
+<p>Note that CNTK doesn't include support for running k-fold cross-validation. You need to write your own scripts to do so.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">What about underfitting and overfitting?</h1>
+                </header>
+            
+            <article>
+                
+<p><span>When you start to collect metrics for a neural network using either a hold-out dataset or by applying k-fold cross-validation you'll discover that the output for the metrics will be different for the training dataset and the validation dataset. In the this section, we'll take a look at how to use the information from the collected metrics to detect overfitting and underfitting problems for your model.</span></p>
+<p>When a model is overfit, it performs really well on samples it has seen during training, but not on samples that are new. You can detect overfitting during validation by looking at the metrics. Your model is overfit when the metric on the test set is lower than the same metric on your training set. </p>
+<p>A lot of overfitting is bad for business, since your model doesn't understand how to process new samples. But it is logical to have a little bit of overfitting in your model; this is expected, as you want to maximize the learning effort for your model.</p>
+<p>The problem of overfitting becomes bigger when your model is trained on a dataset that doesn't represent the real-world environment it is used in. Then you end up with a model that is overfit toward the dataset. It will predict random output on new samples. Sadly, you can't detect this kind of overfitting. The only way to discover this problem is to use your model in production and use proper logging and user feedback to measure how well your model is doing.</p>
+<p>Like overfitting, you can also have a model that is underfit. This means the model didn't learn enough from the training set and doesn't predict useful output. You can easily detect this with a performance metric. Usually, it will be lower than you anticipated. Actually, your model will be underfitting when you start training the first epoch and will become less underfit as training progresses.</p>
+<p>Once the model is trained, it can still be underfit. You can detect this by looking at the metrics for the training set and the test set. When the metric on the test set is higher than the metric on the training set, you have an underfit model. You can fix this by looking carefully at the settings of your model and changing them so it becomes better the next time you train the model. You can also try to train it for a little longer to see whether that helps.</p>
+<p>Monitoring tools will help to detect underfitting and overfitting of your model. So, make sure you use them. We'll talk about how to use them with CNTK later in the section <em>Monitoring your model.</em></p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Validating performance of a classification model</h1>
+                </header>
+            
+            <article>
+                
+<p>In the previous section, <em>Choosing a good strategy to validate model performance</em>, we talked about choosing a good strategy for validating your neural network. In the following sections, we'll dive into choosing metrics for different kinds of models. </p>
+<p>When you're building a classification model, you're looking for metrics that express how many samples were correctly classified. You're probably also interested in measuring how many samples were incorrectly classified.</p>
+<p>You can use a confusion matrix—a table with the predicted output versus the expected output—to find out a lot of detail about the performance of your model. This tends to get complicated, so we'll also look at a way to measure the performance of a model using the F-measure.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Using a confusion matrix to validate your classification model</h1>
+                </header>
+            
+            <article>
+                
+<p>Let's take a closer look at how you can measure the performance of a classification model using a confusion matrix. To understand how a confusion matrix works, let's create a confusion matrix for a binary classification model that predicts whether a credit card transaction was normal or fraudulent:</p>
+<table border="1" style="border-collapse: collapse;width: 100%">
+<tbody>
+<tr>
+<td/>
+<td><strong>Actual fraud</strong></td>
+<td><strong>Actual normal</strong></td>
+</tr>
+<tr>
+<td><strong>Predicted fraud</strong></td>
+<td>True positive</td>
+<td>
+<p class="mce-root">False positive</p>
+</td>
+</tr>
+<tr>
+<td><strong>Predicted normal</strong></td>
+<td>False negative</td>
+<td>
+<p class="mce-root">True negative</p>
+</td>
+</tr>
+</tbody>
+</table>
+<p> </p>
+<p>The sample confusion matrix contains two columns and two rows. We have a column for the class fraud and a column for the class normal. We've added rows to the fraud and normal classes as well. The cells in the table will contain numbers that tell us how many samples were marked as true positive, true negative, false positive, and false negative.</p>
+<p>When the model correctly predicts fraud for a transaction, we're dealing with a true positive. When we predict fraud but the transaction should not have been marked as fraud, we're dealing with a false positive. </p>
+<p>You can calculate a number of different things from the confusion matrix. First, you can calculate precision based on the values in the confusion matrix:</p>
+<div class="CenterAlign"><img class="fm-editor-equation" src="assets/b333c76a-10c0-432c-a7d4-e50050c28ae2.png" style="width:21.67em;height:2.58em;"/></div>
+<p>Precision tells you how many samples were correctly predicted out of all the samples that we predicted. High precision means that your model suffers from very few false positives.</p>
+<p>The second metric that we can calculate based on the confusion matrix is the recall metric: </p>
+<div class="CenterAlign"><img class="fm-editor-equation" src="assets/9816db92-39dd-4247-8093-fe2f621c0294.png" style="width:21.92em;height:2.92em;"/></div>
+<p>Recall tells you how many of the fraud cases in the dataset were actually detected by the model. Having a high recall means that your model is good at finding fraud cases in general.</p>
+<p>Finally, you can calculate the overall accuracy of the model:</p>
+<div class="CenterAlign"><img class="fm-editor-equation" src="assets/d8205762-7529-4899-be1e-7b0f53b535dc.png" style="width:39.00em;height:2.75em;"/></div>
+<p>The overall accuracy tells you how well the model does as a whole. But this is a dangerous metric to use when your dataset is unbalanced. For example: if you have 100 samples of which 5 are marked as fraud and 95 are marked as normal, predicting normal for all samples gives you an accuracy of <em>0.95</em>. This seems high, but we're fooling ourselves.</p>
+<p>It's much better to calculate a balanced accuracy. For this, we need to know the precision and <span>specificity </span>of the model. We already know how to calculate the precision of our model. We can calculate the specificity using the following formula:</p>
+<div class="CenterAlign"><img class="fm-editor-equation" src="assets/af157728-3148-4bf2-ba7d-024f614c0d41.png" style="width:22.83em;height:2.75em;"/></div>
+<p>The <span>specificity </span>tells us how good our model is at detecting that a sample is normal instead of fraud. It is the perfect inverse of the precision, which tells us how good our model is at detecting fraud.</p>
+<p>Once we have the specificity, we can combine it with the precision metric to calculate the balanced accuracy:</p>
+<div class="CenterAlign"><img class="fm-editor-equation" src="assets/af5bd5d4-7cca-43de-a5fa-e414775f78ed.png" style="width:24.75em;height:2.67em;"/></div>
+<p>The balanced accuracy tells us how good our model is at separating the dataset into fraud and normal cases, which is exactly what we want. Let's go back to our previous accuracy measurement and retry it using the balanced version of the accuracy metric: </p>
+<div class="CenterAlign"><img class="fm-editor-equation" src="assets/d9a34af2-7f5e-4fc3-9e82-552413b68d97.png" style="width:9.00em;height:2.33em;"/></div>
+<p>Remember, we had 100 samples, of which 5 should be marked as fraud. When we predict everything as normal, we end up with a precision of <em>0.0</em> because we didn't predict any fraud case correctly. The specificity is <em>0.95</em> because out of 100 samples we predicted 5 incorrectly as normal. The end result is a balanced accuracy of <em>0.475</em>, which is not very high, for obvious reasons.</p>
+<p>Now that you have a good feel for what a confusion matrix looks like and how it works, let's talk about the more complex cases. When you have a multi-class classification model with more than two classes, you will need to expand the matrix with more rows and columns. </p>
+<p><span>For example: when we create a confusion matrix for a model that predicts three possible classes, we could end up with the following:</span></p>
+<table border="1" style="border-collapse: collapse;width: 100%">
+<tbody>
+<tr>
+<td/>
+<td><strong>Actual A</strong></td>
+<td><strong>Actual B</strong></td>
+<td><strong>Actual C</strong></td>
+</tr>
+<tr>
+<td><strong>Predicted A</strong></td>
+<td>91</td>
+<td>75</td>
+<td>60</td>
+</tr>
+<tr>
+<td class="CDPAlignLeft CDPAlign"><strong>Predicted B</strong></td>
+<td>5</td>
+<td>15</td>
+<td>30</td>
+</tr>
+<tr>
+<td><strong>Predicted C</strong></td>
+<td>4</td>
+<td>10</td>
+<td>10</td>
+</tr>
+</tbody>
+</table>
+<p> </p>
+<p>We can still calculate the precision, recall, and specificity for this matrix. But it is more complex to do so, and we can only do it on a per-class basis. For example: when you want to calculate the precision for class A, you need to take the true positive rate of A, which is <em>91</em>, and divide it by the number of samples that were actually A but were predicted as B and C, which is <em>9</em> in total. This gives us the following calculation:</p>
+<div class="CenterAlign"><img class="fm-editor-equation" src="assets/5749a98a-57f1-42cc-b661-c92fc95d10a2.png" style="width:28.92em;height:2.42em;"/></div>
+<p>The process is much the same for calculating recall, specificity, and accuracy. To get an overall figure for the metrics, you need to calculate the average over all classes.</p>
+<p>There are two strategies that you can follow to calculate the average metric, such as precision, recall, specificity, and accuracy. You can either choose to calculate the micro-average or the macro-average. Let's first explore the macro-average using the precision metric:</p>
+<div class="CenterAlign"><img class="fm-editor-equation" src="assets/f73d6ac4-bcf7-4df9-aa07-42c975b4e40a.png" style="width:30.75em;height:2.67em;"/></div>
+<p>To get the macro-average for the precision metric, we first add up the precision values for all classes and then divide them over the number of classes, <em>k</em>. The macro-average doesn't take into account any class imbalances. For example: there could be 100 samples for class A while there are only 20 samples for class B. Calculating the macro-average gives you a skewed picture.</p>
+<p>When you work on multi-class classification models, it's better to use the micro-average for the different metrics—precision, recall, specificity, and accuracy. Let's take a look at how to calculate the micro-average precision:</p>
+<div class="CenterAlign"><img class="fm-editor-equation" src="assets/c26b804c-fcaf-4010-acdf-8418edf329fa.png" style="width:28.50em;height:2.58em;"/></div>
+<p>First, we'll add up all the true positives for every class. We then divide them by the sum of all true positives and false negatives for every class. This will give us a much more balanced view of the different metrics.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Using the F-measure as an alternative to the confusion matrix</h1>
+                </header>
+            
+            <article>
+                
+<p>While using precision and recall give you a good idea of how your model performs, they can't be maximized at the same time. There's a strong relationship between the two metrics:</p>
+<div class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-328 image-border" src="assets/9f37bee7-0b13-42e5-bdf1-cf29e7afdcdb.png" style=""/></div>
+<p>Let's see how this relationship between precision and recall plays out. Let's say you want to use a deep learning model to classify cell samples as cancerous or normal. In theory, to reach maximum precision in your model, you need to reduce the number of predictions to 1. This gives you the maximum chance to reach 100% precision, but recall becomes really low, as you're missing a lot of possible cases of cancer. When you want to reach maximum recall to detect as many cases of cancer as possible, you need to make as many predictions as possible. But this reduces precision, as you increase the chance that you get false positives. </p>
+<p>In practice, you will find yourself balancing between precision and recall. Whether you should go primarily for precision or recall is dependent on what you want your model to predict. Often, you will need to talk to the user of your model to determine what they find most important: a low number of false positives or a high chance of finding that one patient who has a deadly disease.</p>
+<p>Once you have made a choice between precision and recall, you need a way to express this in a metric. The F-measure allows you to do this. The F-measure expresses a harmonic average between precision and recall:</p>
+<div class="CenterAlign"><img class="fm-editor-equation" src="assets/369bf086-6bc9-4050-b4fe-883f66ff9da0.png" style="width:23.67em;height:2.83em;"/></div>
+<p>The full formula for the F-measure includes an extra term, <em>B</em>, which is set to 1 to get an equal ratio of precision and recall. This is called the F1-measure and is the standard in almost all tools you will come across. It gives equal weight to recall and precision. When you want to emphasize recall, you can set the <em>B</em> factor to 2. Alternatively, when you want to emphasize precision in your model, you can set the <em>B</em> factor to 0.5. </p>
+<p>In the next section, we'll see how to use the confusion matrix and f-measure in CNTK to measure the performance of a classification model. </p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Measuring classification performance in CNTK</h1>
+                </header>
+            
+            <article>
+                
+<p>Let's take a look at how you can use the CNTK metrics functions to create a confusion matrix for the flower classification model that we used in Chapter 2, <em><span class="cdp-organizer-chapter-title"><span class="cdp-organize-title-label">Building Neural Networks with CNTK</span></span></em>.</p>
+<p>You can follow along with the code in this section by opening the <kbd>Validating performance of classification models.ipynb</kbd> notebook file from the sample files for this chapter. We'll focus on the validation code in this section. The sample code contains more detail on how to preprocess the data for the model as well. </p>
+<p><span>Before we can train and validate the model, we'll need to prepare the dataset for training. We'll split the dataset into separate training and test sets to ensure that we get a proper performance measurement for our model:</span></p>
+<pre>from sklearn.model_selection import train_test_split<br/><br/>X_train, X_test, y_train, y_test = train_test_split(X,y, test_size=0.2, stratify=y)</pre>
+<p>First, we'll import the <kbd>train_test_split</kbd> function from the <kbd>sklearn.model_selection</kbd> package. We then take the features, <kbd>X</kbd>, and the labels, <kbd>y</kbd>, and run them through the function to split them. We'll use 20% of the samples for testing.</p>
+<p>Note that we're using the <kbd>stratify</kbd> keyword parameter. Because we're validating a classification model, we want to have a good balance between classes in the test and training set. Each class should ideally be equally represented in both the test and training set. When you feed a list of classes or labels to the <kbd>stratify</kbd> keyword, <kbd>scikit-learn</kbd> will take them to evenly distribute the samples over the training and test set.</p>
+<p>Now that we have the training and test set, let's train the model:</p>
+<pre>from cntk.losses import cross_entropy_with_softmax<br/>from cntk.learners import sgd <br/>from cntk.logging import ProgressPrinter<br/><br/>progress_writer = ProgressPrinter(0)<br/>loss = cross_entropy_with_softmax(z, labels)<br/>learner = sgd(z.parameters, 0.1)<br/><br/>train_summary = loss.train((X_train,y_train), <br/>                           parameter_learners=[learner], <br/>                           callbacks=[progress_writer], <br/>                           minibatch_size=16, max_epochs=15)</pre>
+<p>We'll run the whole dataset through the training function for a total of 15 epochs of training. We've included a progress writer to visualize the training process.</p>
+<p>At this point, we don't know what the performance is like. We know that the loss decreased nicely over 15 epochs of training. But the question is this, is it enough? Let's find out by running the validation samples through the model and create a confusion matrix:</p>
+<pre>from sklearn.metrics import confusion_matrix<br/><br/>y_true = np.argmax(y_test, axis=1)<br/>y_pred = np.argmax(z(X_test), axis=1)<br/><br/>matrix = confusion_matrix(y_true=y_true, y_pred=y_pred)<br/><br/>print(matrix)</pre>
+<p>We're using the <kbd>confusion_matrix</kbd> function from <kbd>scikit-learn</kbd> to create the confusion matrix. This function needs the true labels and the predicted labels. Both need to be stored as a numpy array with numeric values representing the labels. We don't have those numbers. We have a binary representation of the labels because that is what is required by the model. To fix this, we need to convert the binary representation of the labels into a numeric one. You can do this by invoking the <kbd>argmax</kbd> function from the <kbd>numpy</kbd> package. The output of the <kbd>confusion_matrix</kbd> function is a numpy array and looks like this:</p>
+<pre>[[ 8 0 0]<br/> [ 0 4 6]<br/> [ 0 0 10]]</pre>
+<p>We get three rows and three columns in the confusion matrix because we have three possible classes that our model can predict. The output itself isn't very pleasant to read. You can convert this table into a heat map using another package called <kbd>seaborn</kbd>:</p>
+<pre>import seaborn as sns<br/>import matplotlib.pyplot as plt<br/><br/>g = sns.heatmap(matrix, <br/>                annot=True, <br/>                xticklabels=label_encoder.classes_.tolist(), <br/>                yticklabels=label_encoder.classes_.tolist(), <br/>                cmap='Blues')<br/><br/>g.set_yticklabels(g.get_yticklabels(), rotation=0)<br/><br/>g.set_xlabel('Predicted species')<br/>g.set_ylabel('Actual species')<br/>g.set_title('Confusion matrix for iris prediction model')<br/><br/>plt.show()</pre>
+<p>First, we create a new heat map based on the confusion matrix. We pass in the classes of the <kbd>label_encoder</kbd> used while preprocessing the dataset for the row and column labels.</p>
+<p>The standard heat map needs some tweaks to be easily readable. We're using a custom colormap for the heat map. We're also using custom labels on the X and Y axes. Finally, we add a title and display the graph:</p>
+<div class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-329 image-border" src="assets/de395e15-62fb-4392-ac54-be08052c5b8b.png" style=""/></div>
+<div class="CDPAlignCenter CDPAlign packt_figref"><span>Standard heat map</span></div>
+<p>Looking at the confusion matrix, you can quickly see how the model is doing. In this case, the model is missing quite a few cases for the Iris-versicolor class. Only 60% of the flowers of this species were correctly classified.</p>
+<p>While the confusion matrix gives a lot of detail about how the model performs on different classes, it may be useful to get a single performance figure for your model so you can easily compare different experiments.</p>
+<p>One way to get a single performance figure is to use the <kbd>classification_error</kbd> metric from CNTK. It calculates the fraction of samples that were misclassified. </p>
+<p>To use it, we need to modify the training code. <span>Instead of just having a <kbd>loss</kbd> function to optimize the model, we're going to include a metric as well. Previously we created just a <kbd>loss</kbd> function instance, this time we're going to have to write a <kbd>criterion</kbd> function that produces a combined</span> <kbd>loss</kbd> <span>and <kbd>metric</kbd> function that we can use during training. The following code demonstrates how to do this:</span></p>
+<pre>import cntk<br/><br/>@cntk.Function<br/>def criterion_factory(output, target):<br/>    loss = cntk.losses.cross_entropy_with_softmax(output, target)<br/>    metric = cntk.metrics.classification_error(output, target)<br/>    <br/>    return loss, metric</pre>
+<p>Follow the given steps:</p>
+<ol>
+<li>First, create a new Python function that takes our model as the <kbd>output</kbd> argument and the target that we want to optimize for as the <kbd>output</kbd> argument.</li>
+<li>Within the function, create a <kbd>loss</kbd> function and provide it the <kbd>output</kbd> and <kbd>target</kbd>.</li>
+<li>Next, create a <kbd>metric</kbd> function and provide it the <kbd>output</kbd> and <kbd>target</kbd> as well.</li>
+<li>At the end of the function, return both as a tuple, where the first element is the <kbd>loss</kbd> function and the second element is the <kbd>metric</kbd> function.</li>
+<li><span>Mark the function with</span> <kbd>@cntk.Function</kbd><span>. This will wrap the loss and metric so we can call the </span><kbd>train</kbd><span> method on it to train the model and call the</span> <kbd>test</kbd> <span>method to validate the model.</span></li>
+</ol>
+<p>Once we have the combined <kbd>loss</kbd> and <kbd>metric</kbd> function factory, we can use it during training:</p>
+<pre>from cntk.losses import cross_entropy_with_softmax<br/>from cntk.learners import sgd <br/>from cntk.logging import ProgressPrinter<br/><br/>progress_writer = ProgressPrinter(0)<br/>loss = criterion_factory(z, labels)<br/>learner = sgd(z.parameters, 0.1)<br/><br/>train_summary = loss.train((X_train,y_train), <br/>                           parameter_learners=[learner], <br/>                           callbacks=[progress_writer], <br/>                           minibatch_size=16, max_epochs=15)</pre>
+<p>Follow the given steps:</p>
+<ol>
+<li>First, import the <kbd>cross_entropy_with_softmax</kbd> function from the <kbd>losses</kbd> module</li>
+<li>Next, import the <kbd>sgd</kbd> learner from the <kbd>learners</kbd> module</li>
+<li>Also, import the <kbd>ProgressPrinter</kbd> from the <kbd>logging</kbd> module so you can log the output of the training process</li>
+<li>Then, create a new instance <kbd>progress_writer</kbd> to log the output of the training process</li>
+<li>Afer that, create a <kbd>loss</kbd> using the newly created <kbd>criterion_factory</kbd> function and feed it the model variable <kbd>z</kbd> and the <kbd>labels</kbd> variable</li>
+<li>Next, create the <kbd>learner</kbd> instance using the <kbd>sgd</kbd> function and feed it the parameters and a learning rate of <kbd>0.1</kbd></li>
+<li>Finally, call the <kbd>train</kbd> method with the training data, the <kbd>learner</kbd> and the <kbd>progress_writer</kbd></li>
+</ol>
+<p>When we call train on the <kbd>loss</kbd> function, we get a slightly different output. Instead of just the loss, we also get to see the output of the <kbd>metric</kbd> function during training. In our case, the value of the metric should increase over time:</p>
+<pre><strong> average      since    average      since      examples</strong><br/><strong>    loss       last     metric       last              </strong><br/><strong> ------------------------------------------------------</strong><br/><strong>Learning rate per minibatch: 0.1</strong><br/><strong>     1.48       1.48       0.75       0.75            16</strong><br/><strong>     1.18       1.03       0.75       0.75            48</strong><br/><strong>    0.995      0.855      0.518      0.344           112</strong><br/><strong>     1.03       1.03      0.375      0.375            16</strong><br/><strong>    0.973      0.943      0.396      0.406            48</strong><br/><strong>    0.848      0.753      0.357      0.328           112</strong><br/><strong>    0.955      0.955      0.312      0.312            16</strong><br/><strong>    0.904      0.878      0.375      0.406            48</strong></pre>
+<p>Finally, when we're done training, you can use the <kbd>test</kbd> method on the <kbd>loss</kbd>/<kbd>metric</kbd> combination function to calculate classification error using the test set we created earlier:</p>
+<pre>loss.test((X_test, y_test))</pre>
+<p>When you execute the <kbd>test</kbd> method on the <kbd>loss</kbd> function with a dataset, CNTK will take the samples you provide as input for this function and make a prediction based on the input features, <kbd>X_test</kbd>. It then takes the predictions and the values stored in <kbd>y_test</kbd> and runs them through the <kbd>metric</kbd> function that we created in the <kbd>criterion_factory</kbd> function. This produces a single scalar value expressing the metric.</p>
+<p>The <kbd>classification_error</kbd> function that we used in this sample measures the difference between the real labels and predicted labels. It returns a value that expresses the percentage of samples that were incorrectly classified.</p>
+<p>The output of the <kbd>classification_error</kbd> function should confirm what we saw when we created the confusion matrix, and will look similar to this:</p>
+<pre>{'metric': 0.36666666666666664, 'samples': 30}</pre>
+<p>The results may differ because of the random-number generator that is used to initialize the model. You can set a fixed random seed for the random-number generator using the following code:</p>
+<pre>import cntk<br/>import numpy <br/><br/>cntk.cntk_py.set_fixed_random_seed(1337)<br/>numpy.random.seed = 1337</pre>
+<p>This will fix some variances in output but not all of them. There are a few components in CNTK that ignore the fixed random seed and will still generate different results each time you run the training code.</p>
+<p>CNTK 2.6 includes the <kbd>fmeasure</kbd> function, which implements the F-measure we discussed <span><span>in the section, <em>Using the F-measure as an alternative to the confusion matrix</em></span></span>. You can use the <kbd>fmeasure</kbd> in the training code by replacing the call to <kbd>cntk.metrics.classification_error</kbd> with a call to <kbd>cntk.losses.fmeasure</kbd> when defining the <kbd>criterion factory</kbd> function:</p>
+<pre>import cntk<br/><br/>@cntk.Function<br/>def criterion_factory(output, target):<br/>    loss = cntk.losses.cross_entropy_with_softmax(output, target)<br/>  <strong>  metric = cntk.losses.fmeasure(output, target)</strong><br/>    <br/>    return loss, metric</pre>
+<p>Running the training code again will give generate different output for the <kbd>loss.test</kbd> method call:</p>
+<pre>{'metric': 0.831014887491862, 'samples': 30}</pre>
+<p>As with the previous samples, the output may vary because of how the random-number generator is used to initialize the model.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Validating performance of a regression model</h1>
+                </header>
+            
+            <article>
+                
+<p>In the previous section, <em>Validating performance of a classification model,</em> we talked about validating the performance of a classification model. Now let's look at validating the performance of a regression model. </p>
+<p>Regression models are different in that there's no binary measure of right or wrong for individual samples. Instead, you want to measure how close the prediction is to the actual value. The closer we are to the expected output, the better the model performs.</p>
+<p>In this section, we'll discuss three methods to measure the performance of a neural network that is used for regression. We'll first talk about how to measure the performance using different error-rate functions. We'll then talk about how to use the coefficient of determination to further validate your regression model. Finally, we'll use a residual plot to get down to a very detailed level of how our model is doing.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Measuring the accuracy of your predictions</h1>
+                </header>
+            
+            <article>
+                
+<p>Let's first look at the basic concept of validating a regression model. As we mentioned before, you can't really say whether a prediction is right or wrong when validating a regression model. You want the prediction to be as close to the real value as possible, but a small error margin is acceptable.</p>
+<p>You can calculate the error margin on predictions made by a regression model by looking at the distance between the predicted value and the expected value. This can be expressed as a single formula, like so:</p>
+<div class="CenterAlign"><img class="fm-editor-equation" src="assets/39ce6970-235e-4e52-aaa3-d2f701b0cdd0.png" style="width:13.58em;height:3.83em;"/></div>
+<p>First, we calculate the distance between the predicted value, <em>y</em> indicated by a hat, and the real value, <em>y</em>, and square it. To get an overall error rate for the model, we'll need to sum these squared distances and calculate the average. </p>
+<p>The square operator is needed to turn negative distances between the predicted value, <em>y</em> with a hat, and the real value, <em>y</em>, into positive distances. Without this, we would run into problems: when you have a distance of +100 and another of -100 in the next sample, you'll end up with an error rate of exactly 0. This is, of course, not what we want. The square operator solves this for us.</p>
+<p><span>Because we square the distance between the prediction and actual values, we punish the computer more for large errors. </span></p>
+<p>The <kbd>mean squared</kbd> error function can be used as a metric for validation and as a loss function during training. Mathematically, there's no difference between the two. This makes it easier to see the performance of a regression model during training. You only need to look at the loss to get an idea of the performance.</p>
+<p>It's important to understand that you get a distance back from the mean squared error function. This is not an absolute measure of how well your model performs. You have to make a decision what maximum distance between the predicted value and expected value is acceptable to you. For example: you could specify that 90% of the predictions should have a maximum of 5% difference between the actual and the predicted value. This is very valuable for the users of your model. They typically want some form of assurance that the model predicts within certain limits.</p>
+<p>If you're looking for performance figures that express an error margin, you're not going to find much use for the <kbd>mean squared</kbd> error function. Instead, you need a formula that expresses the absolute error. This can be done using the <kbd>mean absolute</kbd> error function:</p>
+<div class="CenterAlign"><img class="fm-editor-equation" src="assets/8bf6778d-a641-4b26-9c10-9a72343647b2.png" style="width:13.17em;height:4.00em;"/></div>
+<p>This takes the absolute distance between the predicted and the real value, sums them, and then takes the average. This will give you a number that is much more readable. For example: when you're talking about house prices, it's much more understandable to present users with a $5,000 error margin than a $25,000 squared-error margin. The latter seems rather large, but it really isn't because it is a squared value.</p>
+<p>We're going to be purely looking at how to use the metrics from CNTK to validate a regression model. But it's good to remember to talk to the users of your model to determine what performance will be good enough.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Measuring regression model performance in CNTK</h1>
+                </header>
+            
+            <article>
+                
+<p>Now that we've seen how to validate regression models in theory, let's take a look at how to use the different metrics we just discussed in combination with CNTK. For this section, we'll be working with a model that predicts miles per gallon for cars using the following code:</p>
+<pre>from cntk import default_options, input_variable<br/>from cntk.layers import Dense, Sequential<br/>from cntk.ops import relu<br/><br/>with default_options(activation=relu):<br/>    model = Sequential([<br/>        Dense(64),<br/>        Dense(64),<br/>        Dense(1,activation=None)<br/>    ])<br/>    <br/>features = input_variable(X.shape[1])<br/>target = input_variable(1)<br/><br/>z = model(features)</pre>
+<p>Follow the given steps:</p>
+<ol>
+<li>First, import the required components from the <kbd>cntk</kbd> package</li>
+<li>Next, define a default activation function using the <kbd>default_options</kbd> function. We're using the <kbd>relu</kbd> function for this example</li>
+<li>Create a new <kbd>Sequential</kbd> layer set and provide two <kbd>Dense</kbd> layers with <kbd>64</kbd> neurons each</li>
+<li>Add an additional <kbd>Dense</kbd> layer to the <kbd>Sequential</kbd> layer set and give it <kbd>1</kbd> neuron without an activation. This layer will serve as the output layer</li>
+<li>After you've created the network, create an input variable for the input features and make sure it has the same shape as the features that we're going to be using for training</li>
+<li>Create another <kbd>input_variable</kbd> with size 1 to store the expected value for the neural network.</li>
+</ol>
+<p>The output layer doesn't have an activation function assigned because we want it to be linear. When you leave out the activation function for a layer, CNTK will use an identity function instead and the layer will not apply a non-linearity to the data. This is useful for regression scenarios since we don't want to limit the output to a specific range of values.</p>
+<p>To train the model, we're going to need to split the dataset and perform some preprocessing:</p>
+<pre>from sklearn.preprocessing import StandardScaler<br/>from sklearn.model_selection import train_test_split<br/><br/>X = df_cars.drop(columns=['mpg']).values.astype(np.float32)<br/>y = df_cars.iloc[:,0].values.reshape(-1,1).astype(np.float32)<br/><br/>scaler = StandardScaler()<br/>X = scaler.fit_transform(X)<br/><br/>X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)</pre>
+<p>Follow the given steps:</p>
+<p style="margin-left: 2em"/>
+<ol>
+<li>First, take the dataset and drop the <kbd>mpg</kbd> column using the <kbd>drop</kbd> method. This will produce a copy of the original dataset from which we can get the numpy vectors from the <kbd>values</kbd> property.</li>
+<li>Next, scale the data using a <kbd>StandardScaler</kbd> so we get values between -1 and + 1. Doing this will help against exploding gradient problems in the neural network.</li>
+<li>Finally, split the dataset into a training and validation set using the <kbd>train_test_split</kbd> function.</li>
+</ol>
+<p>Once we have split and preprocessed the data, we can train the neural network. To train the model, we're going to define a combination of a <kbd>loss</kbd> and <kbd>metric</kbd> function to train the model:</p>
+<pre>import cntk <br/><br/>def absolute_error(output, target):<br/>    return cntk.ops.reduce_mean(cntk.ops.abs(output - target))<br/><br/>@cntk.Function<br/>def criterion_factory(output, target):<br/>    loss = squared_error(output, target)<br/>    metric = absolute_error(output, target)<br/>    <br/>    return loss, metric</pre>
+<p>Follow the given steps:</p>
+<ol>
+<li>Define a new function named <kbd>absolute_error</kbd></li>
+<li>In the <kbd>absolute_error</kbd> function calculate the mean absolute difference between the output and target</li>
+<li>Return the result</li>
+<li>Next, create another function called <kbd>criterion_factory</kbd></li>
+<li>Mark this function with <kbd>@cntk.Function</kbd> to tell CNTK to include the <kbd>train</kbd> and <kbd>test</kbd> method on the function</li>
+<li>Within the function, create the <kbd>loss</kbd> using the <kbd>squared_loss</kbd> function</li>
+<li>Then, create the metric using the <kbd>absolute_error</kbd> function</li>
+<li>Return both the <kbd>loss</kbd> and the <kbd>metric</kbd> as a tuple</li>
+</ol>
+<p>CNTK will automatically combine these into a single callable function. When you invoke the <kbd>train</kbd> method, the loss is used to optimize the parameters in the neural network. When you invoke the <kbd>test</kbd> method, the metric is used to measure the performance of the previously-trained neural network.</p>
+<p><span><span>If we want to measure the absolute error for our model w</span></span>e need to write our own metric, since the <kbd>mean absolute</kbd> error function isn't included in the framework. This can be done by combining the standard operators included in CNTK. </p>
+<p>Now that we have a way to create a combined <kbd>loss</kbd> and <kbd>metric</kbd> function, let's take a look at how to use it to train the model:</p>
+<pre>from cntk.logging import ProgressPrinter<br/>from cntk.losses import squared_error<br/>from cntk.learners import sgd<br/><br/>loss = criterion_factory(z, target)<br/>learner = sgd(z.parameters, 0.001)<br/><br/>progress_printer = ProgressPrinter(0)<br/><br/>train_summary = loss.train((X_train,y_train), <br/>                           parameter_learners=[learner], <br/>                           callbacks=[progress_printer],<br/>                           minibatch_size=16,<br/>                           max_epochs=10)</pre>
+<p><span>We'll use <kbd>criterion_factory</kbd> as the <kbd>loss</kbd> and <kbd>metric</kbd> combination for our model. When you train the model, you will see that the loss is going down quite nicely over time. We can also see that the mean absolute error is going down as well: </span></p>
+<pre><strong> average      since    average      since      examples
+    loss       last     metric       last              
+ ------------------------------------------------------
+Learning rate per minibatch: 0.001
+      690        690       24.9       24.9            16
+      654        636       24.1       23.7            48
+      602        563       23.1       22.3           112
+      480        373       20.4         18           240
+       62         62       6.19       6.19            16
+     47.6       40.4       5.55       5.24            48
+     44.1       41.5       5.16       4.87           112
+     32.9       23.1        4.5       3.92           240
+     15.5       15.5       3.12       3.12            16
+     15.7       15.7       3.13       3.14            48
+     15.8       15.9       3.16       3.18           112</strong><br/><strong>[...]</strong></pre>
+<p>Now we need to make sure that our model handles new data just as well is it does the training data. To do this, we need to invoke the <kbd>test</kbd> method on the <kbd>loss</kbd>/<kbd>metric</kbd> combination with the test dataset:</p>
+<pre>loss.test((X_test,y_test))</pre>
+<p>This gives us the value for the performance metric and the number of samples it was run on. The output should look similar to the following. It's low and tells us that the model has a small error margin:</p>
+<pre>{'metric': 1.8967978561980814, 'samples': 79}</pre>
+<p>When we call the <kbd>test</kbd> method on the loss with the test set, it will take the test data, <kbd>X_test</kbd>, and run it through the model to obtain predictions for each of the samples. It then runs these through the <kbd>metric</kbd> function together with the expected output, <kbd>y_test</kbd>. This will result in a single scalar value as the output.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Measuring performance for out-of-memory datasets</h1>
+                </header>
+            
+            <article>
+                
+<p>We've talked a lot about different methods to validate the performance of your neural networks. So far, we've only had to deal with datasets that fit in memory. But this is almost never the case in production scenarios, since you need a lot of data to train a neural network. In this section, we'll discuss how to use the different metrics on out-of-memory datasets. </p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Measuring performance when working with minibatch sources</h1>
+                </header>
+            
+            <article>
+                
+<p> </p>
+<p>When you use a minibatch data source, you need a slightly different setup for the loss and metric. Let's go back and review how you can set up training using a minibatch source and extend it with metrics to validate the model. First, we need to set up a way to feed data to the trainer of the model:</p>
+<pre>from cntk.io import StreamDef, StreamDefs, MinibatchSource, CTFDeserializer, INFINITELY_REPEAT<br/><br/>def create_datasource(filename, limit=INFINITELY_REPEAT):<br/>    labels_stream = StreamDef(field='labels', shape=3, is_sparse=False)<br/>    features_stream = StreamDef(field='features', shape=4, is_sparse=False)<br/><br/>    deserializer = CTFDeserializer(filename, StreamDefs(labels=labels_stream, features=features_stream))<br/>    minibatch_source = MinibatchSource(deserializer, randomize=True, max_sweeps=limit)<br/>    <br/>    return minibatch_source<br/><br/>training_source = create_datasource('iris_train.ctf')<br/>test_source = create_datasource('iris_test.ctf', limit=1)</pre>
+<p>Follow the given steps:</p>
+<ol>
+<li>First, import the components needed to create a minibatch source.</li>
+<li>Next,  define a new function <kbd>create_datasource</kbd> with two parameters, <kbd>filename</kbd> and <kbd>limit</kbd> with a default value of <kbd>INFINITELY_REPEAT</kbd>.</li>
+<li>Within the function, create a <kbd>StreamDef</kbd> for the labels that reads from the labels field that has three features. Set the <kbd>is_sparse</kbd> keyword argument to <kbd>False</kbd>.</li>
+</ol>
+<ol start="4">
+<li>Create another <kbd>StreamDef</kbd> for the features that reads from the features field that has four features. Set the <kbd>is_sparse</kbd> keyword argument to <kbd>False</kbd>. </li>
+<li>Next, initialize a new instance of <kbd>CTFDeserializer</kbd> class and specify the filename and streams that you want to deserialize.</li>
+<li>Finally, Create a minibatch source using the <kbd>deserializer</kbd> and configure it to shuffle the dataset and specify the <kbd>max_sweeps</kbd> keyword argument with the configured amount of sweeps.</li>
+</ol>
+<p>Remember from <a href="f7cd9148-99e8-427c-acf4-d74c3e52df58.xhtml">Chapter 3</a>, <em>Getting Data into Your Neural Network</em>, that to use a minibatch source, you need to have a compatible file format. For the classification model in <a href="f7cd9148-99e8-427c-acf4-d74c3e52df58.xhtml">Chapter 3</a>, <em>Getting Data into Your Neural Network,</em> we used the CTF file format as input for the MinibatchSource. We've included the data files in the sample code for this chapter. Check out the <kbd>Validating with a minibatch source.ipynb</kbd> file for more details.</p>
+<p>Once we have the data source, we can create the model same model as we used in the earlier section, <em>Validating performance of a classification model</em>, and initialize a training session for it:</p>
+<pre>from cntk.logging import ProgressPrinter<br/>from cntk.train import Trainer, training_session<br/><br/>minibatch_size = 16<br/>samples_per_epoch = 150<br/>num_epochs = 30<br/>max_samples = samples_per_epoch * num_epochs<br/><br/>input_map = {<br/>    features: training_source.streams.features,<br/>    labels: training_source.streams.labels<br/>}<br/><br/>progress_writer = ProgressPrinter(0)<br/>trainer = Trainer(z, (loss, metric), learner, progress_writer)<br/><br/>session = training_session(trainer, <br/>                           mb_source=training_source,<br/>                           mb_size=minibatch_size, <br/>                           model_inputs_to_streams=input_map, <br/>                           max_samples=max_samples,<br/>                           test_config=test_config)<br/><br/>session.train()</pre>
+<p>Follow the given steps:</p>
+<ol>
+<li>First, import the <kbd>ProgressPrinter</kbd> to log information about the training process</li>
+<li>Additionally, import the <kbd>Trainer</kbd> and <kbd>training_session</kbd> component from the <kbd>train</kbd> module</li>
+<li>Next, define a mapping between the input variables of the model and the data streams from the minibatch source</li>
+<li>Then, create a new instance of the <kbd>ProgressWriter</kbd> to log the output of the training progress</li>
+<li>After, initialize the <kbd>trainer</kbd> and provide it with the model, the <kbd>loss</kbd>, the <kbd>metric</kbd>, the <kbd>learner</kbd> and the <kbd>progress_writer</kbd></li>
+<li>Finally, invoke the <kbd>training_session</kbd> function to start the training process. Provide the function with the <kbd>training_source</kbd>, the settings and the mapping between the input variables and the data streams from the minibatch source. </li>
+</ol>
+<p>To add validation to this setup, you need to use a <kbd>TestConfig</kbd> object and assign it to the <kbd>test_config</kbd> keyword argument of the <kbd>train_session</kbd> function. The <kbd>TestConfig</kbd> object doesn't have a lot of settings that you need to configure:</p>
+<pre>from cntk.train import TestConfig<br/><br/>test_config = TestConfig(test_source)</pre>
+<p>Follow the given steps:</p>
+<ol>
+<li>First, import the <kbd>TestConfig</kbd> class from the <kbd>train</kbd> module</li>
+<li>Then, create a new instance of the <kbd>TestConfig</kbd> with the <kbd>test_source</kbd>, which we created earlier, as input</li>
+</ol>
+<p>You can use this test configuration during training by specifying the <kbd>test_config</kbd> keyword argument for in the <kbd>train</kbd> method.</p>
+<p>When you run the training session, you will get output that is similar to this:</p>
+<pre><strong> average      since    average      since      examples
+    loss       last     metric       last              
+ ------------------------------------------------------
+Learning rate per minibatch: 0.1
+     1.57       1.57      0.214      0.214            16
+     1.38       1.28      0.264      0.289            48
+     1.41       1.44      0.147     0.0589           112
+     1.27       1.15     0.0988     0.0568           240
+     1.17       1.08     0.0807     0.0638           496
+      1.1       1.03     0.0949      0.109          1008
+    0.973      0.845      0.206      0.315          2032
+    0.781       0.59      0.409       0.61          4080
+Finished Evaluation [1]: Minibatch[1-1]: metric = 70.72% * 30;</strong></pre>
+<p>First, you'll see that the model is trained using the data from the training MinibatchSource. Because we configured the progress printer as a callback for the training session, we can see how the loss is progressing. Additionally, you will see a metric increasing in value. This metric output comes from the fact that we gave the <kbd>training_session</kbd> function a trainer that had both a loss and a metric configured.</p>
+<p>When the training finishes, a test pass will be performed over the model using the data coming from the MinibatchSource that you configured in the <kbd>TestConfig</kbd> object. </p>
+<p>What's cool is that not only is your training data now loaded in memory in small batches to prevent memory issues, the test data is also loaded in small batches. This is really useful if you're working on models with large datasets, even for testing purposes.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Measuring performance when working with a manual minibatch loop</h1>
+                </header>
+            
+            <article>
+                
+<p>Using metrics when training with the regular APIs in CNTK is the easiest way to measure the performance of your model during and after training. Things will be more difficult when you work with a manual minibatch loop. This is the point where you get the most control though.</p>
+<p>Let's first go back and review how to train a model using a manual minibatch loop. We're going to be working on the classification model we used in the section <em>Validating performance of a classification model</em>. You can find it in the <kbd>Validating with a manual minibatch loop.ipynb</kbd> file in the sample code for this chapter. </p>
+<p>The loss for the model is defined as a combination of the <kbd>cross-entropy</kbd> loss function and the F-measure metric that we saw in the section <em>Using the F-Measure as an alternative to the confusion matrix</em>. You can use the function object combination that we used before in the section <em>Measuring classification performance in CNTK,</em> with a manual training process, which is a nice touch:</p>
+<pre>import cntk<br/>from cntk.losses import cross_entropy_with_softmax, fmeasure<br/><br/>@cntk.Function<br/>def criterion_factory(outputs, targets):<br/>    loss = cross_entropy_with_softmax(outputs, targets)<br/>    metric = fmeasure(outputs, targets, beta=1)<br/>    <br/>    return loss, metric</pre>
+<p>Once we have a loss defined, we can use it in the trainer to set up a manual training session. As you might expect, this requires a bit more work to write it in Python code:</p>
+<pre>import pandas as pd<br/>import numpy as np<br/>from cntk.logging import ProgressPrinter<br/>from cntk.train import Trainer<br/><br/>progress_writer = ProgressPrinter(0)<br/>trainer = Trainer(z, loss, learner, progress_writer)<br/><br/>for _ in range(0,30):<br/>    input_data = pd.read_csv('iris.csv', <br/>        names=['sepal_length', 'sepal_width','petal_length','petal_width', 'species'], <br/>        index_col=False, chunksize=16)<br/><br/>    for df_batch in input_data:<br/>        feature_values = df_batch.iloc[:,:4].values<br/>        feature_values = feature_values.astype(np.float32)<br/><br/>        label_values = df_batch.iloc[:,-1]<br/><br/>        label_values = label_values.map(lambda x: label_mapping[x])<br/>        label_values = label_values.values<br/><br/>        encoded_labels = np.zeros((label_values.shape[0], 3))<br/>        encoded_labels[np.arange(label_values.shape[0]), label_values] = 1.<br/><br/>        trainer.train_minibatch({features: feature_values, labels: encoded_labels})</pre>
+<p>Follow the given steps:</p>
+<ol>
+<li>To get started, import the <kbd>numpy</kbd> and <kbd>pandas</kbd> packages to load and preprocess the data</li>
+<li>Next, import the <kbd>ProgressPrinter</kbd> class to log information during training</li>
+<li>Then, import the <kbd>Trainer</kbd> class from the <kbd>train</kbd> module</li>
+<li>After importing all the necessary components, create a new instance of the <kbd>ProgressPrinter</kbd></li>
+<li>Then, initialize the <kbd>trainer</kbd> and provide it with the model, the <kbd>loss</kbd>, the <kbd>learner</kbd> and the <kbd>progress_writer</kbd></li>
+</ol>
+<ol start="6">
+<li>To train the model, create a loop that iterates over the dataset thirty times. This will be our outer training loop</li>
+<li>Next, load the data from disk using <kbd>pandas</kbd> and set the <kbd>chunksize</kbd> keyword argument to <kbd>16</kbd> so the dataset is loaded in mini-batches</li>
+<li>Iterate over each of the mini-batches using a <kbd>for</kbd> loop, this will be our inner training loop</li>
+<li>Within the <kbd>for</kbd> loop, read the first four columns using the <kbd>iloc</kbd> indexer as the <kbd>features</kbd> to train from and convert them to <kbd>float32</kbd></li>
+<li>Next, read the last column as the label to train from</li>
+<li>The labels are stored as strings, but we one-hot vectors, so convert the label strings to their numeric representation</li>
+<li>Then, take the numeric representation of the labels and convert them to a numpy array so its easier to work with them</li>
+<li>After that, create a new numpy array that has the same number of rows as the label values that we just converted. But with <kbd>3</kbd> columns, representing the number of possible classes that the model can predict</li>
+<li>Now, select the columns based on the numeric label values and set it them <kbd>1</kbd>, to create one-hot encoded labels</li>
+<li>Finally, invoke the <kbd>train_minibatch</kbd> method on the <kbd>trainer</kbd> and feed it the processed features and labels for the minibatch</li>
+</ol>
+<p>When you run the code you swill see output similar to this:</p>
+<pre><strong>average since average since  examples <br/>loss    last  metric  last <br/>------------------------------------------------------ <br/>Learning rate per minibatch: 0.1<br/>1.45    1.45  -0.189  -0.189  16 <br/>1.24    1.13  -0.0382  0.0371 48 <br/>1.13    1.04  0.141    0.276  112 <br/>1.21    1.3   0.0382  -0.0599 230 <br/>1.2     1.18  0.037    0.0358 466</strong></pre>
+<p>Because we combined a metric and loss in a function object and used a progress printer in the trainer configuration, we get both the output for the loss and the metric during training.</p>
+<p>To evaluate the model performance, you need to perform a similar task as with training the model. Only this time, we need to use an <kbd>Evaluator</kbd> instance to test the model:</p>
+<pre>from cntk import Evaluator<br/><br/>evaluator = Evaluator(loss.outputs[1], [progress_writer])<br/><br/>input_data = pd.read_csv('iris.csv', <br/>        names=['sepal_length', 'sepal_width','petal_length','petal_width', 'species'], <br/>        index_col=False, chunksize=16)<br/><br/>for df_batch in input_data:<br/>    feature_values = df_batch.iloc[:,:4].values<br/>    feature_values = feature_values.astype(np.float32)<br/><br/>    label_values = df_batch.iloc[:,-1]<br/>    <br/>    label_values = label_values.map(lambda x: label_mapping[x])<br/>    label_values = label_values.values<br/>    <br/>    encoded_labels = np.zeros((label_values.shape[0], 3))<br/>    encoded_labels[np.arange(label_values.shape[0]), label_values] = 1.<br/>    <br/>    evaluator.test_minibatch({ features: feature_values, labels: encoded_labels})<br/>    <br/>evaluator.summarize_test_progress()</pre>
+<p>Follow the given steps:</p>
+<ol>
+<li>First, import the <kbd>Evaluator</kbd> from the <kbd>cntk</kbd> package</li>
+<li>Then, create a new instance of the <kbd>Evaluator</kbd> and provide it the second output of the <kbd>loss</kbd> function</li>
+<li>After initializing the <kbd>Evalutator</kbd>, load the CSV file containing the data and provide the <kbd>chunksize</kbd> parameter so we load the data in batches</li>
+<li>Now, iterate over the batches returned by the <kbd>read_csv</kbd> function to process the items in the dataset</li>
+<li>Within this loop, read the first four columns as the <kbd>features</kbd> and convert them to <kbd>float32</kbd></li>
+<li>After that, read the labels column</li>
+<li>Since the labels are stored as string we need to convert them to a numeric representation first</li>
+<li>After that, take the underlying numpy array, for easier processing</li>
+<li>Next, create a new array using the <kbd>np.zeros</kbd> function</li>
+<li>Set the elements at the label indices we obtained in step 7 to <kbd>1</kbd> to create the one-hot encoded vectors for the labels</li>
+<li>Then, invoke the <kbd>test_minibatch</kbd> method on the <kbd>evaluator</kbd> and provide it the features and encoded labels</li>
+<li>Finally, use the <kbd>summarize_test_progress</kbd> method on the <kbd>evaluator</kbd> to obtain the final performance metrics</li>
+</ol>
+<p>When you run the <kbd>evaluator</kbd>, you will get output similar to this:</p>
+<pre>Finished Evaluation [1]: Minibatch[1-11]: metric = 65.71% * 166;</pre>
+<p>While the manual minibatch loop is a lot more work to set up for both training and evaluation, it is one of the most powerful. You can change everything and even run evaluation at different intervals during training. This is especially useful if you have a model that takes a long time to train. By using testing at regular intervals, you can monitor when your model starts to overfit, and you can stop the training if you need to.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Monitoring your model</h1>
+                </header>
+            
+            <article>
+                
+<p>Now that we've done some validation on our models, it's time to talk about monitoring your model during training. You saw some of this before in the section <em>Measuring classification performance in CNTK</em> and the previous <a href="4c9da7a9-6873-4de9-99a9-43de693d65f8.xhtml">Chapter 2</a>, <em>Building Neural Networks with CNTK,</em> through the use of the <kbd>ProgressWriter</kbd> class, but there are more ways to monitor your model. For example: you can use <kbd>TensorBoardProgressWriter</kbd>. Let's take a closer look at how monitoring in CNTK works and how you can use it to detect problems in your model.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Using callbacks during training and validation</h1>
+                </header>
+            
+            <article>
+                
+<p>CNTK allows you to specify callbacks in several spots in the API. For example: when you call train on a <kbd>loss</kbd> function, you can specify a set of callbacks through the callbacks argument:</p>
+<pre>train_summary = loss.train((X_train,y_train), <br/>                           parameter_learners=[learner], <br/>                           callbacks=[progress_writer], <br/>                           minibatch_size=16, max_epochs=15)</pre>
+<p>If you're working with minibatch sources or using a manual minibatch loop, you can specify callbacks for monitoring purposes when you create the <kbd>Trainer</kbd>:</p>
+<pre>from cntk.logging import ProgressPrinter<br/><br/>callbacks = [<br/>    ProgressPrinter(0)<br/>]<br/><br/>trainer = Trainer(z, (loss, metric), learner, [callbacks])</pre>
+<p>CNTK will invoke these callbacks at set moments:</p>
+<ul>
+<li>When a minibatch is completed</li>
+<li>When a full sweep over the dataset is completed during training</li>
+<li>When a minibatch of testing is completed</li>
+<li>When a full sweep over the dataset is completed during testing</li>
+</ul>
+<p>A callback in CNTK can be a callable function or a progress writer instance. The progress writers use a specific API that corresponds to the four times during which logging data is written. We'll leave the implementation of the progress writers for your own exploration. Instead, we'll look at how you can use the different progress writers during training to monitor your model.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Using ProgressPrinter</h1>
+                </header>
+            
+            <article>
+                
+<p>One of the monitoring tools you will find yourself using quite a lot is <kbd>ProgressPrinter</kbd>. This class implements basic console-based logging to monitor your model. It can also log to disk should you want it to. This is especially useful if you're working in a distributed training scenario or in a scenario where you can't log in on the console to see the output of your Python program.</p>
+<p>You can create a <kbd>ProgressPrinter</kbd> instance like so:</p>
+<pre>ProgressPrinter(0, log_to_file='test_log.txt'),</pre>
+<p>You can configure quite a few things in <kbd>ProgressPrinter</kbd>, but we'll limit ourselves to the most-used arguments. You can, however, find more information about <kbd>ProgressPrinter</kbd> on the CNTK website should you want something more exotic.</p>
+<p>When you configure <kbd>ProgressPrinter</kbd>, you can specify the frequency as the first argument to configure how often data should be printed to the output. When you specify a value of zero, it will print status messages every other minibatch (1,2,4,6,8,...). You can change this setting to a value greater than zero to create a custom schedule. For example, when you enter 3 as the frequency, the logger will write status data after every 3 minibatches.</p>
+<p>The <kbd>ProgressPrinter</kbd> class also accepts a <kbd>log_to_file</kbd> argument. This is where you can specify a filename to write the log data to. The output of the file will look similar to this when used:</p>
+<pre><strong>test_log.txt</strong><br/><strong>CNTKCommandTrainInfo: train : 300</strong><br/><strong>CNTKCommandTrainInfo: CNTKNoMoreCommands_Total : 300</strong><br/><strong>CNTKCommandTrainBegin: train</strong><br/><strong> average since average since examples</strong><br/><strong>    loss  last  metric  last </strong><br/><strong> ------------------------------------------------------</strong><br/><strong>Learning rate per minibatch: 0.1</strong><br/><strong>     8.91 8.91   0.296 0.296 16</strong><br/><strong>     3.64 1      0.229 0.195 48</strong><br/><strong>     2.14 1.02   0.215 0.204 112</strong><br/><strong>    0.875 0.875  0.341 0.341 16</strong><br/><strong>     0.88 0.883  0.331 0.326 48</strong></pre>
+<p>This is quite similar to what you've seen before in this chapter when we used the <kbd>ProgressPrinter</kbd> class.</p>
+<p>Finally, you can specify how the metrics should be displayed by the <kbd>ProgressPrinter</kbd> class using the <kbd>metric_is_pct</kbd> setting. Set this to <kbd>False</kbd> to print the raw value instead of the default strategy to print the metric as a percentage.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Using TensorBoard</h1>
+                </header>
+            
+            <article>
+                
+<p> </p>
+<p>While <kbd>ProgressPrinter</kbd> can be useful to monitor training progress inside a Python notebook, it certainly leaves a lot to be desired. For example: getting a good view of how the loss and metric progress over time is hard with <kbd>ProgressPrinter</kbd>. </p>
+<p>There's a great alternative to the <kbd>ProgressPrinter</kbd> class in CNTK. You can use <kbd>TensorBoardProgressWriter</kbd> to log data in a native TensorBoard format. </p>
+<p>TensorBoard is a tool that was invented by Google to be used with TensorFlow. It can visualize all sorts of metrics from your model during and after training. You can download this tool manually by installing it using PIP:</p>
+<pre><strong>pip install tensorboard</strong></pre>
+<p>To use TensorBoard, you need to set up <kbd>TensorBoardProgressWriter</kbd> in your training code first:</p>
+<pre>import time<br/>from cntk.logging import TensorBoardProgressWriter<br/><br/>tensorboard_writer = TensorBoardProgressWriter(log_dir='logs/{}'.format(time.time()), freq=1, model=z)</pre>
+<ol>
+<li>First, import the <kbd>time</kbd> package</li>
+<li>Next, Import the <kbd>TensorBoardProgressWriter</kbd></li>
+<li>Finally, create a new <kbd>TensorBoardProgressWriter</kbd> and provide a timestamped directory to log to. Make sure to provide the model as a keyword argument so it gets sent to TensorBoard during training.</li>
+</ol>
+<p>We opted to use a separate log <kbd>dir</kbd> for each run by parameterizing the log directory setting with a timestamp. This ensures that multiple runs on the same model are logged separately and can be viewed and compared. Finally, you can specify the model that you're using the TensorBoard progress writer with.</p>
+<p>Once you've trained your model, make sure you call the <kbd>close</kbd> method on your <kbd>TensorboardProgressWriter</kbd> instance to ensure that the log files are fully written. Without this, you're likely to miss a few, if not all, metrics collected during training.</p>
+<p>You can visualize the TensorBoard logging data by starting TensorBoard using the command in your Anaconda prompt:</p>
+<pre><strong>tensorboard --logdir logs</strong></pre>
+<p>The <kbd>--logdir</kbd> argument should match the root <kbd>dir</kbd> where all runs are logged. In this case, we're using the <kbd>logs</kbd> <kbd>dir</kbd> as the input source for TensorBoard. Now you can open TensorBoard in your browser by going to the URL indicated in the console where you started TensorBoard.</p>
+<p>The TensorBoard web page looks like this, with the <span>SCALARS</span> tab as the default page:</p>
+<div class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-675 image-border" src="assets/c969bf59-e1d1-4416-8ccb-5b858c9626af.png" style=""/></div>
+<div class="CDPAlignCenter CDPAlign packt_figref">Tensorboard web page, with the scalars tab as the default page</div>
+<p>You can view multiple runs by selecting them on the left of the screen. This allows you to compare different runs to see how much things have changed between the runs. In the middle of the screen, you can check out different charts that depict the loss and metrics over time. CNTK will log the metrics per minibatch and per epoch, and both can be used to see how metrics have changed over time. </p>
+<p>There are more ways in which TensorBoard helps to monitor your model. When you go to the <span class="packt_screen">GRAPHS</span> tab, you can see what your model looks like in a nice graphical map:</p>
+<div class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-676 image-border" src="assets/06fc5bc5-ac3b-4235-85c9-fb035af05dcb.png" style=""/></div>
+<div class="mce-root CDPAlignCenter CDPAlign packt_figref">Display of your model in a graphical map</div>
+<p>This is especially useful for technically-complex models with a lot of layers. It helps you understand how layers are connected, and it has saved many developers from a headache because they were able to find their disconnected layers through this tab.</p>
+<p>TensorBoard contains many more ways to monitor your model, but sadly CNTK uses only the <span>SCALARS</span> and <span>GRAPH</span> tabs by default. You can also log images to TensorBoard should you work with them. We'll talk about this later in <a href="9d91a0e4-3870-4a2f-b483-82fdb8849bc2.xhtml">Chapter 5</a>, <em>Working with Images</em>, when we start to work on images.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Summary</h1>
+                </header>
+            
+            <article>
+                
+<p>In this chapter, you learned how to validate different types of deep learning models and how you can use metrics in CNTK to implement validation logic for your models. We also explored how to use TensorBoard to visualize training progress and the structure of the model so you can easily debug your models.</p>
+<p>Monitoring and validating your model early and often will ensure that you end up with neural networks that work very well on production and do what your client expects them to. It is the only way to detect underfitting and overfitting of your model.</p>
+<p>Now that you know how to build and validate basic neural networks, we'll dive into more interesting deep learning scenarios. In the next chapter, we will explore how you can use images with neural networks to perform image detection, and in <a href="a5da9ef2-399a-4c30-b751-318d64939369.xhtml">Chapter 6</a>, <em>Working with Time Series Data</em>, we will take a look at how to build and validate deep learning models that work on time series data, such as financial market data. You will need all of the techniques described in this and previous chapters in the next chapters to make the most of the more advanced deep learning scenarios.</p>
+
+
+            </article>
+
+            
+        </section>
+    </body></html>

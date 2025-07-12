@@ -1,0 +1,420 @@
+<html><head></head><body>
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Getting Data into Your Neural Network</h1>
+                </header>
+            
+            <article>
+                
+<p>There are many techniques you can use to load data to train a neural network or make predictions. What technique you use depends on how large your dataset is and in what format you've stored your data. In the previous chapter, we've seen how to feed data into a CNTK trainer manually. In this chapter, we will learn more ways to feed data into your neural network.</p>
+<p> The following topics will be covered in this chapter:</p>
+<ul>
+<li>Training your neural network efficiently with minibatches</li>
+<li>Working with small in-memory datasets</li>
+<li>Working with large datasets</li>
+<li>Taking control over the minibatch loop</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Technical requirements</h1>
+                </header>
+            
+            <article>
+                
+<p><span>We assume you have a recent version of Anaconda installed on your computer and have followed the steps in <a href="9a2c8c46-f9a0-4e05-86ef-31300a28a7ba.xhtml">Chapter 1</a>, <em>Getting Started with CNTK</em>, to install CNTK on your computer. The sample code for this chapter can be found in our</span> GitHub <span>repository at</span> <a href="https://github.com/PacktPublishing/Deep-Learning-with-Microsoft-Cognitive-Toolkit-Quick-Start-Guide/tree/master/ch3">https://github.com/PacktPublishing/Deep-Learning-with-Microsoft-Cognitive-Toolkit-Quick-Start-Guide/tree/master/ch3</a>.</p>
+<p>In this chapter, we'll work on a few examples stored in Jupyter notebooks. To access the sample code, run the following commands inside an Anaconda prompt in the directory where you've downloaded the code:</p>
+<pre><strong>cd ch3</strong><br/><strong>jupyter notebook</strong></pre>
+<p>We'll mention the relevant notebooks in each of the sections so you can follow along and try out different techniques yourself.</p>
+<p class="mce-root">Check out the following video to see the code in action:</p>
+<p><a href="http://bit.ly/2UczHuH">http://bit.ly/2UczHuH</a></p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Training a neural network efficiently with minibatches</h1>
+                </header>
+            
+            <article>
+                
+<p>In the previous chapter, we discussed how to build and train a neural network. In this chapter, we'll discuss various ways to feed data to the CNTK trainer. Before we dive into the details of each data processing method, let's take a closer look at what happens with the data when you train a neural network.</p>
+<p>You need a couple of things to train a neural network. As we discussed in the previous chapter, you need to have a basic structure for your model and a loss function. The <kbd>trainer</kbd> and the <kbd>learner</kbd> are the final pieces to the puzzle and are responsible for controlling the training process.</p>
+<p>The <kbd>trainer</kbd> performs four steps:</p>
+<ol>
+<li>It takes a number of training samples and feeds them through the network and <kbd>loss</kbd> function</li>
+<li>Next, it takes the output of the <kbd>loss</kbd> function and feeds it through the <kbd>learner</kbd></li>
+<li>It then uses the <kbd>learner</kbd> to get a set of gradients for the parameters in the network</li>
+<li>Finally, it uses the gradients to determine the new value of each parameter in the network</li>
+</ol>
+<p>This process is repeated for all samples in your dataset to train the network for a full epoch. Usually, you need to train the network for multiple epochs to get the best result.</p>
+<p>We previously only talked about single samples when training a neural network. But that is not what happens inside CNTK.</p>
+<p>CNTK and many other frameworks use minibatches to train neural networks. A minibatch is a set of samples taken from your dataset. Essentially, a minibatch is a very small table of samples. It contains a predefined number of samples for the input features and an equal number of samples for the targets of your neural network. </p>
+<p>The minibatch is passed through the network during training to calculate the output of the loss function. The output for the <kbd>loss</kbd> function is no longer a single value, but rather a list of values equal to the number of rows in the minibatch. This list of values is then passed through the <kbd>learner</kbd> to obtain a set of gradients for each of the parameters in the neural network.</p>
+<p>Now, there's a problem with working with minibatches. We want one gradient per parameter to optimize its value. But we get a list of gradients instead. We can solve this by calculating the average over the gradients for each parameter. The average gradients are then used to update the parameters in the neural network.</p>
+<p>Working with minibatches speeds up the training process but comes at a cost. Because we now have to deal with averages, we lose some resolution in calculating the gradients for the parameters in the model. It is quite possible to have a gradient of zero in a single minibatch as a result of averaging all the calculated gradients. When you use minibatches to train your neural network, you will get a lower quality model.</p>
+<p>You need to set the number of samples per minibatch yourself before you start to train your neural network. Choosing a higher minibatch size will result in faster training at the cost of quality. A lower minibatch size is slower but produces better models. Choosing the right minibatch size is a matter of experimentation.</p>
+<p>There's also a memory aspect to choosing the minibatch size. The minibatch size depends on how much memory you have available in your machine. You will find that you can fit fewer samples in the memory of your graphics card than you can in regular computer memory.</p>
+<p>All methods described the next sections will use minibatches automatically. Later in the chapter, in the section, <em>Taking control over the minibatch loop, </em>we will discuss how to take control of the minibatch loop yourself should you need to.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Working with small in-memory datasets</h1>
+                </header>
+            
+            <article>
+                
+<p>There are many ways in which you can feed data to the CNTK trainer. Which technique you should use depends on the size of the dataset and the format of the data. Let's take a look at how to work with smaller in-memory datasets first.</p>
+<p>When you work with in-memory data in Python you will most likely use a framework such as Pandas or NumPy. These frameworks work with vectors and matrices of floating point or object data at their core and offer various levels of convenience when it comes to working with data. </p>
+<p>Let's go over each of these libraries and explore how you can use data stored in these libraries to train your neural network.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Working with numpy arrays</h1>
+                </header>
+            
+            <article>
+                
+<p>The first library we'll explore is numpy. Numpy is the most basic library available in Python for performing mathematical operations on n-dimensional arrays. It features an efficient way to store matrices and vectors in computer memory. The numpy library defines a large number of operators to manipulate these n-dimensional arrays. For example, it has built-in functions to calculate the average value over a whole matrix or rows/columns in a matrix.</p>
+<p>You can follow along with any of the code in this section by opening the <kbd>Training using numpy arrays.ipynb</kbd> notebook in your browser using the instructions described at the start of this chapter.</p>
+<p>Let's take a look at how to work with a numpy-based dataset in CNTK. As an example, we'll use a randomly generated dataset. We'll simulate data for a binary classification problem. Imagine that we have a set of observations with four features. We want to predict two possible labels with our model. First, we need to generate a set of labels that contain a one-hot vector representation of the labels that we want to predict. Next, we'll also need a set of features that will serve as the input features for our model:</p>
+<pre>import numpy as np<br/><br/>num_samples = 20000<br/><br/>label_mapping = np.eye(2)<br/>y = label_mapping[np.random.choice(2,num_samples)].astype(np.float32)<br/>X = np.random.random(size=(num_samples, 4)).astype(np.float32)</pre>
+<p>Follow the given steps:</p>
+<ol>
+<li>First, import the <kbd>numpy</kbd> package under the <kbd>np</kbd> alias</li>
+<li>Then, generate a <kbd>label mapping</kbd> using the <kbd>np.eye</kbd> function</li>
+<li>After that, collect <kbd>20,000</kbd> random samples from the generated <kbd>label mapping</kbd> using the <kbd>np.random.choice</kbd> function</li>
+<li>Finally, generate an array of random floating point values using the <kbd>np.random.random</kbd> function</li>
+</ol>
+<p>The generated label mapping is a one-hot representation of the possible classes that we support and looks like this:</p>
+<pre>[0, 1]<br/>[1, 0]</pre>
+<p>The generated matrices need to be converted to 32-bit floating point numbers in order to match the format expected by CNTK. Without this step, you will see an error telling you the format is not of the expected type. CNTK expects that you provide double-precision or float 32 data points.</p>
+<p>Let's define a basic model that fits the dataset we just generated:</p>
+<pre>from cntk.layers import Dense, Sequential<br/>from cntk import input_variable, default_options<br/>from cntk.ops import sigmoid<br/>from cntk.losses import binary_cross_entropy<br/><br/>with default_options(activation=sigmoid):<br/>   model = Sequential([<br/>        Dense(6),<br/>        Dense(2)<br/>    ])<br/><br/>features = input_variable(4)<br/><br/>z = model(features)</pre>
+<p>Follow the given steps:</p>
+<ol>
+<li>First, import the <kbd>Dense</kbd> and <kbd>Sequential</kbd> layer function from the <kbd>layers</kbd> module</li>
+<li>Then, import the <kbd>sigmoid</kbd> as the activation function for the layers in the network</li>
+<li>After that, import the <kbd>binary_cross_entropy</kbd> function as the <kbd>loss</kbd> function to train the network</li>
+</ol>
+<ol start="4">
+<li>Next, define the default options for the network providing the <kbd>sigmoid</kbd> activation function as a default setting</li>
+<li>Now, create the model using the <kbd>Sequential</kbd> layer function. </li>
+<li>Use two <kbd>Dense</kbd> layers, one with <kbd>6</kbd> neurons and another one with <kbd>2</kbd> neurons which will serve as the output layer</li>
+<li>Initialize an <kbd>input_variable</kbd> with <kbd>4</kbd> input features, which will serve as the input for the network.</li>
+<li>Finally, connect the <kbd>features</kbd> variable to the neural network to complete it.</li>
+</ol>
+<p><span>This model will have four inputs and two outputs matching the format of our randomly generated dataset. For demonstration purposes, we inserted an additional hidden layer with six neurons.</span></p>
+<p>Now that we have a neural network, let's train it using our in-memory dataset:</p>
+<pre>from cntk.learners import sgd<br/>from cntk.logging import ProgressPrinter<br/><br/>progress_writer = ProgressPrinter(0)<br/><br/>labels = input_variable(2)<br/>loss = binary_cross_entropy(z, labels)<br/>learner = sgd(z.parameters, lr=0.1)<br/><br/>training_summary = loss.train((X,y), parameter_learners=[learner], callbacks=[progress_writer])</pre>
+<p>Follow the given steps:</p>
+<ol>
+<li>First, import the <kbd>sgd</kbd> learner from the <kbd>learners</kbd> module</li>
+<li>Next, import the <kbd>ProgressPrinter</kbd> from the <kbd>logging</kbd> module</li>
+<li>Define a new <kbd>input_variable</kbd> for the labels</li>
+<li>To train the model, define a <kbd>loss</kbd> using the <kbd>binary_cross_entropy</kbd> function and provide it the model <kbd>z</kbd> and the <kbd>labels</kbd> variable</li>
+<li>Next, initialize the <kbd>sgd</kbd> learner and provide it with the parameters of the model and the <kbd>labels</kbd> variable</li>
+<li>Finally, call the <kbd>train</kbd> method on the <kbd>loss</kbd> function and provide it with the input data, the <kbd>sgd</kbd> learner and the <kbd>progress_printer</kbd> as a callback </li>
+</ol>
+<p>You're not required to provide callbacks for the <kbd>train</kbd> method. But it can be useful to plug in a progress writer so you can monitor the training process. Without this, you can't really see what is happening during training.</p>
+<p>When you run the sample code, it will produce output similar to this:</p>
+<pre><strong> average      since    average      since      examples</strong><br/><strong>    loss       last     metric       last              </strong><br/><strong> ------------------------------------------------------</strong><br/><strong>Learning rate per minibatch: 0.5</strong><br/><strong>      1.4        1.4          0          0           512</strong><br/><strong>      1.4        1.4          0          0          1536</strong><br/><strong>     1.39       1.39          0          0          3584</strong><br/><strong>     1.39       1.39          0          0          7680</strong><br/><strong>     1.39       1.39          0          0         15872</strong></pre>
+<p>It lists the learning average loss per minibatch, the loss since the last minibatch, and the metrics. Since we didn't provide metrics, the values in the metrics columns will remain <kbd>0</kbd>. In the last column, the number of examples seen by the neural network is listed.</p>
+<p>In the previous example, we've executed the <kbd>learner</kbd> with a default batch size. You can control the batch size using the <kbd>minibatch_size</kbd> keyword argument:</p>
+<pre>training_summary = loss.train((X,y), <br/>    parameter_learners=[learner], <br/>    callbacks=[progress_writer],<br/>    minibatch_size=512)</pre>
+<p>Setting <kbd>minibatch_size</kbd> to a larger value will increase the speed of training but at the cost of a slightly worse model.</p>
+<p>Try experimenting with different minibatch sizes in the sample code and see how it affects the performance of the model. Even with a model trained with random data. </p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Working with pandas DataFrames</h1>
+                </header>
+            
+            <article>
+                
+<p>Numpy arrays are the most basic way of storing data. Numpy arrays are very limited in what they can contain. A single n-dimensional array can contain data of a single data type. For many real-world cases, you need a library that can handle more than one data type in a single dataset. For example, you will find many datasets online where the label column is a string while the rest of the columns in the dataset contain floating point numbers.</p>
+<p>The pandas library makes it easier to work with these kinds of datasets and is used by many developers and data scientists. It's a library that allows you to load datasets from disk stored in many different formats as DataFrames. For example, you can read DataFrames stored as JSON, CSV, and even Excel.</p>
+<p>Pandas introduces the concept of a dataframe and with it introduces a large amount of mathematical and statistical functions that you can run against a data frame. Let's take a look at the structure of a pandas DataFrame to see how this library works:</p>
+<div class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-671 image-border" src="assets/f8b34cd7-f296-4aea-b136-3f3036e6f091.png" style=""/></div>
+<p>A DataFrame in pandas is a collection of series that define the individual columns. Each DataFrame also has an index that allows you to look up specific rows in the DataFrame by a key value stored in the index.</p>
+<p>What makes a DataFrame unique is the large collection of methods defined on both the series and the dataset itself. For example, you can call <kbd>describe</kbd> on the DataFrame to get summary statistics for the whole DataFrame at once.</p>
+<p>Invoking the <kbd>describe</kbd> method on a single series will get you the same summary statistics for that specific column in your DataFrame. </p>
+<p>Pandas is widely used by data scientists and developers to work with data in Python. Because it is so widely used, it is good to know how to handle data stored in pandas with CNTK.</p>
+<p>In the previous chapter, we've loaded a dataset that contains samples of Iris flowers and used that dataset to train a classification model. Before, we used a trainer instance to train the neural network. This is what happens too when you call <kbd>train</kbd> on a <kbd>loss</kbd> function. The <kbd>train</kbd> method will automatically create a trainer and a session for you so you don't have to do it manually.</p>
+<p><span>In <a href="4c9da7a9-6873-4de9-99a9-43de693d65f8.xhtml">chapter 2</a>, <em>Building Neural Networks with CNTK</em>, </span><span>we talked about </span>classifying<span> three possible species of iris flowers based on four properties. You can either get the file from the sample code included with this book or by downloading the dataset from the UCI datasets archive at <a href="https://archive.ics.uci.edu/ml/datasets/Iris">https://archive.ics.uci.edu/ml/datasets/Iris</a>. </span>Let's see how we can use the <kbd>train</kbd> method on the <kbd>loss</kbd> function to train the network that we created in the previous chapter:</p>
+<pre>from cntk import default_options, input_variable<br/>from cntk.layers import Dense, Sequential<br/>from cntk.ops import log_softmax, sigmoid<br/><br/>model = Sequential([<br/>    Dense(4, activation=sigmoid),<br/>    Dense(3, activation=log_softmax)<br/>])<br/><br/>features = input_variable(4)<br/><br/>z = model(features)</pre>
+<p>The model we used previously to classify flowers contains one hidden layer and an output layer with three neurons to match the number of classes we can predict. </p>
+<p><span>In order to train the model, we need to load and preprocess the iris dataset so that it matches the expected layout and data format for the neural network:</span></p>
+<pre>import numpy as np<br/>import pandas as pd<br/><br/>df_source = pd.read_csv('iris.csv', <br/>    names=['sepal_length', 'sepal_width','petal_length','petal_width', 'species'], <br/>    index_col=False)<br/><br/>label_mapping = {<br/>    'Iris-setosa': 0,<br/>    'Iris-versicolor': 1,<br/>    'Iris-virginica': 2<br/>}<br/><br/>X = df_source.iloc[:, :4].values<br/><br/>y = df_source['species'].values<br/>y = np.array([one_hot(label_mapping[v], 3) for v in y])<br/><br/>X = X.astype(np.float32)<br/>y = y.astype(np.float32)</pre>
+<p>Follow the givens steps:</p>
+<ol>
+<li>First, load the dataset into memory using the <kbd>read_csv</kbd> function</li>
+<li>Next, create a dictionary mapping the labels in the dataset with their corresponding numeric representation</li>
+<li>Select the first four columns using the <kbd>iloc</kbd> indexer on the <kbd>DataFrame</kbd></li>
+<li>Select the species columns as the labels for the dataset</li>
+<li>Map the labels in the dataset using the <kbd>label_mapping</kbd> and use <kbd>one_hot</kbd> encoding to convert them into one-hot encoded arrays</li>
+<li>Convert both the features and the mapped labels to floats so you can use them with CNTK</li>
+</ol>
+<p>The labels are stored in the dataset as strings, CNTK can't work with these string values it needs one-hot encoded vectors representing the labels. To encode the labels we'll need to use the mapping table and the <kbd>one_hot</kbd> function which you can create using the following code:</p>
+<pre>def one_hot(index, length):<br/>    result = np.zeros(length)<br/>    result[index] = index<br/>    <br/>    return result</pre>
+<p>Follow the given steps:</p>
+<ol>
+<li>Use the <kbd>np.zeros</kbd> function to create a new vector of size <kbd>length</kbd> and fill it with zeros</li>
+<li>Select the element at the provided <kbd>index</kbd> and set its value to <kbd>1</kbd></li>
+<li>Return the <kbd>result</kbd> so it can be used in the dataset</li>
+</ol>
+<p>Once we have the numpy arrays in the right format, we can use them as before to train our model:</p>
+<pre>from cntk.losses import cross_entropy_with_softmax<br/>from cntk.learners import sgd <br/>from cntk.logging import ProgressPrinter<br/><br/>progress_writer = ProgressPrinter(0)<br/><br/>labels = input_variable(3)<br/>loss = cross_entropy_with_softmax(z, labels)<br/>learner = sgd(z.parameters, 0.1)<br/><br/>train_summary = loss.train((X,y), <br/>    parameter_learners=[learner], <br/>    callbacks=[progress_writer], <br/>    minibatch_size=16, <br/>    max_epochs=5)</pre>
+<p>Follow the given steps:</p>
+<ol>
+<li>Import the <kbd>cross_entropy_with_softmax</kbd> function as the loss for the model.</li>
+<li>Then, import the <kbd>sgd</kbd> learner to optimize the parameters.</li>
+<li>After that, import the <kbd>ProgressPrinter</kbd> from the <kbd>logging</kbd> module to visualize the training progress.</li>
+<li>Next, create a new instance of the <kbd>ProgressPrinter</kbd> to log the output of the optimizer.</li>
+<li>Create a new <kbd>input_variable</kbd> to store the labels for training.</li>
+<li>Initialize the <kbd>sgd</kbd> learner and give it the parameters of the model and a learning rate of <kbd>0.1</kbd>.</li>
+<li>Finally, invoke the <kbd>train</kbd> method on the loss and feed it the training data, the <kbd>learner</kbd> and the <kbd>progress_writer</kbd>. In addition to this provide the <kbd>train</kbd> method with a <kbd>minibatch_size</kbd> of <kbd>16</kbd> and set the <kbd>max_epochs</kbd> keyword argument to <kbd>5</kbd>.</li>
+</ol>
+<p>The <kbd>max_epochs</kbd> keyword argument for the <kbd>train</kbd> method on the <kbd>loss</kbd> function is optional. When you leave it out, the <kbd>trainer</kbd> will train the model for one epoch.</p>
+<p>We're using <kbd>ProgressWriter</kbd> to generate output from the training process so we can monitor the progress of the training session. You can leave this out, but it's a great help to get a sense of what is happening during training. With the progress writer configured, the output will look similar to this:</p>
+<div class="output_area">
+<pre class="output_subarea output_text output_stream output_stdout"><strong>average      since    average      since      examples</strong><br/><strong>    loss       last     metric       last              </strong><br/><strong> ------------------------------------------------------</strong><br/><strong>Learning rate per minibatch: 0.1</strong><br/><strong>      1.1        1.1          0          0            16</strong><br/><strong>    0.835      0.704          0          0            48</strong><br/><strong>    0.993       1.11          0          0           112</strong><br/><strong>     1.14       1.14          0          0            16</strong><br/><strong>    0.902      0.783          0          0            48</strong><br/><strong>     1.03       1.13          0          0           112</strong><br/><strong>     1.19       1.19          0          0            16</strong><br/><strong>     0.94      0.817          0          0            48</strong><br/><strong>     1.06       1.16          0          0           112</strong><br/><strong>     1.14       1.14          0          0            16</strong><br/><strong>    0.907       0.79          0          0            48</strong><br/><strong>     1.05       1.15          0          0           112</strong><br/><strong>     1.07       1.07          0          0            16</strong><br/><strong>    0.852      0.744          0          0            48</strong><br/><strong>     1.01       1.14          0          0           112</strong></pre></div>
+<p>Since we're using the same method to train the network as with regular numpy arrays, we can control the batch size too. We'll leave it up to you to try different settings for the batch size and discover what produces the best model.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Working with large datasets</h1>
+                </header>
+            
+            <article>
+                
+<p>We've looked at NumPy and Pandas as ways to feed in-memory dataset to CNTK for training. But not every dataset is small enough to fit into memory. This is especially true for datasets that contain images, video samples, or sound samples. When you work with larger datasets, you only want to load small portions of the dataset at a time into memory. Usually, you will only load enough samples into memory to run a single minibatch of training.</p>
+<p>CNTK supports working with larger datasets through the use of <kbd>MinibatchSource</kbd>. Now, <kbd>MinibatchSource</kbd> is a component that can load data from disk in chunks. It can automatically randomize samples read from the data source. This is useful for preventing your neural network from overfitting due to a fixed order in the training dataset.</p>
+<p><kbd>MinibatchSource</kbd> has a built-in transformation pipeline. You can use this pipeline to augment your data. This is a useful feature when you work with data such as images. When you are training a model based on images, you want to make sure that an image is recognized even at a funny angle. The transformation pipeline allows you to generate extra samples by rotating the original images read from disk. </p>
+<p>A unique feature of <kbd>MinibatchSource</kbd> is that it loads data on a background thread separate from the training process. By loading data in a separate thread, it can load minibatches ahead of time so that your graphics card doesn't get stalled on this process.</p>
+<p>In this chapter, we'll limit ourselves to the basic usage of <kbd>MinibatchSource</kbd>. In <a href="9d91a0e4-3870-4a2f-b483-82fdb8849bc2.xhtml"/><a href="9d91a0e4-3870-4a2f-b483-82fdb8849bc2.xhtml">Chapter 5</a>, <em>Working with Images</em><em>,</em> and <a href="a5da9ef2-399a-4c30-b751-318d64939369.xhtml"/><a href="a5da9ef2-399a-4c30-b751-318d64939369.xhtml">Chapter 6</a>, <em>Working with Time Series Data</em>, we'll look at how you can use the <kbd>MinibatchSource</kbd> component with images and time series data.</p>
+<p>Let's explore how to use a minibatch source with out-of-memory data to work with larger datasets and use it to feed data for training a neural network.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Creating a MinibatchSource instance</h1>
+                </header>
+            
+            <article>
+                
+<p>In the section, <em>Working with pandas DataFrames</em>, we worked on the iris flower example. Let's go back and replace the code that uses data from a pandas DataFrame with <kbd>MinibatchSource</kbd>. The first step is to create a basic <kbd>MinibatchSource</kbd> instance:</p>
+<pre>from cntk.io import StreamDef, StreamDefs, MinibatchSource, CTFDeserializer, INFINITELY_REPEAT<br/><br/>labels_stream = StreamDef(field='labels', shape=3, is_sparse=False)<br/>features_stream = StreamDef(field='features', shape=4, is_sparse=False)<br/><br/>deserializer = CTFDeserializer('iris.ctf', StreamDefs(labels=labels_stream, features=features_stream))<br/><br/>minibatch_source = MinibatchSource(deserializer, randomize=True)</pre>
+<p>Follow the given steps:</p>
+<ol>
+<li>First, import the components for the minibatch source from the <kbd>io</kbd> module.</li>
+<li>Next, create a stream definition for the labels using the <kbd>StreamDef</kbd> class. Use the labels field and set it to read <kbd>3</kbd> features from the stream. Make sure to use the <kbd>is_sparse</kbd> keyword argument and set it to <kbd>False</kbd>.</li>
+<li>Then, create another <kbd>StreamDef</kbd> instance and read the features field from the input file. This stream has <kbd>4</kbd> features. Use the <kbd>is_sparse</kbd> keyword argument to specify that the data is stored as dense vectors.</li>
+<li>After that, initialize the <kbd>deserializer</kbd>. Provide the <kbd>iris.ctf</kbd> file as the input and feed it the stream definitions by wrapping them in a <kbd>StreamDefs</kbd> instance. </li>
+<li>Finally, create a <kbd>MinibatchSource</kbd> instance using the <kbd>deserializer</kbd>.</li>
+</ol>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Creating CTF files</h1>
+                </header>
+            
+            <article>
+                
+<p>The data that we're using comes from the file <kbd>iris.ctf</kbd><span> and </span>is stored in a file format called <strong>CNTK Text Format </strong>(<strong>CTF</strong>). This is a<span> </span>file<span> </span>format that looks like this:</p>
+<pre>|features 0.1 2.0 3.1 5.4 |labels 0 1 0<br/>|features 2.3 4.1 5.1 5.2 |labels 1 0 1</pre>
+<p>Each line contains a single sample for our neural network. Each line<span> </span>can<span> </span>contain values for multiple inputs of our model. Each input is preceded by a vertical pipe. The values for each input are separated by a space. </p>
+<p>The <kbd>CTFDeserializer</kbd> can read the file by using the stream definitions that we initialized in the code sample. </p>
+<p>In order to get the data for the <kbd>MinibatchSource</kbd> instance we just created, you need to create a CTF file for our dataset. <span>There's no official converter to turn data formats such as <strong>Comma-Separated Value</strong> (<strong>CSV</strong>) into CTF files, so you need to write some Python code.</span> You can find the code to prepare a CTF file for training with a minibatch size in the <kbd>Creating a CTF file.ipynb</kbd> notebook in the sample code for this chapter.</p>
+<p>Let's explore how to create a CTF file using Python. The first step is to load the data into memory and convert it to the correct format:</p>
+<pre>import pandas as pd<br/>import numpy as np<br/><br/>df_source = pd.read_csv('iris.csv', <br/>    names=['sepal_length', 'sepal_width','petal_length','petal_width', 'species'], <br/>    index_col=False)<br/><br/><br/>features = df_source.iloc[:,:4].values<br/>labels = df_source['species'].values<br/><br/>label_mapping = {<br/>    'Iris-setosa': 0,<br/>    'Iris-versicolor': 1,<br/>    'Iris-virginica': 2<br/>}<br/><br/>labels = [one_hot(label_mapping[v], 3) for v in labels]</pre>
+<p><span>Follow the given steps:</span></p>
+<ol>
+<li>Before we start to process the data, import the <kbd>pandas</kbd> and <kbd>numpy</kbd> packages to get access to the data processing functions.</li>
+<li>First, load the <kbd>iris.csv</kbd> file into memory and store it in the <kbd>df_source</kbd> variable.</li>
+<li>Then, take the contents of the first four columns using the <kbd>iloc</kbd> indexer as the features.</li>
+<li>Next, use the data from species column as the labels for our dataset.</li>
+<li>Now create a <kbd>label_mapping</kbd> dictionary to create a mapping between the label name and its numeric representation.</li>
+<li>Finally, convert the labels to a set of one-hot encoded vectors using a Python list comprehension and the <kbd>one_hot</kbd> function.</li>
+</ol>
+<p>To encode the labels we'll use a utility function called <kbd>one_hot</kbd> that you can create using the following code:</p>
+<pre>def one_hot(index, length):<br/>    result = np.zeros(length)<br/>    result[index] = 1<br/>    <br/>    return result</pre>
+<p><span>Follow the given steps:</span></p>
+<ol>
+<li>Generate a new empty vector with the specified <kbd>length</kbd> using the <kbd>np.zeros</kbd> function</li>
+<li>Next, take the element at the specified <kbd>index</kbd> and set it to <kbd>1</kbd></li>
+<li>Finally, return the newly generated one-hot encoded vector so you can use it in the rest of your code</li>
+</ol>
+<p>Once we have loaded and preprocessed the data, we can store it on disk in the CTF file format:</p>
+<pre>with open('iris.ctf', 'w') as output_file:<br/>    for index in range(0, features.shape[0]):<br/>        feature_values = ' '.join([str(x) for x in np.nditer(features[index])])<br/>        label_values = ' '.join([str(x) for x in np.nditer(labels[index])])<br/>        <br/>        output_file.write('|features {} |labels {}\n'.format(feature_values, label_values))</pre>
+<p><span>Follow the given steps:</span></p>
+<ol>
+<li>First, we open the <kbd>iris.ctf</kbd> file for writing</li>
+<li>Then, iterate over all the records in the dataset</li>
+<li>For each record, create a new string containing the serialized values for the <kbd>features</kbd> vector</li>
+<li>Next, serialize the <kbd>labels</kbd> to a string using a Python list comprehension</li>
+<li>Finally, write the <kbd>features</kbd> and <kbd>labels</kbd> to the file</li>
+</ol>
+<p>The elements in the <kbd>features</kbd> and <kbd>labels</kbd> vector should be separated by a space. Note that each of the serialized pieces of data gets prefixed by a pipe-character and its name in the output file.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Feeding data into a training session</h1>
+                </header>
+            
+            <article>
+                
+<p>To train with <kbd>MinibatchSource</kbd>, we can use the same training logic as before. Only this time, we'll use <kbd>MinibatchSource</kbd> as the input for the <kbd>train</kbd> method on the <kbd>loss</kbd> function:</p>
+<pre>from cntk.logging import ProgressPrinter<br/>from cntk.train import Trainer, training_session<br/><br/>minibatch_size = 16<br/>samples_per_epoch = 150<br/>num_epochs = 30<br/><br/>input_map = {<br/>    features: minibatch_source.streams.features,<br/>    labels: minibatch_source.streams.labels<br/>}<br/><br/>progress_writer = ProgressPrinter(0)<br/><br/>train_history = loss.train(minibatch_source, <br/>           parameter_learners=[learner],<br/>           model_inputs_to_streams=input_map,<br/>           callbacks=[progress_writer],<br/>           epoch_size=samples_per_epoch,<br/>           max_epochs=num_epochs)</pre>
+<p><span>Follow the given steps:</span></p>
+<ol>
+<li>First, import the <kbd>ProgressPrinter</kbd> so we can log the output of the training session.</li>
+<li>Next, import the <kbd>trainer</kbd> and the <kbd>training_session</kbd>, you'll need these to set up the training session.</li>
+<li>Then, define a set of constants for the training code. The <kbd>minibatch_size</kbd> to control the number of samples per batch, <kbd>samples_per_epoch</kbd> to control the number of samples in a single epoch and finally the <kbd>num_epochs</kbd> setting to control the number of epochs to train for.</li>
+<li>Define a mapping between the input variables for the network and the streams in the minibatch source so CNTK knows how to read data during training.</li>
+<li>Then, initialize the <kbd>progress_writer</kbd> variable with a new <kbd>ProgressPrinter</kbd> instance to log the output of the training process. </li>
+<li>Finally, invoke the <kbd>train</kbd> method on the <kbd>loss</kbd> providing the <kbd>MinibatchSource</kbd> and the <kbd>input_map</kbd> in the <kbd>model_inputs_to_stream keyword</kbd> argument.</li>
+</ol>
+<p>You can run the code from this section when you open <kbd>Training with a minibatch source.ipynb</kbd> from the sample code for this chapter. <span>We've included a <kbd>progress printer</kbd> instance to visualize the output of the training session. </span>When you run the code, you will get output similar to this:</p>
+<pre><strong>average since average since examples<br/></strong><strong>loss    last  metric  last <br/></strong><strong>------------------------------------------------------<br/></strong><strong>Learning rate per minibatch: 0.1</strong><br/><strong>1.21    1.21  0       0     32</strong><br/><strong>1.15    1.12  0       0     96</strong><br/><strong>1.09    1.09  0       0     32</strong><br/><strong>1.03    1.01  0       0     96</strong><br/><strong>0.999   0.999 0       0     32</strong><br/><strong>0.999   0.998 0       0     96</strong><br/><strong>0.972   0.972 0       0     32</strong><br/><strong>0.968   0.966 0       0     96</strong><br/><strong>0.928   0.928 0       0     32</strong><br/><strong>[...]</strong></pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Taking control over the minibatch loop</h1>
+                </header>
+            
+            <article>
+                
+<p>In the previous section, we've seen how to use the CTF format with <kbd>MinibatchSource</kbd> to feed data to the CNTK trainer. But most datasets don't come in this format. So, you can't really use this format unless you create your own dataset or convert the original dataset to the CTF format.</p>
+<p>CNTK currently supports a limited set of <kbd>deserializers</kbd> for images, text, and speech. You can't extend the deserializers at the moment, which limits what you can do with the standard <kbd>MinibatchSource</kbd>. You can create your own <kbd>UserMinibatchSource</kbd>, but this is a complicated process. So, instead of showing you how to build a custom <kbd>MinibatchSource</kbd>, let's look at how to feed data into the CNTK trainer manually.</p>
+<p>Let's first recreate the model we used to classify Iris flowers:</p>
+<pre>from cntk import default_options, input_variable<br/>from cntk.layers import Dense, Sequential<br/>from cntk.ops import log_softmax, sigmoid<br/><br/>model = Sequential([<br/>    Dense(4, activation=sigmoid),<br/>    Dense(3, activation=log_softmax)<br/>])<br/><br/>features = input_variable(4)<br/><br/>z = model(features)</pre>
+<p>The model remains the same as in previous sections; it is a basic classification model with four input neurons and three output neurons. We'll be using a categorical cross-entropy loss since this is a multi-class classification problem.</p>
+<p>Let's train the model using a manual minibatch loop:</p>
+<pre>import pandas as pd<br/>import numpy as np<br/>from cntk.losses import cross_entropy_with_softmax<br/>from cntk.logging import ProgressPrinter<br/>from cntk.learners import sgd<br/>from cntk.train import Trainer<br/><br/>labels = input_variable(3)<br/>loss = cross_entropy_with_softmax(z, labels)<br/>learner = sgd(z. parameters, 0.1)<br/><br/>progress_writer = ProgressPrinter(0)<br/>trainer = Trainer(z, (loss, None), learner, progress_writer)<br/><br/>input_data = pd.read_csv('iris.csv', <br/>    names=['sepal_length', 'sepal_width','petal_length','petal_width', 'species'], <br/>    index_col=False, chunksize=16)<br/><br/>for df_batch in input_data:<br/>    feature_values = df_batch.iloc[:,:4].values<br/>    feature_values = feature_values.astype(np.float32)<br/>    <br/>    label_values = df_batch.iloc[:,-1]<br/>    label_values = label_values.map(lambda x: label_mapping[x])<br/>    label_values = label_values.values<br/><br/>    encoded_labels = np.zeros((label_values.shape[0], 3))<br/>    encoded_labels[np.arange(label_values.shape[0]), label_values] = 1.<br/><br/>    trainer.train_minibatch({features: feature_values, labels: encoded_labels})</pre>
+<p><span>Follow the given steps:</span></p>
+<ol>
+<li>First, import the components needed for training the neural network.</li>
+<li>Next, define an <kbd>input _variable</kbd> to store the labels.</li>
+</ol>
+<ol start="3">
+<li>Then, define the <kbd>loss</kbd> function using the <kbd>cross_entropy_with_softmax</kbd> function and connect the output of the neural network and the labels variable to it. </li>
+<li>After that, initialize the <kbd>learner</kbd> with the parameters of the neural network and a learning rate of <kbd>0.1</kbd>.</li>
+<li>Create a new instance of the <kbd>ProgressWriter</kbd> to log the output of the training process.</li>
+<li>Next, create a new instance of the <kbd>Trainer</kbd> class and initialize it with the network, the <kbd>loss</kbd>, the <kbd>learner</kbd> and the <kbd>progress_writer</kbd>.</li>
+<li>After you've initialized the network, Load the dataset from disk and use the <kbd>chunksize</kbd> keyword argument so it is read in chunks rather than loading the dataset into memory in one operation.</li>
+<li>Now create a new <kbd>for</kbd> loop to iterate over the chunks of the dataset.</li>
+<li>Process each chunk by extracting the <kbd>labels</kbd> and <kbd>features</kbd> from it in the appropriate format. Use the first four columns as the input features for the neural network and the last column as the labels.</li>
+<li>Convert the label values to one-hot encoded vectors using the <kbd>one_hot</kbd> function from the section <em>Working with pandas DataFrames.</em></li>
+<li>Finally, call the <kbd>train_minibatch</kbd> method on the <kbd>trainer</kbd> and feed it the <kbd>features</kbd> and <kbd>labels</kbd>.</li>
+</ol>
+<p class="mce-root">Note that we didn't write any code to run multiple epochs of training. If you want, you can introduce this into the code by wrapping the logic for reading and processing minibatches from the CSV file in another <kbd>for</kbd> loop. Check out the <kbd>Training with a manual minibatch loop.ipynb</kbd> notebook in the sample code for this chapter to give it a try.</p>
+<p>You will find that preparing a single minibatch is a lot more work with a manual minibatch loop. This comes mainly from the fact that we're not using the automatic chunking that comes with the standard <kbd>MinibatchSource</kbd> logic. Also, since we haven't preprocessed the dataset beforehand, we need to encode the labels during training.</p>
+<p>When you have to work with a large dataset and can't use <kbd>MinibatchSource</kbd>, a manual minibatch loop is your last resort. It is, however, much more powerful because you get a lot more control over how your model is trained. Using a manual minibatch loop can be very useful if you want to perform complex operations on each minibatch or change settings as the training progresses.</p>
+<p class="mce-root"/>
+<p class="mceNonEditable"/>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Summary</h1>
+                </header>
+            
+            <article>
+                
+<p>In this chapter, we've explored how you can train your neural networks with both small and large datasets. For smaller datasets, we've looked at how you can quickly train a model by calling the <kbd>train</kbd> method on the <kbd>loss</kbd> function. For larger datasets, we've explored how you can use both <kbd>MinibatchSource</kbd> and a manual minibatch loop to train your network. </p>
+<p>Using the right method of training can make a big difference in how long it takes to train your model and how good your model will be in the end. You can now make an informed choice between using in-memory data and reading data in chunks. Make sure you experiment with the minibatch size settings to see what works best for your model.</p>
+<p>Up until this chapter, we haven't looked at methods to monitor your model. We did see some fragments with a progress writer to help you visualize the training process. But that's pretty limited.</p>
+<p>In the next chapter, we'll learn how to measure the performance of neural networks. We'll also explore how to monitor and debug CNTK models using different visualization and monitoring tools.</p>
+
+
+            </article>
+
+            
+        </section>
+    </body></html>
