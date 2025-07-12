@@ -1,0 +1,192 @@
+<html><head></head><body>
+		<div id="_idContainer216" class="Content">
+			<h1 id="_idParaDest-142"><em class="italics"><a id="_idTextAnchor184"/>Chapter 8</em></h1>
+		</div>
+		<div id="_idContainer217" class="Content">
+			<h1 id="_idParaDest-143"><a id="_idTextAnchor185"/>Object Recognition to Guide a Robot Using CNNs</h1>
+		</div>
+		<div id="_idContainer218" class="Content">
+			<h2>Learning Objectives</h2>
+			<p>By the end of this chapter, you will be able to:</p>
+			<ul>
+				<li class="bullets">Explain how object recognition works</li>
+				<li class="bullets">Build a network capable of recognizing objects</li>
+				<li class="bullets">Build an object recognition system</li>
+			</ul>
+			<p>This chapter covers how object recognition works by building a network that would be capable of recognizing objects based on a video.</p>
+		</div>
+		<div id="_idContainer226" class="Content">
+			<h2 id="_idParaDest-144"><a id="_idTextAnchor186"/>Introduction</h2>
+			<p><strong class="keyword">Object recognition</strong> is an area of computer vision where a robot is capable of detecting objects in an environment using a camera or sensor that is capable of extracting images of the robot's surroundings. From these images, software detects an object within every image and then recognizes the type of object. Machines are capable of recognizing objects from an image or a video captured by the robot's sensors. This allows the robot to be aware of their environment.</p>
+			<p>If a robot can recognize its environment and obtain this information using object recognition, it will be able to perform more complex tasks, such as grabbing objects or moving around in an environment. In <em class="italics">Chapter 9</em>, <em class="italics">Computer Vision for Robotics</em>, we will look at a robot performing these tasks in a virtual environment.</p>
+			<p>The task to be performed here is to detect specific objects within an image and recognize those objects. This type of computer vision problem is a bit different from the ones that we have looked at earlier in this book. In order to recognize a specific object, we have seen that labeling those objects and training a convolutional neural network, which was covered in <em class="italics">Chapter 5</em>, <em class="italics">Convolutional Neural Networks for Computer Vision</em>, which would work fine, but what about detecting these objects in the first place?</p>
+			<p>Previously, we learned that objects we want to recognize have to be labeled with the corresponding class they belong to. Hence, in order to detect those objects within an image, a rectangle-shaped bounding box has to be drawn around them so that their location in the image is properly located. The neural network will then predict the bounding boxes and the label of those objects.</p>
+			<p>Labeling objects with bounding boxes is a tedious, tough task, so we are not going to show the process for labeling the images in a dataset with bounding boxes, or the process for training a neural network to recognize and detect those objects. Nevertheless, there is a library called <strong class="inline">labelImg</strong>, which you can access in this GitHub repository:﷟ <a href="https://github.com/tzutalin/labelImg">https://github.com/tzutalin/labelImg</a>. This allows you to create bounding boxes for every object within an image. Once you have the bounding boxes created, which in terms of data are known as coordinates, you can train a neural network to predict the bounding boxes and the corresponding label for every object within an image.</p>
+			<p>In this chapter, we will be using state-of-the-art methods of the YOLO network, which are ready to use and will save you from having to build your own algorithm.</p>
+			<h2 id="_idParaDest-145"><a id="_idTextAnchor187"/>Multiple Object Recognition and Detection</h2>
+			<p>Multiple object recognition and detection involves detecting and recognizing several objects within an image. This task involves labeling every single object with a bounding box and then recognizing the type of that object. </p>
+			<p>Because of this, there are many available pre-trained models that detect a lot of objects. The neural network called <strong class="keyword">YOLO</strong> is one of the best models for this specific task and works in real time. YOLO will be explained in depth in the next chapter for the development of the simulator for the robot.</p>
+			<p>For this chapter, the YOLO network that we want to use is trained to recognize and detect 80 different classes. These classes are:</p>
+			<p>person,   bicycle,   car,   motorcycle,   airplane,          bus,   train,   truck,   boat,   traffic light,   fire hydrant,   stop_sign,          parking meter,   bench,   bird,   cat,   dog,   horse,   sheep,   cow,   elephant,   bear,   zebra,          giraffe,   backpack,   umbrella,   handbag,   tie,   suitcase,   frisbee,   skis,   snowboard,          sports ball,   kite,   baseball bat,   baseball glove,   skateboard,   surfboard,   tennis racket,          bottle,   wine glass,   cup,   fork,   knife,   spoon,   bowl,   banana,   apple,   sandwich,   orange,          broccoli,   carrot,   hot dog,   pizza,   donut,   cake,   chair,   couch,   potted plant,   bed,          dining table,   toilet,   tv,   laptop,   mouse,   remote,   keyboard,   cell phone,   microwave,          oven,   toaster,   sink,   refrigerator,   book,   clock,   vase,   scissors,   teddy bear,   hair dryer,          toothbrush.</p>
+			<p>In Figure 8.1, you can see a sample of a street where people, cars, and buses have been detected using YOLO:</p>
+			<div>
+				<div id="_idContainer219" class="IMG---Figure">
+					<img src="image/C13550_08_01.jpg" alt="Figure 8.1: YOLO detection sample"/>
+				</div>
+			</div>
+			<h6>Figure 8.1: YOLO detection sample</h6>
+			<p>In this topic, we are going to build a multiple object recognition and detection system for static images. </p>
+			<p>First, we are going to do so using an OpenCV module called <strong class="bold">DNN</strong> (Deep Neural Network), which involves a few lines of code. Later on, we will use a library called <strong class="keyword">ImageAI</strong>, which does the same but with less than 10 lines of code and will allow you to choose the specific objects you want to detect and recognize.</p>
+			<p>In order to implement YOLO with OpenCV, you will need to import the image using OpenCV, just like we covered in other chapters of this book.</p>
+			<h3 id="_idParaDest-146"><a id="_idTextAnchor188"/>Exercise 24: Building Your First Multiple Object Detection and Recognition Algorithm</h3>
+			<h4>Note</h4>
+			<p class="callout">We are going to use a Google Colab notebook as this task does not involve training an algorithm, but rather using one.</p>
+			<p>In this exercise, we are going to implement a multiple object detection and recognition system using YOLO and OpenCV. We are going to code a detector and a recognizer system that takes an image as input and detects and recognizes objects within that image, then outputs the image with those detections drawn:</p>
+			<ol>
+				<li>Open up your Google Colab interface.</li>
+				<li>Import the following libraries:<p class="snippet">import cv2</p><p class="snippet">import numpy as np</p><p class="snippet">import matplotlib.pyplot as plt</p></li>
+				<li>To input an image to this network, we need to use the <strong class="inline">blobFromImage</strong> method:<h4>Note</h4><p class="callout">This image can be found on GitHub: <strong class="inline">Dataset/obj_det/sample.jpg.</strong></p><p class="callout"><a href="https://github.com/PacktPublishing/Artificial-Vision-and-Language-Processing-for-Robotics/tree/master/Lesson08/Dataset/obj_det">https://github.com/PacktPublishing/Artificial-Vision-and-Language-Processing-for-Robotics/tree/master/Lesson08/Dataset/obj_det</a></p><p class="snippet">image = cv2.imread('Dataset/obj_det/image6.jpg')</p><p class="snippet">Width = image.shape[1]</p><p class="snippet">Height = image.shape[0]</p><p class="snippet">scale = 0.00392</p><p>We need to load the classes of the dataset, which for YOLO are stored in <strong class="inline">Models/yolov3.txt</strong>, which you can find in <strong class="inline">Chapter 8/Models</strong> on GitHub. We read the classes like this:</p><p class="snippet"># read class names from text file</p><p class="snippet">classes = None</p><p class="snippet">with open("Models/yolov3.txt", 'r') as f:</p><p class="snippet">    classes = [line.strip() for line in f.readlines()]</p></li>
+				<li>Generate different colors for different classes: <p class="snippet">COLORS = np.random.uniform(0, 255, size=(len(classes), 3))</p></li>
+				<li>Read the pre-trained model and the config file:<p class="snippet">net = cv2.dnn.readNet('Models/yolov3.weights', 'Models/yolov3.cfg')</p></li>
+				<li>Create an input blob: <p class="snippet">blob = cv2.dnn.blobFromImage(image.copy(), scale, (416,416), (0,0,0), True, crop=False)</p></li>
+				<li>Set the input blob for the network:<p class="snippet">net.setInput(blob)</p><p>In order to declare the network, we use the <strong class="inline">readNet</strong> method from the <strong class="bold">DNN</strong> module, and we load <strong class="inline">Models/yolov3.weights</strong>, which is the weights of the network, and <strong class="inline">Models/yolov3.cfg</strong>, which is the architecture of the model:</p><h4>Note</h4><p class="callout">The method, class, weight, and architecture files can be found on GitHub in the <strong class="inline">Lesson08/Models/</strong> folder.</p><p>Now that we have set this up, the only thing that is left in order to recognize and detect all the objects within an image is to run and execute the code, which is explained next.</p></li>
+				<li>In order to get the output layers of the network, we declare the method mentioned in the following code and then run the interface to obtain the array of output layers, which contains several detections:<p class="snippet"># function to get the output layer names in the architecture</p><p class="snippet">def get_output_layers(net):</p><p class="snippet">    </p><p class="snippet">    layer_names = net.getLayerNames()</p><p class="snippet">    </p><p class="snippet">    output_layers = [layer_names[i[0] - 1] for i in net.getUnconnectedOutLayers()]</p><p class="snippet">    return output_layers</p></li>
+				<li>Create a function to draw a bounding box around the detected object with the class name:<p class="snippet">def draw_bounding_box(img, class_id, confidence, x, y, x_plus_w, y_plus_h):</p><p class="snippet">    label = str(classes[class_id])</p><p class="snippet">    color = COLORS[class_id]</p><p class="snippet">    cv2.rectangle(img, (x,y), (x_plus_w,y_plus_h), color, 2)</p><p class="snippet">    cv2.putText(img, label + " " + str(confidence), (x-10,y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)</p></li>
+				<li>Execute the code:<p class="snippet"># run inference through the network</p><p class="snippet"># and gather predictions from output layers</p><p class="snippet">outs = net.forward(get_output_layers(net))</p><h4>Note</h4><p class="callout">'outs' is an array of predictions. Later on in the exercise, we will see that we have to loop this array in order to get the bounding boxes and the confidences of each detection, along with the type of class. </p><p>Object detection algorithms often detect one object several times and that is a problem. This problem can be solved by using <strong class="bold">non-max suppression</strong>, which deletes the bounding boxes for every object with less confidence (the probability of the object being in the predicted class), after which the only bounding boxes that will remain are the ones with the highest confidence. After detecting the bounding boxes and the confidences, and declaring the corresponding thresholds, this algorithm can be run as follows:</p></li>
+				<li>This step is one of the most important ones. Here, we are going to gather the confidence from every detection of every output layer (every object detected), the class ID, and the bounding boxes, but we'll ignore detections with a confidence of less than 50%:<p class="snippet"># apply non-max suppression</p><p class="snippet">class_ids = []</p><p class="snippet">confidences = []</p><p class="snippet">boxes = []</p><p class="snippet">conf_threshold = 0.5</p><p class="snippet">nms_threshold = 0.4</p><p class="snippet">indexes = cv2.dnn.NMSBoxes(boxes, confidences, conf_threshold, nms_threshold)</p></li>
+				<li>For each detection from each output layer, get the confidence, the class ID, and bounding box params, and ignore weak detections (confidence &lt; 0.5):<p class="snippet">for out in outs:</p><p class="snippet">    for detection in out:</p><p class="snippet">        scores = detection[5:]</p><p class="snippet">        class_id = np.argmax(scores)</p><p class="snippet">        confidence = scores[class_id]</p><p class="snippet">        if confidence &gt; 0.5:</p><p class="snippet">            center_x = int(detection[0] * Width)</p><p class="snippet">            center_y = int(detection[1] * Height)</p><p class="snippet">            w = int(detection[2] * Width)</p><p class="snippet">            h = int(detection[3] * Height)</p><p class="snippet">            x = center_x - w / 2</p><p class="snippet">            y = center_y - h / 2</p><p class="snippet">            class_ids.append(class_id)</p><p class="snippet">            confidences.append(float(confidence))</p><p class="snippet">            boxes.append([x, y, w, h])</p></li>
+				<li>We loop over the list of indexes and use the method that we declared for printing to print every bounding box, every label, and every confidence on the input image:<p class="snippet">for i in indexes:</p><p class="snippet">    i = i[0]</p><p class="snippet">    box = boxes[i]</p><p class="snippet">    x = box[0]</p><p class="snippet">    y = box[1]</p><p class="snippet">    w = box[2]</p><p class="snippet">    h = box[3]</p><p class="snippet">    </p><p class="snippet">    draw_bounding_box(image, class_ids[i], round(confidences[i],2), round(x), round(y), round(x+w), round(y+h))</p></li>
+				<li>Finally, we show and save the resulting image. OpenCV has a method for showing it also; there is no need to use Matplotlib:<p class="snippet"># display output image    </p><p class="snippet">plt.axis("off")</p><p class="snippet">plt.imshow(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))</p><p class="snippet"># save output image to disk</p><p class="snippet">cv2.imwrite("object-detection6.jpg", image)</p><p>The output is as follows:</p><div id="_idContainer220" class="IMG---Figure"><img src="image/C13550_08_02.jpg" alt="Figure 8.2: YOLO detection sample"/></div><h6>Figure 8.2: YOLO detection sample</h6><p>Finally, we have to draw the bounding boxes, its classes, and the confidence. </p></li>
+				<li>Now let's try some other examples using the steps mentioned previously. You can find the images in the <strong class="inline">Dataset/obj-det/</strong> folder. The outputs will be as shown in Figure 8.3:</li>
+			</ol>
+			<div>
+				<div id="_idContainer221" class="IMG---Figure">
+					<img src="image/Image52926.jpg" alt=""/>
+				</div>
+			</div>
+			<div>
+				<div id="_idContainer222" class="IMG---Figure">
+					<img src="image/Image52947.jpg" alt="Figure 8.3: YOLO detection sample"/>
+				</div>
+			</div>
+			<h6>Figure 8.3: YOLO detection sample</h6>
+			<h3 id="_idParaDest-147"><a id="_idTextAnchor189"/>ImageAI</h3>
+			<p>There is another way to achieve this easily. You could use the <strong class="keyword">ImageAI</strong> library, which is capable of performing object detection and recognition with a few lines of code.</p>
+			<p>The link to the GitHub repository for this library can be found here:</p>
+			<p><a href="https://github.com/OlafenwaMoses/ImageAI">https://github.com/OlafenwaMoses/ImageAI</a></p>
+			<p>In order to install this library, you can do so by using pip with the following command:</p>
+			<p class="snippet">pip install <a href="https://github.com/OlafenwaMoses/ImageAI/releases/download/2.0.2/imageai-2.0.2-py3-none-any.whl">https://github.com/OlafenwaMoses/ImageAI/releases/download/2.0.2/imageai-2.0.2-py3-none-any.whl</a></p>
+			<p>To use this library, we need to import one class:</p>
+			<p class="snippet">from imageai.Detection import ObjectDetection</p>
+			<p>We import the <strong class="inline">ObjectDetection</strong> class, which will work as a neural network.</p>
+			<p>Afterward, we declare the object of the class that is going to make the predictions:</p>
+			<p class="snippet">detector = ObjectDetection()</p>
+			<p>The model that we are going to use has to be declared. For this library, we only get to use three models: RetinaNet, YOLOV3, and TinyYOLOV3. YOLOV3 is the same model we used before and has moderate performance and accuracy with a moderate detection time. </p>
+			<p>As for RetinaNet, it has higher performance and accuracy but a longer detection time. </p>
+			<p>TinyYOLOV3 is optimized for speed and has moderate performance and accuracy but a much faster detection time. This model will be used in the next topic because of its speed. </p>
+			<p>You only have to change a couple of lines of code in order to get to work with any of these models. For YOLOV3, these lines are needed:</p>
+			<p class="snippet">detector.setModelTypeAsYOLOv3()</p>
+			<p class="snippet">detector.setModelPath("Models/yolo.h5")</p>
+			<p class="snippet">detector.loadModel()</p>
+			<p>The <strong class="inline">.h5</strong> file contains the weights and the architecture for the YOLOV3 neural network. </p>
+			<p>To run the inference and get the corresponding detections, only a line of code is needed:</p>
+			<p class="snippet">detections = detector.detectObjectsFromImage(input_image="Dataset/obj_det/sample.jpg", output_image_path="samplenew.jpg")</p>
+			<p>What this line does is take an image as input and detect the bounding boxes of the objects in the image and their classes. It outputs a new image drawn with those detections, as well as a list of the detected objects.</p>
+			<p>Let's see how it detects the <strong class="inline">sample.jpg</strong> image that we used in the last exercise:</p>
+			<div>
+				<div id="_idContainer223" class="IMG---Figure">
+					<img src="image/Image52955.jpg" alt="Figure 8.4: ImageAI YOLOV3 image detection"/>
+				</div>
+			</div>
+			<h6>Figure 8.4: ImageAI YOLOV3 image detection</h6>
+			<p>ImageAI also allows you to customize which objects you want to recognize. By default, it is also capable of detecting the same classes as YOLO, which is built using OpenCV, that is the 80 classes.</p>
+			<p>You can customize it to only detect the objects that you want by passing an object as a parameter called <strong class="inline">CustomObjects</strong>, where you specify which objects you want the model to detect. Also, the method from the detector for recognizing those objects changes from <strong class="inline">detectObjectsFromImage()</strong> to <strong class="inline">detectCustomObjectsFromImage()</strong>. It is used like this:</p>
+			<p class="snippet">custom_objects = detector.CustomObjects(car=True)</p>
+			<p class="snippet">detections = detector.detectCustomObjectsFromImage(custom_objects=custom_objects, input_image="Dataset/obj_det/sample.jpg", output_image_path="samplenew.jpg")</p>
+			<div>
+				<div id="_idContainer224" class="IMG---Figure">
+					<img src="image/C13550_08_05.jpg" alt="Figure 8.5: ImageAI YOLOV3 custom image detection"/>
+				</div>
+			</div>
+			<h6>Figure 8.5: ImageAI YOLOV3 custom image detection</h6>
+			<h2 id="_idParaDest-148"><a id="_idTextAnchor190"/>Multiple Object Recognition and Detection in Video</h2>
+			<p>Multiple object recognition and detection in static images sounds amazing, but what about detecting and recognizing objects in a video?</p>
+			<p>You can download any video from the internet and try to detect and recognize all the objects that show up in the video.</p>
+			<p>The process to follow would be to get every frame of the video and for every frame, detect the corresponding objects and their labels.</p>
+			<p>Declare the corresponding libraries first:</p>
+			<p class="snippet">from imageai.Detection import VideoObjectDetection</p>
+			<p class="snippet">from matplotlib import pyplot as plt</p>
+			<p>The <strong class="inline">imageai</strong> library contains an object that allows the user to apply object detection and recognition to the video:</p>
+			<p class="snippet">video_detector = VideoObjectDetection()</p>
+			<p>We need V<strong class="inline">ideoObjectDetection</strong> so that we can detect objects in video. Moreover, Matplotlib is needed to show the detectio<a id="_idTextAnchor191"/>n process for every frame:</p>
+			<div>
+				<div id="_idContainer225" class="IMG---Figure">
+					<img src="image/C13550_08_06.jpg" alt="Figure 8.6: ImageAI one-frame object detection process"/>
+				</div>
+			</div>
+			<h6>Figure 8.6: ImageAI one-frame object detection process</h6>
+			<p>Now we will first need to load the model. You can decide what model to load, depending on the speed you need the video to be processed at, with the precision required. YOLOV3 is in the middle, between RetinaNet and TinyYOLOV3, RetinaNet being the most precise but the slowest and TinyYOLOV3 the least precise but the fastest. We are going to stick to the YOLOV3 model but feel free to use the other two. The declaration after declaring the video object detection is the same as in the last topic:</p>
+			<p class="snippet">video_detector.setModelTypeAsYOLOv3()</p>
+			<p class="snippet">video_detector.setModelPath("Models/yolo.h5")</p>
+			<p class="snippet">video_detector.loadModel()</p>
+			<p>Before running the video detector, we need to declare a function that will be applied to every frame processed. This function does not perform the detection algorithm, but it handles the detection process for every frame. And why do we have to handle the output of every frame after the object detection process? That is because we want to show the detection process frame by frame using Matplotlib..</p>
+			<p>Before declaring that method, we need to declare the colors that the objects will be printed on:</p>
+			<p class="snippet">color_index = {'bus': 'red', 'handbag': 'steelblue', 'giraffe': 'orange', 'spoon': 'gray', 'cup': 'yellow', 'chair': 'green', 'elephant': 'pink', 'truck': 'indigo', 'motorcycle': 'azure', 'refrigerator': 'gold', 'keyboard': 'violet', 'cow': 'magenta', 'mouse': 'crimson', 'sports ball': 'raspberry', 'horse': 'maroon', 'cat': 'orchid', 'boat': 'slateblue', 'hot dog': 'navy', 'apple': 'cobalt', 'parking meter': 'aliceblue', 'sandwich': 'skyblue', 'skis': 'deepskyblue', 'microwave': 'peacock', 'knife': 'cadetblue', 'baseball bat': 'cyan', 'oven': 'lightcyan', 'carrot': 'coldgrey', 'scissors': 'seagreen', 'sheep': 'deepgreen', 'toothbrush': 'cobaltgreen', 'fire hydrant': 'limegreen', 'remote': 'forestgreen', 'bicycle': 'olivedrab', 'toilet': 'ivory', 'tv': 'khaki', 'skateboard': 'palegoldenrod', 'train': 'cornsilk', 'zebra': 'wheat', 'tie': 'burlywood', 'orange': 'melon', 'bird': 'bisque', 'dining table': 'chocolate', 'hair drier': 'sandybrown', 'cell phone': 'sienna', 'sink': 'coral', 'bench': 'salmon', 'bottle': 'brown', 'car': 'silver', 'bowl': 'maroon', 'tennis racket': 'palevilotered', 'airplane': 'lavenderblush', 'pizza': 'hotpink', 'umbrella': 'deeppink', 'bear': 'plum', 'fork': 'purple', 'laptop': 'indigo', 'vase': 'mediumpurple', 'baseball glove': 'slateblue', 'traffic light': 'mediumblue', 'bed': 'navy', 'broccoli': 'royalblue', 'backpack': 'slategray', 'snowboard': 'skyblue', 'kite': 'cadetblue', 'teddy bear': 'peacock', 'clock': 'lightcyan', 'wine glass': 'teal', 'frisbee': 'aquamarine', 'donut': 'mincream', 'suitcase': 'seagreen', 'dog': 'springgreen', 'banana': 'emeraldgreen', 'person': 'honeydew', 'surfboard': 'palegreen', 'cake': 'sapgreen', 'book': 'lawngreen', 'potted plant': 'greenyellow', 'toaster': 'ivory', 'stop sign': 'beige', 'couch': 'khaki'}</p>
+			<p>Now we are going to declare the method applied to every frame:</p>
+			<p class="snippet">def forFrame(frame_number, output_array, output_count, returned_frame):</p>
+			<p class="snippet">    plt.clf()</p>
+			<p class="snippet">    this_colors = []</p>
+			<p class="snippet">    labels = []</p>
+			<p class="snippet">    sizes = []</p>
+			<p class="snippet">    counter = 0</p>
+			<p>First, as shown, the function is declared and the number of the frame, the array of detections, the number of occurrences of every object detected, and the frame are passed to it. Also, we declare the corresponding variables that we are going to use to print all the detections on every frame:</p>
+			<p class="snippet">    for eachItem in output_count:</p>
+			<p class="snippet">        counter += 1</p>
+			<p class="snippet">        labels.append(eachItem + " = " + str(output_count[eachItem]))</p>
+			<p class="snippet">        sizes.append(output_count[eachItem])</p>
+			<p class="snippet">        this_colors.append(color_index[eachItem])</p>
+			<p>In this loop, the objects and their corresponding occurrences are stored. The colors that represent every object are also stored:</p>
+			<p class="snippet">    plt.subplot(1, 2, 1)</p>
+			<p class="snippet">    plt.title("Frame : " + str(frame_number))</p>
+			<p class="snippet">    plt.axis("off")</p>
+			<p class="snippet">    plt.imshow(returned_frame, interpolation="none")</p>
+			<p class="snippet">    plt.subplot(1, 2, 2)</p>
+			<p class="snippet">    plt.title("Analysis: " + str(frame_number))</p>
+			<p class="snippet">    plt.pie(sizes, labels=labels, colors=this_colors, shadow=True, startangle=140, autopct="%1.1f%%")</p>
+			<p class="snippet">    plt.pause(0.01)</p>
+			<p>In this last piece of code, two plots are printed for every frame: one showing the image with the corresponding detections and the other with a chart containing the number of occurrences of every object detected and its percentage of the total of occurrences.</p>
+			<p>This output is shown in Figure 8.6.</p>
+			<p>In the last cell, in order to execute the video detector, we write this couple of lines of code:</p>
+			<p class="snippet">plt.show()</p>
+			<p class="snippet">video_detector.detectObjectsFromVideo(input_file_path="path_to_video.mp4", output_file_path="output-video" ,  frames_per_second=20, per_frame_function=forFrame,  minimum_percentage_probability=30, return_detected_frame=True, log_progress=True)</p>
+			<p>The first line initializes the Matplotlib plot.</p>
+			<p>The second line starts the video detection. The arguments passed to the function are as follows:</p>
+			<ul>
+				<li><strong class="inline">input_file_path</strong>: The input video path</li>
+				<li><strong class="inline">output_file_path</strong>: The output video path</li>
+				<li><strong class="inline">frames_per_second</strong>: Frames per second of the output video</li>
+				<li><strong class="inline">per_frame_function</strong>: The callback function after every process of detecting objects within a frame</li>
+				<li><strong class="inline">minimum_percentage_probability</strong>: The minimum probability value threshold, where only detections with the highest confidence are considered</li>
+				<li><strong class="inline">return_detected_frame</strong>: If set to True, the callback function receives the frame as a parameter</li>
+				<li><strong class="inline">log_progress</strong>: If set to True, the process is logged in the console</li>
+			</ul>
+			<h3 id="_idParaDest-149"><a id="_idTextAnchor192"/>Activity 8: Multiple Object Detection and Recognition in Video</h3>
+			<p>In this activity, we are going to process a video frame by frame, detecting all possible objects within every frame and saving the output video to disk:</p>
+			<h4>Note</h4>
+			<p class="callout">The video we will be using for this activity is uploaded on GitHub, in the <strong class="inline">Dataset/videos/street.mp4</strong> folder:</p>
+			<p class="callout">Url : <a href="https://github.com/PacktPublishing/Artificial-Vision-and-Language-Processing-for-Robotics/blob/master/Lesson08/Dataset/videos/street.mp4">https://github.com/PacktPublishing/Artificial-Vision-and-Language-Processing-for-Robotics/blob/master/Lesson08/Dataset/videos/street.mp4</a></p>
+			<ol>
+				<li value="1">Open a Google Colab notebook, mount the disk, and navigate to where chapter 8 is located.</li>
+				<li>Install the library in the notebook, as it is not preinstalled, by using this command:<p class="snippet">!pip3 install https://github.com/OlafenwaMoses/ImageAI/releases/download/2.0.2/imageai-2.0.2-py3-none-any.whl</p></li>
+				<li>Import the necessary libraries for the development of this activity and set <strong class="inline">matplotlib</strong>.</li>
+				<li>Declare the model that you are going to use for detecting and recognizing objects.<h4>Note</h4><p class="callout">You can find that information here:<a href="https://github.com/OlafenwaMoses/ImageAI/blob/master/imageai/Detection/VIDEO.md">https://github.com/OlafenwaMoses/ImageAI/blob/master/imageai/Detection/VIDEO.md</a></p><p class="callout">Also note that all models are stored in the <strong class="inline">Models</strong> folder.</p></li>
+				<li>Declare the callback method that is going to be called after every frame is processed.</li>
+				<li>Run Matplotlib and the video detection processes on the <strong class="inline">street.mp4</strong> video that is inside the <strong class="inline">Dataset/videos/</strong> folder. You can also try out the <strong class="inline">park.mp4</strong> video, which is in the same directory.<h4>Note</h4><p class="callout">The solution for this activity is available on page 326.</p></li>
+			</ol>
+			<h2 id="_idParaDest-150"><a id="_idTextAnchor193"/>Summary</h2>
+			<p>Object recognition and detection is capable of identifying several objects within an image, to draw bounding boxes around those objects and predict the types of object they are.</p>
+			<p>The process of labeling the bounding boxes and their labels has been explained, but not in depth, due to the huge process required. Instead, we used state-of-the-art models to recognize and detect those objects.</p>
+			<p>YOLOV3 was the main model used in this chapter. OpenCV was used to explain how to run an object detection pipeline using its DNN module. ImageAI, an alternative library for object detection and recognition, has shown its potential for writing an object detection pipeline with a few lines and easy object customization.</p>
+			<p>Finally, the ImageAI object detection pipeline was put into practice by using a video, where every frame obtained from the video was passed through that pipeline to detect and identify objects from those frames and show them using Matplotlib.</p>
+		</div>
+	</body></html>

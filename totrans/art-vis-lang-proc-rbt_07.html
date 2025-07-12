@@ -1,0 +1,344 @@
+<html><head></head><body>
+		<div id="_idContainer185" class="Content">
+			<h1 id="_idParaDest-121"><em class="italics"><a id="_idTextAnchor162"/>Chapter 7</em></h1>
+		</div>
+		<div id="_idContainer186" class="Content">
+			<h1 id="_idParaDest-122"><a id="_idTextAnchor163"/>Build a Text-Based Dialogue System (Chatbot)</h1>
+		</div>
+		<div id="_idContainer187" class="Content">
+			<h2>Learning Objectives</h2>
+			<p>By the end of this chapter, you will be able to:</p>
+			<ul>
+				<li class="bullets">Define the terms GloVe, Word2Vec and Embeddings</li>
+				<li class="bullets">Develop your own Word2Vec</li>
+				<li class="bullets">Select tools to create conversational agents</li>
+				<li class="bullets">Predict the intent of a conversation</li>
+				<li class="bullets">Create a conversational agent</li>
+			</ul>
+			<p>This chapter covers an introduction to terms such as GloVe, Word2Vec, and embeddings and tools that will help you create a conversational agent.</p>
+		</div>
+		<div id="_idContainer215" class="Content">
+			<h2 id="_idParaDest-123"><a id="_idTextAnchor164"/>Introduction</h2>
+			<p>One of the latest trends in deep NLP is the creation of conversational agents, also knowns as chatbots. A chatbot is a <strong class="bold">text-based dialogue system</strong> that understands human language and can hold a real conversation with people. Many companies use these systems to interact with its customers to obtain information and feedback, for example, opinions on a new product launch. </p>
+			<p>Chatbots are used as assistants, for example, Siri, Alexa, and Google Home. These can give us real-time information about the weather or traffic.</p>
+			<p>At this point, the question is how can bots understand us? In the previous chapters, we have reviewed language models and how they work. However, the most important thing in language models (LMs) is the position of a word in a sentence. Each word has a certain probability of appearing in a sentence, depending on the words already in that sentence. But the probability distribution approach is not a good fit for this task. In this case, we need to understand the meaning, not predict the next word, after which, the model will understand the meaning of a word in a given corpus.</p>
+			<p>A word in itself doesn't make sense unless it is placed within a context or in a corpus. It is important to understand the meaning of a sentence and this dictated by its structure (that is, the position of the words in it). The model will then predict the meaning of words by looking at which words are near to it. But firstly, how is it possible to represent this mathematically?</p>
+			<p>In <em class="italics">Chapter 4</em>, <em class="italics">Neural Networks with NLP</em>, we looked at representing a word using a one-hot encoded vector, which is a vector with 1s and 0s. However, this representation does not provide us with the actual meaning of a word. Let's take a look at an example:</p>
+			<ul>
+				<li>Dog  [1,0,0,0,0,0]</li>
+				<li>Cat  [0,0,0,0,1,0]</li>
+			</ul>
+			<p>A dog and a cat are animals, but their representation in 1s and 0s does not give us any information about the meaning of those words.</p>
+			<p>But what would happen if these vectors gave us a similarity between two words based on their meaning? Two words with a similar meaning would be placed near to each other in a plane, as opposed to two words without any such relation. For example, the name of a country and its capital are related.</p>
+			<p>Having this approach, a set of sentences can be related to a conversational intention or a specific topic (also known as intent, this term will be used throughout this chapter). Using this system, we would be able to maintain a sensible conversational dialogue with a human.</p>
+			<p>The intent of a conversation is the topic of the dialogue. For example, if you were talking about a match between Real Madrid and Barcelona, the intent of the conversation would be football.</p>
+			<p>Later in this chapter, we will review the fundamental concepts of the representation of a word as a vector, and how to create such vectors and use them to recognize the intent of a conversation. </p>
+			<h2 id="_idParaDest-124"><a id="_idTextAnchor165"/>Word Representation in Vector Space</h2>
+			<p>This section will cover the different architectures for computing a continuous vector representation of words from a corpus. These representations will depend on the similarity of words, in terms of meaning. Also, there will be an introduction to a new Python library (<strong class="bold">Gensim</strong>) to do this task. </p>
+			<h3 id="_idParaDest-125"><a id="_idTextAnchor166"/>Word Embeddings</h3>
+			<p>Word embeddings are a collection of techniques and methods to map words and sentences from a corpus and output them as vectors or real numbers. Word embeddings generate a representation of each word in terms of the context in which the word appears. The main task of word embeddings is to perform a dimension reduction from a space with one dimension per word to a continuous vector space.</p>
+			<p>To better understand what that means, let's have a look at an example. Imagine we have two similar sentences, such as these:</p>
+			<ul>
+				<li>I am good.</li>
+				<li>I am great.</li>
+			</ul>
+			<p>Now, encoding these sentences as one-hot vectors, we have something like this:</p>
+			<ul>
+				<li>I  [1,0,0,0]</li>
+				<li>Am  [0,1,0,0]</li>
+				<li>Good  [0,0,1,0]</li>
+				<li>Great  [0,0,0,1]</li>
+			</ul>
+			<p>We know the previous two sentences are similar (in terms of their meaning), because "great" and "good" have a similar meaning. But how could we measure the similarity of these two words? We have two vectors representing the words, so let's compute the cosine similarity.</p>
+			<h3 id="_idParaDest-126"><a id="_idTextAnchor167"/>Cosine Similarity</h3>
+			<p>Cosine similarity measures the similarity between two vectors. As the name suggests, this method will state the cosine of the angle between two sentences. Its formula is as follows:</p>
+			<div>
+				<div id="_idContainer188" class="IMG---Figure">
+					<img src="image/C13550_07_01.jpg" alt="Figure 7.1: Formula for cosine similarity"/>
+				</div>
+			</div>
+			<h6>Figure 7.1: Formula for cosine similarity</h6>
+			<p>Figure 7.1 shows the formula for cosine similarity. A and B are the vectors. Following the previous example, if we compute the similarity between "good" and "great", the result is 0. This is because one-hot encoded vectors are independent and there is no projection along the same dimension (that means there is only a single 1 in a dimension, and the rest are 0s). </p>
+			<p>Figure 7.2 explains this concept:</p>
+			<div>
+				<div id="_idContainer189" class="IMG---Figure">
+					<img src="image/C13550_07_02.jpg" alt="Figure 7.2: Dimension without projection"/>
+				</div>
+			</div>
+			<h6>Figure 7.2: Dimension without projection</h6>
+			<p>Word embeddings solve this problem. There are many techniques to represent word embeddings. But all these techniques are in unsupervised learning algorithms. One of the most famous methods is the Word2Vec model, which is going to be explained next.</p>
+			<h3 id="_idParaDest-127"><a id="_idTextAnchor168"/>Word2Vec</h3>
+			<p>The main goal of Word2Vec is to produce word embeddings. It processes a corpus and then assigns a vector to each unique word in the corpus. This vector, however, does not work like the one-hot vector method. For example, if we have a corpus with 10,000 words, we would have 10,000 dimensions in our one-hot encoded vectors, but Word2Vec can perform dimension reduction, typically of several hundred dimensions. </p>
+			<p>The core idea of Word2Vec is that a word's meaning is represented by the words that are frequently near to it. When a word appears in a sentence, its context is formed by the set of words it has nearby. This set of words are within a fixed-size window:</p>
+			<div>
+				<div id="_idContainer190" class="IMG---Figure">
+					<img src="image/C13550_07_03.jpg" alt="Figure 7.3: Context words of wx"/>
+				</div>
+			</div>
+			<h6>Figure 7.3: Context words of wx</h6>
+			<p>Figure 7.3 shows an example of the context words for <em class="italics">wx</em>.</p>
+			<p>The concept of Word2Vec was created by Tomas Mikolov in 2013. He proposed a framework for learning word vectors. The method works by iterating through a corpus, taking a set of words with a central word (in Figure 7.3, it is <em class="italics">wx</em>) and context words (in figure 7.3, the words shown inside the black rectangular box). The vectors of these words keep updating until the corpus ends.</p>
+			<p>There are two methods for performing Word2Vec:</p>
+			<ul>
+				<li><strong class="keyword">Skip-Gram model</strong>: In this model, the input is the word placed in the center and thereafter it predicts the context of words.</li>
+				<li><strong class="keyword">CBOW model</strong>: The input of this model are the vectors of the context words, and the output is the central word.</li>
+			</ul>
+			<div>
+				<div id="_idContainer191" class="IMG---Figure">
+					<img src="image/C13550_07_04.jpg" alt="Figure 7.4: CBOW and skip-gram model representation"/>
+				</div>
+			</div>
+			<h6>Figure 7.4: CBOW and skip-gram model representation</h6>
+			<p>Both of these models output good results, but the skip-gram model works well with a small amount of data. We will not go into these models in more depth to generate our Word2Vec, but we will be using the Gensim library, which is explained in this chapter.</p>
+			<h3 id="_idParaDest-128"><a id="_idTextAnchor169"/>Problems with Word2Vec</h3>
+			<p>Word2Vec has many advantages for representing words within a vector space. It improves the performance of the task and can capture complex word meanings. But it is not perfect, and does present some problems:</p>
+			<ul>
+				<li>Inefficiently using statistics: It captures co-occurrences of words one at a time. The problem here is that words that do not occur together within a trained corpus tend to get closer in the plane (this can cause ambiguity) because there's no way to represent their relationships.</li>
+				<li>The need to modify the parameters of the model, that is, if the corpus size changes. Doing this, the model will be trained again, and this consumes a lot of time.</li>
+			</ul>
+			<p>Before diving deep in how to solve these problems with Word2Vec, we are going to introduce Gensim, a library for creating Word2Vec models.</p>
+			<h3 id="_idParaDest-129"><a id="_idTextAnchor170"/>Gensim</h3>
+			<p>Gensim is a Python library that provides different NLP methods. It is not like NLTK or spaCy; those libraries are focused on the pre-processing and analysis of data. Gensim provides us with methods to process raw text (which is unstructured).</p>
+			<p>These are the advantages of Gensim:</p>
+			<ul>
+				<li>Gensim can be used with a huge corpus. It has memory independence, which means the corpus will not need to be stored in the RAM of your computer. Also, it has memory sharing to store the trained models.</li>
+				<li>It can provide efficient vector space algorithms, such as Word2Vec, Doc2Vec, LSI, LSA, and so on.</li>
+				<li>Its API is easy to learn.</li>
+			</ul>
+			<p>These are the disadvantages of Gensim:</p>
+			<ul>
+				<li>It does not provide methods to pre-process text, and it has to be used with NLTK or spaCy to obtain a full NLP pipeline.</li>
+			</ul>
+			<h3 id="_idParaDest-130"><a id="_idTextAnchor171"/>Exercise 24: Creation of a Word Embedding</h3>
+			<p>In this exercise, we are going to create our word embedding using a small corpus and use Gensim. Once our model is trained, we will print it on a two-dimensional graph to check the distribution of the words. </p>
+			<p>Gensim provides the possibility to change some parameters to perform training well on our data. Some useful parameters are as follows:</p>
+			<ul>
+				<li><strong class="inline">Num_features</strong>: Represents the dimensionality of the vectors (more dimensions equals more accuracy, but is more computationally expensive). In our case, we are going to set this parameter to <strong class="bold">2</strong> (vectors of 2 dimensions).</li>
+				<li><strong class="inline">Window_size</strong>: Represents the size of the fixed window to contain the context of words. In our case, the corpus is small, so the size here is set to <strong class="bold">1</strong>.</li>
+				<li><strong class="inline">Min_word_count</strong>: The minimum set word count threshold.</li>
+				<li><strong class="inline">Workers</strong>: The threads of your computer running in parallel. In our case, one worker will be good for the size of our corpus.</li>
+			</ul>
+			<p>Let's begin with the exercise:</p>
+			<ol>
+				<li>Import the libraries. We are going to use the Gensim model, Word2Vec:<p class="snippet">import nltk</p><p class="snippet">import gensim.models.word2vec as w2v</p><p class="snippet">import sklearn.manifold</p><p class="snippet">import numpy as np</p><p class="snippet">import matplotlib.pyplot as plt</p><p class="snippet">import pandas as pd</p></li>
+				<li>Define a small random corpus:<p class="snippet">corpus = ['king is a happy man', </p><p class="snippet">          'queen is a funny woman',</p><p class="snippet">          'queen is an old woman',</p><p class="snippet">          'king is an old man', </p><p class="snippet">          'boy is a young man',</p><p class="snippet">          'girl is a young woman',</p><p class="snippet">          'prince is a young king',</p><p class="snippet">          'princess is a young queen',</p><p class="snippet">          'man is happy, </p><p class="snippet">          'woman is funny,</p><p class="snippet">          'prince is a boy will be king',</p><p class="snippet">          'princess is a girl will be queen']</p></li>
+				<li>Now we will tokenize each sentence with <strong class="inline">spaCy</strong>. The concept of <strong class="inline">spaCy</strong> was covered in <em class="italics">Chapter 3</em>, <em class="italics">Fundamentals of Natural Language Processing</em>:<p class="snippet">import spacy</p><p class="snippet">import en_core_web_sm</p><p class="snippet">nlp = en_core_web_sm.load()</p><p class="snippet">def corpus_tokenizer(corpus):</p><p class="snippet">    sentences = []</p><p class="snippet">    for c in corpus:</p><p class="snippet">        doc = nlp(c)</p><p class="snippet">        tokens = []</p><p class="snippet">        for t in doc:</p><p class="snippet">            if t.is_stop == False:</p><p class="snippet">                tokens.append(t.text)</p><p class="snippet">        sentences.append(tokens)</p><p class="snippet">    return sentences</p><p class="snippet">sentences = corpus_tokenizer(corpus)</p><p class="snippet">sentences</p></li>
+				<li>Now let's define a few variables to create the Word2vec model:<p class="snippet">num_features=2</p><p class="snippet">window_size=1</p><p class="snippet">workers=1</p><p class="snippet">min_word_count=1</p></li>
+				<li>Create the model using the Word2Vec method with a seed of 0 (this seed is just a value to initialize the weights of the model; using the same seed to obtain the same results is recommended):<p class="snippet">model = w2v.Word2Vec(size=num_features, window=window_size,workers=workers,min_count=min_word_count,seed=0)</p></li>
+				<li>Now we will build the vocabulary from our corpus. First, we need to have a vocabulary to train our model:<p class="snippet">model.build_vocab(sentences)</p></li>
+				<li>Train the model. The parameters here are the sentences of the corpus: total words and epochs. In this case, 1 epoch will be good:<p class="snippet">model.train(sentences,total_words=model.corpus_count,epochs=1)</p></li>
+				<li>Now, we can see how the model works when computing the similarity of two words:<p class="snippet">model.wv['king']</p><p class="snippet">model.wv.similarity('boy', 'prince')</p><div id="_idContainer192" class="IMG---Figure"><img src="image/C13550_07_05.jpg" alt="Figure 7.5: The computed result stating the similarity of two words"/></div><h6>Figure 7.5: The computed result stating the similarity of two words</h6></li>
+				<li>Now, to print the model, define a variable with the words of our corpus and an array with the vector of each word:<p class="snippet">vocab = list(model.wv.vocab)</p><p class="snippet">X = model.wv[vocab]</p></li>
+				<li>Create a <strong class="inline">DataFrame</strong> with this data using pandas:<p class="snippet">df = pd.DataFrame(X, index=vocab, columns=['x', 'y'])</p><p class="snippet">df</p><div id="_idContainer193" class="IMG---Figure"><img src="image/C13550_07_06.jpg" alt="Figure 7.6: Coordinates of our vectors"/></div><h6>Figure 7.6: Coordinates of our vectors</h6></li>
+				<li>Create a figure with the location of each word in a plane:<p class="snippet">fig = plt.figure()</p><p class="snippet">ax = fig.add_subplot(1, 1, 1)</p><p class="snippet">for word, pos in df.iterrows():</p><p class="snippet">    ax.annotate(word, pos)</p><p class="snippet">ax.scatter(df['x'], df['y'])</p><p class="snippet">plt.show()</p></li>
+			</ol>
+			<div>
+				<div id="_idContainer194" class="IMG---Figure">
+					<img src="image/C13550_07_07.jpg" alt="Figure 7.7: Location of items in our Word2Vec model"/>
+				</div>
+			</div>
+			<h6>Figure 7.7: Location of items in our Word2Vec model</h6>
+			<p>As you can see in figure 7.7, words can be represented in two dimensions. If you have a smaller corpus, to find out the similarity of two words in terms of meaning, you just need to measure the distances of those two words.</p>
+			<p>Now you know how to train your own Word2Vec model! </p>
+			<h3 id="_idParaDest-131"><a id="_idTextAnchor172"/>Global Vectors (GloVe)</h3>
+			<p>Global Vectors is a model for word representation. It works just like the Word2Vec model but adds some new features in order to be much more efficient.</p>
+			<p>Before beginning with this model, it will be beneficial to think of other ways to create a word vector. </p>
+			<p>The statistics of word occurrences in a corpus is the first source of information we can find to use in unsupervised algorithms, so it is possible to capture the co-occurrence counts directly. To obtain this information, we do not need a processed method; just having the text data will be enough.</p>
+			<p>Creating a co-occurrence matrix, X, along with a fixed-size window, we can obtain a new representation of words. For example, imagine this corpus:</p>
+			<ul>
+				<li>I am Charles.</li>
+				<li>I am amazing.</li>
+				<li>I love apples.</li>
+			</ul>
+			<p>A window-based co-occurrence matrix is as follows:</p>
+			<div>
+				<div id="_idContainer195" class="IMG---Figure">
+					<img src="image/C13550_07_08.jpg" alt="Figure 7.8: A window-based co-occurrence matrix"/>
+				</div>
+			</div>
+			<h6>Figure 7.8: A window-based co-occurrence matrix</h6>
+			<p>The co-occurrence matrix is easy to understand, counting how many times a word appears next to another word in the corpus. </p>
+			<p>For example, in the first row, with the word "I", the word "am" has the value 2, because there are 2 occurrences of "I am."</p>
+			<p>This representation improves the one-hot encoding and can capture semantic and syntactic information, but it does have certain problems, such as the size of the model, the sparsity of the vocabulary, and the model is less robust overall.</p>
+			<p>But in this case, these problems can be solved by reducing the dimension of the matrix using <strong class="bold">SVD</strong> (which was explained in <em class="italics">Chapter 3</em>, <em class="italics">Fundamentals of Natural Language Processing</em>) with the following formula:</p>
+			<ul>
+				<li>A = USVT</li>
+			</ul>
+			<p>The results of doing this are good and the representation of the words do make sense, but this would still be problematic with a large corpus.</p>
+			<p>The GloVe approach solves the problem of Word2Vec models in the following ways:</p>
+			<ul>
+				<li>The overall time taken to train the model is reduced if the corpus has a change in it.</li>
+				<li>Statistics are used efficiently. It behaves better with words that do not appear many times in the corpus. This was a problem with Word2Vec, that is, unusual words have similar vectors.</li>
+			</ul>
+			<p>GloVe combines the preceding two approaches to achieve fast training. It is scalable to a huge corpus and can achieve better performance with small vectors.</p>
+			<h4>Note</h4>
+			<p class="callout">This model was created by Stanford University and is an open source project. You can find more documentation at <a href="https://github.com/PacktPublishing/Artificial-Vision-and-Language-Processing-for-Robotics/tree/master/Lesson07/Exercise25-26/utils">https://github.com/PacktPublishing/Artificial-Vision-and-Language-Processing-for-Robotics/tree/master/Lesson07/Exercise25-26/utils</a>.</p>
+			<p>In the next exercise, you will learn how to work with GloVe.</p>
+			<h3 id="_idParaDest-132"><a id="_idTextAnchor173"/>Exercise 25: Using a Pretrained GloVe to See the Distribution of Words in a Plane</h3>
+			<p>In this exercise, you will learn how to use GloVe and how to plot a region of a model. We will use the Gensim library once again: </p>
+			<h4>Note</h4>
+			<p class="callout">To obtain the model, you will need to download the file from the <strong class="inline">utils</strong> folder on GitHub (which is the 50-dimensional model):</p>
+			<p class="callout"><a href="https://github.com/TrainingByPackt/Artificial-Vision-and-Language-Processing-for-Robotics/tree/master/Chapter%207/utils">https://github.com/TrainingByPackt/Artificial-Vision-and-Language-Processing-for-Robotics/tree/master/Chapter%207/utils</a></p>
+			<ol>
+				<li value="1">Open up your Google Colab interface.</li>
+				<li>Create a folder for the book, download the <strong class="inline">utils</strong> folder from GitHub, and upload it to the folder.</li>
+				<li>Import drive and mount it as follows:<p class="snippet">from google.colab import drive</p><p class="snippet">drive.mount('/content/drive')</p></li>
+				<li>Once you have mounted your drive for the first time, you will have to enter the authorization code by clicking on the URL mentioned by Google and pressing the <strong class="bold">Enter</strong> key on your keyboard:<div id="_idContainer196" class="IMG---Figure"><img src="image/C13550_07_09.jpg" alt="Figure 7.9: Image displaying the Google Colab authorization step"/></div><h6>Figure 7.9: Image displaying the Google Colab authorization step</h6></li>
+				<li>Now that you have mounted the drive, you need to set the path of the directory:<p class="snippet">cd /content/drive/My Drive/C13550/Lesson07/Exercise25/</p><h4>Note</h4><p class="callout">The path mentioned in step 5 may change as per your folder setup on Google Drive. However, the path will always begin with <strong class="inline">cd /content/drive/My Drive/</strong>.</p><p class="callout">The <strong class="inline">utils </strong>folder must be present in the path you are setting up.</p></li>
+				<li>Import the libraries:<p class="snippet">from gensim.scripts.glove2word2vec import glove2word2vec</p><p class="snippet">from gensim.models import KeyedVectors</p><p class="snippet">import numpy as np</p><p class="snippet">import pandas as pd</p></li>
+				<li>Use the <strong class="inline">glove2word2vec</strong> function provided by Gensim to create the <strong class="inline">word2vec</strong> model:<p class="snippet">glove_input_file = 'utils/glove.6B.50d.txt'</p><p class="snippet">word2vec_output_file = 'utils/glove.6B.50d.txt.word2vec'</p><p class="snippet">glove2word2vec(glove_input_file, word2vec_output_file)</p><h4>Note</h4><p class="callout">The <strong class="inline">glove.6B.50d.txt</strong> file in this case has been placed within the <strong class="inline">utils</strong> folder. If you choose to place it elsewhere, the path will change accordingly.</p></li>
+				<li>Initialize the model using the file generated by the <strong class="inline">glove2word2vec</strong> function:<p class="snippet">filename = 'utils/glove.6B.50d.txt.word2vec'</p><p class="snippet">model = KeyedVectors.load_word2vec_format(filename, binary=False)</p></li>
+				<li>With GloVe, you can measure the similarity of a pair of words. Check whether the model works by computing the similarity between two words and printing a word vector:<p class="snippet">model.similarity('woman', 'queen')</p><div id="_idContainer197" class="IMG---Figure"><img src="image/C13550_07_10.jpg" alt="Figure 7.10: Similarity of woman and queen"/></div><h6>Figure 7.10: Similarity of woman and queen</h6></li>
+				<li>In <em class="italics">Exercise 24</em>, <em class="italics">Creation of a Word Embedding</em>, we created our own vectors, but here, vectors are already created. To see the representation vector of a word, we just have to do the following:<p class="snippet">model['woman']</p><div id="_idContainer198" class="IMG---Figure"><img src="image/C13550_07_11.jpg" alt="Figure 7.11: “Woman” vector representation (50 dimensions)"/></div><h6>Figure 7.11: "Woman" vector representation (50 dimensions)</h6></li>
+				<li>We can also see the words most similar to other words. As you can see in steps 4 and 5, GloVe have many functionalities related to word representation:<p class="snippet">model.similar_by_word(woman)</p><div id="_idContainer199" class="IMG---Figure"><img src="image/C13550_07_12.jpg" alt="Figure 7.12: Words most similar to woman"/></div><h6>Figure 7.12: Words most similar to woman</h6></li>
+				<li>Now we are going to use Singular Value Decomposition (SVD) to visualize high-dimensional data to plot the words most similar to woman. Import the necessary libraries:<p class="snippet">from sklearn.decomposition import TruncatedSVD</p><p class="snippet">import pandas as pd</p><p class="snippet">import matplotlib.pyplot as plt</p></li>
+				<li>Initialize an array of 50 dimensions and append the vector of woman. To perform this dimensional reduction, we are going to create a matrix, and its rows will be the vector of each word:<p class="snippet">close_words=model.similar_by_word('woman')</p><p class="snippet"> </p><p class="snippet">arr = np.empty((0,50), dtype='f')</p><p class="snippet">labels = ['woman']</p><p class="snippet">#Array with the vectors of the closest words</p><p class="snippet">arr = np.append(arr, np.array([model['woman']]), axis=0)</p><p class="snippet">print("Matrix with the word 'woman':\n", arr)</p><div id="_idContainer200" class="IMG---Figure"><img src="image/C13550_07_13.jpg" alt="Figure 7.13: Matrix values with the word “dog”"/></div><h6>Figure 7.13: Matrix values with the word "woman"</h6></li>
+				<li>Now, we have the word <strong class="inline">dog</strong> in the matrix and we need to append every vector of the similar words. Add the rest of the vectors to the matrix:<p class="snippet">for w in close_words:</p><p class="snippet">    w_vector = model[w[0]]</p><p class="snippet">    labels.append(w[0])</p><p class="snippet">    arr = np.append(arr, np.array([w_vector]), axis=0)</p><p class="snippet">arr</p><p>This matrix is something like this:</p><div id="_idContainer201" class="IMG---Figure"><img src="image/C13550_07_14.jpg" alt="Figure 7.14: Matrix with the most similar vectors of the “woman” vector"/></div><h6>Figure 7.14: Matrix with the most similar vectors of the "woman" vector</h6></li>
+				<li>Once we have all the vectors in the matrix, let's initialize the TSNE method. It is a function of Sklearn;<p class="snippet">svd = TruncatedSVD(n_components=2, n_iter=7, random_state=42)</p><p class="snippet">svdvals = svd.fit_transform(arr)</p></li>
+				<li>Transform the matrix into vectors of two dimensions and create a DataFrame with pandas to store them:<p class="snippet">df = pd.DataFrame(svdvals, index=labels, columns=['x', 'y'])</p><p class="snippet">df</p><div id="_idContainer202" class="IMG---Figure"><img src="image/C13550_07_15.jpg" alt="Figure 7.15: Coordinates of our vectors in two dimensions"/></div><h6>Figure 7.15: Coordinates of our vectors in two dimensions</h6></li>
+				<li>Create a plot to see the words in a plane:<p class="snippet">fig = plt.figure()</p><p class="snippet">ax = fig.add_subplot(1, 1, 1)</p><p class="snippet">for word, pos in df.iterrows():</p><p class="snippet">    ax.annotate(word, pos)</p><p class="snippet">ax.scatter(df['x'], df['y'])</p><p class="snippet">plt.show()</p></li>
+			</ol>
+			<div>
+				<div id="_idContainer203" class="IMG---Figure">
+					<img src="image/C13550_07_16.jpg" alt="Figure 7.16: Distribution of the words most similar to woman"/>
+				</div>
+			</div>
+			<h6>Figure 7.16: Distribution of the words most similar to woman</h6>
+			<p>Here, we reduced the dimensionality of the vectors to get the output in a two-dimensional graph. Here, we can see the similarity relationship between the words.</p>
+			<p>You have finished exercise 25! You can now choose between using your own word2vec model or a GloVe model. </p>
+			<h2 id="_idParaDest-133"><a id="_idTextAnchor174"/>Dialogue Systems</h2>
+			<p>As we mentioned before, chatbots are becoming more and more popular. They can help humans 24/7, answering questions or just holding a conversation. Dialogue systems can understand topics, give reasonable answers, and detect sentiments in a conversation (such as positive, neutral, or negative sentiment) with a human. The main goal of these systems is to hold a natural dialogue by imitating a human. This capability to behave or think like a human is one of the most important factors in ensuring a good user experience in the conversation. The Loebner Prize is a chatbot contest in which chatbots are tested using many different sentences and questions, and the most human-like system wins. One of the most popular conversational agents is the Mitsuku chatbot (<a href="https://www.pandorabots.com/mitsuku/">https://www.pandorabots.com/mitsuku/</a>).</p>
+			<p>Chatbots are commonly used as a text service to give information to users. For example, one of the most popular conversational agents in Spain is Lola, which can give you your zodiac information (<a href="https://1millionbot.com/chatbot-lola/">https://1millionbot.com/chatbot-lola/</a>). You just need to send a message and wait a few seconds to receive the data. But in 2011, Apple developed Siri, a virtual assistant that understands speech, and now, we have Amazon's Alexa and Google Assistant too. Depending on the input type of a system, they can be classified into two groups: <strong class="bold">spoken dialogue systems</strong> and <strong class="bold">text-based dialogue systems</strong>, which are explained later in the chapter.</p>
+			<p>This is not the only way to classify conversational agents. Depending on the type of knowledge they have, they can be divided into goal-oriented and open-domain. We will also review these classifications later in this chapter.</p>
+			<p>Actually, there are many tools for creating your own chatbot in a few minutes. But in this chapter, you will learn how to create the required system knowledge from scratch.</p>
+			<h3 id="_idParaDest-134"><a id="_idTextAnchor175"/>Tools for Developing Chatbots</h3>
+			<p>Chatbots help a lot of many upcoming companies. But to create a chatbot, do you need to have knowledge of deep NLP? Well, thanks to these tools, a person without any NLP knowledge can create a chatbot in a matter of hours:</p>
+			<ul>
+				<li><strong class="keyword">Dialogflow</strong>: This easily creates a natural-language conversation. Dialogflow is a Google-owned developer that provides voice and conversational interfaces. This system uses Google's machine learning expertise to find the appropriate intents in a dialogue with a user and is deployed on Google Cloud Platform. It supports more than 14 languages and multiple platforms.</li>
+				<li><strong class="keyword">IBM Watson</strong>: Watson Assistant provides a user-friendly interface to create conversational agents. It works just like Dialogflow but it is deployed on IBM Cloud and it's backed by IBM Watson knowledge. Watson also provides several tools to analyze data generated by conversations.</li>
+				<li><strong class="keyword">LUIS</strong>: Language Understanding (LUIS) is a Microsoft machine learning-based service for building natural-language apps. This bot framework is hosted on the Azure cloud and uses Microsoft knowledge.</li>
+			</ul>
+			<p>The aforementioned tools are a complex NLP system. In this chapter, we are going to look at a basic method for identifying the intent of a message using a pretrained GloVe. The latest chatbot trends are voice assistants. These tools allow you to implement a chatbot controlled by voice. There are many ways to classify a conversational agent.</p>
+			<h3 id="_idParaDest-135"><a id="_idTextAnchor176"/>Types of Conversational Agents</h3>
+			<p>Conversational agents can be classified into several groups, depending on the type of input-output data and their knowledge limits. When a company orders the creation of a chatbot, the first step is to analyze what its communication channel (text or voice) will be and what the topics of the conversation will be (limited knowledge or without restriction).</p>
+			<p>Now, we are going to explain many types of groups and the features of each one.</p>
+			<h3 id="_idParaDest-136"><a id="_idTextAnchor177"/>Classification by Input-Output Data Type</h3>
+			<p>A voice-controlled virtual assistant is not like a basic chatbot, which we use text to communicate with. Depending on the input-output type, we can divide them into two groups:</p>
+			<ul>
+				<li><strong class="keyword">Spoken Dialogue System (SDS)</strong>: These models are designed to be voice-controlled, without chat interfaces or keyboards, but with a microphone and speakers. These systems are harder to work with than a normal chatbot because they are composed of different modules: </li>
+			</ul>
+			<div>
+				<div id="_idContainer204" class="IMG---Figure">
+					<img src="image/C13550_07_17.jpg" alt="Figure 7.17: Structure of an SDS model"/>
+				</div>
+			</div>
+			<h6>Figure 7.17: Structure of an SDS model</h6>
+			<ul>
+				<li>Figure 7.17 shows the modules of an SDS. An SDS has a higher error probability, because speech-to-text systems need to transform the voice of a human into text, and this can fail. Once speech is converted into text, the conversational agent identifies the intent of the conversation and returns a response. Before the agent returns a response, the answer is converted to voice.</li>
+				<li><strong class="keyword">Text-Based Dialogue System</strong>: In contrast with an SDS, text-based dialogue systems are based on a chat interface, where the user interacts with the chatbot using a keyboard and a screen. In this chapter, we will be creating a text-based dialogue chatbot.</li>
+			</ul>
+			<h3 id="_idParaDest-137"><a id="_idTextAnchor178"/>Classification by System Knowledge</h3>
+			<p>If the chatbot is able to successfully respond to every kind of message using its knowledge or if it is limited to a set of specific questions, these conversational agents can be divided as follows:</p>
+			<ul>
+				<li><strong class="keyword">Closed-Domain or Goal-Oriented (GO)</strong>: The model has been trained to identify a set of intents. The chatbot will only understand sentences related to these topics. If the conversational agent does not identify the intent (intent was explained in the introduction to this chapter), it will return a predefined sentence.</li>
+				<li><strong class="keyword">Open-Domain</strong>: Not all chatbots have a set of defined intents. If the system can answer every type of sentence using NLG techniques and other data sources, it is classified as an open-domain model. The architecture of these systems is harder to build than a GO model.</li>
+				<li>There is a third class of conversational agent, based on its knowledge, that is, the <strong class="keyword">Hybrid Domain</strong>. It is a combination of the models mentioned previously, therefore, depending on the sentence, the chatbot will have a predefined response (associated intent with many responses) or not.</li>
+			</ul>
+			<h3 id="_idParaDest-138"><a id="_idTextAnchor179"/>Creation of a Text-Based Dialogue System</h3>
+			<p>So far, we already know the different classes of a conversational agent and how they can pick or generate a response. There are many other ways to build a conversational agent, and NLP provides many different approaches to achieve this objective. For example, <strong class="bold">seq2seq</strong> (sequence-to-sequence) models are able to find an answer when given a question. Also, deep language models can generate responses based on a corpus, that is, if a chatbot has a conversational corpus, it can follow a conversation. </p>
+			<p>In this chapter, we are going to build a chatbot using Stanford's GloVe. In <em class="italics">Exercise 26</em>, <em class="italics">Create Your First Conversational Agent</em>, you will find a brief introduction to the technique we are going to use, and in the activity, we will create a conversational agent to control a robot. </p>
+			<p><strong class="bold">Scope definition and Intent Creation</strong></p>
+			<p>Our conversational agent will be a text-based dialogue system and goal-oriented. Therefore, we will interact with our chatbot using the keyboard and it will only understand sentences related to intents created by us.</p>
+			<p>Before starting with the intent creation, we need to know what the main goal of our chatbot is (maintain a general dialogue, control a device, and obtain information) and what different types of sentences the users may ask.</p>
+			<p>Once we have analyzed the possible conversations of our chatbot, we can create the intents. Each intent will be a text file with several training sentences. These training sentences are possible interactions of a user with our chatbot. It is really important to define these sentences well because the chatbot could match the wrong intent if there are two similar sentences with different intents.</p>
+			<h4>Note</h4>
+			<p class="callout">A good previous analysis of the possible conversations of our chatbot will make intent definition easier. It is obvious the chatbot will not understand all the sentences a user may say, but it must be able to recognize the meaning of sentences related to our intents.</p>
+			<p>The system will also have a file with the same name as the intent file, but instead of containing the training sentences, it will have responses related to the intent:</p>
+			<div>
+				<div id="_idContainer205" class="IMG---Figure">
+					<img src="image/C13550_07_18.jpg" alt="Figure 7.18: Folder structure of the system"/>
+				</div>
+			</div>
+			<h6>Figure 7.18: Folder structure of the system</h6>
+			<p>In figure 7.18, we can see the structure of our chatbot. The extension of the intents and responses files are <strong class="inline">.txt</strong>, but you can also save them as <strong class="inline">.json</strong>.</p>
+			<p><strong class="bold">GloVe for Intent Detection</strong></p>
+			<p>At the beginning of this chapter, the fundamentals of word embeddings, word to vectors, and global vectors were reviewed. GloVe represents each word with a real-valued vector, and these vectors can be used as features in a variety of applications. But for this case – building a conversational agent – we are going to use complete sentences to train our chatbot, not just words.</p>
+			<p>The chatbot needs to understand that an entire sentence is represented by a set of words as a vector. This representation of a sequence as a vector is called <strong class="bold">seq2vec</strong>. Internally, the conversational agent will compare the user's sentence with each intent training phrase to find the most similar meaning.</p>
+			<p>At this point, there are vectors representing sequences, and these sequences are in a file related to an intent. If the same process mentioned previously is used to join all the sequence vectors into one, we will have a representation of the intent. The main idea is to not just represent a sentence; it is to represent a whole document in a vector, and this is called <strong class="bold">Doc2vec</strong>. With this approach, when the user interacts with the chatbot, it will find the intent of that user phrase.</p>
+			<p>The final structure of our system will look as shown in figure 7.19:</p>
+			<div>
+				<div id="_idContainer206" class="IMG---Figure">
+					<img src="image/C13550_07_19.jpg" alt="Figure 7.19: Final folder structure"/>
+				</div>
+			</div>
+			<h6>Figure 7.19: Final folder structure</h6>
+			<p>The file named <strong class="inline">main.py</strong> will contain the different methods to analyze the input sentence using the GloVe model located in <strong class="inline">/data</strong>, creating the document vectors to perform the match between the user's sentence and the intent:</p>
+			<div>
+				<div id="_idContainer207" class="IMG---Figure">
+					<img src="image/C13550_07_20.jpg" alt="Figure 7.20: Doc2Vec transformation"/>
+				</div>
+			</div>
+			<h6>Figure 7.20: Doc2Vec transformation</h6>
+			<p>Figure 7.20 shows the process of transforming a set of sentences in a vector, representing a document. In the example, the <strong class="bold">A.txt</strong> file is an intent with three sentences. Each sentence has three words, so each sentence has three vectors. Combining the vectors, we obtain a representation of each set of words, after which, we get the document vector.</p>
+			<p>The approach of converting sentences into vectors allows a comparison of a sequence of vectors within a document vector without any problem. When the user interacts with the chatbot, the user phrase will be transformed as seq2vec and then it will be compared with each document vector to find the most similar one.</p>
+			<h3 id="_idParaDest-139"><a id="_idTextAnchor180"/>Exercise 26: Create Your First Conversational Agent</h3>
+			<h4>Note</h4>
+			<p class="callout">Perform exercise 26 in the same folder that you performed exercise 25 in.</p>
+			<p>In this exercise, you will create a chatbot to understand basic conversation. This exercise will cover the intent and response definition, the transformation of words into a vector, representing a document, and matching the user's sentence with the intent.</p>
+			<p>Before starting the exercise, please take a look at the folder structure in Google Colab, as shown in figure 7.21:</p>
+			<div>
+				<div id="_idContainer208" class="IMG---Figure">
+					<img src="image/C13550_07_21.jpg" alt="Figure 7.21: Structure of Exercise 3"/>
+				</div>
+			</div>
+			<h6>Figure 7.21: Structure of Exercise 26</h6>
+			<p>The <strong class="inline">Exercise26.ipynb</strong> file is the <strong class="inline">main.py</strong> file that we came across before, and within the <strong class="inline">utils</strong> folder, you will find the folder structure presented as mentioned in the previous exercise: </p>
+			<div>
+				<div id="_idContainer209" class="IMG---Figure">
+					<img src="image/C13550_07_22.jpg" alt="Figure 7.22: Structure of Exercise 3 (2)"/>
+				</div>
+			</div>
+			<h6>Figure 7.22: Structure of Exercise 26 (2)</h6>
+			<p>The folder responses have the files with the phrases that the chatbot can output when the user interacts with it. Training is where intents are defined within sentences. To obtain the vectors of each word, we are going to use Stanford's GloVe with five dimensions:</p>
+			<ol>
+				<li value="1">First, we need to define the intents and the responses for each intent. This is an introduction exercise, so let's define three intents: welcome, how-are-you, and farewell, and create some related sentences (separated by commas). <p>"Welcome" training sentences: Hi friend, Hello, Hi, Welcome.</p><p>"Farewell" training sentences: Bye, Goodbye, See you, Farewell, Have a good day.</p><p>"How are you" training sentences: How are you? What is going on? Are you okay?</p></li>
+				<li>Once we have the intents created, we will need the responses. Create three files with the same name as the intent files and add responses.<p>"Welcome" responses: Hello! Hi.</p><p>"How are you?" responses: I'm good! Very good my friend :)</p><p>"Farewell" responses: See you! Goodbye!</p></li>
+				<li>Import drive and mount it as follows:<p class="snippet">from google.colab import drive</p><p class="snippet">drive.mount('/content/drive')</p></li>
+				<li>Once you have mounted your drive for the first time, you will have to enter the authorization code by clicking on the URL mentioned by Google and pressing the <strong class="bold">Enter</strong> key on your keyboard:<div id="_idContainer210" class="IMG---Figure"><img src="image/C13550_07_23.jpg" alt="Figure 7.23: The Google Colab authorization step"/></div><h6>Figure 7.23: The Google Colab authorization step</h6></li>
+				<li>Now that you have mounted the drive, you need to set the path of the directory:<p class="snippet">/content/drive/My Drive/C13550/Lesson07/Exercise25-26</p></li>
+				<li>Import the necessary libraries:<p class="snippet">from gensim.scripts.glove2word2vec import glove2word2vec</p><p class="snippet">from gensim.models import KeyedVectors</p><p class="snippet">import numpy as np</p><p class="snippet">from os import listdir</p></li>
+				<li>With spaCy, we are going to tokenize the sentences and erase the punctuation marks. N<a id="_idTextAnchor181"/>ow, create a function that tokenizes every sentence of a document. In this exercise, we will create the Doc2vec from the word vectors by combining all these vectors into one. That is why we are going to tokenize the whole document, returning an array with all the tokens. It is good practice to erase the stopwords too, but in this exercise it is not necessary. The input of this function is an array of sentences:<p class="snippet">import spacy</p><p class="snippet">import en_core_web_sm</p><p class="snippet">nlp = en_core_web_sm.load()</p><p class="snippet"># return a list of tokens without punctuation marks</p><p class="snippet">def pre_processing(sentences):</p><p class="snippet">    tokens = []</p><p class="snippet">    for s in sentences:</p><p class="snippet">        doc = nlp(s)</p><p class="snippet">        for t in doc:</p><p class="snippet">            if t.is_punct == False:</p><p class="snippet">                tokens.append(t.lower_)</p><p class="snippet">    return tokens</p></li>
+				<li>Load the GloVe model:<p class="snippet">filename = 'utils/glove.6B.50d.txt.word2vec'</p><p class="snippet">model = KeyedVectors.load_word2vec_format(filename, binary=False)</p></li>
+				<li>Create two lists with the names of the intent files and the response files:<p class="snippet">intent_route = 'utils/training/'</p><p class="snippet">response_route = 'utils/responses/'</p><p class="snippet">intents = listdir(intent_route)</p><p class="snippet">responses = listdir(response_route)</p></li>
+				<li>Create a function that returns a vector of 100 dimensions representing a document. The input of this function will be a list with the tokens of a document. We need to initialize an empty vector with 100 dimensions. What this function will perform is adding every vector word and then dividing it by the length of the tokenized document:<p class="snippet">def doc_vector(tokens):</p><p class="snippet">    feature_vec = np.zeros((50,), dtype="float32")</p><p class="snippet">    for t in tokens:</p><p class="snippet">         feature_vec = np.add(feature_vec, model[t])</p><p class="snippet">    return np.array([np.divide(feature_vec,len(tokens))])</p></li>
+				<li>Now, we are ready to read each intent file (located in the training folder), tokenizing them, and creating an array with every document vector:<p class="snippet">doc_vectors = np.empty((0,50), dtype='f')</p><p class="snippet">for i in intents:</p><p class="snippet">    with open(intent_route + i) as f:</p><p class="snippet">        sentences = f.readlines()</p><p class="snippet">    sentences = [x.strip() for x in sentences]</p><p class="snippet">    sentences = pre_processing(sentences)</p><p class="snippet">    # adding the document vector to the array doc_vectors</p><p class="snippet">    doc_vectors=np.append(doc_vectors,doc_vector(sentences),axis=0)</p><p class="snippet">print("Vector representation of each document:\n",doc_vectors)</p><div id="_idContainer211" class="IMG---Figure"><img src="image/C13550_07_24.jpg" alt="Figure 7.24: Documents represented as vectors"/></div><h6>Figure 7.24: Documents represented as vectors</h6></li>
+				<li>With a function of <strong class="inline">sklearn</strong> called <strong class="inline">cosine_similarity</strong>, create a function that finds the most similar intent, comparing a sentence vector with each document vector:<p class="snippet">from sklearn.metrics.pairwise import cosine_similarity</p><p class="snippet">def select_intent(sent_vector, doc_vector):</p><p class="snippet">    index = -1</p><p class="snippet">    similarity = -1 #cosine_similarity is in the range of -1 to 1</p><p class="snippet">    for idx,v in zip(range(len(doc_vector)),doc_vector):</p><p class="snippet">        v = v.reshape(1,-1)</p><p class="snippet">        sent_vector = sent_vector.reshape(1,-1)</p><p class="snippet">        aux = cosine_similarity(sent_vector, v).reshape(1,)</p><p class="snippet">        if aux[0] &gt; similarity:</p><p class="snippet">            index = idx</p><p class="snippet">            similarity = aux</p><p class="snippet">    return index</p></li>
+				<li>Let's test our chatbot. Tokenize the input of the user and use the last function (<strong class="inline">select_intent</strong>) to obtain the related intent:<p class="snippet">user_sentence = "How are you"</p><p class="snippet">user_sentence = pre_processing([user_sentence])</p><p class="snippet">user_vector = doc_vector(user_sentence).reshape(50,)</p><p class="snippet">intent = intents[select_intent(user_vector, doc_vectors)]</p><p class="snippet">intent</p><div id="_idContainer212" class="IMG---Figure"><img src="image/C13550_07_25.jpg" alt="Figure 7.25: Predicted document intent"/></div><h6>Figure 7.25: Predicted document intent</h6></li>
+				<li>Create a function that gives a response to the user:  <p class="snippet">def send_response(intent_name):</p><p class="snippet">    with open(response_route + intent_name) as f:</p><p class="snippet">        sentences = f.readlines()</p><p class="snippet">    sentences = [x.strip() for x in sentences]</p><p class="snippet">    return sentences[np.random.randint(low=0, high=len(sentences)-1)]</p><p class="snippet">send_response(intent)</p></li>
+				<li>Check for the output with the test sentence:<p class="snippet">send_response(intent)</p><p>The output will look like this:</p><div id="_idContainer213" class="IMG---Figure"><img src="image/C13550_07_26.jpg" alt="Figure 7.26: Response of intent how_are_you"/></div><h6>Figure 7.26: Response of intent how_are_you</h6></li>
+				<li>Check whether the system works with many test sentences.</li>
+			</ol>
+			<p>You have completed exercise 26! You are ready to build a conversational agent to control our virtual robot. As you saw in exercise 26 (step 2), you need a good definition of intents. If you try to add the same sentence in two different intents, the system could fail.</p>
+			<h3 id="_idParaDest-140"><a id="_idTextAnchor182"/>Activity 7: Create a Conversational Agent to Control a Robot </h3>
+			<p>In this activity, we will create a chatbot with many intents. To perform this activity, we will use Stanford's GloVe, as in <em class="italics">Exercise 26</em>, <em class="italics">Create Your First Conversational Agent</em>. We will learn how to create a program that waits for a user sentence, and when the user interacts with the chatbot, it will return a response.</p>
+			<p>Scenario: You work in a company developing a security system. This security system will be a robot equipped with a camera to see the environment and wheels to move forward or backward. This robot will be controlled via text, so you can type orders and the robot will perform different actions.</p>
+			<ol>
+				<li value="1">The robot can perform the following actions:<p>Move forward.</p><p>Move backward.</p><p>Rotations:</p><p>45º to the right.</p><p>45º to the left.</p></li>
+				<li>Identify what the robot can see. This activity is performed in the same way as in <em class="italics">Exercise 26</em>, <em class="italics">Create Your First Conversational Agent</em>. To avoid rewriting code, the <strong class="inline">chatbot_intro.py</strong> file has four basic methods:<p><strong class="inline">Pre_processing</strong>: To tokenize sentences</p><p><strong class="inline">Doc_vector</strong>: To create document vectors</p><p><strong class="inline">Select_intent</strong>: To find the most similar intent introduced in a sentence</p><p><strong class="inline">Send_response</strong>: To send a sentence located in the response folder</p><p>Knowing these methods, the core work is done, so the most important thing is the design of the intents.</p></li>
+				<li>We need to develop four different activities, but the rotation activity has two different types. We are going to define five intents, one per action (two for rotation). You can use these sentences, but you are free to add more training sentences or more actions:<p><strong class="bold">Backward</strong>:</p><p>Move back</p><p>Going backward</p><p>Backward</p><p>Go back</p><p>Moving backward</p><p><strong class="bold">Environment</strong>:</p><p>What can you see?</p><p>Environment information</p><p>Take a picture</p><p>Tell me what you are seeing?</p><p>What do you have in front of you?</p><p><strong class="bold">Forward</strong>:</p><p>Advance</p><p>Move forward</p><p>Go to the front</p><p>Start moving</p><p>Forward</p><p><strong class="bold">Left</strong>:</p><p>Turn to the left</p><p>Go left</p><p>Look to the left</p><p>Turn left</p><p>Left</p><p><strong class="bold">Right</strong>:</p><p>Turn to the right</p><p>Go right</p><p>Look to the right</p><p>Turn right</p><p>Right</p><p>You can find the files in the activity/training folder:</p></li>
+			</ol>
+			<div>
+				<div id="_idContainer214" class="IMG---Figure">
+					<img src="image/C13550_07_27.jpg" alt="Figure 7.27: Training sentence files"/>
+				</div>
+			</div>
+			<h6>Figure 7.27: Training sentence files</h6>
+			<h4>Note</h4>
+			<p class="callout">The solution for this activity is available on page 323.</p>
+			<h2 id="_idParaDest-141"><a id="_idTextAnchor183"/>Summary</h2>
+			<p>Conversational agents, also knowns as chatbots, are text-based dialogue systems that understand human language in order to hold a "real" conversation with people. To achieve a good understanding of what a human is saying, chatbots need to classify dialogue into intents, that is, a set of sentences representing a meaning. Conversational agents can be classified into several groups, depending on the type of input-output data and knowledge limits. This representation of meaning is not easy. To have sound knowledge supporting a chatbot, a huge corpus is needed. Finding the best way to represent a word is a challenge, and one-hot encoding is useless. The main problem with one-hot encoding is the size of the encoded vectors. If we have a corpus of 88,000 words, then the vectors will have a size of 88,000, and without any relationship between the words. This is where the concept of word embeddings enters the picture.</p>
+			<p>Word embeddings are a collection of techniques and methods to map words and sentences from a corpus into vectors or real numbers. Word embeddings generate a representation of each word in terms of the context in which a word appears. To generate word embeddings, we can use Word2Vec. Word2Vec processes a corpus and assigns a vector to each unique word in the corpus, and it can perform dimension reduction, typically of several hundred dimensions. </p>
+			<p>The core idea of Word2Vec is that a word's meaning is given by the words that are frequently found near to it. When a word appears in a sentence, its context is formed by the set of words it has nearby. Word2Vec can be implemented using two types of algorithm: skip-gram and CBOW. The idea of Word2Vec is to represent words which is useful, but in terms of efficiency, it has problems. GloVe combines Word2Vec and the statistical information of a corpus. GloVe joins these two approaches to achieve fast training, scalable to huge corpora, and achieve better performance with small vectors. With GloVe, we are capable of giving knowledge to our chatbot, combined with training sentences defining our set of intents.</p>
+			<p><em class="italics">Chapter 8</em>, <em class="italics">Object Recognition to Guide the Robot Using CNNs</em>, will introduce you to object recognition using different pretrained models. Furthermore, it will look at the latest trend in computer vision – the recognition of objects using boxes identifying what is in every part of a picture.</p>
+		</div>
+	</body></html>
