@@ -590,6 +590,9 @@
   id: totrans-62
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在我们对生成网络的概念有了一个大致的理解，我们可以专注于一种特定类型的生成模型。VAE 就是其中之一，它由 Kingma 和 Welling（2013）以及
+    Rezende、Mohamed 和 Wierstra（2014）提出。这个模型实际上与我们在上一章中看到的自动编码器非常相似，但它们有一个小小的变化——或者更准确地说，有几个变化。首先，学习的潜在空间不再是离散的，而是通过设计变成了连续的！那么，这有什么大不了的呢？正如我们之前所解释的那样，我们将从这个潜在空间中进行采样来生成输出。然而，从离散的潜在空间中进行采样是有问题的。因为它是离散的，意味着潜在空间中会有不连续的区域，这样如果这些区域被随机采样，输出将看起来完全不真实。另一方面，学习一个连续的潜在空间使得模型能够以概率的方式学习从一个类别到另一个类别的过渡。此外，由于学习的潜在空间是连续的，因此可以识别和操控我们之前提到的概念向量，这些向量以一种有意义的方式编码了输入数据中存在的各种方差轴。在这一点上，许多人可能会好奇
+    VAE 如何准确地学习建模一个连续的潜在空间。嗯，别再好奇了。
 - en: 'Earlier, we saw how we can redefine the sampling process from a latent space,
     so as to be able to plug it into a larger network to estimate a probability distribution.
     We did this by breaking the latent space down by using parameterized functions
@@ -605,10 +608,14 @@
   id: totrans-63
   prefs: []
   type: TYPE_NORMAL
+  zh: 之前，我们已经看到如何重新定义从潜在空间中采样的过程，以便能够将其插入到一个更大的网络中来估计概率分布。我们通过使用参数化函数（也就是神经网络的部分）来估计潜在空间中变量的均值（μ）和标准差（σ），从而将潜在空间分解。在
+    VAE 中，它的编码器函数正是做了这件事。这就迫使模型学习在连续潜在空间上变量的统计分布。这个过程使我们可以假设输入图像是以概率的方式生成的，因为潜在空间编码了一个概率分布。因此，我们可以使用学习到的均值和标准差参数，从该分布中进行随机采样，并将其解码到数据的原始维度。这里的插图帮助我们更好地理解
+    VAE 的工作流程：
 - en: '![](img/6ac4ab13-f5df-422a-afbd-bdf52e3127ab.png)'
   id: totrans-64
   prefs: []
   type: TYPE_IMG
+  zh: '![](img/6ac4ab13-f5df-422a-afbd-bdf52e3127ab.png)'
 - en: This process is what allows us to first learn, and then sample from, a continuous
     latent space, generating plausible outputs. Is this still a bit fuzzy? Well, perhaps
     a demonstrative example is in order, to help clarify this notion. Let's begin
@@ -617,11 +624,14 @@
   id: totrans-65
   prefs: []
   type: TYPE_NORMAL
+  zh: 这个过程使我们能够首先学习，然后从连续潜在空间中采样，生成合理的输出。还觉得有些模糊吗？嗯，也许一个演示示例可以帮助澄清这个概念。让我们从在 Keras
+    中构建一个 VAE 开始，边构建模型边讨论理论和实现方面的内容。
 - en: Designing a VAE in Keras
   id: totrans-66
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 在 Keras 中设计 VAE
 - en: 'For this exercise, we will go back to a well-known dataset that is easily available
     to all: the MNIST dataset. The visual features of handwritten digits make this
     dataset uniquely suited to experiment with VAEs, allowing us to better understand
@@ -835,6 +845,7 @@
   id: totrans-94
   prefs: []
   type: TYPE_NORMAL
+  zh: 如您所见，自定义层包含三个函数。第一个是初始化函数。第二个函数负责计算两个损失。它使用二元交叉熵度量来计算重建损失，并使用**Kullback–Leibler**（**KL**）散度公式来计算正则化损失。KL散度项本质上允许我们计算生成输出相对于采样潜在空间（*z*）的相对熵。它让我们能够迭代地评估输出概率分布与潜在空间分布之间的差异。然后，`vae_loss`函数返回一个综合损失值，这个值就是这两项计算得出的度量的均值。
 - en: Finally, the `call` function is used to implement the custom layer, by using
     the built-in `add_loss` layer method. This part essentially defines the last layer
     of our network as the loss layer, thereby using our arbitrarily defined `loss`
@@ -842,20 +853,24 @@
   id: totrans-95
   prefs: []
   type: TYPE_NORMAL
+  zh: 最后，`call`函数用于实现自定义层，方法是使用内建的`add_loss`层方法。这个部分实际上是将我们网络的最后一层定义为损失层，从而使用我们任意定义的`loss`函数生成损失值，进而可以进行反向传播。
 - en: Compiling and inspecting the model
   id: totrans-96
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 编译并检查模型
 - en: 'Next, we define our network''s last layer (*y*) using the custom variational
     layer class we just implemented, as shown here:'
   id: totrans-97
   prefs: []
   type: TYPE_NORMAL
+  zh: 接下来，我们使用我们刚刚实现的自定义变分层类来定义网络的最后一层（*y*），如下面所示：
 - en: '![](img/8a5c1a25-1c15-44bf-9249-3e11e7058355.png)'
   id: totrans-98
   prefs: []
   type: TYPE_IMG
+  zh: '![](img/8a5c1a25-1c15-44bf-9249-3e11e7058355.png)'
 - en: 'Now we are ready to finally compile and train our model! First, we put together
     the entire model, using the `Model` object from the functional API, and passing
     it the input layer from our encoder module, as well as the last custom loss layer
@@ -867,10 +882,12 @@
   id: totrans-99
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在我们终于可以编译并训练我们的模型了！首先，我们将整个模型组合在一起，使用功能性 API 中的`Model`对象，并将其输入层传入自编码器模块，以及我们刚刚定义的最后一个自定义损失层。接着，我们使用通常的`compile`语法来初始化网络，并为其配备`rmsprop`优化器。然而需要注意的是，由于我们使用了自定义损失函数，`compile`语句实际上不接受任何损失度量，通常应该存在的地方并没有出现。在这时，我们可以通过调用`.summary()`方法来可视化整个模型，如下所示：
 - en: '![](img/f2705dc9-4a46-4bdc-895e-f227bb7cc57c.png)'
   id: totrans-100
   prefs: []
   type: TYPE_IMG
+  zh: '![](img/f2705dc9-4a46-4bdc-895e-f227bb7cc57c.png)'
 - en: As you can see, this architecture takes in the input images and funnels them
     down to two distinct encoded representations: `z_mean` and `z_log_var` (that is,
     a learned mean and variance over the latent space). This probability distribution
@@ -881,11 +898,13 @@
   id: totrans-101
   prefs: []
   type: TYPE_NORMAL
+  zh: 如您所见，这个架构将输入图像传入并将其压缩为两个不同的编码表示：`z_mean`和`z_log_var`（即在潜在空间中学习得到的均值和方差）。然后，使用添加的Lambda层对这个概率分布进行采样，从而生成潜在空间中的一个点。接着，这个点通过全连接层（`dense_5`和`dense_6`）进行解码，最后通过我们自定义的损失层计算损失值。现在您已经看到了整个流程。
 - en: Initiating the training session
   id: totrans-102
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 启动训练会话
 - en: 'Now comes the time to actually train our network. There is nothing out of the
     ordinary here, except for the fact that we do not have to specify a target variable
     (that is, `y_train`). This is simply because the target is normally used to compute
@@ -1082,6 +1101,7 @@
   id: totrans-124
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们可以将GAN看作是一个由两个参与者组成的系统。在一方，我们有一个类似Di Caprio的网络，试图重新创作一些莫奈和达利的作品，并将它们发送给毫无戒心的艺术经销商。另一方面，我们有一个警觉的、像汤姆·汉克斯风格的网络，拦截这些货物并识别其中的伪作。随着时间的推移，两者都变得越来越擅长自己的工作，导致骗子那一方能够创造出逼真的伪作，而警察那一方则具备了敏锐的眼光来识别它们。这种常用的类比变体，确实很好地介绍了这些架构背后的理念。
 - en: 'A GAN essentially has two parts: a generator and a discriminator. Each of these
     parts can be thought of as separate neural networks, which work together by checking
     each other''s outputs as the model trains. The generator network is tasked to
@@ -1094,15 +1114,18 @@
   id: totrans-125
   prefs: []
   type: TYPE_NORMAL
+  zh: 一个GAN本质上有两个部分：生成器和判别器。这两个部分可以看作是独立的神经网络，它们在模型训练时通过相互检查输出进行协同工作。生成器网络的任务是通过从潜在空间中抽取随机向量来生成虚假的数据点。然后，判别器接收这些生成的数据点，以及实际的数据点，并识别哪些数据点是真的，哪些是假的（因此得名*判别器*）。随着网络的训练，生成器和判别器分别在生成合成数据和识别合成数据的能力上不断提升：
 - en: '![](img/0797705e-f322-4fe7-99f9-2c7dea54b923.png)'
   id: totrans-126
   prefs: []
   type: TYPE_IMG
+  zh: '![](img/0797705e-f322-4fe7-99f9-2c7dea54b923.png)'
 - en: Utility and practical applications for GANS
   id: totrans-127
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: GAN的实用性和实际应用
 - en: 'This architecture was first introduced by Goodfellow and others, 2014, and
     it has since been popularized by researchers spanning several domains. Their rise
     to fame was due to their ability to generate synthetic images that are virtually
@@ -1126,10 +1149,12 @@
   id: totrans-128
   prefs: []
   type: TYPE_NORMAL
+  zh: 该架构最早由Goodfellow等人于2014年提出，随后在多个领域的研究人员中得到了广泛应用。它们之所以迅速走红，是因为它们能够生成几乎无法与真实图像区分的合成图像。虽然我们已经讨论了由此方法衍生的一些较为有趣和日常的应用，但也有一些更复杂的应用。例如，虽然GAN主要用于计算机视觉任务，如纹理编辑和图像修改，但它们在多个学术领域中的应用也日益增加，出现在越来越多的研究方法中。如今，你可能会发现GAN被应用于医学图像合成，甚至在粒子物理学和天体物理学等领域中得到应用。生成合成数据的相同方法可以用来再生来自遥远星系的去噪图像，或模拟高能粒子碰撞产生的真实辐射模式。GAN的真正实用性在于它们能够学习数据中潜在的统计分布，使其能够生成原始输入的合成实例。这种方法尤其对研究人员有用，因为收集真实数据可能既昂贵又物理上不可能实现。此外，GAN的应用不仅限于计算机视觉领域。其他应用包括使用这些网络的变种从自然语言数据生成精细的图像，比如描述某种风景的句子：
 - en: '![](img/08bc6c1d-aaa9-4497-b53c-6c87d163b7b4.png)[https://arxiv.org/pdf/1612.03242v1.pdf](https://arxiv.org/pdf/1612.03242v1.pdf)'
   id: totrans-129
   prefs: []
   type: TYPE_IMG
+  zh: '![](img/08bc6c1d-aaa9-4497-b53c-6c87d163b7b4.png)[https://arxiv.org/pdf/1612.03242v1.pdf](https://arxiv.org/pdf/1612.03242v1.pdf)'
 - en: These use cases all show how GANs permit us to address novel tasks, with creative
     as well as practical implications. Yet, these architectures are not all fun and
     games. They are notoriously difficult to train, and those who have ventured deep
@@ -1137,35 +1162,42 @@
   id: totrans-130
   prefs: []
   type: TYPE_NORMAL
+  zh: 这些应用案例展示了GAN如何使我们能够处理新任务，既有创造性的也有实用性的影响。然而，这些架构并非都是轻松愉快的。它们以训练困难著称，深入研究这些领域的人们形容它们更像是一门艺术，而非科学。
 - en: 'For more information on this subject, refer to the following:'
   id: totrans-131
   prefs: []
   type: TYPE_NORMAL
+  zh: 关于这个主题的更多信息，请参考以下内容：
 - en: '**Original paper by Goodfellow and others**: [http://papers.nips.cc/paper/5423-generative-adversarial-nets](http://papers.nips.cc/paper/5423-generative-adversarial-nets)'
   id: totrans-132
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '**Goodfellow等人的原创论文**: [http://papers.nips.cc/paper/5423-generative-adversarial-nets](http://papers.nips.cc/paper/5423-generative-adversarial-nets)'
 - en: '**GAN in astrophysics**: [https://academic.oup.com/mnrasl/article/467/1/L110/2931732](https://academic.oup.com/mnrasl/article/467/1/L110/2931732)'
   id: totrans-133
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '**天体物理学中的GAN**: [https://academic.oup.com/mnrasl/article/467/1/L110/2931732](https://academic.oup.com/mnrasl/article/467/1/L110/2931732)'
 - en: '**GAN in particle physics**: [https://link.springer.com/article/10.1007/s41781-017-0004-6](https://link.springer.com/article/10.1007/s41781-017-0004-6)'
   id: totrans-134
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '**粒子物理学中的GAN**: [https://link.springer.com/article/10.1007/s41781-017-0004-6](https://link.springer.com/article/10.1007/s41781-017-0004-6)'
 - en: '**Fine-grained text-to-image generation**: [http://openaccess.thecvf.com/content_cvpr_2018/html/Xu_AttnGAN_Fine-Grained_Text_CVPR_2018_paper.html](http://openaccess.thecvf.com/content_cvpr_2018/html/Xu_AttnGAN_Fine-Grained_Text_CVPR_2018_paper.html)'
   id: totrans-135
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '**细粒度文本到图像生成**: [http://openaccess.thecvf.com/content_cvpr_2018/html/Xu_AttnGAN_Fine-Grained_Text_CVPR_2018_paper.html](http://openaccess.thecvf.com/content_cvpr_2018/html/Xu_AttnGAN_Fine-Grained_Text_CVPR_2018_paper.html)'
 - en: Diving deeper into GANs
   id: totrans-136
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 深入了解GAN
 - en: 'So, let''s try to better understand how the different parts of the GAN work
     together to generate synthetic data. Consider the parameterized function (*G*)
     (you know, the kind we usually approximate using a neural network). This will
@@ -1184,10 +1216,12 @@
   id: totrans-137
   prefs: []
   type: TYPE_NORMAL
+  zh: 那么，让我们尝试更好地理解GAN的不同部分如何协作生成合成数据。考虑一下带参数的函数（*G*）（你知道的，我们通常使用神经网络来近似的那种）。这个将是我们的生成器，它从某个潜在的概率分布中采样输入向量（*z*），并将它们转换为合成图像。我们的判别网络（*D*）随后将会接收到由生成器生成的一些合成图像，这些图像与真实图像混合，并尝试将真实图像与伪造图像区分开来。因此，我们的判别网络只是一个二分类器，配备了类似于sigmoid激活函数的东西。理想情况下，我们希望判别器在看到真实图像时输出较高的值，而在看到生成的伪造图像时输出较低的值。相反，我们希望我们的生成器网络通过使判别器对生成的伪造图像也输出较高的值来愚弄判别器。这些概念引出了训练GAN的数学公式，其本质上是两个神经网络（*D*和*G*）之间的对抗，每个网络都试图超越另一个：
 - en: '![](img/4a9a9cd4-0a21-4a4c-ba43-1bb3ed86478e.png)'
   id: totrans-138
   prefs: []
   type: TYPE_IMG
+  zh: '![](img/4a9a9cd4-0a21-4a4c-ba43-1bb3ed86478e.png)'
 - en: In the given formulation, the first term actually denotes the entropy relating
     to a data point (*x*) from the real distribution, presented to the discriminator.
     The goal of the discriminator is to try maximize this term to 1, as it wishes
@@ -1204,11 +1238,15 @@
   id: totrans-139
   prefs: []
   type: TYPE_NORMAL
+  zh: 在给定的公式中，第一个项实际上表示与来自真实分布的数据点(*x*)相关的熵，该数据点被呈现给判别器。判别器的目标是尽量将这个项最大化到1，因为它希望能够正确识别真实图像。此外，公式中的第二个项表示与随机抽样的点相关的熵，这些点被生成器转换为合成图像
+    *G(z)*，并呈现给判别器 *D(G(z))*。判别器不希望看到这个，因此它试图将数据点是假的对数概率（即第二项）最大化到0。因此，我们可以说，判别器试图最大化整个
+    *V* 函数。另一方面，生成器的目标则是做相反的事情。生成器的目标是尽量最小化第一个项并最大化第二个项，以便判别器无法区分真实与虚假。这就开始了警察与小偷之间的漫长博弈。
 - en: Problems with optimizing GANs
   id: totrans-140
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 优化GAN存在的问题
 - en: Interestingly, since both networks take turns to optimize their own metric,
     the GAN has a dynamic loss landscape. This is different than all other examples
     we have seen in this book, where the loss hyperplane would remain the same, as
@@ -1227,25 +1265,31 @@
   id: totrans-141
   prefs: []
   type: TYPE_NORMAL
+  zh: 有趣的是，由于两个网络轮流优化自己的度量，GAN具有动态的损失景观。这与我们在本书中看到的其他所有例子不同，在那些例子中，损失超平面保持不变，随着我们通过反向传播调整模型误差，逐步收敛到更理想的参数。而在这里，由于两个网络都在优化其参数，每一步沿超平面的下降都会略微改变景观，直到两种优化约束之间达到平衡。正如生活中的许多事情一样，这种平衡并不容易实现，它需要大量的关注和努力。在GAN的情况下，关注层权重初始化、使用
+    `LeakyRelu` 和 `tanh` 替代 **修正线性单元** (**ReLU**) 和sigmoid激活函数、实现批量归一化和dropout层等方面，都是提高GAN达到平衡能力的众多考虑因素之一。然而，没有比通过实际编写代码并实现这些令人着迷的架构实例更好的方式来熟悉这些问题。
 - en: 'For more information on this subject, refer to the following:'
   id: totrans-142
   prefs: []
   type: TYPE_NORMAL
+  zh: 更多相关信息，请参考以下内容：
 - en: '**Improved techniques for training GANs**: [https://arxiv.org/pdf/1606.03498.pdf](https://arxiv.org/pdf/1606.03498.pdf)'
   id: totrans-143
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '**改进的GAN训练技术**: [https://arxiv.org/pdf/1606.03498.pdf](https://arxiv.org/pdf/1606.03498.pdf)'
 - en: '**Photo-realistic image generation**: [http://openaccess.thecvf.com/content_cvpr_2017/html/Ledig_Photo-Realistic_Single_Image_CVPR_2017_paper.html](http://openaccess.thecvf.com/content_cvpr_2017/html/Ledig_Photo-Realistic_Single_Image_CVPR_2017_paper.html)'
   id: totrans-144
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '**照片级真实感图像生成**: [http://openaccess.thecvf.com/content_cvpr_2017/html/Ledig_Photo-Realistic_Single_Image_CVPR_2017_paper.html](http://openaccess.thecvf.com/content_cvpr_2017/html/Ledig_Photo-Realistic_Single_Image_CVPR_2017_paper.html)'
 - en: Designing a GAN in Keras
   id: totrans-145
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 在Keras中设计GAN
 - en: 'For this exercise, suppose you were part of a research team working for a large
     automobile manufacturer. Your boss wants you to come up with a way to generate
     synthetic designs for cars, to systematically inspire the design team. You have
@@ -1263,35 +1307,43 @@
   id: totrans-146
   prefs: []
   type: TYPE_NORMAL
+  zh: 假设你是一个研究团队的一员，团队为一家大型汽车制造商工作。你的老板希望你想出一种生成汽车合成设计的方法，以系统地激发设计团队的灵感。你听说过很多关于GAN的宣传，决定研究它们是否能用于这个任务。为此，你首先想做一个概念验证，因此你迅速获取了一些低分辨率的汽车图片，并在Keras中设计了一个基础的GAN，看看网络是否至少能够重建汽车的一般形态。一旦你能够确认这一点，你就可以说服经理为办公室投资几台*Titan
+    x GUPs*，获取更高分辨率的数据，并开发更复杂的架构。那么，让我们首先获取一些汽车图片，通过实现这个概念验证来开始吧。对于这个演示用例，我们使用了经典的CIFAR-10数据集，并将自己限制在商用汽车类别。我们从导入一些库开始，如下所示：
 - en: '![](img/6c878754-2a18-4486-a873-2b59dad91701.png)'
   id: totrans-147
   prefs: []
   type: TYPE_IMG
+  zh: '![](img/6c878754-2a18-4486-a873-2b59dad91701.png)'
 - en: Preparing the data
   id: totrans-148
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 准备数据
 - en: 'We proceed by simply loading up the data through Keras, and selecting only
     car images (index = 1). Then, we check the shape of our training and test arrays.
     We see that there are 5,000 training images and 1,000 test images:'
   id: totrans-149
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们继续通过Keras加载数据，只选择汽车图像（索引=1）。然后，我们检查训练和测试数组的形状。我们看到有5,000张训练图像和1,000张测试图像：
 - en: '![](img/4639fcd3-f2f9-4040-b49e-90cb00f67c4c.png)'
   id: totrans-150
   prefs: []
   type: TYPE_IMG
+  zh: '![](img/4639fcd3-f2f9-4040-b49e-90cb00f67c4c.png)'
 - en: Visualizing some instances
   id: totrans-151
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 可视化一些实例
 - en: 'We will now take a look at the real images from the dataset, using Matplotlib.
     Remember these, as soon we will be generating some fakes for comparison:'
   id: totrans-152
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在我们将使用Matplotlib查看数据集中的真实图像。记住这些图像，因为稍后我们将生成一些假图像进行比较：
 - en: '[PRE5]'
   id: totrans-153
   prefs: []
@@ -1301,15 +1353,18 @@
   id: totrans-154
   prefs: []
   type: TYPE_NORMAL
+  zh: 以下是输出结果：
 - en: '![](img/bf4f02f7-26c2-4027-af00-eb18fe6f2254.png)'
   id: totrans-155
   prefs: []
   type: TYPE_IMG
+  zh: '![](img/bf4f02f7-26c2-4027-af00-eb18fe6f2254.png)'
 - en: Pre-processing the data
   id: totrans-156
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 数据预处理
 - en: 'Next, we simply normalize our pixel values. Unlike previous attempts, however,
     this time, we normalize the pixel values between -1 and 1 (instead of between
     0 and 1). This is due to the fact that we will be using a `tanh` activation function
@@ -1319,21 +1374,25 @@
   id: totrans-157
   prefs: []
   type: TYPE_NORMAL
+  zh: 接下来，我们只是简单地对像素值进行归一化。然而，与之前的尝试不同，这次我们将像素值归一化到-1到1之间（而不是0到1之间）。这是因为我们将为生成器网络使用`tanh`激活函数。这个特定的激活函数输出的值在-1到1之间；因此，以类似的方式归一化数据会使学习过程更加平滑：
 - en: '![](img/5cde634d-ac51-456d-b8ae-46b1dbcfaf3f.png)'
   id: totrans-158
   prefs: []
   type: TYPE_IMG
+  zh: '![](img/5cde634d-ac51-456d-b8ae-46b1dbcfaf3f.png)'
 - en: We encourage you to try different normalization strategies to explore how this
     affects learning as the network trains. Now we have all the components in place
     to start constructing the GAN architecture.
   id: totrans-159
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们鼓励你尝试不同的归一化策略，探索它们如何影响网络训练中的学习过程。现在我们已经准备好所有组件，可以开始构建GAN架构了。
 - en: Designing the generator module
   id: totrans-160
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 设计生成器模块
 - en: 'Now comes the fun part. We will be implementing a **Deep Convolutional Generative
     Adversarial Network** (**DCGAN**). We start with the first part of the DCGAN:
     the generator network. The generator network will essentially learn to recreate
@@ -1342,6 +1401,7 @@
   id: totrans-161
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在是最有趣的部分。我们将实现一个**深度卷积生成对抗网络**（**DCGAN**）。我们从DCGAN的第一部分开始：生成器网络。生成器网络本质上将通过从某个正态概率分布中采样来重建真实的汽车图像，代表一个潜在空间。
 - en: 'We will again use the functional API to defile our model, nesting it in a function
     with three different arguments. The first argument, `latent_dim`, refers to the
     dimension of the input data randomly sampled from a normal distribution. The `leaky_alpha`
@@ -1353,6 +1413,8 @@
   id: totrans-162
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们将再次使用功能 API 来定义我们的模型，将其嵌套在一个带有三个不同参数的函数中。第一个参数`latent_dim`指的是从正态分布中随机采样的输入数据的维度。`leaky_alpha`参数指的是提供给网络中使用的`LeakyRelu`激活函数的
+    alpha 参数。最后，`init_stddev`参数指的是初始化网络随机权重时使用的标准差，用于定义构建层时的`kernel_initializer`参数：
 - en: '[PRE6]'
   id: totrans-163
   prefs: []
@@ -1382,15 +1444,22 @@
   id: totrans-164
   prefs: []
   type: TYPE_NORMAL
+  zh: 注意在设计此模型时考虑了许多因素。例如，`LeakyReLU`激活函数在倒数第二层被选中，因为与 ReLU 相比，它能放宽输出的稀疏性约束。这是因为`LeakyReLU`允许一些小的负梯度值，而
+    ReLU 会将所有负值压缩为零。梯度稀疏性通常被认为是训练神经网络时的理想特性，但对于 GAN 来说并不适用。这也是为什么最大池化操作在 DCGAN 中不太流行的原因，因为这种下采样操作通常会产生稀疏的表示。相反，我们将使用带有
+    Conv2D 转置层的步幅卷积进行下采样需求。我们还实现了批量归一化层（其均值和方差的移动参数设置为 0.8），因为我们发现这对改善生成图像的质量有显著的作用。你还会注意到，卷积核的大小被设置为能被步幅整除，这有助于改善生成的图像，同时减少生成图像区域之间的差异，因为卷积核可以均匀地采样所有区域。最后，网络的最后一层配备了`tanh`激活函数，因为在
+    GAN 架构中，这一激活函数 consistently 显示出更好的效果。下一张截图展示了我们 GAN 的整个生成器模块，它将生成 32 x 32 x 3
+    的合成汽车图像，随后用于尝试欺骗判别器模块：
 - en: '![](img/659b480f-a5d1-42b4-a02d-882354a05b1f.png)'
   id: totrans-165
   prefs: []
   type: TYPE_IMG
+  zh: '![](img/659b480f-a5d1-42b4-a02d-882354a05b1f.png)'
 - en: Designing the discriminator module
   id: totrans-166
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 设计判别器模块
 - en: 'Next, we continue our journey designing the discriminator module, which will
     be responsible for telling the real images from the fake ones supplied by the
     generator module we just designed. The concept behind the architecture is quite
@@ -1406,6 +1475,9 @@
   id: totrans-167
   prefs: []
   type: TYPE_NORMAL
+  zh: 接下来，我们继续设计判别器模块，该模块负责区分由刚设计的生成器模块提供的真实图像和假图像。该架构的概念与生成器非常相似，但也有一些关键的不同之处。判别器网络接收尺寸为
+    32 x 32 x 3 的图像，然后将其转化为多种表示，随着信息通过更深层传播，直到达到带有一个神经元和 sigmoid 激活函数的密集分类层。它有一个神经元，因为我们处理的是区分假图像与真实图像的二分类任务。`sigmoid`函数确保输出一个介于
+    0 和 1 之间的概率值，表示网络认为给定图像可能有多假或多真。还需要注意的是，在密集分类器层之前引入了 dropout 层，这有助于增强模型的鲁棒性和泛化能力：
 - en: '[PRE7]'
   id: totrans-168
   prefs: []
@@ -1417,11 +1489,13 @@
   id: totrans-169
   prefs: []
   type: TYPE_NORMAL
+  zh: 再次强调，我们鼓励你尽可能多地尝试不同的模型超参数，以便更好地理解如何通过调整这些超参数影响学习过程和我们的 GAN 模型生成的输出。
 - en: Putting the GAN together
   id: totrans-170
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 组装 GAN
 - en: 'Next, we weave together the two modules using this function shown here. As
     arguments, it takes the size of the latent samples for the generator, which will
     be transformed by the generator network to produce synthetic images. It also accepts
@@ -1432,6 +1506,8 @@
   id: totrans-171
   prefs: []
   type: TYPE_NORMAL
+  zh: 接下来，我们使用此处显示的函数将两个模块组合在一起。作为参数，它接受生成器的潜在样本大小，生成器网络将通过该大小转换生成合成图像。它还接受生成器和判别器网络的学习率和衰减率。最后，最后两个参数表示用于`LeakyReLU`激活函数的
+    alpha 值，以及网络权重随机初始化的标准差值：
 - en: '[PRE8]'
   id: totrans-172
   prefs: []
@@ -1445,11 +1521,13 @@
   id: totrans-173
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们通过调用导入的后端对象`K`上的`.clear_session()`来确保没有之前的 Keras 会话在运行。然后，我们可以通过调用之前设计的生成器和判别器网络函数，并为它们提供适当的参数，来定义这两个网络。需要注意的是，判别器已被编译，而生成器没有被编译。
 - en: Do note that the functions are designed in a way that encourage fast experimentation
     by changing different model hyperparameters using the arguments.
   id: totrans-174
   prefs: []
   type: TYPE_NORMAL
+  zh: 请注意，这些函数的设计方式鼓励通过使用参数来快速实验，调整不同的模型超参数。
 - en: Finally, after compiling the discriminator network with a binary cross-entropy
     loss function, we merge the two separate networks together. We do this using the
     sequential API, which allows you to merge two fully connected models together
@@ -1460,11 +1538,15 @@
   id: totrans-175
   prefs: []
   type: TYPE_NORMAL
+  zh: 最后，在使用二进制交叉熵损失函数编译判别器网络后，我们将这两个独立的网络合并。我们使用顺序 API 来实现这一点，顺序 API 使得将两个全连接的模型合并变得非常简单。然后，我们可以编译整个
+    GAN，再次使用相同的损失函数和优化器，但使用不同的学习率。在我们的实验中，我们选择了`Adam`优化器，GAN 的学习率为 0.0001，判别器网络的学习率为
+    0.001，这在当前任务中效果很好。
 - en: Helper functions for training
   id: totrans-176
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 用于训练的辅助函数
 - en: 'Next, we will define some helper functions that will aid us in the training
     process. The first among them simply makes a sample of latent variables from a
     normal probability distribution. Next, we have the `make_trainable()` function,
@@ -1477,6 +1559,7 @@
   id: totrans-177
   prefs: []
   type: TYPE_NORMAL
+  zh: 接下来，我们将定义一些辅助函数，帮助我们在训练过程中进行操作。第一个函数只是从正态概率分布中生成潜在变量的样本。接下来，我们有`make_trainable()`函数，它帮助我们交替训练鉴别器和生成器网络。换句话说，它允许我们冻结一个模块（鉴别器或生成器）的层权重，同时训练另一个模块。此函数的trainable参数只是一个布尔变量（true或false）。最后，`make_labels()`函数只是返回用于训练鉴别器模块的标签。这些标签是二进制的，其中`1`代表真实，`0`代表伪造：
 - en: '[PRE9]'
   id: totrans-178
   prefs: []
@@ -1487,6 +1570,7 @@
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 显示输出的辅助函数
 - en: 'The next two helper functions allow us to visualize our losses at the end of
     the training session, as well as plot an image out at the end of each epoch, to
     visually assess how the network is doing. Since the loss landscape is dynamically
@@ -1497,6 +1581,7 @@
   id: totrans-180
   prefs: []
   type: TYPE_NORMAL
+  zh: 接下来的两个辅助函数使我们能够在训练结束时可视化损失值，并在每个周期结束时绘制出一张图像，从而直观评估网络的表现。由于损失值的变化是动态的，因此损失值的意义较小。就像在生成对抗网络中常见的情况一样，其输出的评估通常是由人类观察者通过视觉检查来完成的。因此，我们需要能够在训练过程中实时地检查模型的表现：
 - en: '[PRE10]'
   id: totrans-181
   prefs: []
@@ -1509,17 +1594,20 @@
   id: totrans-182
   prefs: []
   type: TYPE_NORMAL
+  zh: 第一个函数只是接受一个包含鉴别器和生成器网络在整个训练过程中损失值的列表，进行转置并按周期绘制。第二个函数让我们能够在每个周期结束时可视化生成的图像网格。
 - en: The training function
   id: totrans-183
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 训练函数
 - en: 'Next comes the training function. Yes, it is a big one. Yet, as you will soon
     see, it is quite intuitive, and basically combines everything we have implemented
     so far:'
   id: totrans-184
   prefs: []
   type: TYPE_NORMAL
+  zh: 接下来是训练函数。是的，它比较复杂。但正如你很快就会看到的，它是相当直观的，并基本上结合了我们到目前为止实现的所有内容：
 - en: '[PRE11]'
   id: totrans-185
   prefs: []
@@ -1530,6 +1618,7 @@
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 训练函数中的参数
 - en: 'You are already familiar with most of the arguments of the training function.
     The first four arguments simply refer to the learning rate and decay rate used
     for the generator and the discriminator networks, respectively. Similarly, the
@@ -1543,6 +1632,7 @@
   id: totrans-187
   prefs: []
   type: TYPE_NORMAL
+  zh: 你已经熟悉了训练函数中的大多数参数。前四个参数仅仅是指分别用于生成器和鉴别器网络的学习率和衰减率。类似地，`leaky_alpha`参数是我们为`LeakyReLU`激活函数实现的负斜率系数，在两个网络中都使用了这个函数。接下来的smooth参数代表的是单边标签平滑的实现，如Goodfellow等人（2016）提出的那样。其背后的思想是将鉴别器模块中的真实（1）目标值替换为平滑的值，比如0.9，因为这已被证明能够减少神经网络在对抗样本面前的失败风险：
 - en: '[PRE12]'
   id: totrans-188
   prefs: []
@@ -1557,11 +1647,13 @@
   id: totrans-189
   prefs: []
   type: TYPE_NORMAL
+  zh: 接下来，我们有四个简单易懂的参数。其中第一个是`sample_size`，指的是从潜在空间中提取的样本大小。接下来，我们有训练的周期数以及用于进行权重更新的`batch_size`。最后，我们有`eval_size`参数，它指的是在每个训练周期结束时用于评估的生成图像数量。
 - en: Defining the discriminator labels
   id: totrans-190
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 定义鉴别器标签
 - en: 'Next, we define the label arrays to be used for the training and evaluation
     images, by calling the `make_labels()` function, and using the appropriate batch
     dimension. This will return us arrays with the labels 1 and 0 for each instance
@@ -1569,6 +1661,7 @@
   id: totrans-191
   prefs: []
   type: TYPE_NORMAL
+  zh: 接下来，我们通过调用`make_labels()`函数，并使用合适的批次维度，来定义用于训练和评估图像的标签数组。这样会返回带有标签1和0的数组，用于每个训练和评估图像的实例：
 - en: '[PRE13]'
   id: totrans-192
   prefs: []
@@ -1579,11 +1672,13 @@
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 初始化GAN
 - en: 'Following this, we initialize the GAN network by calling the `make_DCGAN()`
     function we defined earlier and providing it with the appropriate arguments:'
   id: totrans-194
   prefs: []
   type: TYPE_NORMAL
+  zh: 随后，我们通过调用之前定义的`make_DCGAN()`函数并传入适当的参数，初始化GAN网络：
 - en: '[PRE14]'
   id: totrans-195
   prefs: []
@@ -1594,6 +1689,7 @@
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 每批次训练判别器
 - en: 'Thereafter, we define a list to collect the loss values for each network during
     training. To train this network, we will actually use the `.train_on_batch()`
     method, which allows us to selectively manipulate the training process, as is
@@ -1601,6 +1697,7 @@
   id: totrans-197
   prefs: []
   type: TYPE_NORMAL
+  zh: 之后，我们定义一个列表，用于在训练过程中收集每个网络的损失值。为了训练这个网络，我们实际上会使用`.train_on_batch()`方法，它允许我们有选择地操作训练过程，正如我们案例中所需要的那样。基本上，我们将实现一个双重`for`循环：
 - en: '[PRE15]'
   id: totrans-198
   prefs: []
@@ -1614,23 +1711,27 @@
   id: totrans-199
   prefs: []
   type: TYPE_NORMAL
+  zh: 因此，在每个epoch中的每个批次里，我们将首先训练判别器，然后在给定的批次数据上训练生成器。我们首先使用第一批真实的训练图像，并从正态分布中采样一批潜在变量。然后，我们使用生成器模块对潜在样本进行预测，实质上生成一张汽车的合成图像。
 - en: Following this, we allow the discriminator to be trained on both batches (that
     is, of real and generated images), using the `make_trainable()` function. This
     is where the discrimator is given the opportunity to learn to tell real from fake.
   id: totrans-200
   prefs: []
   type: TYPE_NORMAL
+  zh: 随后，我们允许判别器在两个批次（即真实图像和生成图像）上进行训练，使用`make_trainable()`函数。这时，判别器有机会学习区分真实和虚假。
 - en: Training the generator per batch
   id: totrans-201
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 每批次训练生成器
 - en: 'After this, we freeze the layers of the discriminator, again using the `make_trainable()`
     function, this time to train the rest of the network only. Now it is the generator''s
     turn to try beat the discriminator, by generating a realistic image:'
   id: totrans-202
   prefs: []
   type: TYPE_NORMAL
+  zh: 接下来，我们冻结判别器的层，再次使用`make_trainable()`函数，这次只训练网络的其余部分。现在轮到生成器尝试击败判别器，通过生成一张真实的图像：
 - en: '[PRE16]'
   id: totrans-203
   prefs: []
@@ -1641,6 +1742,7 @@
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 每个epoch的评估结果
 - en: 'Next, we exit the `nested` loop to perform some actions at the end of each
     epoch. We randomly sample some real images as well as latent variables, and then
     generate some fake images to plot out. Do note that we used the `.test_on_batch()`
@@ -1651,6 +1753,7 @@
   id: totrans-205
   prefs: []
   type: TYPE_NORMAL
+  zh: 接下来，我们退出`nested`循环，在每个epoch的结束执行一些操作。我们随机采样一些真实图像以及潜在变量，然后生成一些假图像并进行绘制。请注意，我们使用了`.test_on_batch()`方法来获取判别器和GAN的损失值，并将其附加到损失列表中。在每个epoch的末尾，我们打印出判别器和生成器的损失，并绘制出16张样本的网格。现在，只剩下调用这个函数了：
 - en: '[PRE17]'
   id: totrans-206
   prefs: []
@@ -1660,16 +1763,19 @@
   id: totrans-207
   prefs: []
   type: TYPE_NORMAL
+  zh: 更多信息，请参考以下内容：
 - en: '**Improved techniques for training GANs**: [https://arxiv.org/pdf/1606.03498.pdf](https://arxiv.org/pdf/1606.03498.pdf)'
   id: totrans-208
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '**改进的GAN训练技巧**：[https://arxiv.org/pdf/1606.03498.pdf](https://arxiv.org/pdf/1606.03498.pdf)'
 - en: Executing the training session
   id: totrans-209
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 执行训练会话
 - en: 'We finally initiate the training session with the respective arguments. You
     will notice the tqdm  module displaying a percentage bar indicating the number
     of processed batches per epoch. At the end of the epoch, you will be able to visualize
@@ -1684,15 +1790,18 @@
   id: totrans-210
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们最终使用相应的参数启动了训练会话。您会注意到，tqdm模块显示一个百分比条，指示每个周期处理的批次数量。周期结束时，您将能够可视化一个4 x 4网格（如下所示），其中包含从GAN网络生成的样本。到此为止，您已经知道如何在Keras中实现GAN。顺便提一下，如果您在具有GPU的本地机器上运行代码，设置`tensorflow-gpu`和CUDA会非常有益。我们运行了200个周期的代码，但如果有足够的资源和时间，运行几千个周期也并不罕见。理想情况下，两个网络对抗的时间越长，结果应该越好。然而，这并不总是如此，因此，这样的尝试可能也需要仔细监控损失值：
 - en: '![](img/712e4234-0e06-482b-9327-e60681bf9f45.png)'
   id: totrans-211
   prefs: []
   type: TYPE_IMG
+  zh: '![](img/712e4234-0e06-482b-9327-e60681bf9f45.png)'
 - en: Interpreting test loss during training
   id: totrans-212
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 训练过程中测试损失的解释
 - en: 'As you can see next, the loss values on the test set change at quite an unstable
     rate. We expect different optimizers to exhibit smother or rougher loss curves,
     and we encourage you to test these assumptions using different loss functions
@@ -1702,15 +1811,19 @@
   id: totrans-213
   prefs: []
   type: TYPE_NORMAL
+  zh: 正如您接下来看到的，测试集上的损失值变化非常不稳定。我们预期不同的优化器会呈现出更平滑或更剧烈的损失曲线，并且我们鼓励您使用不同的损失函数来测试这些假设（例如，RMSProp
+    是一个很好的起点）。虽然查看损失的曲线图不是特别直观，但跨越多个训练周期可视化生成的图像可以对这一过程进行有意义的评估：
 - en: '![](img/7c11a597-c793-4fd5-90bc-8f32080b94c0.png)'
   id: totrans-214
   prefs: []
   type: TYPE_IMG
+  zh: '![](img/7c11a597-c793-4fd5-90bc-8f32080b94c0.png)'
 - en: Visualizing results across epochs
   id: totrans-215
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 跨周期可视化结果
 - en: 'In the following, we present eight snapshots of the 16 x 16 grids of generated
     samples, spread across different times during the training session. While the
     images themselves are pretty small, they undeniably resemble the morphology of
@@ -1718,10 +1831,12 @@
   id: totrans-216
   prefs: []
   type: TYPE_NORMAL
+  zh: 接下来，我们展示了在训练过程中不同时间点生成的16 x 16网格样本的八个快照。尽管图像本身相当小，但它们无可否认地呈现出训练结束时接近汽车的形态：
 - en: '![](img/8ac24243-b52d-4174-8b57-3c9efd186b3e.png)'
   id: totrans-217
   prefs: []
   type: TYPE_IMG
+  zh: '![](img/8ac24243-b52d-4174-8b57-3c9efd186b3e.png)'
 - en: 'And there you have it. As you can see, the GAN becomes quite good at generating
     realistic car images after a while, as it gets better and better at fooling the
     discriminator. Towards the final epochs, it is even hard for the human eye to
@@ -1737,26 +1852,31 @@
   id: totrans-218
   prefs: []
   type: TYPE_NORMAL
+  zh: 就是这样。如您所见，GAN在训练一段时间后变得非常擅长生成逼真的汽车图像，因为它在愚弄判别器方面越来越好。到最后几个周期时，人眼几乎无法分辨真假，至少在初看时是如此。此外，我们通过相对简单且直接的实现达到了这一点。考虑到生成器网络从未实际见过一张真实图像，这一成就显得更加令人惊讶。回想一下，它仅仅是从一个随机概率分布中进行采样，并仅通过判别器的反馈来改善自己的输出！正如我们所看到的，训练DCGAN的过程涉及了大量对细节的考虑，以及选择特定模型约束和超参数。对于感兴趣的读者，您可以在以下研究论文中找到更多关于如何优化和微调您的GAN的详细信息：
 - en: '**Original paper on GANs**: [http://papers.nips.cc/paper/5423-generative-adversarial-nets](http://papers.nips.cc/paper/5423-generative-adversarial-nets)'
   id: totrans-219
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '**关于GAN的原始论文**：[http://papers.nips.cc/paper/5423-generative-adversarial-nets](http://papers.nips.cc/paper/5423-generative-adversarial-nets)'
 - en: '**Unsupervised representation learning with DCGAN**: [https://arxiv.org/abs/1511.06434](https://arxiv.org/abs/1511.06434)'
   id: totrans-220
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '**使用DCGAN进行无监督表示学习**: [https://arxiv.org/abs/1511.06434](https://arxiv.org/abs/1511.06434)'
 - en: '**Photo-realistic super resolution GAN**: [http://openaccess.thecvf.com/content_cvpr_2017/papers/Ledig_Photo-Realistic_Single_Image_CVPR_2017_paper.pdf](http://openaccess.thecvf.com/content_cvpr_2017/papers/Ledig_Photo-Realistic_Single_Image_CVPR_2017_paper.pdf)'
   id: totrans-221
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '**照片级超分辨率GAN**: [http://openaccess.thecvf.com/content_cvpr_2017/papers/Ledig_Photo-Realistic_Single_Image_CVPR_2017_paper.pdf](http://openaccess.thecvf.com/content_cvpr_2017/papers/Ledig_Photo-Realistic_Single_Image_CVPR_2017_paper.pdf)'
 - en: Conclusion
   id: totrans-222
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 结论
 - en: 'In this section of the chapter, we implemented a specific type of GAN (that
     is, the DCGAN) for a specific use case (image generation). The idea of using two
     networks in parallel to keep each other in check, however, can be applied to various
@@ -1780,35 +1900,42 @@
   id: totrans-223
   prefs: []
   type: TYPE_NORMAL
+  zh: 在本章的这一部分，我们实现了一种特定类型的GAN（即DCGAN），用于特定的应用场景（图像生成）。然而，使用两个网络并行工作，相互制约的思路，可以应用于多种类型的网络，解决非常不同的用例。例如，如果你希望生成合成的时间序列数据，我们可以将我们在这里学到的相同概念应用于递归神经网络，设计一个生成对抗模型！在研究界，已经有几次尝试，并取得了相当成功的结果。例如，一组瑞典研究人员就使用递归神经网络，在生成对抗框架下生成古典音乐的合成片段！与GAN相关的其他重要思想包括使用注意力模型（遗憾的是本书未涉及该话题）来引导网络的感知，并将记忆访问引导至图像的更精细细节。例如，我们在本章中讨论的基础理论可以应用于许多不同的领域，使用不同类型的网络来解决越来越复杂的问题。核心思想保持不变：使用两个不同的函数近似器，每个都试图超越另一个。接下来，我们将展示一些链接，供感兴趣的读者进一步了解不同的基于GAN的架构及其各自的应用。我们还包括一个由Google和乔治亚理工大学开发的非常有趣的工具的链接，它可以让你可视化使用不同类型的数据分布和采样考虑来训练GAN的整个过程！
 - en: 'For more information, refer to the following:'
   id: totrans-224
   prefs: []
   type: TYPE_NORMAL
+  zh: 如需更多信息，请参阅以下内容：
 - en: '**Music with C-RNN_GAN**: [http://mogren.one/publications/2016/c-rnn-gan/mogren2016crnngan.pdf](http://mogren.one/publications/2016/c-rnn-gan/mogren2016crnngan.pdf)'
   id: totrans-225
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '**C-RNN_GAN音乐生成**: [http://mogren.one/publications/2016/c-rnn-gan/mogren2016crnngan.pdf](http://mogren.one/publications/2016/c-rnn-gan/mogren2016crnngan.pdf)'
 - en: '**Self- attention GANs**: [https://arxiv.org/abs/1805.08318](https://arxiv.org/abs/1805.08318)'
   id: totrans-226
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '**自注意力GAN**: [https://arxiv.org/abs/1805.08318](https://arxiv.org/abs/1805.08318)'
 - en: '**OpenAI blog on generative networks**: [https://openai.com/blog/generative-models/](https://openai.com/blog/generative-models/)'
   id: totrans-227
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '**OpenAI 关于生成网络的博客**: [https://openai.com/blog/generative-models/](https://openai.com/blog/generative-models/)'
 - en: '**GAN Lab**: [https://poloclub.github.io/ganlab/?fbclid=IwAR0JrixZYr1Ah3c08YjC6q34X0e38J7_mPdHaSpUsrRSsi0v97Y1DNQR6eU](https://poloclub.github.io/ganlab/?fbclid=IwAR0JrixZYr1Ah3c08YjC6q34X0e38J7_mPdHaSpUsrRSsi0v97Y1DNQR6eU)'
   id: totrans-228
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '**GAN实验室**: [https://poloclub.github.io/ganlab/?fbclid=IwAR0JrixZYr1Ah3c08YjC6q34X0e38J7_mPdHaSpUsrRSsi0v97Y1DNQR6eU](https://poloclub.github.io/ganlab/?fbclid=IwAR0JrixZYr1Ah3c08YjC6q34X0e38J7_mPdHaSpUsrRSsi0v97Y1DNQR6eU)'
 - en: Summary
   id: totrans-229
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 摘要
 - en: In this chapter, we saw how to augment neural networks with randomness in a
     systematic manner, in order to make them output instances of what we humans deem
     *creative*. With VAEs, we saw how parameterized function approximation using neural
@@ -1819,6 +1946,7 @@
   id: totrans-230
   prefs: []
   type: TYPE_NORMAL
+  zh: 在本章中，我们学习了如何以系统化的方式通过随机性来增强神经网络，从而使它们输出我们人类认为是*创造性*的实例。通过变分自编码器（VAE），我们看到如何利用神经网络的参数化函数近似来学习一个连续潜在空间上的概率分布。接着，我们学习了如何从这样的分布中随机抽样，并生成原始数据的合成实例。在本章的第二部分，我们了解了如何以对抗的方式训练两个网络来完成类似的任务。
 - en: The methodology of training GANs is simply a different strategy for learning
     a latent space compared to their counterpart, the VAE. While GANs have some key
     benefits for the use case of synthetic image generation, they do have some downsides
@@ -1832,3 +1960,5 @@
   id: totrans-231
   prefs: []
   type: TYPE_NORMAL
+  zh: 训练生成对抗网络（GAN）的方法论与变分自编码器（VAE）不同，是学习潜在空间的另一种策略。尽管GAN在生成合成图像的应用场景中有一些关键优势，但它们也有一些缺点。GAN的训练
+    notoriously 难度较大，且通常生成来自无结构且不连续潜在空间的图像，而VAE则相对更为结构化，因此GAN在挖掘概念向量时更为困难。在选择这些生成网络时，还需要考虑许多其他因素。生成建模领域在不断扩展，尽管我们能够涵盖其中一些基本的概念性内容，但新的想法和技术几乎每天都在涌现，这使得研究这类模型成为一个激动人心的时刻。
