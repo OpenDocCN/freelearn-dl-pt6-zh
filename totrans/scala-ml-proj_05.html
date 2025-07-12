@@ -1,0 +1,422 @@
+<html><head></head><body>
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Topic Modeling - A Better Insight into Large-Scale Texts</h1>
+                </header>
+            
+            <article>
+                
+<p><strong>Topic modeling</strong> (<strong>TM</strong>) is a technique widely used in mining text from a large collection of documents. These topics can then be used to summarize and organize documents that include the topic terms and their relative weights. The dataset that will be used for this project is just in plain unstructured text format.</p>
+<p>We will see how effectively we can use the <strong>Latent Dirichlet Allocation</strong> (<strong>LDA</strong>) algorithm for finding useful patterns in the data. We will compare other TM algorithms and the scalability power of LDA. In addition, we will utilize <strong>Natural Language Processing</strong> (<strong>NLP</strong>) libraries, such as Stanford NLP.</p>
+<p>In a nutshell, we will learn the following topics throughout this end-to-end project:</p>
+<ul>
+<li>Topic modelling and text clustering</li>
+<li>How does LDA algorithm work?</li>
+<li>Topic modeling with LDA, Spark MLlib, and Standard NLP</li>
+<li>Other topic models and the scalability testing of LDA</li>
+<li>Model deployment</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Topic modeling and text clustering</h1>
+                </header>
+            
+            <article>
+                
+<p>In TM, a topic is defined by a cluster of words, with each word in the cluster having a probability of occurrence for the given topic, and different topics having their respective clusters of words along with corresponding probabilities. Different topics may share some words, and a document can have more than one topic associated with it. So in short, we have a collection of text datasets—that is, a set of text files. Now the challenging part is finding useful patterns about the data using LDA.</p>
+<p>There is a popular TM approach, based on LDA, where each document is considered a mixture of topics and each word in a document is considered randomly drawn from a document's topics. The topics are considered hidden and must be uncovered via analyzing joint distributions to compute the conditional distribution of hidden variables (topics), given the observed variables and words in documents. The TM technique is widely used in the task of mining text from a large collection of documents. These topics can then be used to summarize and organize documents that include the topic terms and their relative weights (see <em>Figure 1</em>):</p>
+<div class="CDPAlignCenter CDPAlign"><img height="379" width="709" class="alignnone size-full wp-image-529 image-border" src="assets/998c2c26-e90d-46c5-8029-8874910126df.png"/></div>
+<div class="CDPAlignCenter CDPAlign packt_figref">Figure 1: TM in a nutshell (source: Blei, D.M. et al., Probabilistic topic models, ACM communication, 55(4(, 77-84, 2012)))</div>
+<p>As the number of topics that can be seen in the preceding figure is a lot smaller than the vocabulary associated with the document collection, the topic-space representation can be viewed as a dimensionality-reduction process as well:</p>
+<div class="CDPAlignCenter CDPAlign"><img height="356" width="601" class="alignnone size-full wp-image-530 image-border" src="assets/9557f8d8-4641-4391-9691-bae70f289da5.png"/></div>
+<div class="CDPAlignCenter CDPAlign packt_figref">Figure 2: TM versus text clustering</div>
+<p>In contrast to TM, in document clustering, the basic idea is to group documents into different groups based on a well-known similarity measure. To perform grouping, each document is represented by a vector representing the weights assigned to words in the document.</p>
+<p>It is common to perform weighting using the term frequency-inverse document frequency (also known also the <strong>TF-IDF</strong> scheme). The end result of clustering is a list of clusters with every document showing up in one of the clusters. The basic difference between TM and text clustering can be illustrated by the following figure:</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How does LDA algorithm work?</h1>
+                </header>
+            
+            <article>
+                
+<p>LDA is a topic model that infers topics from a collection of text documents. LDA can be thought of as a clustering algorithm where topics correspond to cluster centers, and documents correspond to examples (rows) in a dataset. Topics and documents both exist in a feature space, where feature vectors are vectors of word counts (bags of words). Instead of estimating a clustering using a traditional distance, LDA uses a function based on a statistical model of how text documents are generated (see in <em>Figure 3</em>):</p>
+<div class="CDPAlignCenter CDPAlign"><img height="385" width="575" class="alignnone size-full wp-image-531 image-border" src="assets/87d01601-71f3-4c34-9fbc-cf468d483985.png"/></div>
+<div class="CDPAlignCenter CDPAlign packt_figref">Figure 3: Working principle of LDA algorithms on a collection of documents</div>
+<p>Particularly, we would like to discuss which topics people talk about most from the large collection of text. Since the release of Spark 1.3, MLlib supports the LDA, which is one of the most successfully used TM techniques in the area of text mining and NLP.</p>
+<p>Moreover, LDA is also the first MLlib algorithm to adopt Spark GraphX. The following terminologies are worth knowing before we formally start our TM application:</p>
+<ul>
+<li><kbd>"word" = "term"</kbd>: an element of the vocabulary</li>
+<li><kbd>"token"</kbd>: instance of a term appearing in a document</li>
+<li><kbd>"topic"</kbd>: multinomial distribution over words representing some concept</li>
+</ul>
+<p>The RDD-based LDA algorithm developed in Spark is a topic model designed for text documents. It is based on the original LDA paper (journal version): Blei, Ng, and Jordan, <em>Latent Dirichlet Allocation</em>, JMLR, 2003.</p>
+<p>This implementation supports different inference algorithms via the <kbd>setOptimizer</kbd> function. The <kbd>EMLDAOptimizer</kbd> learns clustering using <strong>expectation-maximization</strong> (<strong>EM</strong>) on the likelihood function and yields comprehensive results, while <kbd>OnlineLDAOptimizer</kbd> uses iterative mini-batch sampling for online variational inference and is generally memory-friendly.</p>
+<div class="packt_infobox"><span>EM is an iterative way to approximate the maximum likelihood function. In practice, when the input data is incomplete, has missing data points, or has hidden latent variables, ML estimation can find the <kbd>best fit</kbd> model.</span></div>
+<p>LDA takes in a collection of documents as vectors of word counts and the following parameters (set using the builder pattern):</p>
+<ul>
+<li><kbd>K</kbd>: Number of topics (that is, cluster centers) (default is 10).</li>
+<li><kbd>ldaOptimizer</kbd>: Optimizer to use for learning the LDA model, either <kbd>EMLDAOptimizer</kbd> or <kbd>OnlineLDAOptimizer</kbd> (default is <kbd>EMLDAOptimizer</kbd>).</li>
+<li><kbd>Seed</kbd>: Random seed for the reproducibility (optional though).</li>
+<li><kbd>docConcentration</kbd>: Drichilet parameter for prior over documents distributions over topics. Larger values encourage smoother inferred distributions (default is - <kbd>Vectors.dense(-1)</kbd>).</li>
+<li><kbd>topicConcentration</kbd>: Drichilet parameter for prior over topics' distributions over terms (words). Larger values ensure smoother inferred distributions (default is -1).</li>
+<li><kbd>maxIterations</kbd>: Limit on the number of iterations (default is 20).</li>
+<li><kbd>checkpointInterval</kbd>: If using checkpointing (set in the Spark configuration), this parameter specifies the frequency with which checkpoints will be created. If <kbd>maxIterations</kbd> is large, using check pointing can help reduce shuffle file sizes on disk and help with failure recovery (default is 10).</li>
+</ul>
+<div class="CDPAlignCenter CDPAlign packt_figref"><img height="393" width="414" class="alignnone size-full wp-image-532 image-border" src="assets/b1acc9cd-72c8-45e3-a84b-a2184a5e5e0e.png"/></div>
+<div class="CDPAlignCenter CDPAlign packt_figref">Figure 4: The topic distribution and how it looks </div>
+<p>Let's see an example. Assume there are <em>n</em> balls in a basket having <em>w</em> different colors. Now also assume each term in a vocabulary has one of <em>w</em> colors. Now also assume that the vocabulary terms are distributed in <em>m</em> topics. Now the frequency of occurrence of each color in the basket is proportional to the corresponding term's weight in topic, <em>φ</em>.</p>
+<p>Then the LDA algorithm incorporates a term weighting scheme by making the size of each ball proportional to the weight of its corresponding term. In <em>Figure 4</em>, <em>n</em> terms have the total weights in a topic, for example, topic 0 to 3. <em>Figure 4</em> shows topic distribution from randomly generated Tweet text.</p>
+<p>Now that we have seen that by using TM, we find the structure within an unstructured collection of documents. Once the structure is <strong>discovered</strong>, as shown in <em>Figure 4</em>, we can answer several questions as follows:</p>
+<ul>
+<li>What is document X about?</li>
+<li>How similar are documents X and Y?</li>
+<li>If I am interested in topic Z, which documents should I read first?</li>
+</ul>
+<p>In the next section, we will see an example of TM using a Spark MLlib-based LDA algorithm to answer the preceding questions.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Topic modeling with Spark MLlib and Stanford NLP</h1>
+                </header>
+            
+            <article>
+                
+<p>In this subsection, we represent a semi-automated technique of TM using Spark. Using other options as defaults, we train LDA on the dataset downloaded from GitHub at <a href="https://github.com/minghui/Twitter-LDA/tree/master/data/Data4Model/test">https://github.com/minghui/Twitter-LDA/tree/master/data/Data4Model/test</a>. However, we will use more well-known text datasets in the model reuse and deployment phase later in this chapter.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Implementation</h1>
+                </header>
+            
+            <article>
+                
+<p>The following steps show TM from data reading to printing the topics, along with their term weights. Here's the short workflow of the TM pipeline:</p>
+<pre><strong>object</strong> topicmodelingwithLDA {<br/><strong>    def</strong> main(args: Array[String]): Unit = {<br/><strong>        val</strong> lda = <br/><strong>        new</strong> LDAforTM() <br/>// actual computations are done here<br/><strong>        val</strong> defaultParams = Params().copy(input = "data/docs/") //Loading parameters for training<br/>        lda.run(defaultParams) <br/>// Training the LDA model with the default parameters.<br/>      }<br/>}</pre>
+<p>We also need to import some related packages and libraries:</p>
+<pre><strong>import</strong> edu.stanford.nlp.process.Morphology<br/><strong>import</strong> edu.stanford.nlp.simple.Document<br/><strong>import</strong> org.apache.log4j.{Level, Logger}<br/><strong>import</strong> scala.collection.JavaConversions._<br/><strong>import</strong> org.apache.spark.{SparkConf, SparkContext}<br/><strong>import</strong> org.apache.spark.ml.Pipeline<br/><strong>import</strong> org.apache.spark.ml.feature._<br/><strong>import</strong> org.apache.spark.ml.linalg.{Vector =&gt; MLVector}<br/><strong>import</strong> org.apache.spark.mllib.clustering.{DistributedLDAModel, EMLDAOptimizer, LDA, OnlineLDAOptimizer, LDAModel}<br/><strong>import</strong> org.apache.spark.mllib.linalg.{ Vector, Vectors }<br/><strong>import</strong> org.apache.spark.rdd.RDD<br/><strong>import</strong> org.apache.spark.sql.{Row, SparkSession}</pre>
+<p>The actual computation on TM is done in the <kbd>LDAforTM</kbd> class. The <kbd>Params</kbd> is a case class, which is used for loading the parameters to train the LDA model. Finally, we train the LDA model using the parameters setting via the <kbd>Params</kbd> class. Now we will explain each step broadly with step-by-step source code:</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Step 1 - Creating a Spark session</h1>
+                </header>
+            
+            <article>
+                
+<p>Let's create a Spark session by defining the number of computing cores, the SQL warehouse, and the application name as follows:</p>
+<pre><strong>val</strong> spark = SparkSession<br/>    .builder<br/>    .master("local[*]")<br/>    .config("spark.sql.warehouse.dir", "C:/data/")<br/>    .appName(s"LDA")<br/>    .getOrCreate()</pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Step 2 - Creating vocabulary and tokens count to train the LDA after text pre-processing</h1>
+                </header>
+            
+            <article>
+                
+<p>The <kbd>run()</kbd> method takes <kbd>params</kbd> such as input text, predefined vocabulary size, and stop word file:</p>
+<pre><strong>def</strong> run(params: Params)</pre>
+<p>Then, it starts text pre-processing for the LDA model as follows (that is, inside the <kbd>run</kbd> method):</p>
+<pre>// Load documents, and prepare them for LDA.<br/><strong>val</strong> preprocessStart = System.nanoTime()<br/><strong>val</strong> (corpus, vocabArray, actualNumTokens) = preprocess(params.input, params.vocabSize, params.stopwordFile)  </pre>
+<p>The <kbd>Params</kbd> case class is used to define the parameters to train the LDA model. This goes as follows:</p>
+<pre>//Setting the parameters before training the LDA model<br/><strong>case </strong><strong>class</strong> Params(<strong>var</strong> input: String = "", <strong>var</strong> ldaModel: LDAModel = <strong>null</strong>,<br/>    k: Int = 5,<br/>    maxIterations: Int = 100,<br/>    docConcentration: Double = 5,<br/>    topicConcentration: Double = 5,<br/>    vocabSize: Int = 2900000,<br/>    stopwordFile: String = "data/docs/stopWords.txt",<br/>    algorithm: String = "em",<br/>    checkpointDir: Option[String] = None,<br/><span class="msoIns">    checkpointInterval: Int = 100)</span></pre>
+<p class="mce-root"><span class="msoIns">For better result, you set these parameters in try and error basis. Alternatively, you should go with the cross</span>-<span class="msoIns">validation for even better performance. Now that if you want to checkpoint the current parameters, uses the following line of code:</span></p>
+<pre><span class="msoIns"><strong>if</strong> (params.checkpointDir.nonEmpty) {<br/></span><span class="msoIns">    spark.sparkContext.setCheckpointDir(params.checkpointDir.get)<br/></span><span class="msoIns">     }</span></pre>
+<p>The <kbd>preprocess</kbd> method is used to process the raw text. First, let's read the whole text using the <kbd>wholeTextFiles()</kbd> method as follows:</p>
+<pre><strong>val</strong> initialrdd = spark.sparkContext.wholeTextFiles(paths).map(_._2) <br/>initialrdd.cache()  </pre>
+<p>In the preceding code, <kbd>paths</kbd> are the path of the text files. Then, we need to prepare the morphological RDD from the raw text after, based on the <kbd>lemma</kbd> texts, as follows:</p>
+<pre><strong>val</strong> rdd = initialrdd.mapPartitions { partition =&gt;<br/><strong>    val</strong> morphology = <strong>new</strong> Morphology()<br/>    partition.map { value =&gt; helperForLDA.getLemmaText(value, morphology) }<br/>}.map(helperForLDA.filterSpecialCharacters)</pre>
+<p>Here, the <kbd>getLemmaText()</kbd> method from the <kbd>helperForLDA</kbd> class supplies the <kbd>lemma</kbd> texts after filtering the special characters, such as (<kbd>"""[! @ # $ % ^ &amp; * ( ) _ + - − , " ' ; : . ` ? --]</kbd>), as regular expressions, using the <kbd>filterSpaecialChatacters()</kbd> method. The method goes as follows:</p>
+<pre><strong>def</strong> getLemmaText(document: String, morphology: Morphology) = {<br/><strong>    val</strong> string = <br/><strong>    new</strong> StringBuilder()<br/><strong>    val</strong> value = <br/><strong>    new</strong> Document(document).sentences().toList.flatMap { <br/>        a =&gt;<br/><strong>        val</strong> words = a.words().toList<br/><strong>        val</strong> tags = a.posTags().toList<br/>        (words zip tags).toMap.map { <br/>        a =&gt;<br/><strong>        val</strong> newWord = morphology.lemma(a._1, a._2)<br/><strong>        val</strong> addedWoed = <br/><strong>    if</strong> (newWord.length &gt; 3) {<br/>        newWord<br/>            }<br/><strong>    else</strong> { "" }<br/>        string.append(addedWoed + " ")<br/>        }<br/>        }<br/>    string.toString()<br/>} </pre>
+<p>It is to be noted that the <kbd>Morphology()</kbd> class computes the base form of English words by removing only inflections (not derivational morphology). That is, it only does noun plurals, pronoun case, and verb endings, and not things such as comparative adjectives or derived nominal. The <kbd>getLemmaText()</kbd> method takes the document and the corresponding morphology and finally returns the lemmatized texts.</p>
+<p>This comes from the Stanford NLP group. To use this, you should have the following import in the main class file: <kbd>edu.stanford.nlp.process.Morphology</kbd>. In the <kbd>pom.xml</kbd> file, you will have to include the following entries as dependencies:</p>
+<pre><span class="msoIns">&lt;dependency&gt;<br/></span><span class="msoIns">    &lt;groupId&gt;edu.stanford.nlp&lt;/groupId&gt;<br/></span><span class="msoIns">    &lt;artifactId&gt;stanford</span>-<span class="msoIns">corenlp&lt;/artifactId&gt;<br/></span><span class="msoIns">    &lt;version&gt;3.6.0&lt;/version&gt;<br/></span><span class="msoIns">&lt;/dependency&gt;<br/></span><span class="msoIns">&lt;dependency&gt;<br/></span><span class="msoIns">    &lt;groupId&gt;edu.stanford.nlp&lt;/groupId&gt;<br/></span><span class="msoIns">    &lt;artifactId&gt;stanford</span>-<span class="msoIns">corenlp&lt;/artifactId&gt;<br/></span><span class="msoIns">    &lt;version&gt;3.6.0&lt;/version&gt;<br/></span><span class="msoIns">    &lt;classifier&gt;models&lt;/classifier&gt;<br/></span><span class="msoIns">&lt;/dependency&gt;</span></pre>
+<p>The <kbd>filterSpecialCharacters()</kbd> goes as follows:</p>
+<pre><strong>def</strong> filterSpecialCharacters(document: String) = document.replaceAll("""[! @ # $ % ^ &amp; * ( ) _ + - − , " ' ; : . ` ? --]""", " ")</pre>
+<p>Once we have the RDD with special characters removed, we can create a DataFrame for building the text analytics pipeline:</p>
+<pre>rdd.cache()<br/>initialrdd.unpersist()<br/><strong>val</strong> df = rdd.toDF("docs")<br/>df.show() </pre>
+<p>The DataFrame contains only document tags. A snapshot of the DataFrame is as follows:</p>
+<div class="packt_figure CDPAlignCenter CDPAlign packt_figref"><img height="286" width="131" class="alignnone size-full wp-image-533 image-border" src="assets/aa7d27a0-30ec-409b-8753-ee85f6410800.png"/></div>
+<div class="packt_figure CDPAlignCenter CDPAlign packt_figref"><br/>
+Figure 5: Raw texts from the input dataset</div>
+<p>Now if you look at the preceding DataFrame carefully, you will see that we still need to tokenize them. Moreover, there are stop words in the DataFrame, such as this, with, and so on, so we need to remove them as well. First, let's tokenize them using the <kbd>RegexTokenizer</kbd> API as follows:</p>
+<pre><strong>val</strong> tokenizer = <strong>new</strong> RegexTokenizer()<br/>                .setInputCol("docs")<br/>                .setOutputCol("rawTokens")</pre>
+<p>Now let's remove all the stop words as follows:</p>
+<pre><strong>val</strong> stopWordsRemover = <strong>new</strong> StopWordsRemover()<br/>                        .setInputCol("rawTokens")<br/>                        .setOutputCol("tokens")<br/>stopWordsRemover.setStopWords(stopWordsRemover.getStopWords ++ customizedStopWords)</pre>
+<p>Furthermore, we also need to apply count vectors to find only the important features from the tokens. This will help make the pipeline chained as the pipeline stage. Let's do it as follows:</p>
+<pre><strong>val</strong> countVectorizer = <strong>new</strong> CountVectorizer()<br/>                    .setVocabSize(vocabSize)<br/>                    .setInputCol("tokens")<br/>                    .setOutputCol("features")</pre>
+<div class="packt_infobox">When an a-priori dictionary is not available, <kbd>CountVectorizer</kbd> can be used as an Estimator to extract the vocabulary and generate a <kbd>CountVectorizerModel</kbd>. In other words, <kbd>CountVectorizer</kbd> is used to convert a collection of text documents to vectors of token (that is, term) counts. The <kbd>CountVectorizerModel</kbd> produces sparse representations for the documents over the vocabulary, which can then be fed to LDA. More technically, when the <kbd>fit()</kbd> method is invoked for the fitting process, <kbd>CountVectorizer</kbd> will select the top <kbd>vocabSize</kbd> words ordered by term frequency across the corpus.</div>
+<p>Now, create the pipeline by chaining the transformers (tokenizer, <kbd>stopWordsRemover</kbd>, and <kbd>countVectorizer</kbd>) as follows:</p>
+<pre>val pipeline = new Pipeline().setStages(Array(tokenizer, stopWordsRemover, countVectorizer)) </pre>
+<p>Now, let's fit and transform the pipeline toward the vocabulary and number of tokens:</p>
+<pre class="mce-root"><strong>val</strong> model = pipeline.fit(df)<br/><strong>val</strong> documents = model.transform(df).select("features").rdd.map {<br/><strong>    case</strong> Row(features: MLVector) =&gt; Vectors.fromML(features)<br/>    }.zipWithIndex().map(_.swap) </pre>
+<p class="mce-root">Finally, return the vocabulary and token count pairs as follows:</p>
+<pre class="mce-root">(documents, model.stages(2).asInstanceOf[CountVectorizerModel].vocabulary, documents.map(_._2.numActives).sum().toLong) Now let's see the statistics of the training data: <br/><br/>println() println("Training corpus summary:") <br/>println("-------------------------------")<br/>println("Training set size: " + actualCorpusSize + " documents")<br/>println("Vocabulary size: " + actualVocabSize + " terms")<br/>println("Number of tockens: " + actualNumTokens + " tokens")<br/>println("Preprocessing time: " + preprocessElapsed + " sec")<br/>println("-------------------------------")<br/>println()<br/>&gt;&gt;&gt;<br/>Training corpus summary:<br/>-------------------------------<br/>Training set size: 19 documents<br/>Vocabulary size: 21611 terms<br/>Number of tockens: 75784 tokens<br/>Preprocessing time: 46.684682086 sec<strong><br/></strong></pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Step 3 - Instantiate the LDA model before training</h1>
+                </header>
+            
+            <article>
+                
+<p>Let us instantiate the LDA model before we begin training it with the following code:</p>
+<pre>val lda = new LDA() </pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Step 4 - Set the NLP optimizer</h1>
+                </header>
+            
+            <article>
+                
+<p>For better and optimized results from the LDA model, we need to set the optimizer that contains an algorithm for LDA, and performs the actual computation that stores the internal data structure (for example, graph or matrix) and other parameters for the algorithm.</p>
+<p>Here we use the <kbd>EMLDAOPtimizer</kbd> optimizer. You can also use the <kbd>OnlineLDAOptimizer()</kbd> optimizer. The <kbd>EMLDAOPtimizer</kbd> stores a <em>data + parameter</em> graph, plus algorithm parameters. The underlying implementation uses EM.</p>
+<p>First, let's instantiate the <kbd>EMLDAOptimizer</kbd> by adding <kbd>(1.0 / actualCorpusSize)</kbd> along with a very low learning rate (that is, 0.05) to <kbd>MiniBatchFraction</kbd> to converge the training on a tiny dataset like ours as follows:</p>
+<pre><strong>val</strong> optimizer = params.algorithm.toLowerCase <br/><strong>    match</strong> {<br/><strong>        case</strong> "em" =&gt; <br/><strong>            new</strong> EMLDAOptimizer<br/>// add (1.0 / actualCorpusSize) to MiniBatchFraction be more robust on tiny datasets.<br/><strong>        case</strong> "online" =&gt; <br/><strong>            new</strong> OnlineLDAOptimizer().setMiniBatchFraction(0.05 + 1.0 / actualCorpusSize)<br/><strong>        case</strong> _ =&gt; <br/><strong>            throw</strong><strong>new</strong> IllegalArgumentException("Only em, online are supported but got <br/>            ${params.algorithm}.")<br/>    } </pre>
+<p>Now, set the optimizer using the <kbd>setOptimizer()</kbd> method from the LDA API as follows:</p>
+<pre>lda.setOptimizer(optimizer)<br/>    .setK(params.k)<br/>    .setMaxIterations(params.maxIterations)<br/>    .setDocConcentration(params.docConcentration)<br/>    .setTopicConcentration(params.topicConcentration)<br/>    .setCheckpointInterval(params.checkpointInterval)</pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Step 5 - Training the LDA model</h1>
+                </header>
+            
+            <article>
+                
+<p>Let's start training the LDA model using the training corpus and keep track of the training time as follows:</p>
+<pre class="mce-root"><strong>val</strong> startTime = System.nanoTime()<br/>ldaModel = lda.run(corpus)<br/><br/><strong>val</strong> elapsed = (System.nanoTime() - startTime) / 1e9<br/>println("Finished training LDA model. Summary:")<br/>println("Training time: " + elapsed + " sec")</pre>
+<p class="mce-root">Now additionally, we can save the trained model for future reuse that can goes as follows:</p>
+<pre class="mce-root">//Saving the model for future use<br/>params.ldaModel.save(spark.sparkContext, "model/LDATrainedModel")</pre>
+<div class="packt_infobox"><span>Note</span><span> that once you h</span><span>ave finished the training and got the most optimal training, uncomment the preceding line before you deploy the model. Otherwise, it will get stopped by throwing an exception in the model reuse phase.</span></div>
+<p>For the text we have, the LDA model took 6.309715286 seconds to train. Note these timing codes are optional. Here we provide them for reference purposes only to get an idea of the training time:</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Step 6 - Prepare the topics of interest</h1>
+                </header>
+            
+            <article>
+                
+<p>Prepare the top 5 topics with each topic having 10 terms. Include the terms and their corresponding weights:</p>
+<pre><strong>val</strong> topicIndices = ldaModel.describeTopics(maxTermsPerTopic = 10)<br/>println(topicIndices.length)<br/><strong>val</strong> topics = topicIndices.map {<br/><strong>    case</strong> (terms, termWeights) =&gt; terms.zip(termWeights).map {<br/><strong>    case</strong> (term, weight) =&gt; (vocabArray(term.toInt), weight) <br/>   }<br/>}</pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Step 7 - Topic modelling </h1>
+                </header>
+            
+            <article>
+                
+<p>Print the top 10 topics, showing the top-weighted terms for each topic. Also, include the total weight in each topic as follows:</p>
+<pre class="mce-root"><strong>var</strong> sum = 0.0<br/>println(s"${params.k} topics:")<br/>topics.zipWithIndex.foreach {<br/><strong>    case</strong> (topic, i) =&gt;<br/>        println(s"TOPIC $i")<br/>        println("------------------------------")<br/>        topic.foreach {<br/><strong>    case</strong> (term, weight) =&gt;<br/>        term.replaceAll("\s", "")<br/>        println(s"$termt$weight")<br/>        sum = sum + weight<br/>    }<br/>println("----------------------------")<br/>println("weight: " + sum)<br/>println()</pre>
+<p class="mce-root">Now let's see the output of our LDA model towards topics modeling:</p>
+<pre class="mce-root"> 5 topics:<br/> TOPIC 0<br/> ------------------------------<br/> come 0.0070183359426213635<br/> make 0.006893251344696077<br/> look 0.006629265338364568<br/> know 0.006592594912464674<br/> take 0.006074234442310174<br/> little 0.005876330712306203<br/> think 0.005153843469004155<br/> time 0.0050685675513282525<br/> hand 0.004524837827665401<br/> well 0.004224698942533204<br/> ----------------------------<br/> weight: 0.05805596048329406<br/> TOPIC 1<br/> ------------------------------<br/> thus 0.008447268016707914<br/> ring 0.00750959344769264<br/> fate 0.006802070476284118<br/> trojan 0.006310545607626158<br/> bear 0.006244268350438889<br/> heav 0.005479939900136969<br/> thro 0.005185211621694439<br/> shore 0.004618008184651363<br/> fight 0.004161178536600401<br/> turnus 0.003899151842042464<br/> ----------------------------<br/> weight: 0.11671319646716942<br/> TOPIC 2<br/> ------------------------------<br/> aladdin 7.077183389325728E-4<br/> sultan 6.774311890861097E-4<br/> magician 6.127791175835228E-4<br/> genie 6.06094509479989E-4<br/> vizier 6.051618911188781E-4<br/> princess 5.654756758514474E-4<br/> fatima 4.050749957608771E-4<br/> flatland 3.47788388834721E-4<br/> want 3.4263963705536023E-4<br/> spaceland 3.371784715458026E-4<br/> ----------------------------<br/> weight: 0.1219205386824187<br/> TOPIC 3<br/> ------------------------------<br/> aladdin 7.325869707607238E-4<br/> sultan 7.012354862373387E-4<br/> magician 6.343184784726607E-4<br/> genie 6.273921840260785E-4<br/> vizier 6.264266945018852E-4<br/> princess 5.849046214967484E-4<br/> fatima 4.193089052802858E-4<br/> flatland 3.601371993827707E-4<br/> want 3.5398019331108816E-4<br/> spaceland 3.491505202713831E-4<br/> ----------------------------<br/> weight: 0.12730997993615964<br/> TOPIC 4<br/> ------------------------------<br/> captain 0.02931475169407467<br/> fogg 0.02743105575940755<br/> nautilus 0.022748371008515483<br/> passepartout 0.01802140608022664<br/> nemo 0.016678258146358142<br/> conseil 0.012129894049747918<br/> phileas 0.010441664411654412<br/> canadian 0.006217638883315841<br/> vessel 0.00618937301246955<br/> land 0.00615311666365297<br/> ----------------------------<br/> weight: 0.28263550964558276</pre>
+<p>From the preceding output, we can see that topic five of the input documents has the most weight, at <kbd>0.28263550964558276</kbd>. This topic discusses terms such as <kbd>captain</kbd>, <kbd>fogg</kbd>, <kbd>nemo</kbd>, <kbd>vessel</kbd>, and <kbd>land</kbd>.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Step 8 - Measuring the likelihood of two documents</h1>
+                </header>
+            
+            <article>
+                
+<p>Now to get some more statistics, such as maximum likelihood or log likelihood on the document, we can use the following code:</p>
+<pre><strong>if</strong> (ldaModel.isInstanceOf[DistributedLDAModel]) {<br/><strong>    val</strong> distLDAModel = ldaModel.asInstanceOf[DistributedLDAModel]<br/><strong>    val</strong> avgLogLikelihood = distLDAModel.logLikelihood / actualCorpusSize.toDouble<br/>    println("The average log likelihood of the training data: " +</pre>
+<pre>avgLogLikelihood)<br/>    println()<br/>}</pre>
+<p>The preceding code calculates the average log likelihood of the LDA model as an instance of the distributed version of the LDA model:</p>
+<pre>The average log likelihood of the training data: -209692.79314860413</pre>
+<div class="packt_infobox">For more information on the likelihood measurement, interested readers should refer to <a href="https://en.wikipedia.org/wiki/Likelihood_function">https://en.wikipedia.org/wiki/Likelihood_function</a>.</div>
+<p>Now imagine that we've computed the preceding metric for document X and Y. Then we can answer the following question:</p>
+<ul>
+<li>How similar are documents X and Y?</li>
+</ul>
+<p>The thing is, we should try to get the lowest likelihood from all the training documents and use it as a threshold for the previous comparison. Finally, to answer the third and final question:</p>
+<ul>
+<li>If I am interested in topic Z, which documents should I read first?</li>
+</ul>
+<p>A minimal answer: taking a close look at the topic distributions and the relative term weights, we can decide which document we should read first.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Other topic models versus the scalability of LDA</h1>
+                </header>
+            
+            <article>
+                
+<p>Throughout this end-to-end project, we have used LDA, which is one of the most popular TM algorithms used for text mining. We could use more robust TM algorithms, such as <strong>Probabilistic Latent Sentiment Analysis</strong> (<strong>pLSA</strong>), <strong>Pachinko Allocation Model</strong> (<strong>PAM</strong>), and <strong>Hierarchical Drichilet Process</strong> (<strong>HDP</strong>) algorithms.</p>
+<p>However, pLSA has the overfitting problem. On the other hand, both HDP and PAM are more complex TM algorithms used for complex text mining, such as mining topics from high-dimensional text data or documents of unstructured text. Finally, non-negative matrix factorization is another way to find topics in a collection of documents. Irrespective of the approach, the output of all the TM algorithms is a list of topics with associated clusters of words.</p>
+<p>The previous example shows how to perform TM using the LDA algorithm as a standalone application. The parallelization of LDA is not straightforward, and there have been many research papers proposing different strategies. The key obstacle in this regard is that all methods involve a large amount of communication.</p>
+<p>According to the blog on the Databricks website (<a href="https://databricks.com/blog/2015/03/25/topic-modeling-with-lda-mllib-meets-graphx.html" target="_blank">https://databricks.com/blog/2015/03/25/topic-modeling-with-lda-mllib-meets-graphx.html</a>), here are the statistics of the dataset and related training and test sets that were used during the experimentation:</p>
+<ul>
+<li><strong>Training set size</strong>: 4.6 million documents</li>
+<li><strong>Vocabulary size</strong>: 1.1 million terms</li>
+<li><strong>Training set size</strong>: 1.1 billion tokens (~239 words/document)</li>
+<li>100 topics</li>
+<li>16-worker EC2 cluster, for example, M4.large or M3.medium depending upon budget and requirements</li>
+</ul>
+<p>For the preceding setting, the timing result was 176 seconds/iteration on average over 10 iterations. From these statistics, it is clear that LDA is quite scalable for a very large number of the corpus as well.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Deploying the trained LDA model</h1>
+                </header>
+            
+            <article>
+                
+<p>For this mini deployment, let's use a real-life dataset: PubMed. A sample dataset containing PubMed terms can be downloaded from: <a href="https://nlp.stanford.edu/software/tmt/tmt-0.4/examples/pubmed-oa-subset.csv">https://nlp.stanford.edu/software/tmt/tmt-0.4/examples/pubmed-oa-subset.csv</a>. This link actually contains a dataset in CSV format but has a strange name, <kbd>4UK1UkTX.csv</kbd>.</p>
+<p>To be more specific, the dataset contains some abstracts of some biological articles, their publication year, and the serial number. A glimpse is given in the following figure:</p>
+<div class="CDPAlignCenter CDPAlign"><img height="105" width="448" class="alignnone size-full wp-image-534 image-border" src="assets/a19af830-4cd6-496c-84df-93014ea2a1fc.png"/></div>
+<div class="CDPAlignCenter CDPAlign packt_figref">Figure 6: A snapshot of the sample dataset</div>
+<p>In the following  code, we have already saved the trained LDA model for future use as follows:</p>
+<pre>params.ldaModel.save(spark.sparkContext, "model/LDATrainedModel")</pre>
+<p>The trained model will be saved to the previously mentioned location. The directory will include data and metadata about the model and the training itself as shown in the following figure:</p>
+<div class="CDPAlignCenter CDPAlign"><img height="231" width="404" class="alignnone size-full wp-image-535 image-border" src="assets/a4dd1974-8b96-405d-9fcb-37e24e57d6e9.png"/></div>
+<div class="CDPAlignCenter CDPAlign packt_figref">Figure 7: The directory structure of the trained and saved LDA model</div>
+<p>As expected, the data folder has some parquet files containing global topics, their counts, tokens and their counts, and the topics with their respective counts. Now the next task will be restoring the same model as follows:</p>
+<pre class="mce-root">//Restoring the model for reuse<br/><strong>val</strong> savedLDAModel = DistributedLDAModel.load(spark.sparkContext, "model/LDATrainedModel/")<br/><br/>//Then we execute the following workflow:<br/><strong>val</strong> lda = <strong>new</strong> LDAforTM() <br/>// actual computations are done here <br/><br/> // Loading the parameters to train the LDA model <br/><strong>val</strong> defaultParams = Params().copy(input = "data/4UK1UkTX.csv", savedLDAModel)<br/>lda.run(defaultParams) <br/>// Training the LDA model with the default parameters.<br/>spark.stop()</pre>
+<pre class="mce-root">&gt;&gt;&gt;<br/> Training corpus summary:<br/> -------------------------------<br/> Training set size: 1 documents<br/> Vocabulary size: 14670 terms<br/> Number of tockens: 14670 tokens<br/> Preprocessing time: 12.921435786 sec<br/> -------------------------------<br/> Finished training LDA model.<br/> Summary:<br/> Training time: 23.243336895 sec<br/> The average log likelihood of the training data: -1008739.37857908<br/> 5 topics:<br/> TOPIC 0<br/> ------------------------------<br/> rrb 0.015234818404037585<br/> lrb 0.015154125349208018<br/> sequence 0.008924621534990771<br/> gene 0.007391453509409655<br/> cell 0.007020265462594214<br/> protein 0.006479622004524878<br/> study 0.004954523307983932<br/> show 0.0040023453035193685<br/> site 0.0038006126784248945<br/> result 0.0036634344941610534<br/> ----------------------------<br/> weight: 0.07662582204885438<br/> TOPIC 1<br/> ------------------------------<br/> rrb 1.745030693927338E-4<br/> lrb 1.7450110447001028E-4<br/> sequence 1.7424254444446083E-4<br/> gene 1.7411236867642102E-4<br/> cell 1.7407234230511066E-4<br/> protein 1.7400587965300172E-4<br/> study 1.737407317498879E-4<br/> show 1.7347354627656383E-4<br/> site 1.7339989737227756E-4<br/> result 1.7334522348574853E-4<br/> ---------------------------<br/> weight: 0.07836521875668061<br/> TOPIC 2<br/> ------------------------------<br/> rrb 1.745030693927338E-4<br/> lrb 1.7450110447001028E-4<br/> sequence 1.7424254444446083E-4<br/> gene 1.7411236867642102E-4<br/> cell 1.7407234230511066E-4<br/> protein 1.7400587965300172E-4<br/> study 1.737407317498879E-4<br/> show 1.7347354627656383E-4<br/> site 1.7339989737227756E-4<br/> result 1.7334522348574853E-4<br/> ----------------------------<br/> weight: 0.08010461546450684<br/> TOPIC 3<br/> ------------------------------<br/> rrb 1.745030693927338E-4<br/> lrb 1.7450110447001028E-4<br/> sequence 1.7424254444446083E-4<br/> gene 1.7411236867642102E-4<br/> cell 1.7407234230511066E-4<br/> protein 1.7400587965300172E-4<br/> study 1.737407317498879E-4<br/> show 1.7347354627656383E-4<br/> site 1.7339989737227756E-4<br/> result 1.7334522348574853E-4<br/> ----------------------------<br/> weight: 0.08184401217233307<br/> TOPIC 4<br/> ------------------------------<br/> rrb 1.745030693927338E-4<br/> lrb 1.7450110447001028E-4<br/> sequence 1.7424254444446083E-4<br/> gene 1.7411236867642102E-4<br/> cell 1.7407234230511066E-4<br/> protein 1.7400587965300172E-4<br/> study 1.737407317498879E-4<br/> show 1.7347354627656383E-4<br/> site 1.7339989737227756E-4<br/> result 1.7334522348574853E-4<br/> ----------------------------<br/> weight: 0.0835834088801593</pre>
+<p>Well done! We have managed to reuse the model and do the same prediction. But, probably due to the randomness of data, we observed a slightly different prediction. Let's see the complete code to get a clearer view:</p>
+<pre><strong>package</strong> com.packt.ScalaML.Topicmodeling<br/><strong>import</strong> org.apache.spark.sql.SparkSession<br/><strong>import</strong> org.apache.spark.mllib.clustering.{DistributedLDAModel, LDA}<br/><br/><strong>object</strong> LDAModelReuse {<br/><strong>    def</strong> main(args: Array[String]): Unit = {<br/><strong>        val</strong> spark = SparkSession<br/>                    .builder<br/>                    .master("local[*]")<br/>                    .config("spark.sql.warehouse.dir", "data/")<br/>                    .appName(s"LDA_TopicModelling")<br/>                    .getOrCreate()<br/><br/>//Restoring the model for reuse<br/><strong>    val</strong> savedLDAModel = DistributedLDAModel.load(spark.sparkContext, "model/LDATrainedModel/")<br/><strong>    val</strong> lda = <strong>new</strong> LDAforTM() <br/>// actual computations are done here<br/><strong>    val</strong> defaultParams = Params().copy(input = "data/4UK1UkTX.csv", savedLDAModel) <br/>//Loading params <br/>    lda.run(defaultParams) <br/>// Training the LDA model with the default parameters.<br/>    spark.stop()<br/>        }<br/>    }</pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Summary</h1>
+                </header>
+            
+            <article>
+                
+<p>In this chapter, we have seen how effectively we can use and combine the LDA algorithm and NLP libraries, such as Stanford NLP, for finding useful patterns from large-scale text. We have seen a comparative analysis between TM algorithms and the scalability power of LDA.</p>
+<div class="packt_tip">Finally, for a real-life example and use case, interested readers can refer to the blog article at <a href="https://blog.codecentric.de/en/2017/01/topic-modeling-codecentric-blog-articles/">https://blog.codecentric.de/en/2017/01/topic-modeling-codecentric-blog-articles/</a>.</div>
+<p><strong>Netflix</strong> is an American entertainment company founded by Reed Hastings and Marc Randolph on August 29, 1997, in Scotts Valley, California. It specializes in, providing, streaming media and video-on-demand, online and DVD by mail. In 2013, Netflix expanded into film and television production, as well as online distribution. Netflix uses a model-based collaborative filtering approach for real-time movie recommendations for its subscribers.</p>
+<p>In the next chapter, we will see two end-to-end projects: an item-based <strong>collaborative filtering</strong> for movie-similarity measurements, and a model-based movie-recommendation engine with Spark to recommend movies to new users. We will see how to interoperate between <strong>ALS</strong> and <strong>Matrix Factorization</strong> for these two scalable movie recommendation engines.</p>
+<p class="mce-root"/>
+
+
+            </article>
+
+            
+        </section>
+    </body></html>

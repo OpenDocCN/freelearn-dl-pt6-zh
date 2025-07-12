@@ -1,0 +1,1006 @@
+<html><head></head><body>
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Analyzing Insurance Severity Claims</h1>
+                </header>
+            
+            <article>
+                
+<p class="mce-root">Predicting the cost, and hence the severity, of claims in an insurance company is a real-life problem that needs to be solved in an accurate way. In this chapter, we will show you how to develop a predictive model for analyzing insurance severity claims using some of the most widely used regression algorithms.</p>
+<p>We will start with simple <strong>linear regression</strong> (<strong>LR</strong>) and we will see how to improve the performance using some ensemble techniques, such as <strong>gradient boosted tree</strong> (<strong>GBT</strong>) regressors. Then we will look at how to boost the performance with Random Forest regressors. Finally, we will show you how to choose the best model and deploy it for a production-ready environment. Also, we will provide some background studies on machine learning workflow, hyperparameter tuning, and cross-validation.</p>
+<p>For the implementation, we will use <strong>Spark ML</strong> API for faster computation and massive scalability. In a nutshell, we will learn the following topics throughout this end-to-end project:</p>
+<ul>
+<li>Machine learning and learning workflow</li>
+<li>Hyperparameter tuning and cross-validation of ML models</li>
+<li>LR for analyzing insurance severity claims</li>
+<li>Improving performance with gradient boosted regressors</li>
+<li>Boosting the performance with random forest regressors</li>
+<li>Model deployment</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Machine learning and learning workflow</h1>
+                </header>
+            
+            <article>
+                
+<p><strong>Machine learning</strong> (<strong>ML</strong>) is about using a set of statistical and mathematical algorithms to perform tasks such as concept learning, predictive modeling, clustering, and mining useful patterns can be performed. The ultimate goal is to improve the learning in such a way that it becomes automatic, so that no more human interactions are needed, or to reduce the level of human interaction as much as possible.</p>
+<p>We now refer to a famous definition of ML by <strong>Tom M. Mitchell</strong> (<span class="st"><em>Machine Learning</em>, <em>Tom Mitchell</em>, McGraw Hill, 1997</span><strong>)</strong>, where he explained what learning really means from a computer science perspective:</p>
+<div class="packt_quote">"A computer program is said to learn from experience E with respect to some class of tasks T and performance measure P, if its performance at tasks in T, as measured by P, improves with experience E."</div>
+<p>Based on the preceding definition, we can conclude that a computer program or machine can do the following:</p>
+<ul>
+<li>Learn from data and histories</li>
+<li>Be improved with experience</li>
+<li>Interactively enhance a model that can be used to predict an outcome</li>
+</ul>
+<p>A typical ML function can be formulated as a convex optimization problem for finding a minimizer of a convex function <em>f</em> that depends on a variable vector <em>w</em> (weights), which has <em>d</em> records. Formally, we can write this as the following optimization problem:</p>
+<div class="CDPAlignCenter CDPAlign"><img height="23" width="108" class="fm-editor-equation" src="assets/87f40bc8-35a2-4bab-ae37-9de1886ef0d4.png"/></div>
+<p class="packt_figure">Here, the objective function is of the form:</p>
+<div class="CDPAlignCenter CDPAlign"><img height="54" width="284" class="fm-editor-equation" src="assets/5050b364-5c61-4106-b65d-5594a34ca97f.png"/></div>
+<p class="mce-root CDPAlignLeft CDPAlign">Here, the vectors <img height="23" width="57" class="fm-editor-equation" src="assets/1bc24f84-8db5-4cbd-a0c3-546b033d7e06.png"/>are the training data points for <em>1≤i≤n</em>, and are their corresponding labels that we want to predict eventually. We call the method <em>linear</em> if <em>L(w;x,y)</em> can be expressed as a function of <em>wTx</em> and <em>y</em>.</p>
+<p>The objective function <em>f</em> has two components:</p>
+<ul>
+<li>A regularizer that controls the complexity of the model</li>
+<li>The loss that measures the error of the model on the training data</li>
+</ul>
+<p>The loss function <em>L(w;)</em> is typically a convex function in <em>w</em>. The fixed regularization parameter <em>λ≥</em>0 defines the trade-off between the two goals of minimizing the loss on the training error and minimizing model complexity to avoid overfitting. Throughout the chapters, we will learn in details on different learning types and algorithms.</p>
+<p>On the other hand, <strong>deep neural networks</strong> (<strong>DNN</strong>) form the core of <strong>deep learning</strong> (<strong>DL</strong>) by providing algorithms to model complex and high-level abstractions in data and can better exploit large-scale datasets to build complex models</p>
+<p>There are some widely used deep learning architectures based on artificial neural networks: DNNs, Capsule Networks, Restricted Boltzmann Machines, deep belief networks, factorization machines and recurrent neural networks.</p>
+<p>These architectures have been widely used in computer vision, speech recognition, natural language processing, audio recognition, social network filtering, machine translation, bioinformatics and drug design. Throughout the chapters, we will see several real-life examples using these architectures to achieve state-of-the art predictive accuracy.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Typical machine learning workflow</h1>
+                </header>
+            
+            <article>
+                
+<p>A typical ML application involves several processing steps, from the input to the output, forming a scientific workflow as shown in <em>Figure 1, ML workflow</em>. The following steps are involved in a typical ML application:</p>
+<ol>
+<li>Load the data</li>
+<li>Parse the data into the input format for the algorithm</li>
+<li>Pre-process the data and handle the missing values</li>
+<li>Split the data into three sets, for training, testing, and validation (train set and validation set respectively) and one for testing the model (test dataset)</li>
+<li>Run the algorithm to build and train your ML model</li>
+<li>Make predictions with the training data and observe the results</li>
+<li>Test and evaluate the model with the test data or alternatively validate the model using some cross-validator technique using the third dataset called a <strong>validation dataset</strong></li>
+<li>Tune the model for better performance and accuracy</li>
+<li>Scale up the model so that it can handle massive datasets in future</li>
+<li>Deploy the ML model in production:</li>
+</ol>
+<div class="CDPAlignCenter CDPAlign"><img height="256" width="780" src="assets/a91968fa-0d1b-4233-a91f-81b0c24a6953.png"/></div>
+<div class="packt_figref CDPAlignCenter CDPAlign">Figure 1: ML workflow</div>
+<p>The preceding workflow is represent a few steps to solve ML problems. Where, ML tasks can be broadly categorized into supervised, unsupervised, semi-supervised, reinforcement, and recommendation systems. The following <em>Figure 2, Supervised learning in action</em>, shows the schematic diagram of supervised learning. After the algorithm has found the required patterns, those patterns can be used to make predictions for unlabeled test data:</p>
+<div class="CDPAlignCenter CDPAlign"><img height="270" width="742" src="assets/893ef2af-4c84-4f42-af07-2f3eb3cabd97.png"/></div>
+<div class="packt_figure packt_figref CDPAlignCenter CDPAlign">Figure 2: Supervised learning in action</div>
+<p>Examples include classification and regression for solving supervised learning problems so that predictive models can be built for predictive analytics based on them. Throughout the upcoming chapters, we will provide several examples of supervised learning, such as LR, logistic regression, <span>random forest</span>, decision trees, Naive Bayes, multilayer perceptron, and so on.</p>
+<p>A regression algorithm is meant to produce continuous output. The input is allowed to be either discrete or continuous:</p>
+<div class="CDPAlignCenter CDPAlign"><img height="113" width="244" src="assets/6b7d7c39-737e-4c4a-8774-faf7797f90cc.png"/></div>
+<div class="packt_figure packt_figref CDPAlignCenter CDPAlign">Figure 3: A regression algorithm is meant to produce continuous output</div>
+<p>A classification algorithm, on the other hand, is meant to produce discrete output from an input of a set of discrete or continuous values. This distinction is important to know because discrete-valued outputs are handled better by classification, which will be discussed in upcoming chapters:</p>
+<div class="CDPAlignCenter CDPAlign"><img height="126" width="309" src="assets/99801fcd-6736-48e4-b691-e2af528dfe29.png"/></div>
+<div class="packt_figure packt_figref CDPAlignCenter CDPAlign">Figure 4: A classification algorithm is meant to produce discrete output</div>
+<p>In this chapter, we will mainly focus on the supervised regression algorithms. We will start with describing the problem statement and then we move on to the very simple LR algorithm. Often, performance of these ML models is optimized using hyperparameter tuning and cross-validation techniques. So knowing them, in brief, is mandatory so that we can easily use them in future chapters.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Hyperparameter tuning and cross-validation</h1>
+                </header>
+            
+            <article>
+                
+<p>Tuning an algorithm is simply a process that one goes through in order to enable the algorithm to perform optimally in terms of runtime and memory usage. In Bayesian statistics, a hyperparameter is a parameter of a prior distribution. In terms of ML, the term hyperparameter refers to those parameters that cannot be directly learned from the regular training process.</p>
+<p>Hyperparameters are usually fixed before the actual training process begins. This is done by setting different values for those hyperparameters, training different models, and deciding which ones work best by testing them. Here are some typical examples of such parameters:</p>
+<ul>
+<li>Number of leaves, bins, or depth of a tree</li>
+<li>Number of iterations</li>
+<li>Number of latent factors in a matrix factorization</li>
+<li>Learning rate</li>
+<li>Number of hidden layers in a deep neural network</li>
+<li>The number of clusters in k-means clustering and so on</li>
+</ul>
+<p>In short, hyperparameter tuning is a technique for choosing the right combination of hyperparameters based on the performance of presented data. It is one of the fundamental requirements for obtaining meaningful and accurate results from ML algorithms in practice. The following figure shows the model tuning process, things to consider, and workflow:</p>
+<div class="packt_figure CDPAlignCenter CDPAlign"><img height="319" width="773" src="assets/91d93133-43aa-4cc8-9d2f-45e076ca4033.png"/></div>
+<div class="mce-root CDPAlignCenter CDPAlign packt_figref">Figure 5: M<span>odel tuning process</span></div>
+<p>Cross-validation (also known as <strong>rotation estimation</strong>) is a model validation technique for assessing the quality of the statistical analysis and results. The target is to make the model generalized toward an independent test set. It will help if you want to estimate how a predictive model will perform accurately in practice when you deploy it as an ML application. During the cross-validation process, a model is usually trained with a dataset of a known type.</p>
+<p>Conversely, it is tested using a dataset of an unknown type. In this regard, cross-validation helps to describe a dataset to test the model in the training phase using the validation set. There are two types of cross-validation that can be typed as follows:</p>
+<ul>
+<li><strong>Exhaustive cross-validation</strong>: This includes leave-p-out cross-validation and leave-one-out cross-validation</li>
+<li><strong>Non-exhaustive cross-validation</strong>: This includes K-fold cross-validation and repeated random subsampling cross-validation</li>
+</ul>
+<p>In most cases, the researcher/data scientist/data engineer uses 10-fold cross-validation instead of testing on a validation set (see more in <em>Figure 6</em>, <em>10-fold cross-validation technique</em>). This is the most widely used cross-validation technique across all use cases and problem types, as explained by the following figure.</p>
+<p>Basically, using this technique, your complete training data is split into a number of folds. This parameter can be specified. Then the whole pipeline is run once for every fold and one ML model is trained for each fold. Finally, the different ML models obtained are joined by a voting scheme for classifiers or by averaging for regression:</p>
+<div class="CDPAlignCenter CDPAlign"><img height="378" width="548" src="assets/5b0e92fa-300e-4609-be4d-3a658d7e9779.png"/></div>
+<div class="packt_figref CDPAlignCenter CDPAlign">Figure 6: 10-fold cross-validation technique</div>
+<p>Moreover, to reduce the variability, multiple iterations of cross-validation are performed using different partitions; finally, the validation results are averaged over the rounds.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Analyzing and predicting insurance severity claims</h1>
+                </header>
+            
+            <article>
+                
+<p>Predicting the cost, and hence the severity, of claims in an insurance company is a real-life problem that needs to be solved in a more accurate and automated way. We will do something similar in this example.</p>
+<p>We will start with simple logistic regression and will learn how to improve the performance using some ensemble techniques, such as an <span>random forest</span> regressor. Then we will look at how to boost the performance with a gradient boosted regressor. Finally, we will show how to choose the best model and deploy it for a production-ready environment.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Motivation</h1>
+                </header>
+            
+            <article>
+                
+<p>When someone is devastated by a serious car accident, his focus is on his life, family, child, friends, and loved ones. However, once a file is submitted for the insurance claim, the overall paper-based process to calculate the severity claim is a tedious task to be completed.</p>
+<p>This is why insurance companies are continually seeking fresh ideas to improve their claims service for their clients in an automated way. Therefore, predictive analytics is a viable solution to predicting the cost, and hence severity, of claims on the available and historical data.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Description of the dataset</h1>
+                </header>
+            
+            <article>
+                
+<p>A dataset from the <strong>Allstate Insurance company</strong> will be used, which consists of more than 300,000 examples with masked and anonymous data and consisting of more than 100 categorical and numerical attributes, thus being compliant with confidentiality constraints, more than enough for building and evaluating a variety of ML techniques.</p>
+<p>The dataset is downloaded from the Kaggle website at <a href="https://www.kaggle.com/c/allstate-claims-severity/data">https://www.kaggle.com/c/allstate-claims-severity/data</a>. Each row in the dataset represents an insurance claim. Now, the task is to predict the value for the <kbd>loss</kbd> column. Variables prefaced with <kbd>cat</kbd> are categorical, while those prefaced with <kbd>cont</kbd> are continuous.</p>
+<p>It is to be noted that the Allstate Corporation is the second largest insurance company in the United States, founded in 1931. We are trying to make the whole thing automated, to predict the cost, and hence the severity, of accident and damage claims.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Exploratory analysis of the dataset</h1>
+                </header>
+            
+            <article>
+                
+<p>Let's look at some data properties (use the <kbd>EDA.scala</kbd> file for this). At first, we need to read the training set to see the available properties. To begin with, let's place your training set in your project directory or somewhere else and point to it accordingly:</p>
+<pre><strong>val</strong> train = "data/insurance_train.csv"</pre>
+<p>I hope you have Java, Scala and Spark installed and configured on your machine. If not, please do so. Anyway, I'm assuming they are. So let's create an active Spark session, which is the gateway for any Spark application:</p>
+<pre><strong>val</strong> spark = SparkSessionCreate.createSession()<br/><strong>import</strong><span> spark.implicits._</span></pre>
+<div class="packt_tip"><strong>Spark session alias on Scala REPL</strong>:<br/>
+If you are inside Scala REPL, the Spark session alias <kbd>spark</kbd> is already defined, so just get going.</div>
+<p>Here, I have a method called <kbd>createSession()</kbd> under the class <kbd>SparkSessionCreate</kbd> that goes as follows:</p>
+<pre><strong>import</strong> org.apache.spark.sql.SparkSession <br/><br/><strong>object</strong> SparkSessionCreate { 
+  <strong>def</strong> createSession(): <strong>SparkSession</strong> = { 
+    val spark = <strong>SparkSession</strong> 
+      .builder 
+      .master("local[*]") // adjust accordingly 
+      .config("spark.sql.warehouse.dir", "E:/Exp/") //change accordingly 
+      .appName("MySparkSession") //change accordingly 
+      .getOrCreate() 
+    <strong>return</strong> spark 
+    }<br/>} </pre>
+<p>Since this will be used frequently throughout this book, I decided to create a dedicated method. So, let's load, parse, and create a DataFrame using the <kbd>read.csv</kbd> method but in Databricks <kbd>.csv</kbd> format (as known as <kbd>com.databricks.spark.csv</kbd>) since our dataset comes with <kbd>.csv</kbd> format.</p>
+<p>At this point, I have to interrupt you to inform something very useful. Since we will be using Spark MLlib and ML APIs in upcoming chapters too. Therefore, it would be worth fixing some issues in prior. If you're a Windows user then let me tell you a very weired issue that you will be experiencing while working with Spark.</p>
+<p>Well, the thing is that Spark works on <strong>Windows</strong>, <strong>Mac OS</strong>, and <strong>Linux</strong>. While using <kbd>Eclipse</kbd> or <kbd>IntelliJ IDEA</kbd> to develop your Spark applications (or through Spark local job sumit) on Windows, you might face an I/O exception error and consequently your application might not compile successfully or may be interrupted.</p>
+<p>The reason is that Spark expects that there is a runtime environment for <kbd>Hadoop</kbd> on Windows. Unfortunately, the <strong>binary</strong> distribution of <strong>Spark </strong> (<strong>v2.2.0 for example</strong>) release does not contain some Windows native components (example, <kbd>winutils.exe</kbd>, <kbd>hadoop.dll</kbd>, and so on). However, these are required (not optional) to run <kbd>Hadoop</kbd> on Windows. Therefore, if you cannot ensure the runtime environment, an I/O exception saying the following:</p>
+<pre>24/01/2018 11:11:10 <br/>ERROR util.Shell: Failed to locate the winutils binary in the hadoop binary path<br/>java.io.IOException: Could not locate executable null\bin\winutils.exe in the Hadoop binaries.</pre>
+<p>Now there are two ways to tackale this issue on Windows:</p>
+<ol>
+<li><strong>From IDE such as Eclipse and IntelliJ IDEA</strong>: Download the <kbd>winutls.exe</kbd> from <a href="https://github.com/steveloughran/winutils/tree/master/hadoop-2.7.1/bin/">https://github.com/steveloughran/winutils/tree/master/hadoop-2.7.1/bin/</a>. Then download and copy it inside the <kbd>bin</kbd> folder in the Spark distribution—example, <kbd>spark-2.2.0-bin-hadoop2.7/bin/</kbd> . Then select the project | <span class="packt_screen">Run Configurations...</span> |  <span class="packt_screen">Environment</span> | <span class="packt_screen">New</span> | create a variable named <kbd>HADOOP_HOME</kbd> and put the path in the value field—example, <kbd>c:/spark-2.2.0-bin-hadoop2.7/bin/</kbd> | <span class="packt_screen">OK</span> | <span class="packt_screen">Apply</span> | <span class="packt_screen">Run</span>. Then you're done!</li>
+<li><strong>With local Spark</strong> <strong>job submit</strong>: Add the <kbd>winutils.exe</kbd> file path to the hadoop home directory using System set properties—example, in the Spark code <kbd>System.setProperty("hadoop.home.dir", "c:\\\spark-2.2.0-bin-hadoop2.7\\\bin\winutils.exe")</kbd></li>
+</ol>
+<p>Alright, let's come to your original discussion. If you see the preceding code block then we set to read the header of the CSV file, which is directly applied to the column names of the DataFrame created, and the <kbd>inferSchema</kbd> property is set to <kbd>true</kbd>. If you don't specify the <kbd>inferSchema</kbd> configuration explicitly, the float values will be treated as <kbd>strings</kbd><em>.</em> This might cause <kbd>VectorAssembler</kbd> to raise an exception such as <kbd>java.lang.IllegalArgumentException: Data type StringType is not supported</kbd>:</p>
+<pre><strong> val</strong> trainInput = spark.read 
+    .option("header", "true") 
+    .option("inferSchema", "true") 
+    .format("com.databricks.spark.csv") 
+    .load(train) 
+    .cache </pre>
+<p>Now let's print the schema of the DataFrame we just created. I have abridged the output and shown only a few columns:</p>
+<pre>Println(trainInput.printSchema()) <br/>root 
+ |-- id: integer (nullable = true) 
+ |-- cat1: string (nullable = true) 
+ |-- cat2: string (nullable = true) 
+ |-- cat3: string (nullable = true) 
+  ... 
+ |-- cat115: string (nullable = true) 
+ |-- cat116: string (nullable = true)<br/>  ... 
+ |-- cont14: double (nullable = true) 
+ |-- loss: double (nullable = true) </pre>
+<p>You can see that there are 116 categorical columns for categorical features. Also, there are 14 numerical feature columns. Now let's see how many rows there are in the dataset using the <kbd>count()</kbd> method:</p>
+<pre>println(df.count())</pre>
+<pre>&gt;&gt;&gt;<br/> 188318 </pre>
+<p>The preceding number is pretty high for training an ML model. Alright, now let's see a snapshot of the dataset using the <kbd>show()</kbd> method but with only some selected columns so that it makes more sense. Feel free to use <kbd>df.show()</kbd> to see all columns:</p>
+<pre>df.select("id", "cat1", "cat2", "cat3", "cont1", "cont2", "cont3", "loss").show() 
+&gt;&gt;&gt; </pre>
+<div class="CDPAlignCenter CDPAlign"><img height="378" width="404" class="alignnone size-full wp-image-54 image-border" src="assets/dc972f3b-871f-4080-8a6c-e85e23ab79e8.png"/></div>
+<p class="mceNonEditable"/>
+<p>Nevertheless, if you look at all the rows using <kbd>df.show()</kbd>, you will see some categorical columns containing too many categories. To be more specific, category columns <kbd>cat109</kbd> to <kbd>cat116</kbd> contain too many categories, as follows:</p>
+<pre>df.select("cat109", "cat110", "cat112", "cat113", "cat116").show() 
+&gt;&gt;&gt; </pre>
+<div class="CDPAlignCenter CDPAlign"><img height="287" width="199" class="alignnone size-full wp-image-55 image-border" src="assets/55f4b79f-1af8-438a-8f99-4baedbed98cf.png"/></div>
+<p>In later stages, it would be worth dropping these columns to remove the skewness in the dataset. It is to be noted that in statistics, s<span class="tgc">kewness</span> <span class="tgc">is a measure of the asymmetry of the probability distribution of a real-valued random variable with respect to the mean.</span></p>
+<p>Now that we have seen a snapshot of the dataset, it is worth seeing some other statistics such as average claim or loss, minimum, maximum loss, and many more, using Spark SQL. But before that, let's rename the last column from <kbd>loss</kbd> to <kbd>label</kbd> since the ML model will complain about it. Even after using the <kbd>setLabelCol</kbd> on the regression model, it still looks for a column called <kbd>label</kbd>. This results in a disgusting error saying <kbd>org.apache.spark.sql.AnalysisException: cannot resolve 'label' given input columns</kbd>:</p>
+<pre>val newDF = df.withColumnRenamed("loss", "label") </pre>
+<p>Now, since we want to execute an SQL query, we need to create a temporary view so that the operation can be performed in-memory:</p>
+<pre>newDF.createOrReplaceTempView("insurance") </pre>
+<p>Now let's average the damage claimed by the clients:</p>
+<pre>spark.sql("SELECT avg(insurance.label) as AVG_LOSS FROM insurance").show()<br/>&gt;&gt;&gt;<br/>+------------------+<br/>| AVG_LOSS |<br/>+------------------+<br/>|3037.3376856699924|<br/>+------------------+</pre>
+<p>Similarly, let's see the lowest claim made so far:</p>
+<pre>spark.sql("SELECT min(insurance.label) as MIN_LOSS FROM insurance").show() 
+&gt;&gt;&gt;  <br/>+--------+<br/>|MIN_LOSS|<br/>+--------+<br/>| 0.67|<br/>+--------+</pre>
+<p>And let's see the highest claim made so far:</p>
+<pre>spark.sql("SELECT max(insurance.label) as MAX_LOSS FROM insurance").show() 
+&gt;&gt;&gt; <br/>+---------+<br/>| MAX_LOSS|<br/>+---------+<br/>|121012.25|<br/>+---------+</pre>
+<p>Since Scala or Java does not come with a handy visualization library, I could not something else but now let's focus on the data preprocessing before we prepare our training set. </p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Data preprocessing</h1>
+                </header>
+            
+            <article>
+                
+<p>Now that we have looked at some data properties, the next task is to do some preprocessing, such as cleaning, before getting the training set. For this part, use the <kbd>Preprocessing.scala</kbd> file. For this part, the following imports are required:</p>
+<pre><strong>import</strong> org.apache.spark.ml.feature.{ StringIndexer, StringIndexerModel}<br/><strong>import</strong> org.apache.spark.ml.feature.VectorAssembler</pre>
+<p>Then we load both the training and the test set as shown in the following code:</p>
+<pre><strong>var</strong> trainSample = 1.0 
+<strong>var</strong> testSample = 1.0 
+<strong>val</strong> train = "data/insurance_train.csv" 
+<strong>val</strong> test = "data/insurance_test.csv" <br/><strong>val</strong> spark = SparkSessionCreate.createSession() <br/><strong>import</strong> spark.implicits._ 
+println("Reading data from " + train + " file") <br/><br/><strong>    val</strong> trainInput = spark.read 
+        .option("header", "true") 
+        .option("inferSchema", "true") 
+        .format("com.databricks.spark.csv") 
+        .load(train) 
+        .cache 
+     
+    <strong>val</strong> testInput = spark.read 
+        .option("header", "true") 
+        .option("inferSchema", "true") 
+        .format("com.databricks.spark.csv") 
+        .load(test) 
+        .cache </pre>
+<p>The next task is to prepare the training and test set for our ML model to be learned. In the preceding DataFrame out of the training dataset, we renamed the <kbd>loss</kbd> to <kbd>label</kbd>. Then the content of <kbd>train.csv</kbd> was split into training and (cross) validation data, 75% and 25%, respectively.</p>
+<p>The content of <kbd>test.csv</kbd> is used for evaluating the ML model. Both original DataFrames are also sampled, which is particularly useful for running fast executions on your local machine:</p>
+<pre>println("Preparing data for training model") 
+<strong>var</strong> data = trainInput.withColumnRenamed("loss", "label").sample(false, trainSample) </pre>
+<p>We also should do null checking. Here, I have used a naïve approach. The thing is that if the training DataFrame contains any null values, we completely drop those rows. This makes sense since a few rows out of 188,318 do no harm. However, feel free to adopt another approach such as null value imputation:</p>
+<pre><strong>var</strong> DF = data.na.drop() <br/><strong>if</strong> (data == DF) 
+  println("No null values in the DataFrame")     
+<strong>else</strong>{ 
+  println("Null values exist in the DataFrame") 
+  data = DF 
+} <br/><strong>val</strong> seed = 12345L 
+<strong>val</strong> splits = data.randomSplit(Array(0.75, 0.25), seed) 
+<strong>val</strong> (trainingData, validationData) = (splits(0), splits(1)) </pre>
+<p>Then we cache both the sets for faster in-memory access:</p>
+<pre>trainingData.cache 
+validationData.cache </pre>
+<p>Additionally, we should perform the sampling of the test set that will be required in the evaluation step:</p>
+<pre><strong>val</strong> testData = testInput.sample(false, testSample).cache </pre>
+<p>Since the training set contains both the numerical and categorical values, we need to identify and treat them separately. First, let's identify only the categorical column:</p>
+<pre><strong>def</strong> isCateg(c: String): Boolean = c.startsWith("cat") 
+<strong>def</strong> categNewCol(c: String): String = if (isCateg(c)) s"idx_${c}" else c </pre>
+<p>Then, the following method is used to remove categorical columns with too many categories, which we already discussed in the preceding section:</p>
+<pre><strong>def</strong> removeTooManyCategs(c: String): Boolean = !(c matches "cat(109$|110$|112$|113$|116$)")</pre>
+<p>Now the following method is used to select only feature columns. So essentially, we should remove the ID (since the ID is just the identification number of the clients, it does not carry any non-trivial information) and the label column:</p>
+<pre><strong>def</strong> onlyFeatureCols(c: String): Boolean = !(c matches "id|label") </pre>
+<p>Well, so far we have treated some bad columns that are either trivial or not needed at all. Now the next task is to construct the definitive set of feature columns:</p>
+<pre><strong>val</strong> featureCols = trainingData.columns 
+    .filter(removeTooManyCategs) 
+    .filter(onlyFeatureCols) 
+    .map(categNewCol) </pre>
+<div class="packt_infobox"><kbd>StringIndexer</kbd> encodes a given string column of labels to a column of label indices. If the input column is numeric in nature, we cast it to string using the <kbd>StringIndexer</kbd> and index the string values. When downstream pipeline components such as Estimator or Transformer make use of this string-indexed label, you must set the input column of the component to this string-indexed column name. In many cases, you can set the input column with <kbd>setInputCol</kbd>.</div>
+<p class="mce-root">Now we need to use the <kbd>StringIndexer()</kbd> <span><span>for categorical columns:</span></span></p>
+<pre><strong>val</strong> stringIndexerStages = trainingData.columns.filter(isCateg) 
+      .map(c =&gt; new StringIndexer() 
+      .setInputCol(c) 
+      .setOutputCol(categNewCol(c)) 
+      .fit(trainInput.select(c).union(testInput.select(c)))) </pre>
+<p>Note that this is not an efficient approach. An alternative approach would be using a OneHotEncoder estimator.</p>
+<div class="packt_infobox">OneHotEncoder maps a column of label indices to a column of binary vectors, with a single one-value at most. This encoding permits algorithms that expect continuous features, such as logistic regression, to utilize categorical features.</div>
+<p>Now let's use the <kbd>VectorAssembler()</kbd> to transform a given list of columns into a single vector column:</p>
+<pre><strong>val</strong> assembler = new VectorAssembler() 
+    .setInputCols(featureCols) 
+    .setOutputCol("features")</pre>
+<div class="packt_infobox"><kbd>VectorAssembler</kbd> is a transformer. It combines a given list of columns into a single vector column. It is useful for combining the raw features and features generated by different feature transformers into one feature vector, in order to train ML models such as logistic regression and decision trees.</div>
+<p>That's all we need before we start training the regression models. First, we start training the LR model and evaluate the performance.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">LR for predicting insurance severity claims</h1>
+                </header>
+            
+            <article>
+                
+<p>As you have already seen, the loss to be predicted contains continuous values, that is, it will be a regression task. So in using regression analysis here, the goal is to predict a continuous target variable, whereas another area called classification predicts a label from a finite set.</p>
+<p><strong>Logistic regression</strong> (<strong>LR</strong>) belongs to the family of regression algorithms. The goal of regression is to find relationships and dependencies between variables. It models the relationship between a continuous scalar dependent variable <em>y</em> (that is, label or target) and one or more (a D-dimensional vector) explanatory variable (also independent variables, input variables, features, observed data, observations, attributes, dimensions, and data points) denoted as <em>x</em> using a linear function:</p>
+<div class="mce-root CDPAlignCenter CDPAlign"><img height="270" width="289" src="assets/6e405005-952c-4f9c-92c8-cbf4e839e297.png"/></div>
+<div class="packt_figref CDPAlignCenter CDPAlign">Figure 9: A regression graph separates data points (in red dots) and the blue line is regression</div>
+<p>LR models the relationship between a dependent variable <em>y,</em> which involves a linear combination of interdependent variables <em>x<sub>i</sub></em>. The letters <em>A</em> and <em>B</em> represent constants that describe the <em>y</em> axis intercept and the slope of the line respectively:</p>
+<div class="CDPAlignCenter CDPAlign"><em>y = A+Bx</em></div>
+<p><em>Figure 9</em>, <em>Regression graph separates data points (in red dots) and the blue line is regression</em> shows an example of simple LR with one independent variable—that is, a set of data points and a <strong>best fit</strong> line, which is the result of the regression analysis itself. It can be observed that the line does not actually pass through all of the points.</p>
+<p>The distance between any data points (measured) and the line (predicted) is called the regression error. Smaller errors contribute to more accurate results in predicting unknown values. When the errors are reduced to their smallest levels possible, the line of best fit is created for the final regression error. Note that there are no single metrics in terms of regression errors; there are several as follows:</p>
+<ul>
+<li><strong>Mean Squared Error</strong> (<strong>MSE</strong>): It is a measure of how close a fitted line is to data points. The smaller the MSE, the closer the fit is to the data.</li>
+<li><strong>Root Mean Squared Error</strong> (<strong>RMSE</strong>): It is the square root of the MSE but probably the most easily interpreted statistic, since it has the same units as the quantity plotted on the vertical axis.</li>
+<li><strong>R-squared</strong>: R-squared is a statistical measure of how close the data is to the fitted regression line. R-squared is always between 0 and 100%. The higher the R-squared, the better the model fits your data.</li>
+<li><strong>Mean Absolute Error</strong> (<strong>MAE</strong>): MAE measures the average magnitude of the errors in a set of predictions without considering their direction. It's the average over the test sample of the absolute differences between prediction and actual observation where all individual differences have equal weight.</li>
+<li><strong>Explained variance</strong>:<strong> </strong><span class="tgc">In statistics, <strong>explained</strong> variation measures the proportion to which a mathematical model accounts for the variation of a given dataset.</span></li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Developing insurance severity claims predictive model using LR</h1>
+                </header>
+            
+            <article>
+                
+<p>In this sub-section, we will develop a predictive analytics model for predicting accidental loss against the severity claim by clients. We start with importing required libraries:</p>
+<pre><strong>import</strong> org.apache.spark.ml.regression.{LinearRegression, LinearRegressionModel} 
+<strong>import</strong> org.apache.spark.ml.{ Pipeline, PipelineModel } 
+<strong>import</strong> org.apache.spark.ml.evaluation.RegressionEvaluator 
+<strong>import</strong> org.apache.spark.ml.tuning.ParamGridBuilder 
+<strong>import</strong> org.apache.spark.ml.tuning.CrossValidator 
+<strong>import</strong> org.apache.spark.sql._ 
+<strong>import</strong> org.apache.spark.sql.functions._ 
+<strong>import</strong> org.apache.spark.mllib.evaluation.RegressionMetrics </pre>
+<p>Then we create an active Spark session as the entry point to the application. In addition, importing <kbd>implicits__</kbd> required for implicit conversions like converting RDDs to DataFrames.</p>
+<pre><strong>val</strong> spark = SparkSessionCreate.createSession() 
+<strong>import</strong> spark.implicits._ </pre>
+<p>Then we define some hyperparameters, such as the number of folds for cross-validation, the number of maximum iterations, the value of the regression parameter, the value of tolerance, and elastic network parameters, as follows:</p>
+<pre><strong>val</strong> numFolds = 10 
+<strong>val</strong> MaxIter: Seq[Int] = Seq(1000) 
+<strong>val</strong> RegParam: Seq[Double] = Seq(0.001) 
+<strong>val</strong> Tol: Seq[Double] = Seq(1e-6) 
+<strong>val</strong> ElasticNetParam: Seq[Double] = Seq(0.001) </pre>
+<p>Well, now we create an LR estimator:</p>
+<pre><strong>val</strong> model = new LinearRegression()<br/>        .setFeaturesCol("features")<br/>        .setLabelCol("label") </pre>
+<p>Now let's build a pipeline estimator by chaining the transformer and the LR estimator:</p>
+<pre>println("Building ML pipeline") 
+<strong>val</strong> pipeline = new Pipeline()<br/>         .setStages((Preproessing.stringIndexerStages  <br/>         :+ Preproessing.assembler) :+ model)</pre>
+<div class="packt_tip">Spark ML pipelines have the following components:
+<ul>
+<li><strong>DataFrame</strong>: Used as the central data store where all the original data and intermediate results are stored.</li>
+</ul>
+<ul>
+<li><strong>Transformer</strong>: A transformer transforms one DataFrame into another by adding additional feature columns. Transformers are stateless, meaning that they don't have any internal memory and behave exactly the same each time they are used.</li>
+</ul>
+<ul>
+<li><strong>Estimator</strong>: An estimator is some sort of ML model. In contrast to a transformer, an estimator contains an internal state representation and is highly dependent on the history of the data that it has already seen.</li>
+</ul>
+<ul>
+<li><strong>Pipeline</strong>: Chains the preceding components, DataFrame, Transformer, and Estimator together.</li>
+</ul>
+<ul>
+<li><strong>Parameter</strong>: ML algorithms have many knobs to tweak. These are called <strong>hyperparameters</strong>, and the values learned by a ML algorithm to fit data are called <strong>parameters</strong>.</li>
+</ul>
+</div>
+<p>Before we start performing the cross-validation, we need to have a paramgrid. So let's start creating the paramgrid by specifying the number of maximum iterations, the value of the regression parameter, the value of tolerance, and Elastic network parameters as follows:</p>
+<pre><strong>val</strong> paramGrid = new ParamGridBuilder() 
+      .addGrid(model.maxIter, MaxIter) 
+      .addGrid(model.regParam, RegParam) 
+      .addGrid(model.tol, Tol) 
+      .addGrid(model.elasticNetParam, ElasticNetParam) 
+      .build() </pre>
+<p>Now, for a better and stable performance, let's prepare the K-fold cross-validation and grid search as a part of model tuning. As you can probably guess, I am going to perform 10-fold cross-validation. Feel free to adjust the number of folds based on your settings and dataset:</p>
+<pre>println("Preparing K-fold Cross Validation and Grid Search: Model tuning") 
+<strong>val</strong> cv = new CrossValidator() 
+      .setEstimator(pipeline) 
+      .setEvaluator(new RegressionEvaluator) 
+      .setEstimatorParamMaps(paramGrid) 
+      .setNumFolds(numFolds) </pre>
+<p>Fantastic - we have created the cross-validation estimator. Now it's time to train the LR model:</p>
+<pre>println("Training model with Linear Regression algorithm") 
+<strong>val</strong> cvModel = cv.fit(Preproessing.trainingData) </pre>
+<p>Now that we have the fitted model, that means it is now capable of making predictions. So let's start evaluating the model on the train and validation set and calculating RMSE, MSE, MAE, R-squared, and many more:</p>
+<pre>println("Evaluating model on train and validation set and calculating RMSE") 
+<strong>val</strong> trainPredictionsAndLabels = cvModel.transform(Preproessing.trainingData)<br/>                .select("label", "prediction")<br/>                .map { case Row(label: Double, prediction: Double) <br/>                =&gt; (label, prediction) }.rdd 
+ 
+<strong>val</strong> validPredictionsAndLabels = cvModel.transform(Preproessing.validationData)<br/>                                .select("label", "prediction")<br/>                                .map { case Row(label: Double, prediction: Double) <br/>                                =&gt; (label, prediction) }.rdd 
+ 
+<strong>val</strong> trainRegressionMetrics = new RegressionMetrics(trainPredictionsAndLabels) 
+<strong>val</strong> validRegressionMetrics = new RegressionMetrics(validPredictionsAndLabels) </pre>
+<p>Great! We have managed to compute the raw prediction on the train and the test set. Let's hunt for the best model:</p>
+<pre><strong>val</strong> bestModel = cvModel.bestModel.asInstanceOf[PipelineModel] </pre>
+<p>Once we have the best fitted and cross-validated model, we can expect good prediction accuracy. Now let's observe the results on the train and the validation set:</p>
+<pre><strong>val</strong> results = "n=====================================================================n" + s"Param trainSample: ${Preproessing.trainSample}n" + 
+      s"Param testSample: ${Preproessing.testSample}n" + 
+      s"TrainingData count: ${Preproessing.trainingData.count}n" + 
+      s"ValidationData count: ${Preproessing.validationData.count}n" + 
+      s"TestData count: ${Preproessing.testData.count}n" +      "=====================================================================n" +   s"Param maxIter = ${MaxIter.mkString(",")}n" + 
+      s"Param numFolds = ${numFolds}n" +      "=====================================================================n" +   s"Training data MSE = ${trainRegressionMetrics.meanSquaredError}n" + 
+      s"Training data RMSE = ${trainRegressionMetrics.rootMeanSquaredError}n" + 
+      s"Training data R-squared = ${trainRegressionMetrics.r2}n" + 
+      s"Training data MAE = ${trainRegressionMetrics.meanAbsoluteError}n" + 
+      s"Training data Explained variance = ${trainRegressionMetrics.explainedVariance}n" +      "=====================================================================n" +   s"Validation data MSE = ${validRegressionMetrics.meanSquaredError}n" + 
+      s"Validation data RMSE = ${validRegressionMetrics.rootMeanSquaredError}n" + 
+      s"Validation data R-squared = ${validRegressionMetrics.r2}n" + 
+      s"Validation data MAE = ${validRegressionMetrics.meanAbsoluteError}n" + 
+      s"Validation data Explained variance = ${validRegressionMetrics.explainedVariance}n" + 
+      s"CV params explained: ${cvModel.explainParams}n" + 
+      s"LR params explained: ${bestModel.stages.last.asInstanceOf[LinearRegressionModel].explainParams}n" +      "=====================================================================n" </pre>
+<p>Now, we print the preceding results as follows:</p>
+<pre>println(results)<br/>&gt;&gt;&gt; </pre>
+<pre>Building Machine Learning pipeline 
+Reading data from data/insurance_train.csv file 
+Null values exist in the DataFrame 
+Training model with Linear Regression algorithm
+===================================================================== 
+Param trainSample: 1.0 
+Param testSample: 1.0 
+TrainingData count: 141194 
+ValidationData count: 47124 
+TestData count: 125546 
+===================================================================== 
+Param maxIter = 1000 
+Param numFolds = 10 
+===================================================================== 
+Training data MSE = 4460667.3666198505 
+Training data RMSE = 2112.0292059107164 
+Training data R-squared = -0.1514435541595276 
+Training data MAE = 1356.9375609756164 
+Training data Explained variance = 8336528.638733305 
+===================================================================== 
+Validation data MSE = 4839128.978963534 
+Validation data RMSE = 2199.802031766389 
+Validation data R-squared = -0.24922962724089603 
+Validation data MAE = 1356.419484419514 
+Validation data Explained variance = 8724661.329105612 
+CV params explained: estimator: estimator for selection (current: pipeline_d5024480c670) 
+estimatorParamMaps: param maps for the estimator (current: [Lorg.apache.spark.ml.param.ParamMap;@2f0c9855) 
+evaluator: evaluator used to select hyper-parameters that maximize the validated metric (current: regEval_00c707fcaa06) 
+numFolds: number of folds for cross validation (&gt;= 2) (default: 3, current: 10) 
+seed: random seed (default: -1191137437) 
+LR params explained: aggregationDepth: suggested depth for treeAggregate (&gt;= 2) (default: 2) 
+elasticNetParam: the ElasticNet mixing parameter, in range [0, 1]. For alpha = 0, the penalty is an L2 penalty. For alpha = 1, it is an L1 penalty (default: 0.0, current: 0.001) 
+featuresCol: features column name (default: features, current: features) 
+fitIntercept: whether to fit an intercept term (default: true) 
+labelCol: label column name (default: label, current: label) 
+maxIter: maximum number of iterations (&gt;= 0) (default: 100, current: 1000) 
+predictionCol: prediction column name (default: prediction) 
+regParam: regularization parameter (&gt;= 0) (default: 0.0, current: 0.001) 
+solver: the solver algorithm for optimization. If this is not set or empty, default value is 'auto' (default: auto) 
+standardization: whether to standardize the training features before fitting the model (default: true) 
+tol: the convergence tolerance for iterative algorithms (&gt;= 0) (default: 1.0E-6, current: 1.0E-6) 
+weightCol: weight column name. If this is not set or empty, we treat all instance weights as 1.0 (undefined) 
+===================================================================== </pre>
+<p>So our predictive model shows an MAE of about <kbd>1356.419484419514</kbd> for both the training and test set. However, the MAE is much lower on the Kaggle public and private leaderboard (go to: <a href="https://www.kaggle.com/c/allstate-claims-severity/leaderboard">https://www.kaggle.com/c/allstate-claims-severity/leaderboard</a>) with an MAE of 1096.92532 and 1109.70772 respectively.</p>
+<p>Wait! We are not done yet. We still need to make a prediction on the test set:</p>
+<pre>println("Run prediction on the test set") 
+cvModel.transform(Preproessing.testData) 
+      .select("id", "prediction") 
+      .withColumnRenamed("prediction", "loss") 
+      .coalesce(1) // to get all the predictions in a single csv file 
+      .write.format("com.databricks.spark.csv")<br/>      .option("header", "true") 
+      .save("output/result_LR.csv")</pre>
+<p>The preceding code should generate a CSV file named <kbd>result_LR.csv</kbd>. If we open the file, we should observe the loss against each ID, that is, claim. We will see the contents for both LR, RF, and GBT at the end of this chapter. Nevertheless, it is always a good idea to stop the Spark session by invoking the <kbd>spark.stop()</kbd> method.</p>
+<p>An ensemble method is a learning algorithm that creates a model that is composed of a set of other base models. Spark ML supports two major ensemble algorithms called GBT and <span>random forest</span> based on decision trees. We will now see if we can improve the prediction accuracy by reducing the MAE error significantly using GBT.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">GBT regressor for predicting insurance severity claims</h1>
+                </header>
+            
+            <article>
+                
+<p>In order to minimize a <kbd>loss</kbd> function, <strong>Gradient Boosting Trees</strong> (<strong>GBTs</strong>) iteratively train many decision trees. On each iteration, the algorithm uses the current ensemble to predict the label of each training instance.</p>
+<p>Then the raw predictions are compared with the true labels. Thus, in the next iteration, the decision tree will help correct previous mistakes if the dataset is re-labeled to put more emphasis on training instances with poor predictions.</p>
+<p>Since we are talking about regression, it would be more meaningful to discuss the regression strength of GBTs and its losses computation. Suppose we have the following settings:</p>
+<ul>
+<li><em>N</em> data instances</li>
+<li><em>y<sub>i</sub></em> = label of instance <em>i</em></li>
+<li><em>x<sub>i</sub></em> = features of instance <em>i</em></li>
+</ul>
+<p>Then the <em>F(x<sub>i</sub>)</em> function is the model's predicted label; for instance, it tries to minimize the error, that is, loss:</p>
+<div class="CDPAlignCenter CDPAlign"><img height="90" width="518" class="alignnone size-full wp-image-57 image-border" src="assets/a116bede-a15a-490c-b5a4-cc9b15c285a1.png"/></div>
+<p>Now, similar to decision trees, GBTs also:</p>
+<ul>
+<li>Handle categorical features (and of course numerical features too)</li>
+<li>Extend to the multiclass classification setting</li>
+<li>Perform both the binary classification and regression (multiclass classification is not yet supported)</li>
+<li>Do not require feature scaling</li>
+<li>Capture non-linearity and feature interactions, which are greatly missing in LR, such as <span>linear</span> models</li>
+</ul>
+<div class="packt_tip"><strong>Validation while training</strong>: Gradient boosting can overfit, especially when you have trained your model with more trees. In order to prevent this issue, it is useful to validate while carrying out the training.</div>
+<p>Since we have already prepared our dataset, we can directly jump into implementing a GBT-based predictive model for predicting insurance severity claims. Let's start with importing the necessary packages and libraries:</p>
+<pre><strong>import</strong> org.apache.spark.ml.regression.{GBTRegressor, GBTRegressionModel} 
+<strong>import</strong> org.apache.spark.ml.{Pipeline, PipelineModel} 
+<strong>import</strong> org.apache.spark.ml.evaluation.RegressionEvaluator 
+<strong>import</strong> org.apache.spark.ml.tuning.ParamGridBuilder 
+<strong>import</strong> org.apache.spark.ml.tuning.CrossValidator 
+<strong>import</strong> org.apache.spark.sql._ 
+<strong>import</strong> org.apache.spark.sql.functions._ 
+<strong>import</strong> org.apache.spark.mllib.evaluation.RegressionMetrics </pre>
+<p>Now let's define and initialize the hyperparameters needed to train the GBTs, such as the number of trees, number of max bins, number of folds to be used during cross-validation, number of maximum iterations to iterate the training, and finally max tree depth:</p>
+<pre><strong>val</strong> NumTrees = Seq(5, 10, 15) 
+<strong>val</strong> MaxBins = Seq(5, 7, 9) 
+<strong>val</strong> numFolds = 10 
+<strong>val</strong> MaxIter: Seq[Int] = Seq(10) 
+<strong>val</strong> MaxDepth: Seq[Int] = Seq(10) </pre>
+<p>Then, again we instantiate a Spark session and implicits as follows:</p>
+<pre><strong>val</strong> spark = SparkSessionCreate.createSession() 
+<strong>import</strong> spark.implicits._ </pre>
+<p>Now that we care an estimator algorithm, that is, GBT:</p>
+<pre><strong>val</strong> model = new GBTRegressor()<br/>                .setFeaturesCol("features")<br/>                .setLabelCol("label") </pre>
+<p>Now, we build the pipeline by chaining the transformations and predictor together as follows:</p>
+<pre><strong>val</strong> pipeline = new Pipeline().setStages((Preproessing.stringIndexerStages :+ Preproessing.assembler) :+ model) </pre>
+<p>Before we start performing the cross-validation, we need to have a paramgrid. So let's start creating the paramgrid by specifying the number of maximum iteration, max tree depth, and max bins as follows:</p>
+<pre><strong>val</strong> paramGrid = new ParamGridBuilder() 
+      .addGrid(model.maxIter, MaxIter) 
+      .addGrid(model.maxDepth, MaxDepth) 
+      .addGrid(model.maxBins, MaxBins) 
+      .build() </pre>
+<p>Now, for a better and stable performance, let's prepare the K-fold cross-validation and grid search as a part of model tuning. As you can guess, I am going to perform 10-fold cross-validation. Feel free to adjust the number of folds based on you settings and dataset:</p>
+<pre>println("Preparing K-fold Cross Validation and Grid Search") 
+<strong>val</strong> cv = new CrossValidator() 
+      .setEstimator(pipeline) 
+      .setEvaluator(new RegressionEvaluator) 
+      .setEstimatorParamMaps(paramGrid) 
+      .setNumFolds(numFolds) </pre>
+<p>Fantastic, we have created the cross-validation estimator. Now it's time to train the GBT model:</p>
+<pre>println("Training model with GradientBoostedTrees algorithm ") 
+<strong>val</strong> cvModel = cv.fit(Preproessing.trainingData) </pre>
+<p>Now that we have the fitted model, that means it is now capable of making predictions. So let's start evaluating the model on the train and validation set, and calculating RMSE, MSE, MAE, R-squared, and so on:</p>
+<pre>println("Evaluating model on train and test data and calculating RMSE") 
+<strong>val</strong> trainPredictionsAndLabels = cvModel.transform(Preproessing.trainingData).select("label", "prediction").map { case Row(label: Double, prediction: Double) =&gt; (label, prediction) }.rdd 
+<br/><strong>val</strong> validPredictionsAndLabels = cvModel.transform(Preproessing.validationData).select("label", "prediction").map { case Row(label: Double, prediction: Double) =&gt; (label, prediction) }.rdd 
+ 
+<strong>val</strong> trainRegressionMetrics = new RegressionMetrics(trainPredictionsAndLabels) 
+<strong>val</strong> validRegressionMetrics = new RegressionMetrics(validPredictionsAndLabels) </pre>
+<p>Great! We have managed to compute the raw prediction on the train and the test set. Let's hunt for the best model:</p>
+<pre><strong>val</strong> bestModel = cvModel.bestModel.asInstanceOf[PipelineModel] </pre>
+<p>As already stated, by using GBT it is possible to measure feature importance so that at a later stage we can decide which features are to be used and which ones are to be dropped from the DataFrame. Let's find the feature importance of the best model we just created previously, for all features in ascending order as follows:</p>
+<pre><strong>val</strong> featureImportances = bestModel.stages.last.asInstanceOf[GBTRegressionModel].featureImportances.toArray 
+<strong>val</strong> FI_to_List_sorted = featureImportances.toList.sorted.toArray  </pre>
+<p>Once we have the best fitted and cross-validated model, we can expect good prediction accuracy. Now let's observe the results on the train and the validation set:</p>
+<pre><strong>val</strong> output = "n=====================================================================n" + s"Param trainSample: ${Preproessing.trainSample}n" + 
+      s"Param testSample: ${Preproessing.testSample}n" + 
+      s"TrainingData count: ${Preproessing.trainingData.count}n" + 
+      s"ValidationData count: ${Preproessing.validationData.count}n" + 
+      s"TestData count: ${Preproessing.testData.count}n" +      "=====================================================================n" +   s"Param maxIter = ${MaxIter.mkString(",")}n" + 
+      s"Param maxDepth = ${MaxDepth.mkString(",")}n" + 
+      s"Param numFolds = ${numFolds}n" +      "=====================================================================n" +   s"Training data MSE = ${trainRegressionMetrics.meanSquaredError}n" + 
+      s"Training data RMSE = ${trainRegressionMetrics.rootMeanSquaredError}n" + 
+      s"Training data R-squared = ${trainRegressionMetrics.r2}n" + 
+      s"Training data MAE = ${trainRegressionMetrics.meanAbsoluteError}n" + 
+      s"Training data Explained variance = ${trainRegressionMetrics.explainedVariance}n" +      "=====================================================================n" +    s"Validation data MSE = ${validRegressionMetrics.meanSquaredError}n" + 
+      s"Validation data RMSE = ${validRegressionMetrics.rootMeanSquaredError}n" + 
+      s"Validation data R-squared = ${validRegressionMetrics.r2}n" + 
+      s"Validation data MAE = ${validRegressionMetrics.meanAbsoluteError}n" + 
+      s"Validation data Explained variance = ${validRegressionMetrics.explainedVariance}n" +      "=====================================================================n" +   s"CV params explained: ${cvModel.explainParams}n" + 
+      s"GBT params explained: ${bestModel.stages.last.asInstanceOf[GBTRegressionModel].explainParams}n" + s"GBT features importances:n ${Preproessing.featureCols.zip(FI_to_List_sorted).map(t =&gt; s"t${t._1} = ${t._2}").mkString("n")}n" +      "=====================================================================n" </pre>
+<p>Now, we print the preceding results as follows:</p>
+<pre>println(results)<br/> &gt;&gt;&gt; </pre>
+<pre>===================================================================== 
+Param trainSample: 1.0 
+Param testSample: 1.0 
+TrainingData count: 141194 
+ValidationData count: 47124 
+TestData count: 125546 
+===================================================================== 
+Param maxIter = 10 
+Param maxDepth = 10 
+Param numFolds = 10 
+===================================================================== 
+Training data MSE = 2711134.460296872 
+Training data RMSE = 1646.5522950385973 
+Training data R-squared = 0.4979619968485668 
+Training data MAE = 1126.582534126603 
+Training data Explained variance = 8336528.638733303 
+===================================================================== 
+Validation data MSE = 4796065.983773314 
+Validation data RMSE = 2189.9922337244293 
+Validation data R-squared = 0.13708582379658474 
+Validation data MAE = 1289.9808960385383 
+Validation data Explained variance = 8724866.468978886 
+===================================================================== 
+CV params explained: estimator: estimator for selection (current: pipeline_9889176c6eda) 
+estimatorParamMaps: param maps for the estimator (current: [Lorg.apache.spark.ml.param.ParamMap;@87dc030) 
+evaluator: evaluator used to select hyper-parameters that maximize the validated metric (current: regEval_ceb3437b3ac7) 
+numFolds: number of folds for cross validation (&gt;= 2) (default: 3, current: 10) 
+seed: random seed (default: -1191137437) 
+GBT params explained: cacheNodeIds: If false, the algorithm will pass trees to executors to match instances with nodes. If true, the algorithm will cache node IDs for each instance. Caching can speed up training of deeper trees. (default: false) 
+checkpointInterval: set checkpoint interval (&gt;= 1) or disable checkpoint (-1). E.g. 10 means that the cache will get checkpointed every 10 iterations (default: 10) 
+featuresCol: features column name (default: features, current: features) 
+impurity: Criterion used for information gain calculation (case-insensitive). Supported options: variance (default: variance) 
+labelCol: label column name (default: label, current: label) 
+lossType: Loss function which GBT tries to minimize (case-insensitive). Supported options: squared, absolute (default: squared) 
+maxBins: Max number of bins for discretizing continuous features. Must be &gt;=2 and &gt;= number of categories for any categorical feature. (default: 32) 
+maxDepth: Maximum depth of the tree. (&gt;= 0) E.g., depth 0 means 1 leaf node; depth 1 means 1 internal node + 2 leaf nodes. (default: 5, current: 10) 
+maxIter: maximum number of iterations (&gt;= 0) (default: 20, current: 10) 
+maxMemoryInMB: Maximum memory in MB allocated to histogram aggregation. (default: 256) 
+minInfoGain: Minimum information gain for a split to be considered at a tree node. (default: 0.0) 
+minInstancesPerNode: Minimum number of instances each child must have after split. If a split causes the left or right child to have fewer than minInstancesPerNode, the split will be discarded as invalid. Should be &gt;= 1. (default: 1) 
+predictionCol: prediction column name (default: prediction) 
+seed: random seed (default: -131597770) 
+stepSize: Step size (a.k.a. learning rate) in interval (0, 1] for shrinking the contribution of each estimator. (default: 0.1) 
+subsamplingRate: Fraction of the training data used for learning each decision tree, in range (0, 1]. (default: 1.0) 
+GBT features importance: 
+   idx_cat1 = 0.0 
+   idx_cat2 = 0.0 
+   idx_cat3 = 0.0 
+   idx_cat4 = 3.167169394850417E-5 
+   idx_cat5 = 4.745749854188828E-5 
+... 
+   idx_cat111 = 0.018960701085054904 
+   idx_cat114 = 0.020609596772820878 
+   idx_cat115 = 0.02281267960792931 
+   cont1 = 0.023943087007850663 
+   cont2 = 0.028078353534251005 
+   ... 
+   cont13 = 0.06921704925937068 
+   cont14 = 0.07609111789104464 
+===================================================================== </pre>
+<p>So our predictive model shows an MAE of about <kbd>1126.582534126603</kbd> and <kbd>1289.9808960385383</kbd> for the training and test sets respectively. The last result is important for understanding the feature importance (the preceding list is abridged to save space but you should receive the full list). Especially, we can see that the first three features are not important at all so we can safely drop them from the DataFrame. We will provide more insight in the next section.</p>
+<p>Now finally, let us run the prediction over the test set and generate the predicted loss for each claim from the clients:</p>
+<pre>println("Run prediction over test dataset") 
+cvModel.transform(Preproessing.testData) 
+      .select("id", "prediction") 
+      .withColumnRenamed("prediction", "loss") 
+      .coalesce(1) 
+      .write.format("com.databricks.spark.csv") 
+      .option("header", "true") 
+      .save("output/result_GBT.csv") </pre>
+<p>The preceding code should generate a CSV file named <kbd>result_GBT.csv</kbd>. If we open the file, we should observe the loss against each ID, that is, claim. We will see the contents for both LR, RF, and GBT at the end of this chapter. Nevertheless, it is always a good idea to stop the Spark session by invoking the <kbd>spark.stop()</kbd> method.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Boosting the performance using random forest regressor</h1>
+                </header>
+            
+            <article>
+                
+<p>In the previous sections, we did not experience the expected MAE value although we got predictions of the severity loss in each instance. In this section, we will develop a more robust predictive analytics model for the same purpose but use an <span>random forest</span> regressor. However, before diving into its formal implementation, a short overview of the <span>random forest</span> algorithm is needed.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Random Forest for classification and regression</h1>
+                </header>
+            
+            <article>
+                
+<p><span>Random Forest</span> is an ensemble learning technique used for solving supervised learning tasks, such as classification and regression. An advantageous feature of Random Forest is that it can overcome the overfitting problem across its training dataset. A forest in Random Forest usually consists of hundreds of thousands of trees. These trees are actually trained on different parts of the same training set.</p>
+<p>More technically, an individual tree that grows very deep tends to learn from highly unpredictable patterns. This creates overfitting problems on the training sets. Moreover, low biases make the classifier a low performer even if your dataset quality is good in terms of the features presented. On the other hand, an Random Forest helps to average multiple decision trees together with the goal of reducing the variance to ensure consistency by computing proximities between pairs of cases.</p>
+<div class="packt_tip"><strong>GBT</strong> or <strong>Random Forest</strong>? Although both GBT and Random Forest are ensembles of trees, the training processes are different. There are several practical trade-offs that exist, which often poses the dilemma of which one to choose. However, Random Forest would be the winner in most cases. Here are some justifications:<br/>
+<ul>
+<li>GBTs train one tree at a time, but Random Forest can train multiple trees in parallel. So the training time is lower for RF. However, in some special cases, training and using a smaller number of trees with GBTs is easier and quicker.</li>
+<li>RFs are less prone to overfitting in most cases, so it reduces the likelihood of overfitting. In other words, Random Forest reduces variance with more trees, but GBTs reduce bias with more trees.</li>
+<li>Finally, Random Forest can be easier to tune since performance improves monotonically with the number of trees, but GBT performs badly with an increased number of trees.</li>
+</ul>
+</div>
+<p>However, this slightly increases bias and makes it harder to interpret the results. But eventually, the performance of the final model increases dramatically. While using the Random Forest as a classifier, there are some parameter settings:</p>
+<ul>
+<li>If the number of trees is 1, then no bootstrapping is used at all; however, if the number of trees is &gt; 1, then bootstrapping is needed. The supported values are <kbd>auto</kbd>, <kbd>all</kbd>, <kbd>sqrt</kbd>, <kbd>log2</kbd>, and <kbd>onethird</kbd>.</li>
+<li>The supported numerical values are <em>(0.0-1.0)</em> and <em>[1-n]</em>. However, if <kbd>featureSubsetStrategy</kbd> is chosen as <kbd>auto</kbd>, the algorithm chooses the best feature subset strategy automatically.</li>
+<li>If the <kbd>numTrees == 1</kbd>, the <kbd>featureSubsetStrategy</kbd> is set to be <kbd>all</kbd>. However, if the <kbd>numTrees &gt; 1</kbd> (that is, forest), the <kbd>featureSubsetStrategy</kbd> is set to be <kbd>sqrt</kbd> for classification.</li>
+<li>Moreover, if a real value <kbd>n</kbd> is set in the range of <em>(0, 1.0)</em>, <kbd>n*number_of_features</kbd> will be used. However, if an integer value <kbd>n</kbd> is in the range (1, the number of features) is set, only <kbd>n</kbd> features are used alternatively.</li>
+<li>The parameter <kbd>categoricalFeaturesInfo</kbd> is a map used for storing arbitrary or of categorical features. An entry <em>(n -&gt; k)</em> indicates that feature <kbd>n</kbd> is categorical with I categories indexed from <em>0: (0, 1,...,k-1)</em>.</li>
+<li>The impurity criterion is used for information gain calculation. The supported values are <kbd>gini</kbd> and <kbd>variance</kbd> for classification and regression respectively.</li>
+<li>The <kbd>maxDepth</kbd> is the maximum depth of the tree (for example, depth 0 means one leaf node, depth 1 means one internal node plus two leaf nodes).</li>
+<li>The <kbd>maxBins</kbd> signifies the maximum number of bins used for splitting the features, where the suggested value is 100 to get better results.</li>
+<li>Finally, the random seed is used for bootstrapping and choosing feature subsets to avoid the random nature of the results.</li>
+</ul>
+<p>As already mentioned, since Random Forest is fast and scalable enough for a large-scale dataset, Spark is a suitable technology to implement the RF, and to implement this massive scalability. However, if the proximities are calculated, storage requirements also grow exponentially.</p>
+<p>Well, that's enough about RF. Now it's time to get our hands dirty, so let's get started. We begin with importing required libraries:</p>
+<pre>import org.apache.spark.ml.regression.{RandomForestRegressor, RandomForestRegressionModel} 
+import org.apache.spark.ml.{ Pipeline, PipelineModel } 
+import org.apache.spark.ml.evaluation.RegressionEvaluator 
+import org.apache.spark.ml.tuning.ParamGridBuilder 
+import org.apache.spark.ml.tuning.CrossValidator 
+import org.apache.spark.sql._ 
+import org.apache.spark.sql.functions._ 
+import org.apache.spark.mllib.evaluation.RegressionMetrics </pre>
+<p>Then we create an active Spark session and import implicits:</p>
+<pre>val spark = SparkSessionCreate.createSession() 
+import spark.implicits._ </pre>
+<p>Then we define some hyperparameters, such as the number of folds for cross-validation, number of maximum iterations, the value of regression parameters, value of tolerance, and elastic network parameters, as follows:</p>
+<pre>val NumTrees = Seq(5,10,15)  
+val MaxBins = Seq(23,27,30)  
+val numFolds = 10  
+val MaxIter: Seq[Int] = Seq(20) 
+val MaxDepth: Seq[Int] = Seq(20) </pre>
+<p>Note that for an Random Forest based on a decision tree, we require <kbd>maxBins</kbd> to be at least as large as the number of values in each categorical feature. In our dataset, we have 110 categorical features with 23 distinct values. Considering this, we have to set <kbd>MaxBins</kbd> to at least 23. Nevertheless, feel free to play with the previous parameters too. Alright, now it's time to create an LR estimator:</p>
+<pre>val model = new RandomForestRegressor().setFeaturesCol("features").setLabelCol("label")</pre>
+<p>Now let's build a pipeline estimator by chaining the transformer and the LR estimator:</p>
+<pre>println("Building ML pipeline") 
+val pipeline = new Pipeline().setStages((Preproessing.stringIndexerStages :+ Preproessing.assembler) :+ model) </pre>
+<p>Before we start performing the cross-validation, we need to have a paramgrid. So let's start creating the paramgrid by specifying the number of trees, a number for maximum tree depth, and the number of maximum bins parameters, as follows:</p>
+<pre>val paramGrid = new ParamGridBuilder() 
+      .addGrid(model.numTrees, NumTrees) 
+      .addGrid(model.maxDepth, MaxDepth) 
+      .addGrid(model.maxBins, MaxBins) 
+      .build() </pre>
+<p>Now, for better and stable performance, let's prepare the K-fold cross-validation and grid search as a part of model tuning. As you can probably guess, I am going to perform 10-fold cross-validation. Feel free to adjust the number of folds based on your settings and dataset:</p>
+<pre>println("Preparing K-fold Cross Validation and Grid Search: Model tuning") 
+val cv = new CrossValidator() 
+      .setEstimator(pipeline) 
+      .setEvaluator(new RegressionEvaluator) 
+      .setEstimatorParamMaps(paramGrid) 
+      .setNumFolds(numFolds) </pre>
+<p>Fantastic, we have created the cross-validation estimator. Now it's time to train the LR model:</p>
+<pre>println("Training model with Random Forest algorithm")  
+val cvModel = cv.fit(Preproessing.trainingData) </pre>
+<p>Now that we have the fitted model, that means it is now capable of making predictions. So let's start evaluating the model on the train and validation set, and calculating RMSE, MSE, MAE, R-squared, and many more:</p>
+<pre>println("Evaluating model on train and validation set and calculating RMSE") 
+val trainPredictionsAndLabels = cvModel.transform(Preproessing.trainingData).select("label", "prediction").map { case Row(label: Double, prediction: Double) =&gt; (label, prediction) }.rdd 
+ 
+val validPredictionsAndLabels = cvModel.transform(Preproessing.validationData).select("label", "prediction").map { case Row(label: Double, prediction: Double) =&gt; (label, prediction) }.rdd 
+ 
+val trainRegressionMetrics = new RegressionMetrics(trainPredictionsAndLabels) 
+val validRegressionMetrics = new RegressionMetrics(validPredictionsAndLabels) </pre>
+<p>Great! We have managed to compute the raw prediction on the train and the test set. Let's hunt for the best model:</p>
+<pre>val bestModel = cvModel.bestModel.asInstanceOf[PipelineModel]</pre>
+<p>As already stated, by using RF, it is possible to measure the feature importance so that at a later stage, we can decide which features should be used and which ones are to be dropped from the DataFrame. Let's find the feature importance from the best model we just created for all features in ascending order, as follows:</p>
+<pre>val featureImportances = bestModel.stages.last.asInstanceOf[RandomForestRegressionModel].featureImportances.toArray 
+val FI_to_List_sorted = featureImportances.toList.sorted.toArray  </pre>
+<p>Once we have the best fitted and cross-validated model, we can expect a good prediction accuracy. Now let's observe the results on the train and the validation set:</p>
+<pre>val output = "n=====================================================================n" + s"Param trainSample: ${Preproessing.trainSample}n" + 
+      s"Param testSample: ${Preproessing.testSample}n" + 
+      s"TrainingData count: ${Preproessing.trainingData.count}n" + 
+      s"ValidationData count: ${Preproessing.validationData.count}n" + 
+      s"TestData count: ${Preproessing.testData.count}n" +      "=====================================================================n" +   s"Param maxIter = ${MaxIter.mkString(",")}n" + 
+      s"Param maxDepth = ${MaxDepth.mkString(",")}n" + 
+      s"Param numFolds = ${numFolds}n" +      "=====================================================================n" +   s"Training data MSE = ${trainRegressionMetrics.meanSquaredError}n" + 
+      s"Training data RMSE = ${trainRegressionMetrics.rootMeanSquaredError}n" + 
+      s"Training data R-squared = ${trainRegressionMetrics.r2}n" + 
+      s"Training data MAE = ${trainRegressionMetrics.meanAbsoluteError}n" + 
+      s"Training data Explained variance = ${trainRegressionMetrics.explainedVariance}n" +      "=====================================================================n" +   s"Validation data MSE = ${validRegressionMetrics.meanSquaredError}n" + 
+      s"Validation data RMSE = ${validRegressionMetrics.rootMeanSquaredError}n" + 
+      s"Validation data R-squared = ${validRegressionMetrics.r2}n" + 
+      s"Validation data MAE = ${validRegressionMetrics.meanAbsoluteError}n" + 
+      s"Validation data Explained variance =<br/>${validRegressionMetrics.explainedVariance}n" +      "=====================================================================n" +   s"CV params explained: ${cvModel.explainParams}n" + 
+      s"RF params explained: ${bestModel.stages.last.asInstanceOf[RandomForestRegressionModel].explainParams}n" + 
+      s"RF features importances:n ${Preproessing.featureCols.zip(FI_to_List_sorted).map(t =&gt; s"t${t._1} = ${t._2}").mkString("n")}n" +      "=====================================================================n" </pre>
+<p>Now, we print the preceding results as follows:</p>
+<pre>println(results)<br/>&gt;&gt;&gt;<q><br/></q>Param trainSample: 1.0<br/> Param testSample: 1.0<br/> TrainingData count: 141194<br/> ValidationData count: 47124<br/> TestData count: 125546<br/> Param maxIter = 20<br/> Param maxDepth = 20<br/> Param numFolds = 10<br/> Training data MSE = 1340574.3409399686<br/> Training data RMSE = 1157.8317412042081<br/> Training data R-squared = 0.7642745310548124<br/> Training data MAE = 809.5917285994619<br/> Training data Explained variance = 8337897.224852404<br/> Validation data MSE = 4312608.024875177<br/> Validation data RMSE = 2076.6819749001475<br/> Validation data R-squared = 0.1369507149716651"<br/> Validation data MAE = 1273.0714382935894<br/> Validation data Explained variance = 8737233.110450774</pre>
+<p>So our predictive model shows an MAE of about <kbd>809.5917285994619</kbd> and <kbd>1273.0714382935894</kbd> for the training and test set respectively. The last result is important for understanding the feature importance (the preceding list is abridged to save space but you should receive the full list).</p>
+<p>I have drawn both the categorical and continuous features, and their respective importance in Python, so I will not show the code here but only the graph. Let's see the categorical features showing feature importance as well as the corresponding feature number:</p>
+<div class="CDPAlignCenter CDPAlign"><img height="429" width="289" class="alignnone size-full wp-image-58 image-border" src="assets/ca636833-3cff-4307-a496-220d051b6786.png"/></div>
+<div class="packt_figref CDPAlignCenter CDPAlign">Figure 11: Random Forest categorical feature importance</div>
+<p>From the preceding graph, it is clear that categorical features <kbd>cat20</kbd>, <kbd>cat64</kbd>, <kbd>cat47</kbd>, and <kbd>cat69</kbd> are less important. Therefore, it would make sense to drop these features and retrain the Random Forest model to observe better performance.</p>
+<p>Now let's see how the continuous features are correlated and contribute to the loss column. From the following figure, we can see that all continuous features are positively correlated with the loss column. This also signifies that these continuous features are not that important compared to the categorical ones we have seen in the preceding figure:</p>
+<div class="CDPAlignCenter CDPAlign"><img height="442" width="591" class="alignnone size-full wp-image-59 image-border" src="assets/3e81f309-b2f2-4737-9047-cf674a9bf9d8.png"/></div>
+<div class="packt_figref CDPAlignCenter CDPAlign">Figure 12: Correlations between the continuous features and the label</div>
+<p>What we can learn from these two analyses is that we can naively drop some unimportant columns and train the Random Forest model to observe if there is any reduction in the MAE value for both the training and validation set. Finally, let's make a prediction on the test set:</p>
+<pre>println("Run prediction on the test set") 
+cvModel.transform(Preproessing.testData) 
+      .select("id", "prediction") 
+      .withColumnRenamed("prediction", "loss") 
+      .coalesce(1) // to get all the predictions in a single csv file                 <br/>      .write.format("com.databricks.spark.csv") 
+      .option("header", "true") 
+      .save("output/result_RF.csv") </pre>
+<p>Also, similar to LR, you can stop the Spark session by invoking the <kbd>stop()</kbd> method. Now the generated <kbd>result_RF.csv</kbd> file should contain the loss against each ID, that is, claim.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Comparative analysis and model deployment</h1>
+                </header>
+            
+            <article>
+                
+<p>You have already seen that the LR model is much easier to train for a small training dataset. However, we haven't experienced better accuracy compared to GBT and Random Forest models. However, the simplicity of the LR model is a very good starting point. On the other hand, we already argued that Random Forest would be the winner over GBT for several reasons, of course. Let's see the results in a table:</p>
+<div class="CDPAlignCenter CDPAlign"><img height="417" width="751" class="alignnone size-full wp-image-60 image-border" src="assets/2c90a1fe-89d1-4300-8946-1e2c1e877daf.png"/></div>
+<p>Now let's see how the predictions went for each model for 20 accidents or damage claims:</p>
+<div class="CDPAlignCenter CDPAlign"><img height="341" width="390" class="alignnone size-full wp-image-61 image-border" src="assets/f13ba518-733c-4670-aea7-a02cf25050d7.png"/></div>
+<div class="packt_figref CDPAlignCenter CDPAlign">Figure 13: Loss prediction by i) LR, ii) GBT, and iii) Random Forest models</div>
+<p>Therefore, based on table 2, it is clear that we should go with the Random Forest regressor to not only predict the insurance claim loss but also its production. Now we will see a quick overview of how to take our best model, that is, an Random Forest regressor into production. The idea is, as a data scientist, you may have produced an ML model and handed it over to an engineering team in your company for deployment in a production-ready environment.</p>
+<p>Here, I provide a naïve approach, though IT companies must have their own way to deploy the models. Nevertheless, there will be a dedicated section at the end of this topic. This scenario can easily become a reality by using model persistence—the ability to save and load models that come with Spark. Using Spark, you can either:</p>
+<ul>
+<li>Save and load a single model</li>
+<li>Save and load a full pipeline</li>
+</ul>
+<p>A single model is pretty simple, but less effective and mainly works on Spark MLlib-based model persistence. Since we are more interested in saving the best model, that is, the Random Forest regressor model, at first we will fit an Random Forest regressor using Scala, save it, and then load the same model back using Scala:</p>
+<pre>// Estimator algorithm 
+val model = new RandomForestRegressor() 
+                    .setFeaturesCol("features") 
+                    .setLabelCol("label") 
+                    .setImpurity("gini") 
+                    .setMaxBins(20) 
+                    .setMaxDepth(20) 
+                    .setNumTrees(50) 
+fittedModel = rf.fit(trainingData) </pre>
+<p>We can now simply call the <kbd>write.overwrite().save()</kbd> method to save this model to local storage, HDFS, or S3, and the load method to load it right back for future use:</p>
+<pre>fittedModel.write.overwrite().save("model/RF_model")  
+val sameModel = CrossValidatorModel.load("model/RF_model") </pre>
+<p>Now the thing that we need to know is how to use the restored model for making predictions. Here's the answer:</p>
+<pre>sameModel.transform(Preproessing.testData) 
+    .select("id", "prediction") 
+    .withColumnRenamed("prediction", "loss") 
+    .coalesce(1) 
+    .write.format("com.databricks.spark.csv") 
+    .option("header", "true") 
+    .save("output/result_RF_reuse.csv") </pre>
+<div class="CDPAlignCenter CDPAlign"><img height="311" width="406" src="assets/149cecc1-17f7-4375-b90d-263bf5166ed9.png"/></div>
+<div class="packt_figref CDPAlignCenter CDPAlign">Figure 14: Spark model deployment for production</div>
+<p>So far, we have only looked at saving and loading a single ML model but not a tuned or stable one. It might even provide you with many wrong predictions. Therefore, now the second approach might be more effective.</p>
+<p>The reality is that, in practice, ML workflows consist of many stages, from feature extraction and transformation to model fitting and tuning. Spark ML provides pipelines to help users construct these workflows. Similarly, a pipeline with the cross-validated model can be saved and restored back the same way as we did in the first approach.</p>
+<p>We fit the cross-validated model with the training set:</p>
+<pre>val cvModel = cv.fit(Preproessing.trainingData)   </pre>
+<p>Then we save the workflow/pipeline:</p>
+<pre>cvModel.write.overwrite().save("model/RF_model") </pre>
+<p>Note that the preceding line of code will save the model in your preferred location with the following directory structure:</p>
+<div class="packt_figure CDPAlignCenter CDPAlign"><img height="255" width="154" class="alignnone size-full wp-image-63 image-border" src="assets/18125bde-d6a1-45e6-92f1-18fa933f1365.png"/></div>
+<div class="packt_figref CDPAlignCenter CDPAlign">Figure 15: Saved model directory structure</div>
+<pre>//Then we restore the same model back:
+val sameCV = CrossValidatorModel.load("model/RF_model") 
+Now when you try to restore the same model, Spark will automatically pick the best one. Finally, we reuse this model for making a prediction as follows:
+sameCV.transform(Preproessing.testData) 
+      .select("id", "prediction") 
+      .withColumnRenamed("prediction", "loss") 
+      .coalesce(1) 
+      .write.format("com.databricks.spark.csv") 
+      .option("header", "true") 
+      .save("output/result_RF_reuse.csv")  </pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Spark-based model deployment for large-scale dataset</h1>
+                </header>
+            
+            <article>
+                
+<p>In a production ready environment, we often need to deploy a pretrained models in scale. Especially, if we need to handle a massive amount of data. So our ML model has to face this scalability issue to perform continiously and with faster response. To overcome this issue, one of the main big data paradigms that Spark has brought for us is the introduction of in-memory computing (it supports dis based operation, though) and caching abstraction.</p>
+<p>This makes Spark ideal for large-scale data processing and enables the computing nodes to perform multiple operations by accessing the same input data across multiple nodes in a computing cluster or cloud computing infrastructures (example, Amazon AWS, DigitalOcean, Microsoft Azure, or Google Cloud). For doing so, Spark supports four cluster managers (the last one is still experimental, though):</p>
+<ul>
+<li><strong>Standalone</strong>: A simple cluster manager included with Spark that makes it easy to set up a cluster.</li>
+<li><strong>Apache Mesos</strong>: A general cluster manager that can also run Hadoop MapReduce and service applications.</li>
+<li><strong>Hadoop YARN</strong>: The resource manager in Hadoop 2.</li>
+<li><strong>Kubernetes (experimental)</strong>: In addition to the above, there is experimental support for Kubernetes. Kubernetes is an open-source platform for providing container-centric infrastructure. See more at <a href="https://spark.apache.org/docs/latest/cluster-overview.html">https://spark.apache.org/docs/latest/cluster-overview.html</a>.</li>
+</ul>
+<p>You can upload your input dataset on <strong>Hadoop Distributed File System</strong> (<strong>HDFS</strong>) or <strong>S3</strong> storage for efficient computing and storing big data cheaply. Then the <kbd>spark-submit</kbd> script in Spark’s bin directory is used to launch applications on any of those cluster modes. It can use all of the cluster managers through a uniform interface so you don’t have to configure your application specially for each one.</p>
+<p>However, if your code depends on other projects, you will need to package them alongside your application in order to distribute the code to a Spark cluster. To do this, create an assembly jar (also called <kbd>fat</kbd> or <kbd>uber</kbd> jar) containing your code and its dependencies. Then ship the code where the data resides and execute your Spark jobs. Both the <kbd>SBT</kbd> and <kbd>Maven</kbd> have assembly plugins that should help you to prepare the jars.</p>
+<p>When creating assembly jars, list Spark and Hadoop as dependencies as well. These need not be bundled since they are provided by the cluster manager at runtime. Once you have an assembled jar, you can call the script by passing your jar as follows:</p>
+<pre>  ./bin/spark-submit \<br/>      --class &lt;main-class&gt; \<br/>      --master &lt;master-url&gt; \<br/>      --deploy-mode &lt;deploy-mode&gt; \<br/>      --conf &lt;key&gt;=&lt;value&gt; \<br/>       ... # other options<br/>       &lt;application-jar&gt; \<br/>       [application-arguments]</pre>
+<p>In the preceding command, some of the commonly used options are listed down as follows:</p>
+<ul>
+<li><kbd>--class</kbd>: The entry point for your application (example, <kbd>org.apache.spark.examples.SparkPi</kbd>).</li>
+<li><kbd>--master</kbd>: The master URL for the cluster (example, <kbd>spark://23.195.26.187:7077</kbd>).</li>
+<li><kbd>--deploy-mode</kbd>: Whether to deploy your driver on the worker nodes (cluster) or locally as an external client.</li>
+<li><kbd>--conf</kbd>: Arbitrary Spark configuration property in key=value format.</li>
+<li><kbd>application-jar</kbd>: Path to a bundled jar including your application and all dependencies. The URL must be globally visible inside of your cluster, for instance, an <kbd>hdfs://</kbd> path or a <kbd>file://</kbd> path that is present on all nodes.</li>
+<li><kbd>application-arguments</kbd>: Arguments passed to the main method of your main class, if any.</li>
+</ul>
+<p>For example, you can run the <kbd>AllstateClaimsSeverityRandomForestRegressor</kbd> script on a Spark standalone cluster in client deploy mode as follows:</p>
+<pre>./bin/spark-submit \<br/>   --class com.packt.ScalaML.InsuranceSeverityClaim.AllstateClaimsSeverityRandomForestRegressor\<br/>   --master spark://207.184.161.138:7077 \<br/>   --executor-memory 20G \<br/>   --total-executor-cores 100 \<br/>   /path/to/examples.jar</pre>
+<p>For more info see Spark website at <a href="https://spark.apache.org/docs/latest/submitting-applications.html">https://spark.apache.org/docs/latest/submitting-applications.html</a>. Nevertheless, you can find useful information from online blogs or books. By the way, I discussed this topic in details in one of my recently published books: Md. Rezaul Karim, Sridhar Alla, <strong>Scala and Spark for Big Data Analytics</strong>, Packt Publishing Ltd. 2017. See more at <a href="https://www.packtpub.com/big-data-and-business-intelligence/scala-and-spark-big-data-analytics">https://www.packtpub.com/big-data-and-business-intelligence/scala-and-spark-big-data-analytics</a>.</p>
+<p>Anyway, we will learn more on deploying ML models in production in upcoming chapters. Therefore, that's all I have to write for this chapter. </p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Summary</h1>
+                </header>
+            
+            <article>
+                
+<p>In this chapter, we have seen how to develop a predictive model for analyzing insurance severity claims using some of the most widely used regression algorithms. We started with simple LR. Then we saw how we can improve performance using a GBT regressor. Then we experienced improved performance using ensemble techniques, such as the Random Forest regressor. Finally, we looked at performance comparative analysis between these models and chose the best model to deploy for production-ready environment.</p>
+<p>In the next chapter, we will look at a new end-to-end project called <em>Analyzing and Predicting Telecommunication Churn</em>. Churn prediction <span class="st">is essential for businesses as it helps you detect customers who are likely to cancel a subscription, product, or service.</span> It also minimizes customer defection. It does so by predicting which customers are more likely to cancel a subscription to a service.</p>
+<p> </p>
+
+
+            </article>
+
+            
+        </section>
+    </body></html>

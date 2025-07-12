@@ -1,0 +1,769 @@
+<html><head></head><body>
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Developing Model-based Movie Recommendation Engines</h1>
+                </header>
+            
+            <article>
+                
+<p class="chapter-content">Netflix is an American entertainment company founded by Reed Hastings and Marc Randolph on August 29, 1997, in Scotts Valley, California. It specializes in and provides streaming media, video-on-demand online, and DVD by mail. In 2013, Netflix expanded into film and television production, as well as online distribution. Netflix uses a model-based collaborative filtering approach for real-time movie recommendation for its subscribers.</p>
+<p class="chapter-content">In this chapter, we will see two end-to-end projects and develop a model for item-based collaborative filtering for movie similarity measurement and a model-based movie recommendation engine with Spark that recommends movies for new users. We will see how to interoperate between ALS and <strong>matrix factorization</strong> (<strong>MF</strong>) for these two scalable movie recommendation engines. We will use the movie lens dataset for the project. Finally, we will see how to deploy the best model in production.</p>
+<p class="chapter-content">In a nutshell, we will learn the following topics through two end-to-end projects:</p>
+<ul>
+<li>Recommendation system—how and why?</li>
+<li>Item<strong>-</strong>based collaborative filtering for movie similarity</li>
+<li>Model<strong>-</strong>based movie recommendation with Spark</li>
+<li>Model deployment</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Recommendation system</h1>
+                </header>
+            
+            <article>
+                
+<p class="mce-root">A <strong>recommendation system</strong> (that is, <strong>recommendation engine or </strong><strong>RE</strong>) is a subclass of information filtering systems that helps predict the <strong>rating</strong> or <strong>preference</strong> based on the ratings given by users to an item. In recent years, recommendation systems have become increasingly popular. In short, a recommender system tries to predict potential items a user might be interested in based on history for other users.</p>
+<p class="mce-root">Consequently, they're being used in many areas such as movies, music, news, books, research articles, search queries, social tags, products, collaborations, comedy, restaurants, fashion, financial services, life insurance, and online dating. There are a couple of ways to develop recommendation engines that typically produce a list of recommendations, for example, collaborative and content-based filtering or the personality-based approach.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Collaborative filtering approaches</h1>
+                </header>
+            
+            <article>
+                
+<p class="mce-root">Using collaborative filtering approaches, an RE can be built based on a user's past behavior where numerical ratings are given on purchased items. Sometimes, it can be developed on similar decisions made by other users who also have purchased the same items. From the following figure, you can get some idea of different recommender systems:</p>
+<div class="CDPAlignCenter CDPAlign"><img height="263" width="423" class="alignnone size-full wp-image-536 image-border" src="assets/adad368d-b5cb-4177-8105-f17fb2c37b2b.png"/></div>
+<div class="packt_figure CDPAlignCenter CDPAlign packt_figref">Figure 1: A comparative view of different recommendation systems</div>
+<p class="mce-root">Collaborative filtering-based approaches often suffer from three problems—cold start, scalability, and sparsity:</p>
+<ul>
+<li><strong>Cold start</strong>: Sometimes gets stuck when a large amount of data about users is required for making a more accurate recommendation system.</li>
+<li><strong>Scalability</strong>: A large amount of computation power is often necessary to calculate recommendations out of a dataset with millions of users and products.</li>
+<li><strong>Sparsity</strong>: This often happens with a crowd-sourced dataset when a huge number of items are sold on major e-commerce sites. In such a case, active users may rate only a small subset of the items sold—that is, even the most popular items have very few ratings. Accordingly, the user versus items matrix becomes very sparse. In other words, a large-scale sparse matrix cannot be handled.</li>
+</ul>
+<p class="mce-root">To overcome these issues, a particular type of collaborative filtering algorithm uses MF, a low-rank matrix approximation technique. We will see an example later in this chapter.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Content-based filtering approaches</h1>
+                </header>
+            
+            <article>
+                
+<p class="mce-root">Using content-based filtering approaches, a series of discrete characteristics of an item is utilized to recommend additional items with similar properties. Sometimes it is based on a description of the item and a profile of the user's preferences. These approaches try to recommend items that are similar to those that a user liked in the past or is using currently.</p>
+<p class="mce-root">A key issue with content-based filtering is whether the system is able to learn user preferences from users' actions regarding one content source and use them across other content types. When this type of RE is deployed, it can be used to predict items or ratings for items that the user is interested in.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Hybrid recommender systems</h1>
+                </header>
+            
+            <article>
+                
+<p class="mce-root">As you have seen, there are several pros and cons of using collaborative filtering and content-based filtering. Therefore, to overcome the limitations of these two approaches, recent trends have shown that a hybrid approach can be more effective and accurate by combining collaborative filtering and content-based filtering. Sometimes, factorization approaches such as MF and <strong>Singular Value Decomposition</strong> (<strong>SVD</strong>) are used to make them robust. Hybrid approaches can be implemented in several ways:</p>
+<ul>
+<li>At first, content-based and collaborative-based predictions are computed separately, and later on we combine them, that is, unification of these two into one model. In this approach, FM and SVD are used extensively.</li>
+<li>Adding content-based capabilities to a collaborative-based approach or vice versa. Again, FM and SVD are used for better prediction.</li>
+</ul>
+<p class="mce-root">Netflix is a good example that uses this hybrid approach to make a recommendation to its subscribers. This site makes recommendations in two ways:</p>
+<ul>
+<li><strong>Collaborative filtering</strong>: By comparing the watching and searching habits of similar users</li>
+<li><strong>Content-based filtering</strong>: By offering movies that share characteristics with films that a user has rated highly</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Model-based collaborative filtering</h1>
+                </header>
+            
+            <article>
+                
+<p>AS shown in <em>Figure 1</em>, I really planned to implement a systematic project using factorization machines it turns out to be time constraint. Therefore, decided to develop a movie recommendation using a collaborative filtering  approach. Collaborative filtering based methods are classified as:</p>
+<ul>
+<li class="mce-root">Memory-based, that is, a user-based algorithm</li>
+<li class="mce-root">Model-based collaborative filtering, that is, kernel-mapping</li>
+</ul>
+<p class="mce-root">In the model-based collaborative filtering technique, users and products are described by a small set of factors, also called <strong>latent factors</strong> (<strong>LFs</strong>). The LFs are then used to predict the missing entries. The <strong>Alternating Least Squares</strong> (<strong>ALS</strong>) algorithm is used to learn these LFs. From a computational perspective, model-based collaborative filtering is commonly used in many companies such as Netflix for real-time movie recommendations.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">The utility matrix</h1>
+                </header>
+            
+            <article>
+                
+<p class="mce-root">In a hybrid recommendation system, there are two classes of entities: users and items (examples are movies, products, and so on). Now, as a user, you might have preferences for certain items. Therefore, these preferences must be extracted from data about items, users, or ratings. Often this data is represented as a utility matrix, such as a user-item pair. This type of value can represent what is known about the degree of preference of that user for a particular item. The entry in the matrix, that is, a table, can come from an ordered set. For example, integers 1-5 can be used to represent the number of stars that the user gave as a rating for items.</p>
+<p class="mce-root">We have argued that often users might not have rated items; that is, most entries are <strong>unknown</strong>. This also means that the matrix might be sparse. An unknown rating implies that we have no explicit information about the user's preference for the item. <em>Table 1</em> shows an example utility matrix. The matrix represents the ratings of users about movies on a 1-5 scale, 5 <span>being </span>the highest rating. A blank entry means no users have provided any rating about those movies.</p>
+<p class="mce-root">Here <strong>HP1</strong>, <strong>HP2</strong>, and <strong>HP3</strong> are acronyms for the movies <strong>Harry Potter I</strong>, <strong>II</strong>, and <strong>III</strong>, respectively; <strong>TW</strong> is for <strong>Twilight</strong>; and <strong>SW1</strong>, <strong>SW2</strong>, and <strong>SW3</strong> represent <strong>Star Wars</strong> episodes <strong>1</strong>, <strong>2</strong>, and <strong>3</strong><span>, respectively</span>. The users are represented by capital letters <strong>A</strong>, <strong>B</strong>, <strong>C</strong>, and <strong>D</strong>:</p>
+<div class="packt_figure CDPAlignCenter CDPAlign"><img height="106" width="369" class="alignnone size-full wp-image-537 image-border" src="assets/1fb37fd3-9a9c-4f08-a4f5-1cb99010989a.png"/></div>
+<div class="packt_figure packt_figref CDPAlignCenter CDPAlign">Figure 2: Utility matrix (user versus movies matrix)</div>
+<p class="mce-root">There are many blank entries for the user-movie pairs. This means that users have not rated those movies. In a real-life scenario, the matrix might be even sparser, with the typical user rating only a tiny fraction of all available movies. Now, using this matrix, the goal is to predict the blanks in the utility matrix. Let's see an example. Suppose we are curious to know whether user <strong>A</strong> likes <strong>SW2</strong>. However, this is really difficult to determine since there is little evidence in the matrix in <em>Table 1</em>.</p>
+<p class="mce-root">Thus, in practice, we might develop a movie recommendation engine to consider the uncommon properties of movies, such as producer name, director name, lead stars, or even the similarity of their names. This way, we can compute the similarity of movies <strong>SW1</strong> and <strong>SW2</strong>. This similarity would drive us to conclude that since A did not like <strong>SW1</strong>, they are not likely to enjoy <strong>SW2</strong> either.</p>
+<p class="mce-root">However, this might not work for the larger dataset. Therefore, with much more data, we might observe that the people who rated both <strong>SW1</strong> and <strong>SW2</strong> were inclined to give them similar ratings. Finally, we can conclude that <strong>A</strong> would also give <strong>SW2</strong> a low rating, similar to <strong>A</strong>'s rating of <strong>SW1</strong>.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Spark-based movie recommendation systems</h1>
+                </header>
+            
+            <article>
+                
+<p class="mce-root">The implementation in Spark MLlib supports model-based collaborative filtering. In the model-based collaborative filtering technique, users and products are described by a small set of factors, also called LFs. In this section, we will see two complete examples of how it works toward recommending movies for new users.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Item-based collaborative filtering for movie similarity</h1>
+                </header>
+            
+            <article>
+                
+<p class="mce-root">Firstly, we read the ratings from a file. For this project, we can use the MovieLens 100k rating dataset from <a href="http://www.grouplens.org/node/73">http://www.grouplens.org/node/73</a>. The training set ratings are in a file called <kbd>ua.base</kbd>, while the movie item data is in <kbd>u.item</kbd>. On the other hand, <kbd>ua.test</kbd> contains the test set to evaluate our model. Since we will be using this dataset, we should acknowledge the GroupLens Research Project team at the University of Minnesota who wrote the following text:</p>
+<p class="chapter-content">F. Maxwell Harper and Joseph A. Konstan. 2015. The MovieLens Datasets: <em>History and Context</em>. ACM Transactions on <strong>Interactive Intelligent Systems</strong> (<strong>TiiS</strong>) 5, 4, Article 19 (December 2015), 19 pages. DOI: <a href="http://dx.doi.org/10.1145/2827872" target="_blank">http://dx.doi.org/10.1145/2827872</a>.</p>
+<p class="chapter-content">This dataset consists of 100,000 ratings of 1 to 5 from 943 users on 1,682 movies. Each user has rated at least 20 movies. It also contains simple demographic info about the users (age, gender, occupation, and zip code).</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Step 1 - Importing necessary libraries and creating a Spark session</h1>
+                </header>
+            
+            <article>
+                
+<p class="chapter-content">We need to import a Spark session so that we can create the Spark session, the gateway of our Spark app:</p>
+<pre><strong>import</strong> org.apache.spark.sql.SparkSession 
+<strong>val</strong> spark: SparkSession = SparkSession 
+    .builder() 
+    .appName("MovieSimilarityApp") 
+    .master("local[*]") 
+    .config("spark.sql.warehouse.dir", "E:/Exp/") 
+    .getOrCreate() </pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Step 2 - Reading and parsing the dataset</h1>
+                </header>
+            
+            <article>
+                
+<p class="mce-root">Let's use Spark's <kbd>textFile</kbd> method to read a text file from your preferred storage such as HDFS or the local filesystem. However, it's up to us to specify how to split the fields. While reading the input dataset, we do <kbd>groupBy</kbd> first and transform after the join with a <kbd>flatMap</kbd> operation to get the required fields:</p>
+<pre><strong>val</strong> TRAIN_FILENAME = "data/ua.base" 
+<strong>val</strong> TEST_FIELNAME = "data/ua.test" 
+<strong>val</strong> MOVIES_FILENAME = "data/u.item" 
+ 
+  // get movie names keyed on id 
+<strong>val</strong> movies = spark.sparkContext.textFile(MOVIES_FILENAME) 
+    .map(line =&gt; { 
+      val fields = line.split("\|") 
+      (fields(0).toInt, fields(1)) 
+    }) 
+<strong>val</strong> movieNames = movies.collectAsMap() 
+  // extract (userid, movieid, rating) from ratings data 
+<strong>val</strong> ratings = spark.sparkContext.textFile(TRAIN_FILENAME) 
+    .map(line =&gt; { 
+      val fields = line.split("t") 
+      (fields(0).toInt, fields(1).toInt, fields(2).toInt) 
+    }) </pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Step 3 - Computing similarity</h1>
+                </header>
+            
+            <article>
+                
+<p class="mce-root">Using item-based collaborative filtering, we can compute how similar two movies are to each other. We follow these steps:</p>
+<ol>
+<li>For every pair of movies (<strong>A</strong>, <strong>B</strong>), we find all the users who rated both <strong>A</strong> and <strong>B</strong></li>
+<li>Now, using the preceding ratings, we compute a Movie <strong>A</strong> vector, say <strong>X</strong>, and a Movie <strong>B</strong> vector, say <strong>Y</strong></li>
+<li>Then we calculate the correlation between <strong>X</strong> and <strong>Y</strong></li>
+<li>If a user watches movie <strong>C</strong>, we can then recommend the most correlated movies with it</li>
+</ol>
+<p class="mce-root">We then compute the various vector metrics for each ratings vector <strong>X</strong> and <strong>Y</strong>, such as size, dot product, norm, and so on. We will use these metrics to compute the various similarity metrics between pairs of movies, that is, (<strong>A</strong>, <strong>B</strong>). For each movie pair (<strong>A</strong>, <strong>B</strong>), we then compute several measures such as cosine similarity, Jaccard similarity correlation, and regularized correlation. Let's get started. The first two steps are as follows:</p>
+<pre>// get num raters per movie, keyed on movie id 
+<strong>val</strong> numRatersPerMovie = ratings 
+    .groupBy(tup =&gt; tup._2) 
+    .map(grouped =&gt; (grouped._1, grouped._2.size)) 
+ 
+// join ratings with num raters on movie id 
+<strong>val</strong> ratingsWithSize = ratings 
+    .groupBy(tup =&gt; tup._2) 
+    .join(numRatersPerMovie) 
+    .flatMap(joined =&gt; { 
+      joined._2._1.map(f =&gt; (f._1, f._2, f._3, joined._2._2)) 
+    }) </pre>
+<p class="mce-root">The <kbd>ratingsWithSize</kbd> <span>variable</span><span> </span><span>now contains the following fields:</span> <kbd>user</kbd><span>,</span> <kbd>movie</kbd><span>,</span> <kbd>rating</kbd><span>, and</span> <kbd>numRaters</kbd><span>. The next step is to make a dummy copy of ratings for self-join. Technically, we join to </span><kbd>userid</kbd> <span>and filter movie pairs so that we do not double-count and exclude self-pairs:</span></p>
+<pre><strong>val</strong> ratings2 = ratingsWithSize.keyBy(tup =&gt; tup._1) 
+<strong>val</strong> ratingPairs = 
+    ratingsWithSize 
+      .keyBy(tup =&gt; tup._1) 
+      .join(ratings2) 
+      .filter(f =&gt; f._2._1._2 &lt; f._2._2._2) </pre>
+<p class="mce-root">Now let's compute the raw inputs to similarity metrics for each movie pair:</p>
+<pre><strong>val</strong> vectorCalcs = ratingPairs 
+      .map(data =&gt; { 
+        val key = (data._2._1._2, data._2._2._2) 
+        val stats = 
+          (data._2._1._3 * data._2._2._3, // rating 1 * rating 2 
+            data._2._1._3, // rating movie 1 
+            data._2._2._3, // rating movie 2 
+            math.pow(data._2._1._3, 2), // square of rating movie 1 
+            math.pow(data._2._2._3, 2), // square of rating movie 2 
+            data._2._1._4, // number of raters movie 1 
+            data._2._2._4) // number of raters movie 2 
+        (key, stats) 
+      }) 
+.groupByKey() 
+.map(data =&gt; { 
+    val key = data._1 
+    val vals = data._2 
+    val size = vals.size 
+    val dotProduct = vals.map(f =&gt; f._1).sum 
+    val ratingSum = vals.map(f =&gt; f._2).sum 
+    val rating2Sum = vals.map(f =&gt; f._3).sum 
+    val ratingSq = vals.map(f =&gt; f._4).sum 
+    val rating2Sq = vals.map(f =&gt; f._5).sum 
+    val numRaters = vals.map(f =&gt; f._6).max 
+    val numRaters2 = vals.map(f =&gt; f._7).max 
+        (key, (size, dotProduct, ratingSum, rating2Sum, ratingSq, rating2Sq, numRaters, numRaters2))}) </pre>
+<p class="mce-root">Here are the third and the fourth steps for computing the similarity. We compute similarity metrics for each movie pair:</p>
+<pre>  val similarities = 
+    vectorCalcs 
+      .map(fields =&gt; { 
+        val key = fields._1 
+        val (size, dotProduct, ratingSum, rating2Sum, ratingNormSq, rating2NormSq, numRaters, numRaters2) = fields._2 
+        val corr = correlation(size, dotProduct, ratingSum, rating2Sum, ratingNormSq, rating2NormSq) 
+        val regCorr = regularizedCorrelation(size, dotProduct, ratingSum, rating2Sum,ratingNormSq, rating2NormSq, PRIOR_COUNT, PRIOR_CORRELATION) 
+        val cosSim = cosineSimilarity(dotProduct, scala.math.sqrt(ratingNormSq), scala.math.sqrt(rating2NormSq)) 
+        val jaccard = jaccardSimilarity(size, numRaters, numRaters2) 
+        (key, (corr, regCorr, cosSim, jaccard))}) </pre>
+<p class="mce-root">Next is the implementation of the methods we just <span>used</span>. We start with the <kbd>correlation()</kbd> method for computing the correlation between the two vectors (<em>A</em>, <em>B</em>) as <em>cov(A, B)/(stdDev(A) * stdDev(B))</em>:</p>
+<pre><strong>def</strong> correlation(size: Double, dotProduct: Double, ratingSum: Double, 
+    rating2Sum: Double, ratingNormSq: Double, rating2NormSq: Double) = { 
+    val numerator = size * dotProduct - ratingSum * rating2Sum 
+    val denominator = scala.math.sqrt(size * ratingNormSq - ratingSum * ratingSum)  
+                        scala.math.sqrt(size * rating2NormSq - rating2Sum * rating2Sum) 
+    numerator / denominator} </pre>
+<p class="mce-root">Now, the correlation is regularized by adding virtual pseudocounts over a prior, <em>RegularizedCorrelation = w * ActualCorrelation + (1 - w) * PriorCorrelation where w = # actualPairs / (# actualPairs + # virtualPairs)</em>:</p>
+<pre><strong>def</strong> regularizedCorrelation(size: Double, dotProduct: Double, ratingSum: Double, 
+    rating2Sum: Double, ratingNormSq: Double, rating2NormSq: Double, 
+    virtualCount: Double, priorCorrelation: Double) = { 
+    val unregularizedCorrelation = correlation(size, dotProduct, ratingSum, rating2Sum, ratingNormSq, rating2NormSq) 
+    val w = size / (size + virtualCount) 
+    w * unregularizedCorrelation + (1 - w) * priorCorrelation 
+  } </pre>
+<p class="mce-root">The cosine similarity between the two vectors A, B is dotProduct(A, B) / (norm(A) * norm(B)):</p>
+<pre><strong>def</strong> cosineSimilarity(dotProduct: Double, ratingNorm: Double, rating2Norm: Double) = { 
+    dotProduct / (ratingNorm * rating2Norm) 
+  } </pre>
+<p class="mce-root">Finally, the Jaccard Similarity between the two sets <em>A</em>, <em>B</em> is <em>|Intersection (A, B)| / |Union (A, B)|</em>:</p>
+<pre><strong>def</strong> jaccardSimilarity(usersInCommon: Double, totalUsers1: Double, totalUsers2: Double) = { 
+    val union = totalUsers1 + totalUsers2 - usersInCommon 
+    usersInCommon / union 
+    } </pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Step 4 - Testing the model</h1>
+                </header>
+            
+            <article>
+                
+<p class="mce-root">Let's see the 10 movies most similar to <kbd>Die Hard (1998)</kbd>, ranked by regularized correlation:</p>
+<pre>evaluateModel("Die Hard (1988)") <br/><span>&gt;&gt;&gt;</span></pre>
+<div class="mce-root CDPAlignCenter CDPAlign"><img height="409" width="2030" class="alignnone size-full wp-image-400 image-border" src="assets/67671a29-7faf-4d95-8390-626abbb4544f.png"/></div>
+<p class="mce-root">In the preceding figure, the columns are Movie 1, Movie 2, Correlation, Reg-Correlation, Cosine Similarity, and Jaccard Similarity. Now let's see the 10 movies most similar to <em>Postino, Il</em> (1994), ranked by regularized correlation:</p>
+<pre>evaluateModel("Postino, Il (1994)") <br/><span>&gt;&gt;&gt;</span></pre>
+<div class="mce-root CDPAlignCenter CDPAlign"><img height="428" width="2554" class="alignnone size-full wp-image-401 image-border" src="assets/5e6ea235-0edc-45a8-8e5f-6e1832daad71.png"/></div>
+<p class="mce-root CDPAlignLeft CDPAlign">Finally, let's see the 10 movies most similar to <kbd>Star Wars (1977)</kbd>, ranked by regularized correlation:</p>
+<pre>evaluateModel("Star Wars (1977)") <br/><span>&gt;&gt;&gt;</span></pre>
+<div class="mce-root CDPAlignCenter CDPAlign"><img height="411" width="2340" class="alignnone size-full wp-image-402 image-border" src="assets/2aae7d60-2323-4dc8-a3c2-e653ab54840c.png"/></div>
+<p class="mce-root CDPAlignLeft CDPAlign">Now, from the outputs, we can see that some movie pairs have very few common raters; it can be seen that using raw correlation resulted in suboptimal similarities. Using cosine similarity did not perform well, though it is a standard similarity metric for collaborative filtering approaches.</p>
+<p class="mce-root CDPAlignLeft CDPAlign">The reason is that there are many movies having a cosine similarity of 1.0. By the way, the preceding <kbd>evaluateModel()</kbd> method, which tests a few movies (substituting the contains call with the relevant movie name), goes as follows:</p>
+<pre><strong>def</strong> evaluateModel(movieName: String): Unit = { 
+    val sample = similarities.filter(m =&gt; { 
+    val movies = m._1<br/>    (movieNames(movies._1).contains(movieName)) 
+    }) 
+// collect results, excluding NaNs if applicable 
+val result = sample.map(v =&gt; { 
+val m1 = v._1._1 
+val m2 = v._1._2 
+val corr = v._2._1 
+val rcorr = v._2._2 
+val cos = v._2._3 
+val j = v._2._4 
+(movieNames(m1), movieNames(m2), corr, rcorr, cos, j) 
+}).collect().filter(e =&gt; !(e._4 equals Double.NaN)) // test for NaNs must use equals rather than == 
+      .sortBy(elem =&gt; elem._4).take(10) 
+    // print the top 10 out 
+result.foreach(r =&gt; println(r._1 + " | " + r._2 + " | " + r._3.formatted("%2.4f") + " | " + r._4.formatted("%2.4f") 
+      + " | " + r._5.formatted("%2.4f") + " | " + r._6.formatted("%2.4f"))) } </pre>
+<p class="mce-root">You can understand the limitations of these types of collaborative filtering-based approaches. Of course there are computational complexities, but you're partially right. The most important aspects are that these does not have the ability to predict missing entries in real-life use cases. They also have some already-mentioned problems such as cold start, scalability, and sparsity. Therefore, we will see how we can improve these limitations using model-based recommendation systems in Spark MLlib.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Model-based recommendation with Spark</h1>
+                </header>
+            
+            <article>
+                
+<p class="mce-root">To make a preference prediction for any user, collaborative filtering uses a preference by other users of similar interests and predicts movies of your interests, that are unknown to you. Spark MLlib uses <strong>Alternate Least Squares</strong> (<strong>ALS</strong>) to make a recommendation. Here is a glimpse of a collaborative filtering method used in the ALS algorithm:</p>
+<p class="mce-root CDPAlignLeft CDPAlign"><strong>Table 1 – User-movie matrix</strong></p>
+<table class="MsoTableGrid">
+<tbody>
+<tr>
+<td><strong>Users</strong></td>
+<td><strong>M1</strong></td>
+<td><strong>M2</strong></td>
+<td><strong>M3</strong></td>
+<td><strong>M4</strong></td>
+</tr>
+<tr>
+<td><strong>U1</strong></td>
+<td>2</td>
+<td>4</td>
+<td>3</td>
+<td>1</td>
+</tr>
+<tr>
+<td><strong>U2</strong></td>
+<td>0</td>
+<td>0</td>
+<td>4</td>
+<td>4</td>
+</tr>
+<tr>
+<td><strong>U3</strong></td>
+<td>3</td>
+<td>2</td>
+<td>2</td>
+<td>3</td>
+</tr>
+<tr>
+<td><strong>U4</strong></td>
+<td>2</td>
+<td>?</td>
+<td>3</td>
+<td>?</td>
+</tr>
+</tbody>
+</table>
+<p> </p>
+<p class="mce-root">In the preceding table, user ratings on movies are represented as a matrix (that is, a user-item matrix), where a cell represents ratings for a particular movie by a user. The cell with <strong>?</strong> represents the movies user <strong>U4</strong> is not aware of or hasn't seen. Based on the current preference of <strong>U4</strong>, the cell with <strong>?</strong> can be filled in with an approximate rating of users who have similar interests as <strong>U4</strong>. So at this point, ALS cannot do it alone, but the LFs are then used to predict the missing entries.</p>
+<p class="mce-root">The Spark API provides the implementation of the ALS algorithm, which is used to learn these LFs based on the following six parameters:</p>
+<ul>
+<li><kbd>numBlocks</kbd>: This is the number of blocks used to parallelize computation (set to -1 to auto-configure).</li>
+<li><kbd>rank</kbd>: This is the number of LFs in the model.</li>
+<li><kbd>iterations</kbd>: This is the number of iterations of ALS to run. ALS typically converges to a reasonable solution in 20 iterations or less.</li>
+<li><kbd>lambda</kbd>: This specifies the regularization parameter in ALS.</li>
+<li><kbd>implicitPrefs</kbd>: This specifies whether to use the explicit feedback from the ALS variant (or one user defined) for implicit feedback data.</li>
+<li><kbd>alpha</kbd>: This is a parameter applicable to the implicit feedback variant of ALS that governs the baseline confidence in preference observations.</li>
+</ul>
+<p class="mce-root">Note that to construct an ALS instance with default parameters, you can set the value based on your requirements. The default values are as follows: <kbd>numBlocks: -1</kbd>, <kbd>rank: 10</kbd>, <kbd>iterations: 10</kbd>, <kbd>lambda: 0.01</kbd>, <kbd>implicitPrefs: false</kbd>, and <kbd>alpha: 1.0</kbd>.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Data exploration</h1>
+                </header>
+            
+            <article>
+                
+<p>The movie and the corresponding rating dataset were downloaded from the MovieLens website (<a href="https://movielens.org" target="_blank">https://movielens.org</a>). According to the data description on the MovieLens website, all the ratings are described in the <kbd>ratings.csv</kbd> file. Each row of this file, followed by the header, represents one rating of one movie by one user.</p>
+<p>The CSV dataset has the following columns: <kbd>userId</kbd>, <kbd>movieId</kbd>, <kbd>rating</kbd>, and <kbd>timestamp</kbd>. These are shown in <em>Figure 14</em>. The rows are ordered first by <kbd>userId</kbd> and within the user by <kbd>movieId</kbd>. Ratings are made on a five-star scale, with half-star increments (0.5 stars up to a total of 5.0 stars). The timestamps represent the seconds since midnight in <strong>Coordinated Universal Time</strong> (<strong>UTC</strong>) on January 1, 1970. We have 105,339 ratings from 668 users on 10,325 movies:</p>
+<div class="mce-root packt_figref CDPAlignCenter CDPAlign"><strong><img height="285" width="187" class="alignnone size-full wp-image-403 image-border" src="assets/fd8ab03d-af42-41ae-b656-0a7a5f6a53ff.png"/></strong></div>
+<div class="mce-root packt_figref CDPAlignCenter CDPAlign">Figure 2: A snap of the rating dataset</div>
+<p class="mce-root">On the other hand, movie information is contained in the <kbd>movies.csv</kbd> file. Each row, apart from the header information, represents one movie containing these columns: <kbd>movieId</kbd>, <kbd>title</kbd>, and <kbd>genres</kbd> (see <em>Figure 2</em>). Movie titles are either created or inserted manually or imported from the website of the movie database at <a href="https://www.themoviedb.org/" target="_blank">https://www.themoviedb.org/</a>. The release year, however, is shown in brackets.</p>
+<p class="mce-root">Since movie titles are inserted manually, some errors or inconsistencies may exist in these titles. Readers are, therefore, recommended to check the IMDb database (<a href="https://www.imdb.com/" target="_blank">https://www.imdb.com/</a>) to make sure that there are no inconsistencies or incorrect titles with the corresponding release year:</p>
+<div class="packt_figure CDPAlignCenter CDPAlign"><img height="295" width="521" class="alignnone size-full wp-image-404 image-border" src="assets/08e1a39e-0aee-406c-8aae-fab36f629624.png"/></div>
+<div class="packt_figure packt_figref CDPAlignCenter CDPAlign">Figure 3: Title and genres for top 20 movies</div>
+<p class="mce-root">Genres are in a separated list and are selected from the following genre categories:</p>
+<ul>
+<li>Action, Adventure, Animation, Children's, Comedy, and Crime</li>
+<li>Documentary, Drama, Fantasy, Film-Noir, Horror, and Musical</li>
+<li>Mystery, Romance, Sci-Fi, Thriller, Western, and War</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Movie recommendation using ALS</h1>
+                </header>
+            
+            <article>
+                
+<p class="mce-root">In this subsection, we will show you how to recommend movies to other users through a systematic example, from data collection to movie recommendation.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Step 1 - Import packages, load, parse, and explore the movie and rating dataset</h1>
+                </header>
+            
+            <article>
+                
+<p class="mce-root">We will load, parse, and do some exploratory analysis. However, before that, let's import the necessary packages and libraries:</p>
+<pre><strong>package</strong> com.packt.ScalaML.MovieRecommendation <br/><strong>import</strong> org.apache.spark.sql.SparkSession 
+<strong>import</strong> org.apache.spark.mllib.recommendation.ALS 
+<strong>import</strong> org.apache.spark.mllib.recommendation.MatrixFactorizationModel 
+<strong>import</strong> org.apache.spark.mllib.recommendation.Rating 
+<strong>import</strong> scala.Tuple2 
+<strong>import</strong> org.apache.spark.rdd.RDD </pre>
+<p class="mce-root">This code segment should return you the DataFrame of the ratings:</p>
+<pre><strong>val</strong> ratigsFile = "data/ratings.csv"<br/><strong>val</strong> df1 = spark.read.format("com.databricks.spark.csv").option("header", true).load(ratigsFile)    <br/><strong>val</strong> ratingsDF = df1.select(df1.col("userId"), df1.col("movieId"), df1.col("rating"), df1.col("timestamp"))<br/>ratingsDF.show(false)</pre>
+<p class="mce-root">The following code segment shows you the DataFrame of the movies:</p>
+<pre><strong>val</strong> moviesFile = "data/movies.csv"<br/><strong>val</strong> df2 = spark.read.format("com.databricks.spark.csv").option("header", "true").load(moviesFile)<br/><strong>val</strong> moviesDF = df2.select(df2.col("movieId"), df2.col("title"), df2.col("genres"))</pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Step 2 - Register both DataFrames as temp tables to make querying easier</h1>
+                </header>
+            
+            <article>
+                
+<p class="mce-root">To register both datasets, we can use the following code:</p>
+<pre>ratingsDF.createOrReplaceTempView("ratings")<br/>moviesDF.createOrReplaceTempView("movies")</pre>
+<p class="mce-root">This will help to make in-memory querying faster by creating a temporary view as a table in the memory. The lifetime of the temporary table using the <kbd>createOrReplaceTempView ()</kbd> method is tied to <kbd>[[SparkSession]]</kbd>, which was used to create this DataFrame.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Step 3 - Explore and query for related statistics</h1>
+                </header>
+            
+            <article>
+                
+<p class="mce-root">Let's check the ratings-related statistics. Just use the following code lines:</p>
+<pre>val numRatings = ratingsDF.count()<br/>val numUsers = ratingsDF.select(ratingsDF.col("userId")).distinct().count()<br/>val numMovies = ratingsDF.select(ratingsDF.col("movieId")).distinct().count() 
+println("Got " + numRatings + " ratings from " + numUsers + " users on " + numMovies + " movies.") <br/><span>&gt;&gt;&gt;<br/></span><span>Got 105339 ratings from 668 users on 10325 movies.</span></pre>
+<p class="mce-root">You should find <kbd>105,339</kbd> ratings from <kbd>668</kbd> users on <kbd>10,325</kbd> movies. Now, let's get the maximum and minimum ratings along with the count of users who have rated a movie. However, you need to perform an SQL query on the rating table we just created in memory in the previous step. Making a query here is simple, and it is similar to making a query from a MySQL database or RDBMS.</p>
+<p class="mce-root">However, if you are not familiar with SQL-based queries, you are advised to look at the SQL query specification to find out how to perform a selection using <kbd>SELECT</kbd> from a particular table, how to perform ordering using <kbd>ORDER</kbd>, and how to perform a joining operation using the <kbd>JOIN</kbd> keyword. Well, if you know the SQL query, you should get a new dataset using a complex SQL query, as follows:</p>
+<pre>// Get the max, min ratings along with the count of users who have rated a movie.<br/><strong>val</strong> results = spark.sql("select movies.title, movierates.maxr, movierates.minr, movierates.cntu "<br/>       + "from(SELECT ratings.movieId,max(ratings.rating) as maxr,"<br/>       + "min(ratings.rating) as minr,count(distinct userId) as cntu "<br/>       + "FROM ratings group by ratings.movieId) movierates "<br/>       + "join movies on movierates.movieId=movies.movieId " + "order by movierates.cntu desc") 
+results.show(false) </pre>
+<p class="mce-root">Output:</p>
+<div class="packt_figure CDPAlignCenter CDPAlign"><img height="924" width="1917" class="alignnone size-full wp-image-405 image-border" src="assets/6c4cea0d-0c85-441b-a932-51301558c41c.png"/></div>
+<div class="packt_figure CDPAlignCenter CDPAlign packt_figref">Figure 4: Max and min ratings along with the count of users who have rated a movie</div>
+<div>
+<p>To get some insight, we need to know more about the users and their ratings. Now let's find the 10 most active users and how many times they rated a movie:</p>
+</div>
+<pre><strong>val</strong> mostActiveUsersSchemaRDD = spark.sql("SELECT ratings.userId, count(*) as ct from ratings "+ "group by ratings.userId order by ct desc limit 10")<br/>mostActiveUsersSchemaRDD.show(false) 
+&gt;&gt;&gt; </pre>
+<div class="mce-root CDPAlignCenter CDPAlign"><img height="177" width="86" class="alignnone size-full wp-image-406 image-border" src="assets/007fce7f-9e51-4c07-878d-7a2c23be60f8.png"/></div>
+<div class="mce-root packt_figref CDPAlignCenter CDPAlign">Figure 5: Top 10 active users and how many times they rated a movie</div>
+<p class="mce-root">Let's have a look at a particular user and find the movies that, say user, <kbd>668</kbd> rated higher than <kbd>4</kbd>:</p>
+<pre><strong>val</strong> results2 = spark.sql( 
+              "SELECT ratings.userId, ratings.movieId,"  
+              + "ratings.rating, movies.title FROM ratings JOIN movies" 
+              + "ON movies.movieId=ratings.movieId"  
+              + "where ratings.userId=668 and ratings.rating &gt; 4") 
+results2.show(false) <br/>&gt;&gt;&gt;</pre>
+<div class="packt_figure CDPAlignCenter CDPAlign"><img height="294" width="307" class="alignnone size-full wp-image-407 image-border" src="assets/4cdb1752-2455-4389-a605-843cbf9cdbe2.png"/></div>
+<div class="mce-root packt_figref CDPAlignCenter CDPAlign">Figure 6: Movies that user 668 rated higher than 4</div>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Step 4 - Prepare training and test rating data and check the counts</h1>
+                </header>
+            
+            <article>
+                
+<p class="mce-root">The following code splits the ratings RDD into training data RDD (75%) and test data RDD (25%). Seed here is optional but is required for reproducibility purposes:</p>
+<pre>// Split ratings RDD into training RDD (75%) &amp; test RDD (25%) 
+<strong>val</strong> splits = ratingsDF.randomSplit(Array(0.75, 0.25), seed = 12345L) 
+<strong>val</strong> (trainingData, testData) = (splits(0), splits(1)) 
+<strong>val</strong> numTraining = trainingData.count() 
+<strong>val</strong> numTest = testData.count() 
+println("Training: " + numTraining + " test: " + numTest)</pre>
+<p>You should notice that there are 78,792 ratings in training and 26,547 ratings in the test<br/>
+DataFrame.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Step 5 - Prepare the data for building the recommendation model using ALS</h1>
+                </header>
+            
+            <article>
+                
+<p class="mce-root">The ALS algorithm takes the RDD of ratings for training. To do so, the following code illustrates for building the recommendation model using APIs:</p>
+<pre><strong>val</strong> ratingsRDD = trainingData.rdd.map(row =&gt; { <br/>                    val userId = row.getString(0) <br/>                    val movieId = row.getString(1) <br/>                    val ratings = row.getString(2) <br/>                    Rating(userId.toInt, movieId.toInt, ratings.toDouble)<br/>})</pre>
+<p>The <kbd>ratingsRDD</kbd> is an RDD of ratings that contains <kbd>userId</kbd>, <kbd>movieId</kbd>, and the corresponding ratings from the training dataset we prepared in the previous step. On the other hand, a test RDD is also required for evaluating the model. The following <kbd>testRDD</kbd> also contains the same information coming from the test DataFrame we prepared in the previous step:</p>
+<pre><strong>val</strong> testRDD = testData.rdd.map(row =&gt; { <br/>    val userId = row.getString(0) <br/>    val movieId = row.getString(1) <br/>    val ratings = row.getString(2) <br/>    Rating(userId.toInt, movieId.toInt, ratings.toDouble)<br/>})</pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Step 6 - Build an ALS user product matrix</h1>
+                </header>
+            
+            <article>
+                
+<p class="mce-root">Build an ALS user matrix model based on <kbd>ratingsRDD</kbd> by specifying the maximal iteration, a number of blocks, alpha, rank, lambda, seed, and <kbd>implicitPrefs</kbd>. Essentially, this technique predicts missing ratings for specific users and specific movies based on ratings for those movies from other users who gave similar ratings for other movies:</p>
+<pre><strong>val</strong> rank = 20 <br/><strong>val</strong> numIterations = 15 <br/><strong>val</strong> lambda = 0.10 <br/><strong>val</strong> alpha = 1.00 val block = -1 <br/><strong>val</strong> seed = 12345L <br/><strong>val</strong> implicitPrefs = false <br/><br/><strong>val</strong> model = new ALS().setIterations(numIterations)<br/>        .setBlocks(block).setAlpha(alpha)<br/>        .setLambda(lambda)<br/>        .setRank(rank) .setSeed(seed)<br/>        .setImplicitPrefs(implicitPrefs)<br/>        .run(ratingsRDD)</pre>
+<p class="mce-root">Finally, we iterated the model for learning 15 times. With this setting, we got good prediction accuracy. Readers are advised to apply hyperparameter tuning to get to know the most optimum values for these parameters. Furthermore, set the number of blocks for both user blocks and product blocks to parallelize the computation into a pass -1 for an auto-configured number of blocks. The value is -1.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Step 7 - Making predictions</h1>
+                </header>
+            
+            <article>
+                
+<p class="mce-root">Let's get the top six movie predictions for user <kbd>668</kbd>. The following source code can be used to make the predictions:</p>
+<pre>// Making Predictions. Get the top 6 movie predictions for user 668 <br/>println("Rating:(UserID, MovieID, Rating)") println("----------------------------------") <br/>val topRecsForUser = model.recommendProducts(668, 6) for (rating &lt;- topRecsForUser) { println(rating.toString()) } println("----------------------------------")<br/>&gt;&gt;&gt;</pre>
+<div class="packt_figure CDPAlignCenter CDPAlign"><img height="130" width="305" class="alignnone size-full wp-image-408 image-border" src="assets/8840f8dc-d0b8-4885-b494-888a164eb7bf.png"/></div>
+<div class="packt_figure packt_figref CDPAlignCenter CDPAlign"><span class="NormalPACKTChar">Figure 7:</span> Top six movie predictions for user 668</div>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Step 8 - Evaluating the model</h1>
+                </header>
+            
+            <article>
+                
+<p class="mce-root">In order to verify the quality of the model, <strong>Root Mean Squared Error</strong> (<strong>RMSE</strong>) is used to measure the difference between values predicted by a model and the values actually observed. By default, the smaller the calculated error, the better the model. In order to test the quality of the model, the test data is used (which was split in <em>step 4</em>).</p>
+<p class="mce-root">According to many machine learning practitioners, RMSE is a good measure of accuracy, but only for comparing forecasting errors of different models for a particular variable. They say it is not fit <span>for comparing </span>between variables as it is scale dependent. The following line of code calculates the RMSE value for the model that was trained using the training set:</p>
+<pre><strong>val</strong> rmseTest = computeRmse(model, testRDD, true) <br/>println("Test RMSE: = " + rmseTest) //Less is better</pre>
+<p>For this setting, we get this output:</p>
+<pre>Test RMSE: = 0.9019872589764073</pre>
+<p class="mce-root">This method computes the RMSE to evaluate the model. The lesser the RMSE, the better the model and its prediction capability. It is to be noted that <kbd>computeRmse()</kbd> is a UDF that goes as follows:</p>
+<pre><strong>def</strong> computeRmse(model: MatrixFactorizationModel, data: RDD[Rating], implicitPrefs: Boolean): Double = {         <strong>val</strong> predictions: RDD[Rating] = model.predict(data.map(x =&gt; (x.user, x.product))) <br/>   <strong> val</strong> predictionsAndRatings = predictions.map { x =&gt; ((x.user, x.product), x.rating) }<br/>        .join(data.map(x =&gt; ((x.user, x.product), x.rating))).values <br/>    <strong>if</strong> (implicitPrefs) { println("(Prediction, Rating)")                 <br/>        println(predictionsAndRatings.take(5).mkString("n")) } <br/>        math.sqrt(predictionsAndRatings.map(x =&gt; (x._1 - x._2) * (x._1 - x._2)).mean()) <br/>    }<br/><q>&gt;&gt;&gt;</q></pre>
+<div class="CDPAlignCenter CDPAlign"><img height="83" width="153" class="alignnone size-full wp-image-409 image-border" src="assets/49e379f1-e8b2-4546-ad36-bb1be1eb8575.png"/></div>
+<p class="mce-root">Finally, let's provide some movie recommendation for a specific user. Let's get the top six movie predictions for user <kbd>668</kbd>:</p>
+<pre>println("Recommendations: (MovieId =&gt; Rating)") <br/>println("----------------------------------") <br/>val recommendationsUser = model.recommendProducts(668, 6) <br/>recommendationsUser.map(rating =&gt; (rating.product, rating.rating)).foreach(println) println("----------------------------------")<br/><span>&gt;&gt;&gt;</span></pre>
+<div class="CDPAlignCenter CDPAlign"><img height="105" width="205" class="alignnone size-full wp-image-411 image-border" src="assets/798664c9-3a41-49a3-86f1-4b9dfbe45b86.png"/></div>
+<p><span>The performance of the preceding model could be increased more, we believe. However, so far, there's no model tuning facility of our knowledge available for the MLlib-based ALS algorithm.</span></p>
+<div class="packt_infobox">Interested readers should refer to this URL for more on tuning ML-based ALS models: <a href="https://spark.apache.org/docs/preview/ml-collaborative-filtering.html" target="_blank">https://spark.apache.org/docs/prev<span class="URLPACKT">iew/ml-collaborative-filtering.html</span></a>.</div>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Selecting and deploying the best model </h1>
+                </header>
+            
+            <article>
+                
+<p class="mce-root">It is worth mentioning that the first model developed in the first project cannot be persisted since it is just a few lines of code for computing movie similarity. It also has another limitation that we did not cover earlier. It can compute the similarity between two movies, but what about more than two movies? Frankly speaking, a model like the first one would rarely be deployed for a real-life movie. So let's focus on the model-based recommendation engine instead.</p>
+<p class="mce-root">Although ratings from users will keep coming, still it might be worth it to store the current one. Therefore, we also want to persist our current base model for later use in order to save time when starting up the server. The idea is to use the current model for real-time movie recommendations.</p>
+<p class="mce-root">Nevertheless, we might also save time if we persist some of the RDDs we have generated, especially those that took longer to process. The following line saves our trained ALS model (see the <kbd>MovieRecommendation.scala</kbd> script for details):</p>
+<pre>//Saving the model for future use <br/>val savedALSModel = model.save(spark.sparkContext, "model/MovieRecomModel")</pre>
+<p class="mce-root CDPAlignCenter CDPAlign CDPAlignLeft">Unlike another Spark model, the ALS model that we saved will contain only data and some metadata in parquet format from the training, as shown in the following screenshot:</p>
+<div class="mce-root CDPAlignCenter CDPAlign"><img height="396" width="447" class="alignnone size-full wp-image-412 image-border" src="assets/10e58639-6f8a-46f7-bb8b-b08f4e0d79f3.png"/></div>
+<p class="mce-root CDPAlignLeft CDPAlign">Now, the next task would be to restore the same model and provide a similar workflow as shown in the preceding steps:</p>
+<pre>val same_model = MatrixFactorizationModel.load(spark.sparkContext, "model/MovieRecomModel/")</pre>
+<p class="mce-root">Nevertheless I won't <span>confuse</span> you, especially if you're new to Spark and Scala. Here's the complete code that predicts the ratings of user 558:</p>
+<pre><strong>package</strong> com.packt.ScalaML.MovieRecommendation <br/><br/><strong>import</strong> org.apache.spark.sql.SparkSession <br/><strong>import</strong> org.apache.spark.mllib.recommendation.ALS <br/><strong>import</strong> org.apache.spark.mllib.recommendation.MatrixFactorizationModel <br/><strong>import</strong> org.apache.spark.mllib.recommendation.Rating <br/><strong>import</strong> scala.Tuple2 <br/><strong>import</strong> org.apache.spark.rdd.RDD <br/><br/><strong>object</strong> RecommendationModelReuse { <br/><strong>    def</strong> main(args: Array[String]): Unit = { <br/><strong>        val</strong> spark: SparkSession = SparkSession.builder()<br/>                                  .appName("JavaLDAExample")<br/>                                  .master("local[*]")<br/>                                  .config("spark.sql.warehouse.dir", "E:/Exp/")<br/>                                  .getOrCreate() <br/><br/><strong>        val</strong> ratigsFile = "data/ratings.csv" <br/><strong>        val</strong> ratingDF =  spark.read<br/>                        .format("com.databricks.spark.csv")<br/>                        .option("header", true)<br/>                        .load(ratigsFile) <br/><br/><strong>        val</strong> selectedRatingsDF = ratingDF.select(ratingDF.col("userId"), ratingDF.col("movieId"),                                                     ratingDF.col("rating"), ratingDF.col("timestamp")) <br/><br/>        // Randomly split ratings RDD into training data RDD (75%) and test data RDD (25%) <br/>        val splits = selectedRatingsDF.randomSplit(Array(0.75, 0.25), seed = 12345L) <br/>        val testData = splits(1) <br/>        val testRDD = testData.rdd.map(row =&gt; { <br/>        val userId = row.getString(0) <br/>        val movieId = row.getString(1) <br/>        val ratings = row.getString(2) <br/>        Rating(userId.toInt, movieId.toInt, ratings.toDouble) }) <br/><br/>        //Load the workflow back <br/>        val same_model = MatrixFactorizationModel.load(spark.sparkContext, "model/MovieRecomModel/") <br/><br/>        // Making Predictions. Get the top 6 movie predictions for user 668 <br/>        println("Rating:(UserID, MovieID, Rating)") <br/>        println("----------------------------------") <br/>        val topRecsForUser = same_model.recommendProducts(458, 10) <br/><br/>        for (rating &lt;- topRecsForUser) { <br/>            println(rating.toString()) } <br/><br/>        println("----------------------------------") <br/>        val rmseTest = MovieRecommendation.computeRmse(same_model, testRDD, true) <br/>        println("Test RMSE: = " + rmseTest) //Less is better <br/><br/>        //Movie recommendation for a specific user. Get the top 6 movie predictions for user 668 <br/>        println("Recommendations: (MovieId =&gt; Rating)") <br/>        println("----------------------------------") <br/>        val recommendationsUser = same_model.recommendProducts(458, 10) <br/><br/>        recommendationsUser.map(rating =&gt; <br/>        (rating.product, rating.rating)).foreach(println) <br/>        println("----------------------------------") <br/>        spark.stop() <br/>    } <br/>}</pre>
+<p class="mce-root">If the preceding script is executed successfully, you should see the following output:</p>
+<div class="mce-root CDPAlignCenter CDPAlign"><img height="391" width="222" class="alignnone size-full wp-image-413 image-border" src="assets/45a9b0e0-8410-4a69-a6a5-cfaae23112b7.png"/></div>
+<p class="mce-root">Well done! We have managed to reuse the model and do the same prediction but for a different user, that is, 558. However, probably due to the randomness of the data, we observed a slightly different RMSE.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Summary</h1>
+                </header>
+            
+            <article>
+                
+<p>In this chapter, we implemented two end-to-end projects to develop item-based collaborative filtering for movie similarity measurement and model-based recommendation with Spark. We also saw how to interoperate between ALS and MF and develop scalable movie recommendations engines. Finally, we saw how to deploy this model in production.</p>
+<p class="mce-root">As human beings, we learn from past experiences. We haven't gotten so charming by accident. Years of positive compliments as well as criticism have all helped shape us into what we are today. You learn what makes people happy by interacting with friends, family, and even strangers, and you figure out how to ride a bike by trying out different muscle movements until it just clicks. When you perform actions, you're sometimes rewarded immediately. This is all about <strong>Reinforcement Learning</strong> (<strong>RL</strong>).</p>
+<p class="mce-root">The next chapter is all about designing a machine learning project driven by criticisms and rewards. We will see how to apply RL algorithms for developing options trading applications using real-life IBM stock and option price datasets.</p>
+
+
+            </article>
+
+            
+        </section>
+    </body></html>

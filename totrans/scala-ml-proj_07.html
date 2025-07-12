@@ -1,0 +1,827 @@
+<html><head></head><body>
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Options Trading Using Q-learning and Scala Play Framework</h1>
+                </header>
+            
+            <article>
+                
+<p class="chapter-content">As human beings, we learn from experiences. We have not become so charming by accident. Years of positive compliments as well as negative criticism, have all helped shape us into who we are today. We learn how to ride a bike by trying out different muscle movements until it just clicks. When you perform actions, you are sometimes rewarded immediately. This is all about <strong>Reinforcement learning</strong> (<strong>RL</strong>).</p>
+<p class="chapter-content">This chapter is all about designing a machine learning system driven by criticisms and rewards. We will see how to apply RL algorithms for a predictive model on real-life datasets.</p>
+<p class="chapter-content">From the trading point of view, an option is a contract that gives its owner the right to buy (call option) or sell (put option) a financial asset (underlying) at a fixed price (the strike price) at or before a fixed date (the expiry date).</p>
+<p class="chapter-content">We will see how to develop a real-life application for such options trading using<em> </em>an RL algorithm called <strong>QLearning</strong>. To be more precise, we will solve the problem of computing the best strategy in options trading, and we want to trade certain types of options given some market conditions and trading data.</p>
+<p class="chapter-content">The IBM stock datasets will be used to design a machine learning system driven by criticisms and rewards. We will start from RL and its theoretical background so that the concept is easier to grasp. Finally, we will wrap up the whole application as a web app using Scala Play Framework.</p>
+<p class="chapter-content">Concisely, we will learn the following topics throughout this end-to-end project:</p>
+<ul>
+<li>Using Q-learning—an RL algorithm</li>
+<li>Options trading<span>—w</span>hat is it all about?</li>
+<li>Overview of technologies </li>
+<li>Implementing Q-learning for options trading</li>
+<li>Wrapping up the application as a web app using Scala Play Framework</li>
+<li>Model deployment</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Reinforcement versus supervised and unsupervised learning</h1>
+                </header>
+            
+            <article>
+                
+<p class="chapter-content">Whereas supervised and unsupervised learning appear at opposite ends of the spectrum, RL exists somewhere in the middle. It is not supervised learning because the training data comes from the algorithm deciding between exploration and exploitation. In addition, it is not unsupervised because the algorithm receives feedback from the environment. As long as you are in a situation where performing an action in a state produces a reward, you can use RL to discover a good sequence of actions to take the maximum expected rewards.</p>
+<p class="chapter-content">The goal of an RL agent will be to maximize the total reward that it receives in the end. The third main subelement is the <kbd>value</kbd> function. While rewards determine an immediate desirability of the states, values indicate the long-term desirability of states, taking into account the states that may follow and the available rewards in these states. The <kbd>value</kbd> function is specified with respect to the chosen policy. During the learning phase, an agent tries actions that determine the states with the highest value, because these actions will get the best <span>number of rewards</span> in the end.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Using RL</h1>
+                </header>
+            
+            <article>
+                
+<p class="chapter-content"><em>Figure 1</em> shows a person making decisions to arrive at their destination. Moreover, suppose that on your drive from home to work, you always choose the same route. However, one day your curiosity takes over and you decide to try a different path, hoping for a shorter commute. This dilemma of trying out new routes or sticking to the best-known route is an example of exploration versus exploitation:</p>
+<div class="packt_figure CDPAlignCenter CDPAlign"><img height="241" width="413" src="assets/e85f2dfa-b4f1-4f3c-bf90-bc66c9d4f1ae.png"/></div>
+<div class="packt_figure CDPAlignCenter CDPAlign packt_figref">Figure 1: An agent always tries to reach the destination by passing through the route</div>
+<p class="chapter-content">RL techniques are being used in many areas. A general idea that is being pursued right now is creating an algorithm that does not need anything apart from a description of its task. When this kind of performance is achieved, it will be applied virtually everywhere.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Notation, policy, and utility in RL</h1>
+                </header>
+            
+            <article>
+                
+<p class="chapter-content">You may notice that RL jargon involves incarnating the algorithm into taking actions in situations to receive rewards. In fact, the algorithm is often referred to as an agent that acts with the environment. You can just think of it is an intelligent hardware agent that is sensing with sensors and interacting with the environment using its actuators. Therefore, it should not be a surprise that much of RL theory is applied in robotics. Now, to extend our discussion further, we need to know a few terminologies:</p>
+<ul>
+<li><strong>Environment</strong>: An environment is any system having states and mechanisms to transition between different states. For example, the environment for a robot is the landscape or facility it operates in.</li>
+<li><strong>Agent</strong>: An agent is an automated system that interacts with the environment.</li>
+<li><strong>State</strong>: The state of the environment or system is the set of variables or features that fully describe the environment.</li>
+<li><strong>Goal</strong>: A goal is a state that provides a higher discounted cumulative reward than any other state. A high cumulative reward prevents the best policy from being dependent on the initial state during training.</li>
+<li><strong>Action</strong>: An action defines the transition between states, where an agent is responsible for performing, or at least recommending, an action. Upon execution of an action, the agent collects a reward (or punishment) from the environment.</li>
+<li><strong>Policy</strong>: The policy defines the action to be performed and executed for any state of the environment.</li>
+<li><strong>Reward</strong>: A reward quantifies the positive or negative interaction of the agent with the environment. Rewards are essentially the training set for the learning engine.</li>
+<li><strong>Episode <em>(</em></strong>also known as <strong>trials</strong>): This defines the number of steps necessary to reach the goal state from an initial state.</li>
+</ul>
+<p class="chapter-content">We will discuss more on policy and utility later in this section. <em>Figure 2</em> demonstrates the interplay between <strong>states</strong>, <strong>actions</strong>, and <strong>rewards</strong>. If you start at state <strong>s<sub>1</sub></strong>, you can perform action <strong>a<sub>1</sub></strong> to obtain a reward <strong>r (s<sub>1</sub>, a<sub>1</sub>)</strong>. Arrows represent <strong>actions</strong>, and <strong>states</strong> are represented by circles:</p>
+<div class="packt_figure CDPAlignCenter CDPAlign"><img height="283" width="419" src="assets/4e880ac5-2e4b-44a2-9c91-38786d5942b0.png"/></div>
+<div class="packt_figure CDPAlignCenter CDPAlign packt_figref">Figure 2: An agent performing an action on a state produces a reward</div>
+<p class="chapter-content">A robot performs actions to change between different states. But how does it decide which action to take? Well, it is all about using a different or concrete policy.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Policy</h1>
+                </header>
+            
+            <article>
+                
+<p class="chapter-content">In RL lingo, we call a strategy <strong>policy</strong>. The goal of RL is to discover a good strategy. One of the most common ways to solve it is by observing the long-term consequences of actions in each state. The short-term consequence is easy to calculate: it's just the reward. Although performing an action yields an immediate reward, it is not always a good idea to greedily choose the action with the best reward. That is a lesson in life too, because the most immediate best thing to do may not always be the most satisfying in the long run. The best possible policy is called the optimal policy, and it is often the holy grail of RL, as shown in <em>Figure 3</em>, which shows the optimal action, given any state:</p>
+<div class="packt_figure CDPAlignCenter CDPAlign"><img height="98" width="284" src="assets/bca50b75-f45d-4aa0-ab22-714d10131b3a.png"/></div>
+<div class="packt_figure CDPAlignCenter CDPAlign packt_figref">Figure 3: A policy defines an action to be taken in a given state</div>
+<p class="chapter-content">We have seen one type of policy where the agent always chooses the action with the greatest immediate reward, called <strong>greedy policy</strong>. Another simple example of a policy is arbitrarily choosing an action, called <strong>random policy</strong>. If you come up with a policy to solve a, RL problem, it is often a good idea to double-check that your learned policy performs better than both the random and the greedy policies.</p>
+<p class="chapter-content">In addition, we will see how to develop another robust policy called <strong>policy gradients</strong>, where a neural network learns a policy for picking actions by adjusting its weights through gradient descent using feedback from the environment. We will see that, although both the approaches are used, policy gradient is more direct and optimistic.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Utility</h1>
+                </header>
+            
+            <article>
+                
+<p>The long-term reward is called a <strong>utility</strong>. It turns out that if we know the utility of performing an action upon a state, then it is easy to solve RL. For example, to decide which action to take, we simply select the action that produces the highest utility. However, uncovering these utility values is difficult. The utility of performing an action <em>a</em> at a state <em>s</em> is written as a function, <em>Q(s, a)</em>, called the <strong>utility function</strong>. This predicts the expected immediate reward, and rewards following an optimal policy given the state-action input, as shown in <em>Figure 4</em>:</p>
+<div class="packt_figure CDPAlignCenter CDPAlign"><img height="114" width="339" src="assets/86800cd6-c7ec-4a55-9148-2d4afb66e6b0.png"/></div>
+<div class="packt_figure CDPAlignCenter CDPAlign packt_figref">Figure 4: Using a utility function</div>
+<p class="chapter-content">Most RL algorithms boil down to just three main steps: infer, do, and learn. During the first step, the algorithm selects the best action (<em>a</em>) given a state (<em>s</em>) using the knowledge it has so far. Next, it perform the action to find out the reward (<em>r</em>) as well as the next state (<em>s'</em>). Then it improves its understanding of the world using the newly acquired knowledge <em>(s, r, a, s')</em>. However,  as I think you will agree, this is just a naive way to calculate the utility.</p>
+<p class="chapter-content">Now, the question is: what could be a more robust way to compute it? We can calculate the utility of a particular state-action pair <em>(s, a)</em> by recursively considering the utilities of future actions. The utility of your current action is influenced not only by the immediate reward but also the next best action, as shown in the following formula:</p>
+<div class="mce-root CDPAlignCenter CDPAlign"><img height="22" width="233" class="fm-editor-equation" src="assets/5215bab5-b9d6-40f5-a5c9-12c83fa6cea8.png"/></div>
+<p class="chapter-content"><em>s'</em> denotes the next state, and <em>a'</em> denotes the next action. The reward of taking action <em>a</em> in state <em>s</em> is denoted by <em>r(s, a)</em>. Here, <em>γ</em> is a hyperparameter that you get to choose, called the discount factor. If <em>γ</em> is <em>0</em>, then the agent chooses the action that maximizes the immediate reward. Higher values of <em>γ</em> will make the agent give more importance to considering long-term consequences. In practice, we have more such hyperparameter to be considered. For example, if a vacuum cleaner robot is expected to learn to solve tasks quickly, but not necessarily optimally, we may want to set a faster learning rate.</p>
+<p class="chapter-content">Alternatively, if a robot is allowed more time to explore and exploit, we may tune down the learning rate. Let us call the learning rate <em>α</em> and change our utility function as follows (note that when <em>α = 1</em>, both the equations are identical):</p>
+<div class="mce-root CDPAlignCenter CDPAlign"><img height="19" width="338" class="fm-editor-equation" src="assets/8ec4cadc-c023-415b-9ed9-e50bcc6078c1.png"/></div>
+<p class="chapter-content">In summary, an RL problem can be solved if we know this <em>Q(s, a)</em> function. Here comes an algorithm called Q-learning.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">A simple Q-learning implementation</h1>
+                </header>
+            
+            <article>
+                
+<p class="chapter-content">Q-learning is an algorithm that can be used in financial and market trading applications, such as options trading. One reason is that the best policy is generated through training. that is, RL defines the model in Q-learning <span>over time </span>and is constantly updated with any new episode. Q-learning is a method for optimizing (cumulated) discounted reward, making far-future rewards less prioritized than near-term rewards; Q-learning is a form of model-free RL. It can also be viewed as a method of asynchronous <strong>dynamic programming</strong> (<strong>DP</strong>).</p>
+<p class="chapter-content">It provides agents with the capability of learning to act optimally in Markovian domains by experiencing the consequences of actions, without requiring them to build maps of the domains. In short, Q-learning qualifies as an RL technique because it does not strictly require labeled data and training. Moreover, the Q-value does not have to be a continuous, differentiable function.</p>
+<div class="packt_tip">On the other hand, Markov decision processes provide a mathematical framework for modeling decision-making in situations where outcomes are partly random and partly under the control of a decision-maker. Therein, the probability of the random variables at a future point of time depends only on the information at the current point in time and not on any of the historical values. In other words, the probability is independent of historical states.</div>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Components of the Q-learning algorithm</h1>
+                </header>
+            
+            <article>
+                
+<p class="chapter-content">This implementation is highly inspired by the Q-learning implementation from a book, written by Patrick R. Nicolas, <em>Scala for Machine Learning - Second Edition</em>, Packt Publishing Ltd., September 2017. Thanks to the author and Packt Publishing Ltd. The source code is available at <a href="https://github.com/PacktPublishing/Scala-for-Machine-Learning-Second-Edition/tree/master/src/main/scala/org/scalaml/reinforcement">https://github.com/PacktPublishing/Scala-for-Machine-Learning-Second-Edition/tree/master/src/main/scala/org/scalaml/reinforcement</a>.</p>
+<p class="chapter-content">Interested readers can take a look at the the original implementation at t<span>he extensed version of course can be downloaded from Packt repository or GitHub repo of this book. </span>The key components of implementation of the Q-learning algorithm are a few classes—<kbd>QLearning</kbd>, <kbd>QLSpace</kbd>, <kbd>QLConfig</kbd>, <kbd>QLAction</kbd>, <kbd>QLState</kbd>, <kbd>QLIndexedState</kbd>, and <kbd>QLModel</kbd><span>—</span>as described in the following points:</p>
+<ul>
+<li><kbd>QLearning</kbd>: Implements training and prediction methods. It defines a data transformation of type <kbd>ETransform</kbd> using a configuration of type <kbd>QLConfig</kbd>.</li>
+<li><kbd>QLConfig</kbd>: This parameterized class defines the configuration parameters for the Q-learning. To be more specific, it is used to hold an explicit configuration from the user.</li>
+<li><kbd>QLAction</kbd><strong>:</strong> This is a class that defines actions between on source state and multiple destination states.</li>
+<li><kbd>QLPolicy</kbd>: This is an enumerator used to define the type of parameters used to update the policy during the training of the Q-learning model.</li>
+<li><kbd>QLSpace</kbd>: This has two components: a sequence of states of type <kbd>QLState</kbd> and the identifier, <kbd>id</kbd>, of one or more goal states within the sequence.</li>
+<li><kbd>QLState</kbd>: Contains a sequence of <kbd>QLAction</kbd> instances that help in the transition from one state to another. It is also used as a reference for the object or instance for which the state is to be evaluated and predicted.</li>
+<li><kbd>QLIndexedState</kbd>: This class returns an indexed state that indexes a state in the search toward the goal state.</li>
+<li><kbd>QLModel</kbd>: This is used to generate a model through the training process. Eventually, it contains the best policy and the accuracy of a model.</li>
+</ul>
+<p class="chapter-content">Note that, apart from the preceding components, an optional constraint function limits the scope of the search for the next most rewarding action from the current state. The following diagram shows the key components of the Q-learning algorithm and their interaction:</p>
+<div class="chapter-content CDPAlignCenter CDPAlign"><img height="231" width="518" src="assets/52b17c4f-9ee2-41f5-8530-ebf971a10444.png"/></div>
+<div class="chapter-content CDPAlignCenter CDPAlign packt_figref">Figure 5: Components of the QLearning algorithm and their interaction</div>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">States and actions in QLearning</h1>
+                </header>
+            
+            <article>
+                
+<p class="chapter-content">The <kbd>QLAction</kbd> class specifies the transition from one state to another state. It takes two parameters—that is, from and to. Both of them have their own integer identifiers that need to be greater than 0:</p>
+<ul>
+<li><kbd>from</kbd>: A source of the action</li>
+<li><kbd>to</kbd>: Target of the action</li>
+</ul>
+<p class="chapter-content">The signature is given as follows:</p>
+<pre class="chapter-content"><strong>case </strong><strong>class</strong> QLAction(from: Int, to: Int) {<br/>    require(from &gt;= 0, s"QLAction found from: <br/>    $from required: &gt;=0")require(to &gt;= 0, s"QLAction found to: <br/>    $to required: &gt;=0")<br/><br/><strong>override </strong><strong>def</strong> toString: String = s"n<br/>    Action: state <br/>    $from =&gt; state $to"<br/>}</pre>
+<p class="chapter-content">The <kbd>QLState</kbd> class defines the state in the Q-learning. It takes three parameters:</p>
+<ul>
+<li><kbd>id</kbd>: An identifier that uniquely identifies a state</li>
+<li><kbd>actions</kbd>: A list of actions for the transition from this state to other states,</li>
+<li><kbd>instance</kbd>: A state may have properties of type <kbd>T</kbd>, independent from the state transition</li>
+</ul>
+<p class="chapter-content">Here is the signature of the class:</p>
+<pre class="chapter-content"><strong>case </strong><strong>class</strong> QLState[T](id: Int, actions: Seq[QLAction] = List.empty, instance: T) {<br/><strong>    import</strong> QLState._check(id)<br/><strong>    final </strong><strong>def</strong> isGoal: Boolean = actions.nonEmpty<br/><strong>    override </strong><strong>def</strong> toString: String =s"state: $id ${actions.mkString(" ")<br/>        }<br/>    nInstance: ${instance.toString}"<br/>}</pre>
+<p class="chapter-content">In the preceding code, the <kbd>toString()</kbd> method is used for textual representation of a state in Q-learning. The state is defined by its ID and the list of actions it may potentially trigger.</p>
+<div class="packt_infobox">The state might not have any actions. This is usually the case with the goal or absorbing state. In this case, the list is empty. The parameterized instance is a reference to the object for which the state is computed.</div>
+<p class="chapter-content">Now we know the state and action to perform. However, the <kbd>QLearning</kbd> agent needs to know the search space of the form (States <em>x</em> Actions). The next step consists of creating the graph or search space.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">The search space</h1>
+                </header>
+            
+            <article>
+                
+<p class="chapter-content">The search space is the container responsible for any sequence of states. The <kbd>QLSpace</kbd> class defines the search space (States <em>x</em> Actions) for the Q-learning algorithm, as shown in the following figure:</p>
+<div class="CDPAlignCenter CDPAlign"><img height="291" width="458" src="assets/d7238d9c-0a36-4840-b783-0d97adf1b688.png"/></div>
+<div class="CDPAlignCenter CDPAlign packt_figref">Figure 6: State transition matrix with QLData (Q-value, reward, probability)</div>
+<p class="chapter-content">The search space can be provided by the end user with a list of states and actions, or automatically created by providing the number of states by taking the following parameters:</p>
+<ul>
+<li><kbd>States</kbd>: The sequence of all possible states defined in the Q-learning search space</li>
+<li><kbd>goalIds</kbd>: A list of identifiers of states that are goals</li>
+</ul>
+<p class="chapter-content">Now let us see the implementation of the class. It is rather a large code block. So let us start from the constructor that generates a map named <kbd>statesMap</kbd>. It retrieves the state using its <kbd>id</kbd> and the array of goals, <kbd>goalStates</kbd>:</p>
+<pre class="chapter-content"><strong>private</strong>[scalaml] <strong>class</strong><span> QLSpace[T] </span><strong>protected</strong><span> (states: Seq[QLState[T]], goalIds: Array[Int]) {<br/></span><strong>    import</strong><span> QLSpace._check(states, goalIds)</span></pre>
+<p class="chapter-content">Then it creates a map of the states as an immutable Map of state ID and state instance:</p>
+<pre class="chapter-content"><strong>private</strong>[<strong>this</strong>] <strong>val</strong> statesMap: immutable.Map[Int, QLState[T]] = states.map(st =&gt; (st.id, st)).toMap</pre>
+<p class="mce-root">Now that we have a policy and a state of an action, the next task is to compute the maximum value given a state and policy:</p>
+<pre class="chapter-content"><strong>final </strong><strong>def</strong> maxQ(state: QLState[T], policy: QLPolicy): Double = {<br/><strong>    val</strong> best=states.filter(_ != state).maxBy(st=&gt;policy.EQ(state.id, st.id))policy.EQ(state.id, best.id)<br/>    }</pre>
+<p class="chapter-content">Additionally, we need to know the number of states by accessing the number of states in the search space:</p>
+<pre class="chapter-content"><strong>final </strong><strong>def</strong> getNumStates: Int = states.size</pre>
+<p class="chapter-content">Then the <kbd>init</kbd> method selects an initial state for training episodes. The state is randomly selected if the <kbd>state0</kbd> argument is invalid:</p>
+<pre class="chapter-content"><strong>def</strong> init(state0: Int): QLState[T] =<br/><strong>    if</strong> (state0 &lt; 0) {<br/><strong>        val</strong> r = <strong>new</strong> Random(System.currentTimeMillis <br/>                + Random.nextLong)states(r.nextInt(states.size - 1))<br/>        } <br/><strong>    else</strong> states(state0)</pre>
+<p>Finally, the <kbd><span class="A7">nextStates</span></kbd> method retrieves the list of states resulting from the execution of all the actions associated with that state. The search space <kbd><span class="A7">QLSpace</span></kbd> is created by the factory method <kbd><span class="A7">apply</span></kbd> defined in the <kbd><span class="A7">QLSpace</span></kbd> companion object, as shown here:</p>
+<pre><strong>final </strong><strong>def</strong> nextStates(st: QLState[T]): Seq[QLState[T]] =<br/><strong>            if</strong> (st.actions.isEmpty)Seq.empty[QLState[T]]<br/><strong>            else </strong>st.actions.flatMap(ac =&gt; statesMap.get(ac.to))</pre>
+<p class="chapter-content">Additionally, how do you know whether the current state is a goal state? Well, the <kbd>isGoal()</kbd> method does the trick.</p>
+<p class="chapter-content">It accepts a parameter called <kbd>state</kbd><em>,</em> which is <em>a</em> state that is tested against the goal and returns <kbd>Boolean: true</kbd> if this state is a goal state;<span> otherwise, </span>it returns false:</p>
+<pre class="chapter-content"><strong>final </strong><strong>def</strong> isGoal(state: QLState[T]): Boolean = goalStates.contains(state.id)</pre>
+<p class="mce-root">The <span class="A7">apply</span> method creates a list of states using the <span class="A7">instances</span> set, the <span class="A7">goals,</span> and the constraining function <kbd><span class="A7">constraints</span></kbd> as input. Each state creates its list of <span class="A7">actions</span>. The actions are generated from this state to any other states:</p>
+<pre class="chapter-content"><strong>def</strong> apply[T](goal: Int,instances: Seq[T],constraints: Option[Int =&gt; List[Int]]): QLSpace[T] =             <br/>    apply(Array[Int](goal), instances, constraints)</pre>
+<p class="chapter-content">The function <span class="A7">constraints</span> limit the scope of the actions that can be triggered from any given state, as shown in figure X.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">The policy and action-value</h1>
+                </header>
+            
+            <article>
+                
+<p class="chapter-content">The <kbd><span class="A7">QLData </span></kbd>class encapsulates the attributes of the policy in the Q-learning algorithm by creating a <kbd>QLData</kbd> record or instance with a given reward, probability, and Q-value that is computed and updated during training. The probability variable is used to model the intervention condition for an action to be executed.</p>
+<p class="chapter-content">If the action does not have any external constraint, the probability is 1 (that is, the highest), and it is zero otherwise (that is, the action is not allowed anyhow). The signature is given as follows:</p>
+<pre class="chapter-content"><strong>final </strong><strong>private</strong>[scalaml] <strong>class</strong> QLData(<br/><strong>    val</strong> reward: Double, <br/><strong>    val</strong> probability: Double = 1.0) {<br/><br/><strong>    import</strong> QLDataVar._<br/><strong>    var</strong> value: Double = 0.0<br/>    @inline <strong>final </strong><strong>def</strong> estimate: Double = value * probability<br/><br/><strong>    final </strong><strong>def</strong> value(varType: QLDataVar): Double = varType <br/><strong>            match</strong> {<br/><strong>                case</strong> REWARD =&gt; reward<br/><strong>                case</strong> PROB =&gt; probability<br/><strong>                case</strong> VALUE =&gt; value<br/>            }<br/><strong>override </strong><strong>def</strong> toString: String = s"nValue= $value Reward= $reward Probability= $probability"}</pre>
+<p class="chapter-content">In the preceding code block, the Q-Value updated during training using the Q-learning formula, but the overall value is computed for an action by using its reward, adjusted by its probability, and then returning the adjusted value. Then the <kbd>value()</kbd> method selects the attribute of an element of the Q-learning policy using its type. It takes the <kbd>varType</kbd> of the attribute (that is, <kbd>REWARD</kbd>, <kbd>PROBABILITY</kbd>, and <kbd>VALUE</kbd>) and returns the value of this attribute.</p>
+<p class="chapter-content">Finally, the <kbd>toString()</kbd> method helps to represent the value, reward, and the probability. Now that we know how the data will be manipulated, the next task is to create a simple schema that initializes the reward and probability associated with each action. The following Scala case is a class named <kbd>QLInput</kbd>; it inputs to the Q-learning search space (<kbd>QLSpace</kbd>) and policy (<kbd>QLPolicy</kbd>):</p>
+<pre class="chapter-content"><strong>case </strong><strong>class</strong> QLInput(from: Int, to: Int, reward: Double = 1.0, prob: Double = 1.0)</pre>
+<p class="chapter-content">In the preceding signature, the constructor creates an action input to Q-learning. It takes four parameters:</p>
+<ul>
+<li><kbd>from</kbd>, the identifier for the source state</li>
+<li><kbd>to</kbd>, the identifier for the target or destination state</li>
+<li><kbd>reward</kbd>, which is the credit or penalty to transition from the state with id <kbd>from</kbd> to the state with id <kbd>to</kbd></li>
+<li>prob, the probability of transition from the state <kbd>from</kbd> to the state <kbd>to</kbd></li>
+</ul>
+<div class="packt_tip">In the preceding class, the <kbd>from</kbd> and <kbd>to</kbd> arguments are used for a specific action, but the last two arguments are the reward collected at the completion of the action and its probability, respectively. Both the actions have a reward and a probability of 1 by default. In short, we only need to create an input for actions that have either a higher reward or a lower probability.</div>
+<p class="chapter-content">The number of states and the sequence of input define the policy of type <kbd>QLPolicy</kbd>, which is a data container. An action has a Q-value (also known as <strong>action-value</strong>), a reward, and a probability. The implementation defines these three values in three separate matrices—<em>Q</em> for the action values, <em>R</em> for rewards, and <em>P</em> for probabilities<span>—</span>in order to stay consistent with the mathematical formulation. Here is the workflow for this class:</p>
+<ol>
+<li>Initialize the policy using the input probabilities and rewards (see the <kbd>qlData</kbd> variable).</li>
+</ol>
+<ol start="2">
+<li>Compute the number of states from the input size (see the <kbd>numStates</kbd> variable).</li>
+<li>Set the Q value for an action from state <kbd>from</kbd> to state <kbd>to</kbd> (see the <kbd>setQ</kbd> method) and get the Q-value using the <kbd>get()</kbd> method.</li>
+</ol>
+<ol start="4">
+<li>Retrieve the Q-value for a state transition action from state <kbd>from</kbd> to state <kbd>to</kbd> (see the Q method).</li>
+</ol>
+<p> </p>
+<ol start="5">
+<li>Retrieve the estimate for a state transition action from state <kbd>from</kbd> to state <kbd>to</kbd> (see the <kbd>EQ</kbd> method), and return the value in a <kbd>double</kbd>.</li>
+<li>Retrieve the reward for a state transition action from state <kbd>from</kbd> to state <kbd>to</kbd> (see the R method).</li>
+<li>Retrieve the probability for a state transition action from state <kbd>from</kbd> to state <kbd>to</kbd> (see the <kbd>P</kbd> method).</li>
+<li>Compute the minimum and maximum value for <kbd>Q</kbd> (see the <kbd>minMaxQ</kbd> method).</li>
+<li>Retrieve the pair (index source state, index destination state) whose transition is a positive value. The index of the state is converted to a Double (see the <kbd>EQ: Vector[DblPair]</kbd> method).</li>
+<li>Get the textual description of the reward matrix for this policy using the first <kbd>toString()</kbd> method.</li>
+<li>Textual representation of any one of the following: Q-value, reward, or probability matrix using the second <kbd>toString()</kbd> method.</li>
+<li>Validate the <kbd>from</kbd> and <kbd>to</kbd> value using the <kbd>check()</kbd> method.</li>
+</ol>
+<p class="chapter-content">Now let us see the class definition consisting of the preceding workflow:</p>
+<pre class="chapter-content"><strong>final </strong><strong>private</strong>[scalaml] <strong>class</strong> QLPolicy(<strong>val</strong> input: Seq[QLInput]) {<br/><strong>    import</strong> QLDataVar._QLPolicy.check(input)<br/><strong>    private</strong>[<strong>this</strong>] <strong>val</strong> qlData = input.map(qlIn =&gt; n<strong>ew</strong> QLData(qlIn.reward, qlIn.prob))<br/><strong>    private</strong>[<strong>this</strong>] <strong>val</strong> numStates = Math.sqrt(input.size).toInt<br/><br/><strong>    def</strong> setQ(from: Int, to: Int, value: Double): Unit = <br/>        {check(from, to, "setQ")qlData(from * numStates + to).value = value}<br/><br/><strong>    final </strong><strong>def</strong> get(from: Int, to: Int, varType: QLDataVar): String<br/>    {f"${qlData(from * numStates + to).value(varType)}%2.2f"}<br/><br/><strong>    final </strong><strong>def</strong> Q(from: Int, to: Int): Double = {check(from, to, "Q") qlData(from * numStates + to).value}<br/><strong>    final </strong><strong>def</strong> EQ(from: Int, to: Int): Double = {check(from, to, "EQ") qlData(from * numStates + to).estimate}<br/><strong>    final </strong><strong>def</strong> R(from: Int, to: Int): Double = {check(from, to, "R") qlData(from * numStates + to).reward}<br/><strong>    final </strong><strong>def</strong> P(from: Int, to: Int): Double = {check(from, to, "P") qlData(from * numStates + to).probability}<br/><br/><strong>    final </strong><strong>def</strong> minMaxQ: DblPair = {<br/><strong>        val</strong> r = Range(0, numStates)<br/><strong>        val</strong> _min = r.minBy(from =&gt; r.minBy(Q(from, _)))<br/><strong>        val</strong> _max = r.maxBy(from =&gt; r.maxBy(Q(from, _)))(_min, _max)}<br/><br/><strong>    final </strong><strong>def</strong> EQ: Vector[DblPair] = {<br/><strong>        import</strong> scala.collection.mutable.ArrayBuffer<br/><strong>        val</strong> r = Range(0, numStates)r.flatMap(from =&gt;r.map(to =&gt; (from, to, Q(from, to)))).map { <br/><strong>        case</strong> (i, j, q) =&gt; <br/><strong>            if</strong> (q &gt; 0.0) (i.toDouble, j.toDouble) <br/><strong>            else</strong> (0.0, 0.0) }.toVector}<br/><br/><strong>override </strong><strong>def</strong> toString: String = s"Rewardn${toString(REWARD)}"<br/><br/><strong>def</strong> toString(varType: QLDataVar): String = {<br/><strong>    val</strong> r = Range(1, numStates)r.map(i =&gt; r.map(get(i, _, varType)).mkString(",")).mkString("n")}<br/><strong>    private </strong><strong>def</strong> check(from: Int, to: Int, meth: String): Unit = {require(from &gt;= 0 &amp;&amp; from &lt;                         numStates,s"QLPolicy.<br/>            $meth Found from:<br/>            $from required &gt;= 0 and &lt; <br/>            $numStates")require(to &gt;= 0 &amp;&amp; to &lt; numStates,s"QLPolicy.<br/>            $meth Found to: $to required &gt;= 0 and &lt; $numStates")<br/>}</pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">QLearning model creation and training</h1>
+                </header>
+            
+            <article>
+                
+<p class="chapter-content">The <kbd>QLearning</kbd> class encapsulates the Q-learning algorithm, more specifically the action-value updating equation. It is a data transformation of type <kbd>ETransform</kbd> (we will see this later on) with an explicit configuration of type <kbd>QLConfig</kbd>. This class is a generic parameterized class that implements the <kbd>QLearning</kbd> algorithm. The Q-learning model is initialized and trained during the instantiation of the class so it can be in the correct state for runtime prediction.</p>
+<p class="chapter-content">Therefore, the class instances have only two states: successfully trained and failed training (we'll see this later).</p>
+<p class="chapter-content">The implementation does not assume that every episode (or training cycle) will be successful. At the completion of training, the ratio of labels over the initial training set is computed. The client code is responsible for evaluating the quality of the model by testing the ratio (see the model evaluation section).</p>
+<p>The constructor takes the configuration of the algorithm (that is, <kbd>config</kbd>), the search space (that is, <kbd>qlSpace</kbd>), and the policy (that is, <kbd>qlPolicy</kbd>) parameters and creates a Q-learning algorithm:</p>
+<pre><strong>final </strong><strong>class</strong> QLearning[T](conf: QLConfig,qlSpace: QLSpace[T],qlPolicy: QLPolicy)<br/><strong>    extends</strong> ETransform[QLState[T], QLState[T]](conf) <strong>with</strong> Monitor[Double]</pre>
+<p>The model is automatically created effectively if the minimum coverage is reached (or trained) during instantiation of the class, which is essentially a Q-learning model.</p>
+<p>The <span>following </span><kbd>train()</kbd> method is applied to each episode with randomly generated initial states. Then it computes the coverage (based on the <kbd>minCoverage</kbd> configuration value supplied by the <kbd>conf</kbd> object) as the number of episodes for each the goal state was reached:</p>
+<pre><strong>private </strong><strong>def</strong> train: Option[QLModel] = Try {<br/><strong>    val</strong> completions = Range(0, conf.numEpisodes).map(epoch =&gt; <br/><strong>        if</strong> (heavyLiftingTrain (-1)) 1 <strong>else</strong> 0)<br/>        .sum<br/>        completions.toDouble / conf.numEpisodes<br/>        }<br/>    .filter(_ &gt; conf.minCoverage).map(<strong>new</strong> QLModel(qlPolicy, _)).toOption;</pre>
+<p>In the preceding code block, the <kbd>heavyLiftingTrain<span class="A7">(state0: Int)</span></kbd> method does the heavy lifting at each episode (or <span class="A7">epoch</span>). It triggers the search by selecting either the initial state state 0 or a random generator <em>r</em> with a new seed, if <kbd>state0</kbd> is <span class="A7">&lt; 0</span>.</p>
+<p>At first, it gets all the states adjacent to the current state, and then it selects the most rewarding of the list of adjacent states. If the next most rewarding state is a goal state, we are done. Otherwise, it recomputes the policy value for the state transition using the reward matrix (that is, <kbd>QLPolicy.R</kbd>).</p>
+<p>For the recomputation, it applies the Q-learning updating formula by updating the Q-Value for the policy; then it invokes the search method with the new state and incremented iterator. Let's see the body of this method:</p>
+<pre><strong>private </strong><strong>def</strong> heavyLiftingTrain(state0: Int): Boolean = {<br/>    @scala.annotation.tailrec<br/><strong>    def</strong> search(iSt: QLIndexedState[T]): QLIndexedState[T] = {<br/><strong>        val</strong> states = qlSpace.nextStates(iSt.state)<br/><strong>        if</strong> (states.isEmpty || iSt.iter &gt;= conf.episodeLength)<br/>            QLIndexedState(iSt.state, -1)<br/><strong>        else</strong> {<br/><strong>            val</strong> state = states.maxBy(s =&gt; qlPolicy.EQ(iSt.state.id, s.id))<br/><strong>            if</strong> (qlSpace.isGoal(state))<br/>                QLIndexedState(state, iSt.iter)<br/><br/><strong>            else</strong> {<br/><strong>                val</strong> fromId = iSt.state.id<br/><strong>                val</strong> r = qlPolicy.R(fromId, state.id)<br/><strong>                val</strong> q = qlPolicy.Q(fromId, state.id)<br/><strong>                val</strong> nq = q + conf.alpha * (r + conf.gamma * qlSpace.maxQ(state, qlPolicy) - q)<br/>                count(QVALUE_COUNTER, nq)<br/>                qlPolicy.setQ(fromId, state.id, nq)<br/>                search(QLIndexedState(state, iSt.iter + 1))<br/>                }<br/>            }<br/>        }<br/><br/><strong>val</strong><span> finalState = search(QLIndexedState(qlSpace.init(state0), 0))<br/></span><strong>if</strong> (finalState.iter == -1)<br/><strong>    false<br/></strong><strong>else<br/></strong>    qlSpace.isGoal(finalState.state)<br/>    }<br/>}</pre>
+<p class="chapter-content">As a list of policies and training coverage is given, let us get the trained model:</p>
+<pre><strong>private</strong>[<strong>this</strong>] <strong>val</strong> model: Option[QLModel] = train</pre>
+<p class="chapter-content">Note that the preceding model is trained using the input data (see the class <kbd>QLPolicy</kbd>) used for training the Q-learning algorithm using the inline <kbd>getInput()</kbd> method:</p>
+<pre><strong>def</strong> getInput: Seq[QLInput] = qlPolicy.input</pre>
+<p class="chapter-content">Now we need to do one of the most important steps that will be used in our options trading application. Therefore, we need to retrieve the model for Q-learning as an option:</p>
+<pre>@inline<br/><strong>final</strong><strong>def</strong><span> getModel: Option[QLModel] = model</span></pre>
+<p>The overall application fails if the model is not defined (see the <kbd>validateConstraints()</kbd> method for validation):</p>
+<pre>@inline<br/><strong>final</strong><strong>def</strong> isModel: Boolean = model.isDefined<br/><strong>override </strong><strong>def</strong> toString: String = qlPolicy.toString + qlSpace.toString</pre>
+<p>Then, a recursive computation of the next most rewarding state is performed using Scala tail recursion. The idea is to search among all states and recursively select the state with the most awards given for the best policy.</p>
+<pre>@scala.annotation.tailrec<br/><strong>private </strong><strong>def</strong> nextState(iSt: QLIndexedState[T]): QLIndexedState[T] = {<br/><strong>            val</strong> states = qlSpace.nextStates(iSt.state)<br/><strong>            if</strong> (states.isEmpty || iSt.iter &gt;= conf.episodeLength)<br/>                iSt<br/><strong>            else</strong> {<br/><strong>                val</strong> fromId = iSt.state.id<br/><strong>                val</strong> qState = states.maxBy(s =&gt; model.map(_.bestPolicy.EQ(fromId, s.id)).getOrElse(-1.0))<br/>                nextState(QLIndexedState[T](qState, iSt.iter + 1))<br/>        }<br/>}</pre>
+<p class="chapter-content">In the preceding code block, the <kbd>nextState()</kbd> method retrieves the eligible states that can be transitioned to from the current state. Then it extracts the state, <kbd>qState</kbd>, with the most rewarding policy by incrementing the iteration counter. Finally, it returns the states if there are no more states or if the method does not converge within the maximum number of allowed iterations supplied by the <kbd>config.episodeLength</kbd> parameter.</p>
+<div class="packt_tip"><strong>Tail recursion</strong>: In Scala, tail recursion is a very effective construct used to apply an operation to every item of a collection. It optimizes the management of the function stack frame during recursion. The annotation triggers a validation of the condition necessary for the compiler to optimize function calls.</div>
+<p class="chapter-content">Finally, the configuration of the Q-learning algorithm, <kbd>QLConfig</kbd>, specifies:</p>
+<ul>
+<li class="chapter-content">The learning rate, <kbd>alpha</kbd></li>
+<li class="chapter-content">The discount rate, <kbd>gamma</kbd></li>
+<li class="chapter-content">The maximum number of states (or length) of an episode, <kbd>episodeLength</kbd></li>
+<li class="chapter-content">The number of episodes (or epochs) used in training, <kbd>numEpisodes</kbd></li>
+<li class="chapter-content">The minimum coverage required to select the best policy, <kbd>minCoverage</kbd></li>
+</ul>
+<p class="chapter-content">These are shown as follows:</p>
+<pre class="chapter-content"><strong>case </strong><strong>class</strong> QLConfig(alpha: Double,gamma: Double,episodeLength: Int,numEpisodes: Int,minCoverage: Double) <br/><strong>extends</strong> Config {<br/><strong>import</strong> QLConfig._check(alpha, gamma, episodeLength, numEpisodes, minCoverage)}</pre>
+<p class="chapter-content">Now we are almost done, except that the validation is not completed. However, let us first see the companion object for the configuration of the Q-learning algorithm. This singleton defines the constructor for the <kbd>QLConfig</kbd> class and validates its parameters:</p>
+<pre class="chapter-content"><strong>private</strong>[scalaml] <strong>object</strong> QLConfig {<br/><strong>        private </strong><strong>val</strong> NO_MIN_COVERAGE = 0.0<br/><strong>        private </strong><strong>val</strong> MAX_EPISODES = 1000<br/><br/><strong>        private </strong><strong>def</strong> check(alpha: Double,gamma: Double,<br/>                          episodeLength: Int,numEpisodes: Int,<br/>                          minCoverage: Double): Unit = {<br/>                    <strong>require</strong>(alpha &gt; 0.0 &amp;&amp; alpha &lt; 1.0,s"QLConfig found alpha: $alpha required <br/>                            &gt; 0.0 and &lt; 1.0")<br/>                    <strong>require</strong>(gamma &gt; 0.0 &amp;&amp; gamma &lt; 1.0,s"QLConfig found gamma $gamma required <br/>                           &gt; 0.0 and &lt; 1.0")<br/>                    <strong>require</strong>(numEpisodes &gt; 2 &amp;&amp; numEpisodes &lt; MAX_EPISODES,s"QLConfig found <br/>                            $numEpisodes $numEpisodes required &gt; 2 and &lt; $MAX_EPISODES")<br/>                   <strong> require</strong>(minCoverage &gt;= 0.0 &amp;&amp; minCoverage &lt;= 1.0,s"QLConfig found $minCoverage <br/>                            $minCoverage required &gt; 0 and &lt;= 1.0")<br/>        }</pre>
+<p class="chapter-content">Excellent! We have seen how to implement the <kbd>QLearning</kbd> algorithm in Scala. However, as I said, the implementation is based on openly available sources, and the training may not <span>always </span>converge. One important consideration for such an online model is validation. A commercial application (or even a fancy Scala web app, which we will be covering in the next section) may require multiple types of validation mechanisms regarding the states transition, reward, probability, and Q-value matrices.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">QLearning model validation</h1>
+                </header>
+            
+            <article>
+                
+<p class="chapter-content">One critical validation is to verify that the user-defined constraints function does not create a dead-end in the search or training of Q-learning. The function constraints establish the list of states that can be accessed from a given state through actions. If the constraints are too tight, some of the possible search paths may not reach the goal state. Here is a simple validation of the constraints function:</p>
+<pre class="chapter-content"><strong>def</strong> validateConstraints(numStates: Int, constraint: Int =&gt; List[Int]): Boolean = {require(numStates &gt; 1,         s"QLearning validateConstraints found $numStates states should be &gt;1")!Range(0,                 <br/>        numStates).exists(constraint(_).isEmpty)<br/>}</pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Making predictions using the trained model</h1>
+                </header>
+            
+            <article>
+                
+<p>Now that we can select the state with the most awards given for the best policy recursively (see the <kbd>nextState</kbd> method in the following code), an online training method for the Q-learning algorithm can be performed for options trading, for example.</p>
+<p>So, once the Q-learning model is trained using the supplied data, the next state can be predicted using the Q-learning model by overriding the data transformation method (<kbd>PipeOperator</kbd>, that is, <kbd>|</kbd>) with a transformation of a state to a predicted goal state:</p>
+<pre><strong>override </strong><strong>def</strong> |&gt; : PartialFunction[QLState[T], Try[QLState[T]]] = {<br/><strong>    case</strong> st: QLState[T] <br/><strong>        if</strong> isModel =&gt;<br/>            Try(<br/><strong>            if</strong> (st.isGoal) st <br/><strong>        else</strong> nextState(QLIndexedState[T](st, 0)).state)<br/>    }</pre>
+<p class="chapter-content">I guess that's enough of a mouthful, though it would have been good to evaluate the model. But evaluating on a real-life dataset, it would be even better, because running and evaluating a model's performance on fake data is like buying a new car and never driving it. Therefore, I would like to wrap up the implementation part and move on to the options trading application using this Q-learning implementation.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Developing an options trading web app using Q-learning</h1>
+                </header>
+            
+            <article>
+                
+<p class="chapter-content">The trading algorithm is the process of using computers programmed to follow a defined set of instructions for placing a trade in order to generate profits at a speed and frequency that is impossible for a human trader. The defined sets of rules are based on timing, price, quantity, or any mathematical model.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Problem description</h1>
+                </header>
+            
+            <article>
+                
+<p class="chapter-content">Through this project, we will predict the price of an option on a security for <em>N</em> days in the future according to the current set of observed features derived from the time of expiration, the price of the security, and volatility. The question would be: what model should we use for such an option pricing model? The answer is that there are<span> </span><span>actually</span><span> many; Black-Scholes stochastic</span> <strong>partial differential equations</strong> <span>(</span><strong>PDE</strong><span>) is one of the most recognized.</span></p>
+<div class="packt_infobox">In mathematical finance, the Black-Scholes equation is necessarily a PDE overriding the price evolution of a European call or a European put under the Black-Scholes model. For a European call or put on an underlying stock paying no dividends, the equation is:<br/>
+<img height="31" width="209" class="fm-editor-equation" src="assets/beeab1f3-57f6-47fa-9358-4a3b47f69bcc.png"/><br/>
+Where <em>V</em> is the price of the option as a function of stock price <em>S</em> and time <em>t</em>, <em>r</em> is the risk-free interest rate, and <em>σ</em> <span class="mwe-math-mathml-inline"><em>σ</em> (displaystyle sigma)</span> is the volatility of the stock. One of the key financial insights behind the equation is that anyone can perfectly hedge the option by buying and selling the underlying asset in just the right way without any risk. This hedge implies that there is only one right price for the option, as returned by the Black-Scholes formula.</div>
+<p class="chapter-content">Consider a January maturity call option on an IBM with an exercise price of $95. You write a January IBM put option with an exercise price of $85. Let us consider and focus on the call options of a given security, IBM. The following chart plots the daily price of the IBM stock and its derivative call option for May 2014, with a strike price of $190:</p>
+<div class="chapter-content CDPAlignCenter CDPAlign"><img height="172" width="424" src="assets/7cce8043-97c9-41b7-a0e2-bd401127cfe0.png"/></div>
+<div class="packt_figref CDPAlignCenter CDPAlign"><span>Figure 7:</span><span> IBM stock and call $190 May 2014 pricing in May-Oct 2013</span></div>
+<p class="chapter-content CDPAlignLeft CDPAlign">Now, what will be the profit and loss be for this position if IBM is selling at $87 on the option maturity date? Alternatively, what if IBM is selling at $100? Well, it is not easy to compute or predict the answer. However, in options trading, the price of an option depends on a few parameters, such as time decay, price, and volatility:</p>
+<ul>
+<li>Time to expiration of the option (time decay)</li>
+<li>The price of the underlying security</li>
+<li>The volatility of returns of the underlying asset</li>
+</ul>
+<p class="chapter-content">A pricing model usually does not consider the variation in trading volume in terms of the underlying security. Therefore, some researchers have included it in the option trading model. As we have described, any RL-based algorithm should have an explicit state (or <span>state</span>s), so let us define the state of an option using the following four normalized features:</p>
+<ul>
+<li><strong>Time decay</strong> (<kbd>timeToExp</kbd>): This is the time to expiration once normalized in the range of (0, 1).</li>
+<li><strong>Relative volatility</strong> (<kbd>volatility</kbd>): within a trading session, this is the relative variation of the price of the underlying security. It is different than the more complex volatility of returns defined in the Black-Scholes model, for example.</li>
+<li><strong>Volatility relative to volume</strong> (<kbd>vltyByVol</kbd>): This is the relative volatility of the price of the security adjusted for its trading volume.</li>
+<li><strong>Relative</strong> <strong>difference between the current price and the strike price</strong> (<kbd>priceToStrike</kbd>): This measures the ratio of the difference between the price and the strike price to the strike price.</li>
+</ul>
+<p class="chapter-content">The following graph shows the four normalized features that can be used for the IBM option strategy:</p>
+<div class="CDPAlignCenter CDPAlign"><img height="216" width="490" src="assets/96deb7b5-fd00-41aa-8eed-a514786ef05b.png"/></div>
+<div class="CDPAlignCenter CDPAlign packt_figref">Figure 8: Normalized relative stock price volatility, volatility relative to trading volume, and price relative to strike price for the IBM stock</div>
+<p class="chapter-content">Now let us look at the stock and the option price dataset. There are two files <kbd>IBM.csv</kbd> and <kbd>IBM_O.csv</kbd> contain the IBM stock prices and option prices, respectively. The stock price dataset has the date, the opening price, the high and low price, the closing price, the trade volume, and the adjusted closing price. A shot of the dataset is given in the following diagram:</p>
+<div class="mce-root CDPAlignCenter CDPAlign"><img height="181" width="488" src="assets/28f78eae-73f9-450c-a168-a30ec57f50f9.png"/></div>
+<div class="chapter-content CDPAlignCenter CDPAlign packt_figref">Figure 9: IBM stock data</div>
+<p class="chapter-content">On the other hand, <kbd>IBM_O.csv</kbd> has 127 option prices for IBM Call 190 Oct 18, 2014. A few values are 1.41, 2.24, 2.42, 2.78, 3.46, 4.11, 4.51, 4.92, 5.41, 6.01, and so on. Up to this point, can we develop a predictive model using a <kbd>QLearning</kbd>, algorithm that can help us answer the previously mentioned question: Can it tell us the how IBM can make maximum profit by utilizing all the available features?</p>
+<p class="chapter-content">Well, we know how to implement the <kbd>QLearning</kbd>, and we know what option trading is. Another good thing is that the technologies that will be used for this project such as Scala, Akka, Scala Play Framework, and RESTful services are already discussed in <a href="51e66c26-e12b-4764-bbb7-444986c05870.xhtml" target="_blank">Chapter 3</a>, <em>High-Frequency Bitcoin Price Prediction from Historical Data</em>. Therefore, it may be possible. Then we try it to develop a Scala web project that helps us maximize the profit.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Implementating an options trading web application</h1>
+                </header>
+            
+            <article>
+                
+<p>The goal of this project is to create an options trading web application that creates a QLearning model from the IBM stock data. Then the app will extract the output from the model as a JSON object and show the result to the user. <em>Figure 10</em>, shows the overall workflow:</p>
+<div class="CDPAlignCenter CDPAlign"><img height="232" width="527" src="assets/edad61e5-68f9-4f3a-bd72-b09377596bf1.png"/></div>
+<div class="packt_figref CDPAlignCenter CDPAlign">Figure 10: Workflow of the options trading Scala web</div>
+<p>The compute API prepares the input for the Q-learning algorithm, and the algorithm starts by extracting the data from the files to build the option model. Then it performs operations on the data such as normalization and discretization. It passes all of this to the Q-learning algorithm to train the model. After that, the compute API gets the model from the algorithm, extracts the best policy data, and puts it onto JSON to be returned to the web browser. Well, the implementation of the options trading strategy using Q-learning consists of the following steps:</p>
+<ul>
+<li>Describing the property of an option</li>
+<li>Defining the function approximation</li>
+<li>Specifying the constraints on the state transition</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Creating an option property</h1>
+                </header>
+            
+            <article>
+                
+<p class="chapter-content">Considering the market volatility, we need to be a bit more realistic, because any longer-term prediction is quite unreliable. The reason is that it would fall outside the constraint of the discrete Markov model. So, suppose we want to predict the price for next two days—that is, <em>N= 2</em>. That means the price of the option two days in the future is the value of the reward profit or loss. So, let us encapsulate the following four parameters:</p>
+<ul>
+<li><kbd>timeToExp</kbd>: Time left until expiration as a percentage of the overall duration of the option</li>
+<li>Volatility normalized Relative volatility of the underlying security for a given trading session</li>
+<li><kbd>vltyByVol</kbd>: Volatility of the underlying security for a given trading session relative to a trading volume for the session</li>
+<li><kbd>priceToStrike</kbd>: Price of the underlying security relative to the Strike price for a given trading session</li>
+</ul>
+<p class="chapter-content">The <kbd>OptionProperty</kbd> class defines the property of a traded option on a security. The constructor creates the property for an option:</p>
+<pre class="chapter-content"><strong>class</strong> OptionProperty(timeToExp: Double,volatility: Double,vltyByVol: Double,priceToStrike: Double) {<br/><strong>        val</strong> toArray = Array[Double](timeToExp, volatility, vltyByVol, priceToStrike)<br/>        <strong>require</strong>(timeToExp &gt; 0.01, s"OptionProperty time to expiration found $timeToExp required 0.01")<br/>    }</pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Creating an option model</h1>
+                </header>
+            
+            <article>
+                
+<p>Now we need to create an <kbd>OptionModel</kbd> to act as the container and the factory for the properties of the option. It takes the following parameters and creates a list of option properties, <kbd>propsList</kbd>, by accessing the data source of the four features described earlier:</p>
+<ul>
+<li>The symbol of the security.</li>
+<li>The strike price for <kbd>option</kbd>, <kbd>strikePrice</kbd>.</li>
+<li>The source of the <kbd>data</kbd>, <kbd>src</kbd>.</li>
+<li>The minimum time decay or time to expiration, <kbd>minTDecay</kbd>. Out-of-the-money options expire worthlessly, and in-the-money options have a very different price behavior as they get closer to the expiration. Therefore, the last <kbd>minTDecay</kbd> trading sessions prior to the expiration date are not used in the training process.</li>
+<li>The number of steps (or buckets), <kbd>nSteps</kbd>, is used in approximating the values of each feature. For instance, an approximation of four steps creates four buckets: (0, 25), (25, 50), (50, 75), and (75, 100).</li>
+</ul>
+<p class="chapter-content">Then it assembles <kbd>OptionProperties</kbd> and computes the normalized minimum time to the expiration of the option. Then it computes an approximation of the value of options by discretization of the actual value in multiple levels from an array of options prices; finally it returns a map of an array of levels for the option price and accuracy. Here is the constructor of the class:</p>
+<pre><strong>class</strong> OptionModel(<br/>    symbol: String,<br/>    strikePrice: Double,<br/>    src: DataSource,<br/>    minExpT: Int,<br/>    nSteps: Int<br/>    )</pre>
+<p>Inside this class implementation, at first, a validation is done using the <kbd>check()</kbd> method, by checking the following:</p>
+<ul>
+<li><kbd>strikePrice</kbd>: A positive price is required</li>
+<li><kbd>minExpT</kbd>: This has to be between 2 and 16</li>
+<li><kbd>nSteps</kbd>: Requires a minimum of two steps</li>
+</ul>
+<p>Here's the invocation of this method:</p>
+<pre><strong>check</strong>(strikePrice, minExpT, nSteps)</pre>
+<p>The signature of the preceding method is shown in the following code:</p>
+<pre><strong>def</strong> check(strikePrice: Double, minExpT: Int, nSteps: Int): Unit = {<br/>   <strong> require</strong>(strikePrice &gt; 0.0, s"OptionModel.check price found $strikePrice required &gt; 0")<br/>    <strong>require</strong>(minExpT &gt; 2 &amp;&amp; minExpT &lt; 16,s"OptionModel.check Minimum expiration time found $minExpT                     required ]2, 16[")<br/>    <strong>require</strong>(nSteps &gt; 1,s"OptionModel.check, number of steps found $nSteps required &gt; 1")<br/>    }</pre>
+<p>Once the preceding constraint is satisfied, the list of option properties, named <kbd>propsList</kbd>, is created as follows:</p>
+<pre><strong>val</strong> propsList = (<strong>for</strong> {<br/>    price &lt;- src.get(adjClose)<br/>    volatility &lt;- src.get(volatility)<br/>    nVolatility &lt;- normalize[Double](volatility)<br/>    vltyByVol &lt;- src.get(volatilityByVol)<br/>    nVltyByVol &lt;- normalize[Double](vltyByVol)<br/>    priceToStrike &lt;- normalize[Double](price.map(p =&gt; 1.0 - strikePrice / p))<br/>    } <br/><strong>    yield</strong> {<br/>        nVolatility.zipWithIndex./:(List[OptionProperty]()) {<br/><strong>            case</strong> (xs, (v, n)) =&gt;<br/><strong>            val</strong> normDecay = (n + minExpT).toDouble / (price.size + minExpT)<br/><strong>            new</strong> OptionProperty(normDecay, v, nVltyByVol(n), priceToStrike(n)) :: xs<br/>        }<br/>     .drop(2).reverse<br/>    }).get</pre>
+<p> In the preceding code block, the factory uses the <kbd><span class="A7">zipWithIndex</span></kbd> Scala method to represent the index of the trading sessions. All feature values are normalized over the interval (0, 1), including the time decay (or time to expiration) of the <kbd><span class="A7">normDecay</span></kbd> option.</p>
+<p>The <kbd><span class="A7">quantize()</span></kbd> method of the <kbd><span class="A7">OptionModel</span></kbd> class converts the normalized value of each option property of features into an array of bucket indices. It returns a map of profit and loss for each bucket keyed on the array of bucket indices:</p>
+<pre><strong>def</strong> quantize(o: Array[Double]): Map[Array[Int], Double] = {<br/><strong>    val</strong> mapper = <strong>new</strong> mutable.HashMap[Int, Array[Int]]<br/><strong>    val</strong> acc: NumericAccumulator[Int] = propsList.view.map(_.toArray)<br/>    map(toArrayInt(_)).map(ar =&gt; {<br/><strong>        val</strong> enc = encode(ar)<br/>        mapper.put(enc, ar)<br/>        enc<br/>            })<br/>    .zip(o)./:(<br/><strong>    new</strong> NumericAccumulator[Int]) {<br/><strong>        case</strong> (_acc, (t, y)) =&gt; _acc += (t, y); _acc<br/>            }<br/>        acc.map {<br/><strong>        case</strong> (k, (v, w)) =&gt; (k, v / w) }<br/>            .map { <br/><strong>        case</strong> (k, v) =&gt; (mapper(k), v) }.toMap<br/>    }</pre>
+<p class="chapter-content">The method also creates a <span class="A7">mapper</span> instance to index the array of buckets. An accumulator, <kbd><span class="A7">acc</span></kbd>, of type <kbd><span class="A7">NumericAccumulator</span></kbd> extends the <kbd><span class="A7">Map[Int, (Int, Double)]</span></kbd> and computes this tuple <em>(number of occurrences of features on each bucket, sum of the increase or decrease of the option price)</em>.</p>
+<p class="chapter-content">The <kbd><span class="A7">toArrayInt</span></kbd> method converts the value of each option property (<kbd><span class="A7">timeToExp</span></kbd>, <kbd><span class="A7">volatility</span></kbd>, and so on) into the index of the appropriate bucket. The array of indices is then encoded to generate the <span class="A7">id</span> or index of a state. The method updates the accumulator with the number of occurrences and the total profit and loss for a trading session for the option. It finally computes the reward on each action by averaging the profit and loss on each bucket. The signature of the <kbd>encode()</kbd>, <kbd>toArrayInt()</kbd> is given in the following code:</p>
+<pre><strong>private </strong><strong>def</strong> encode(arr: Array[Int]): Int = arr./:((1, 0)) { <br/><strong>    case</strong> ((s, t), n) =&gt; (s * nSteps, t + s * n) }._2<br/><strong>        private </strong><strong>def</strong> toArrayInt(feature: Array[Double]): Array[Int] = feature.map(x =&gt; (nSteps *         <br/>            x).floor.toInt)<br/><br/><strong>final </strong><strong>class</strong> NumericAccumulator[T] <br/><strong>    extends</strong> mutable.HashMap[T, (Int, Double)] {<br/><strong>    def</strong> +=(key: T, x: Double): Option[(Int, Double)] = {<br/><strong>        val</strong> newValue = <br/><strong>    if</strong> (contains(key)) (get(key).get._1 + 1, get(key).get._2 + x) <br/><strong>    else</strong> (1, x)<br/><strong>    super</strong>.put(key, newValue)<br/>    }<br/>}</pre>
+<p>Finally, and most importantly, if the preceding constraints are satisfied (you can modify these constraints though) and once the instantiation of the <kbd><span class="A7">OptionModel</span></kbd> class generates a list of <kbd><span class="A7">OptionProperty</span></kbd> elements if the constructor succeeds;<span> </span><span>otherwise,</span><span> it generates an empty list.</span></p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Putting it altogether</h1>
+                </header>
+            
+            <article>
+                
+<p class="chapter-content">Because we have implemented the Q-learning algorithm, we can <span>now</span><span> </span><span>develop the options trading application using Q-learning. However, at first, we need to load the data using the </span><kbd>DataSource</kbd> <span>class (we will see its implementation later on). Then we can create an option model from the data for a given stock with default strike and minimum expiration time parameters, using</span> <kbd>OptionModel</kbd><span>, which defines the model for a traded option, on a security. Then we have to create the model for the profit and loss on an option given the underlying security.</span></p>
+<p class="chapter-content"><span>The profit and loss are adjusted to produce positive values. It instantiates an instance of the Q-learning class, that is, a generic parameterized class that implements the Q-learning algorithm. The Q-learning model is initialized and trained during the instantiation of the class, so it can be in the correct state for the runtime prediction.</span></p>
+<p class="chapter-content"><span>Therefore, the class instances have only two states: successfully trained and failed training Q-learning value action. Then the model is returned to get processed and visualized.</span></p>
+<p>So, let us create a Scala object and name it <kbd>QLearningMain</kbd>. Then, inside the <kbd>QLearningMain</kbd> object, define and initialize the following parameters:</p>
+<ul>
+<li><kbd>Name</kbd>: Used to indicate the reinforcement algorithm's name (for our case, it's Q-learning)</li>
+<li><kbd>STOCK_PRICES</kbd>: File that contains the stock data</li>
+<li><kbd>OPTION_PRICES</kbd>: File that contains the available option data</li>
+<li><kbd>STRIKE_PRICE</kbd>: Option strike price</li>
+<li><kbd>MIN_TIME_EXPIRATION</kbd>: Minimum expiration time for the option recorded</li>
+<li><kbd>QUANTIZATION_STEP</kbd>: Steps used in discretization or approximation of the value of the security</li>
+<li><kbd>ALPHA</kbd>: Learning rate for the Q-learning algorithm</li>
+<li><kbd>DISCOUNT</kbd> (gamma): Discount rate for the Q-learning algorithm</li>
+<li><kbd>MAX_EPISODE_LEN</kbd>: Maximum number of states visited per episode</li>
+<li><kbd>NUM_EPISODES</kbd>: Number of episodes used during training</li>
+<li><kbd>MIN_COVERAGE</kbd>: Minimum coverage allowed during the training of the Q-learning model</li>
+<li><kbd>NUM_NEIGHBOR_STATES</kbd>: Number of states accessible from any other state</li>
+<li><kbd>REWARD_TYPE</kbd>: Maximum reward or Random</li>
+</ul>
+<p class="chapter-content">Tentative initializations for each parameter are given in the following code:</p>
+<pre class="chapter-content"><strong>val</strong> name: String = "Q-learning"// Files containing the historical prices for the stock and option<br/><strong>val</strong> STOCK_PRICES = "/static/IBM.csv"<br/><strong>val</strong> OPTION_PRICES = "/static/IBM_O.csv"// Run configuration parameters<br/><strong>val</strong> STRIKE_PRICE = 190.0 // Option strike price<br/><strong>val</strong> MIN_TIME_EXPIRATION = 6 // Min expiration time for option recorded<br/><strong>val</strong> QUANTIZATION_STEP = 32 // Quantization step (Double =&gt; Int)<br/><strong>val</strong> ALPHA = 0.2 // Learning rate<br/><strong>val</strong> DISCOUNT = 0.6 // Discount rate used in Q-Value update equation<br/><strong>val</strong> MAX_EPISODE_LEN = 128 // Max number of iteration for an episode<br/><strong>val</strong> NUM_EPISODES = 20 // Number of episodes used for training.<br/><strong>val</strong> NUM_NEIGHBHBOR_STATES = 3 // No. of states from any other state</pre>
+<p class="chapter-content">Now the <kbd>run()</kbd> method accepts <span>as input </span>the reward type (<kbd>Maximum reward</kbd> in our case), quantized step (in our case, <kbd>QUANTIZATION_STEP</kbd>), alpha (the learning rate, <kbd>ALPHA</kbd> in our case) and gamma (in our case, it's <kbd>DISCOUNT</kbd>, the discount rate for the Q-learning algorithm). It displays the distribution of values in the model. Additionally, it displays the estimated Q-value for the best policy on a Scatter plot (we will see this later). Here is the workflow of the preceding method:</p>
+<ol>
+<li>First, it extracts the stock price from the <kbd>IBM.csv</kbd> file</li>
+<li>Then it creates an option model <kbd>createOptionModel</kbd> using the stock prices and quantization, <kbd>quantizeR</kbd> (see the <kbd>quantize</kbd> method for more and the main method invocation later)</li>
+<li>The option prices are extracted from the <kbd>IBM_o.csv</kbd> file</li>
+<li>After that, another model, <kbd>model</kbd>, is created using the option model to evaluate it on the option prices, <kbd>oPrices</kbd></li>
+<li>Finally, the estimated Q-Value (that is, <em>Q-value = value * probability</em>) is displayed 0n a Scatter plot using the <kbd>display</kbd> method</li>
+</ol>
+<p class="chapter-content">By amalgamating the preceding steps, here's the signature of the <kbd>run()</kbd> method:</p>
+<pre class="chapter-content"><strong>private </strong><strong>def</strong> run(rewardType: String,quantizeR: Int,alpha: Double,gamma: Double): Int = {<br/><strong>    val</strong> sPath = getClass.getResource(STOCK_PRICES).getPath<br/><strong>    val</strong> src = DataSource(sPath, <strong>false</strong>, <strong>false</strong>, 1).get<br/><strong>    val</strong> option = createOptionModel(src, quantizeR)<br/><br/><strong>    val</strong> oPricesSrc = DataSource(OPTION_PRICES, <strong>false</strong>, <strong>false</strong>, 1).get<br/><strong>    val</strong> oPrices = oPricesSrc.extract.get<br/><br/><strong>    val</strong> model = createModel(option, oPrices, alpha, gamma)model.map(m =&gt; {<strong>if</strong> (rewardType != "Random")<br/>    display(m.bestPolicy.EQ,m.toString,s"$rewardType with quantization order             <br/>            $quantizeR")1}).getOrElse(-1)<br/>}</pre>
+<p class="chapter-content">Now here is the signature of the <kbd>createOptionModel()</kbd> method that creates an option model using (see the <kbd>OptionModel</kbd> class):</p>
+<pre><strong>private def</strong> createOptionModel(src: DataSource, quantizeR: Int): OptionModel =<br/><strong>    new</strong> OptionModel("IBM", STRIKE_PRICE, src, MIN_TIME_EXPIRATION, quantizeR)</pre>
+<p class="chapter-content">Then the <kbd>createModel()</kbd> method creates a model for the profit and loss on an option given the underlying security. Note that the option prices are quantized using the <kbd>quantize()</kbd> method defined earlier. Then the constraining method is used to limit the number of actions available to any given state. This simple implementation computes the list of all the states within a radius of this state. Then it identifies the neighboring states within a predefined radius.</p>
+<p class="chapter-content">Finally, it uses the input data to train the Q-learning model to compute the minimum value for the profit, a loss so the maximum loss is converted to a null profit. Note that the profit and loss are adjusted to produce positive values. Now let us see the signature of this method:</p>
+<pre class="chapter-content"><strong>def</strong> createModel(ibmOption: OptionModel,oPrice: Seq[Double],alpha: Double,gamma: Double): Try[QLModel] = {<br/><strong>    val</strong> qPriceMap = ibmOption.quantize(oPrice.toArray)<br/><strong>    val</strong> numStates = qPriceMap.size<br/><strong>    val</strong> neighbors = (n: Int) =&gt; {<br/><strong>def</strong> getProximity(idx: Int, radius: Int): List[Int] = {<br/><strong>    val</strong> idx_max =<br/><strong>        if</strong> (idx + radius &gt;= numStates) numStates - 1 <br/><strong>    else</strong> idx + radius<br/><strong>    val</strong> idx_min = <br/><strong>        if</strong> (idx &lt; radius) 0 <br/><strong>        else</strong> idx - radiusRange(idx_min, idx_max + 1).filter(_ != idx)./:(List[Int]())((xs, n) =&gt; n :: xs)}getProximity(n, NUM_NEIGHBHBOR_STATES)<br/>        }<br/><strong>    val</strong> qPrice: DblVec = qPriceMap.values.toVector<br/><strong>    val</strong> profit: DblVec = normalize(zipWithShift(qPrice, 1).map {<br/><strong>        case</strong> (x, y) =&gt; y - x}).get<br/><strong>    val</strong> maxProfitIndex = profit.zipWithIndex.maxBy(_._1)._2<br/><strong>    val</strong> reward = (x: Double, y: Double) =&gt; Math.exp(30.0 * (y - x))<br/><strong>    val</strong> probabilities = (x: Double, y: Double) =&gt; <br/><strong>        if</strong> (y &lt; 0.3 * x) 0.0 <br/><strong>        else</strong> 1.0println(s"$name Goal state index: $maxProfitIndex")<br/><strong>        if</strong> (!QLearning.validateConstraints(profit.size, neighbors))<br/><strong>            throw</strong><strong>new</strong> IllegalStateException("QLearningEval Incorrect states transition constraint")<br/><strong>    val</strong> instances = qPriceMap.keySet.toSeq.drop(1)<br/><strong>    val</strong> config = QLConfig(alpha, gamma, MAX_EPISODE_LEN, NUM_EPISODES, 0.1)<br/><strong>    val</strong> qLearning = QLearning[Array[Int]](config,Array[Int](maxProfitIndex),profit,reward,probabilities,instances,Some(neighbors))    <strong>val</strong> modelO = qLearning.getModel<br/><strong>        if</strong> (modelO.isDefined) {<br/><strong>    val</strong> numTransitions = numStates * (numStates - 1)println(s"$name Coverage ${modelO.get.coverage} for $numStates states and $numTransitions transitions")<br/><strong>    val</strong> profile = qLearning.dumpprintln(s"$name Execution profilen$profile")display(qLearning)Success(modelO.get)} <br/><strong>        else </strong>Failure(<strong>new</strong> IllegalStateException(s"$name model undefined"))<br/>}</pre>
+<p class="chapter-content">Note that if the preceding invocation cannot create an option model, the code fails to show a message that the model creation failed. Nonetheless, remember that the <kbd>minCoverage</kbd> used in the following line is important, considering the small dataset we used (because the algorithm will converge very quickly):</p>
+<pre class="chapter-content"><strong>val</strong> config = QLConfig(alpha, gamma, MAX_EPISODE_LEN, NUM_EPISODES, 0.0)</pre>
+<p class="chapter-content">Although we've already stated that it is not assured that the model creation and training will be successful, a Naïve clue would be using a very small <kbd>minCoverage</kbd> value between <kbd>0.0</kbd> and <kbd>0.22</kbd>. Now, if the preceding invocation is successful, then the model is trained and ready for making prediction. If so, then the display method is used to display the estimated <em>Q-value = value * probability</em> in a Scatter plot. Here is the signature of the method:</p>
+<pre class="chapter-content"><strong>private </strong><strong>def</strong> display(eq: Vector[DblPair],results: String,params: String): Unit = {<br/><strong>    import</strong> org.scalaml.plots.{ScatterPlot, BlackPlotTheme, Legend}<br/><strong>    val</strong> labels = Legend(name, s"Q-learning config: $params", "States", "States")ScatterPlot.display(eq, <br/>        labels, <strong>new</strong> BlackPlotTheme)<br/>}</pre>
+<p class="chapter-content">Hang on and do not lose patience! We are finally ready to see a simple <kbd>rn</kbd> and inspect the result. So let us do it:</p>
+<pre class="chapter-content">def main(args: Array[String]): Unit = {<br/> run("Maximum reward",QUANTIZATION_STEP, ALPHA, DISCOUNT)<br/> } <br/>&gt;&gt;&gt; <br/>Action: state 71 =&gt; state 74<br/>Action: state 71 =&gt; state 73<br/>Action: state 71 =&gt; state 72<br/>Action: state 71 =&gt; state 70<br/>Action: state 71 =&gt; state 69<br/>Action: state 71 =&gt; state 68...Instance: [I@1f021e6c - state: 124<br/>Action: state 124 =&gt; state 125<br/>Action: state 124 =&gt; state 123<br/>Action: state 124 =&gt; state 122<br/>Action: state 124 =&gt; state 121Q-learning Coverage 0.1 for 126 states and 15750 transitions<br/>Q-learning Execution profile<br/>Q-Value -&gt; 5.572310105096295, 0.013869013819834967, 4.5746487300071825, 0.4037703812585325, 0.17606260549479869, 0.09205272504875522, 0.023205692430068765, 0.06363082458984902, 50.405283888218435... 6.5530411130514015<br/>Model: Success(Optimal policy: Reward - 1.00,204.28,115.57,6.05,637.58,71.99,12.34,0.10,4939.71,521.30,402.73, with coverage: 0.1)</pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Evaluating the model</h1>
+                </header>
+            
+            <article>
+                
+<p class="chapter-content">The preceding output shows the transition from one state to another, and for the <strong>0.1</strong> coverage, the <kbd>QLearning</kbd> model had 15,750 transitions for 126 states to reach goal state 37 with optimal rewards. Therefore, the training set is quite small and only a few buckets have actual values. So we can understand that the size of the training set has an impact on the number of states. <kbd>QLearning</kbd> will converge too fast for a small training set (like what we have for this example).</p>
+<p class="chapter-content">However, for a larger training set, <kbd>QLearning</kbd> will take time to converge; it will provide at least one value for each bucket created by the approximation. Also, by seeing those values, it is difficult to understand the relation between Q-values and states.</p>
+<p class="chapter-content">So what if we can see the Q-values per state? Why not! We can see them on a scatter plot:</p>
+<div class="CDPAlignCenter CDPAlign"><img height="374" width="507" src="assets/ca965320-2e1b-4071-8bcd-12deb0e638da.png"/></div>
+<div class="chapter-content CDPAlignCenter CDPAlign packt_figref">Figure 11: Q-value per state</div>
+<p class="chapter-content">Now let us display the profile of the log of the Q-value (<kbd><span class="A7">QLData.value</span></kbd>) as the recursive search (or training) progress for different episodes or epochs. The test uses a learning rate <em>α = 0.1</em> and a discount rate <em>γ = 0.9</em> (see more in the deployment section):</p>
+<div class="CDPAlignCenter CDPAlign"><img height="180" width="317" src="assets/d881e918-f728-4520-826c-62a84b78c31a.png"/></div>
+<div class="chapter-content CDPAlignCenter CDPAlign packt_figref">Figure 12: Profile of the logarithmic Q-Value for different epochs during Q-learning training</div>
+<p class="chapter-content">The preceding chart illustrates the fact that the Q-value for each profile is independent of the order of the epochs during training. However, the number of iterations to reach the goal state depends on the initial state selected randomly in this example. To get more insights, inspect the output on your editor or access the API endpoint at <kbd>http://localhost:9000/api/compute</kbd> (see following). Now, what if we display the distribution of values in the model and display the estimated Q-value for the best policy on a Scatter plot for the given configuration parameters?</p>
+<div class="CDPAlignCenter CDPAlign"><em><img height="419" width="554" src="assets/97ed3adc-210c-4522-bf60-22f75a28d47d.png"/></em></div>
+<div class="chapter-content packt_figref CDPAlignCenter CDPAlign">Figure 13: Maximum reward with quantization 32 with the QLearning</div>
+<p class="chapter-content">The final evaluation consists of evaluating the impact of the learning rate and discount rate on the coverage of the training:</p>
+<div class="CDPAlignCenter CDPAlign"><img height="134" width="341" src="assets/94fc5941-bbad-41f5-97ae-f9219bba71d0.png"/></div>
+<div class="chapter-content CDPAlignCenter CDPAlign packt_figref">Figure 14: Impact of the learning rate and discount rate on the coverage of the training</div>
+<p class="chapter-content">The coverage decreases as the learning rate increases. This result confirms the general rule of using <em>learning rate</em> <em>&lt; 0.2</em>. A similar test to evaluate the impact of the discount rate on the coverage is inconclusive. We could have thousands of such configuration parameters with different choices and combinations. So, what if we can wrap the whole application as a Scala web app similar to what we did in <a href="51e66c26-e12b-4764-bbb7-444986c05870.xhtml" target="_blank">Chapter 3</a>, <em>High-Frequency Bitcoin Price Prediction from Historical Data</em>? I guess it would not be that bad an idea. So let us dive into it.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Wrapping up the options trading app as a Scala web app</h1>
+                </header>
+            
+            <article>
+                
+<p class="chapter-content">The idea is to get the trained model and construct the best policy JSON output for the maximum reward case. <kbd>PlayML</kbd> is a web app that uses the options trading Q-learning algorithm to provide a compute API endpoint that takes the input dataset and some options to calculate the q-values and returns them in JSON format to be modeled in the frontend.</p>
+<p class="chapter-content">The wrapped up Scala web ML app has the following directory structure:</p>
+<div class="CDPAlignCenter CDPAlign"><img height="237" width="344" src="assets/b9c7cd08-9159-4dad-8f7b-d2a920c6fc22.png"/></div>
+<div class="chapter-content CDPAlignCenter CDPAlign packt_figref">Figure 15: Scala ML web app directory structure</div>
+<p class="chapter-content">In the preceding structure, the app folder has both the original QLearning implementation (see the <kbd>ml</kbd> folder) and some additional backend code. The <kbd>controller</kbd> <span>subfolder </span>has a Scala class named <kbd>API.scala</kbd>, used as the Scala controller for controlling the model behavior from the frontend. Finally, <kbd>Filters.scala</kbd> acts as the <kbd>DefaultHttpFilters</kbd>:</p>
+<div class="CDPAlignCenter CDPAlign"><img height="132" width="331" src="assets/06994b75-70b4-434d-87e1-40d0b40a16c4.png"/></div>
+<div class="chapter-content CDPAlignCenter CDPAlign packt_figref">Figure 16: The ml directory structure</div>
+<p class="chapter-content">The <kbd>conf</kbd> folder has the Scala web app configuration file, <kbd>application.conf</kbd>, containing the necessary configurations. All the dependencies are defined in the <kbd>build.sbt</kbd> file, as shown in the following code<em>:</em></p>
+<pre class="chapter-content">name := "PlayML"version := "1.0"<br/>lazy val `playml` = (project in file(".")).enablePlugins(PlayScala)<br/>resolvers += "scalaz-bintray" <br/>scalaVersion := "2.11.11"<br/>libraryDependencies ++= Seq(filters, cache, ws, "org.apache.commons" % "commons-math3" %                 <br/>        "3.6","com.typesafe.play" %% "play-json" % "2.5",<br/>        "org.jfree" % "jfreechart" % "1.0.17",<br/>        "com.typesafe.akka" %% "akka-actor" % "2.3.8",<br/>        "org.apache.spark" %% "spark-core" % "2.1.0",<br/>        "org.apache.spark" %% "spark-mllib" % "2.1.0",<br/>        "org.apache.spark" %% "spark-streaming" % "2.1.0")</pre>
+<p class="chapter-content">The <kbd>lib</kbd> folder has some <kbd>.jar</kbd> files used as external dependencies defined in the <kbd>build.sbt</kbd> file<em>.</em> The <kbd>public</kbd> folder has the static pages used in the UI. Additionally, the data files <kbd>IBM.csv</kbd> and <kbd>IBM_O.csv</kbd> are also there. Finally, the target folder holds the application as a packaged (if any).</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">The backend</h1>
+                </header>
+            
+            <article>
+                
+<p class="chapter-content">In the backend, I encapsulated the preceding Q-learning implementation and additionally created a Scala controller that controls the model behavior from the frontend. The structure is given here:</p>
+<pre class="chapter-content"><strong>import</strong> java.nio.file.Paths<br/><strong>import</strong> org.codehaus.janino.Java<br/><strong>import</strong> ml.stats.TSeries.{normalize, zipWithShift}<br/><strong>import</strong> ml.workflow.data.DataSource<br/><strong>import</strong> ml.trading.OptionModel<br/><strong>import</strong> ml.Predef.{DblPair, DblVec}<br/><strong>import</strong> ml.reinforcement.qlearning.{QLConfig, QLModel, QLearning}<br/><strong>import</strong> scala.util.{Failure, Success, Try}<br/><strong>import</strong> play.api._<br/><strong>import</strong> play.api.data.Form<br/><strong>import</strong> play.api.libs.json._<br/><strong>import</strong> play.api.mvc._<br/><strong>import</strong> scala.util.{Failure, Success, Try}<br/><br/><strong>class</strong> API <strong>extends</strong> Controller {<br/><strong>    protected </strong><strong>val</strong> name: String = "Q-learning"<br/><strong>    private </strong><strong>var</strong> sPath = Paths.get((s"${"public/data/IBM.csv"}")).toAbsolutePath.toString<br/><strong>    private </strong><strong>var</strong> oPath = Paths.get((s"${"public/data/IBM_O.csv"}")).toAbsolutePath.toString<br/><br/>   // Run configuration parameters<br/><strong>    private </strong><strong>var</strong> STRIKE_PRICE = 190.0 // Option strike price<br/><strong>    private </strong><strong>var</strong> MIN_TIME_EXPIRATION = 6 // Minimum expiration time for the option recorded<br/><strong>    private </strong><strong>var</strong> QUANTIZATION_STEP = 32 // Quantization step (Double =&gt; Int)<br/><strong>    private </strong><strong>var</strong> ALPHA = 0.2 // Learning rate<br/><strong>    private </strong><strong>var</strong> DISCOUNT = 0.6 // Discount rate used in the Q-Value update equation<br/><strong>    private </strong><strong>var</strong> MAX_EPISODE_LEN = 128 // Maximum number of iteration for an episode<br/><strong>    private </strong><strong>var</strong> NUM_EPISODES = 20 // Number of episodes used for training.<br/><strong>    private </strong><strong>var</strong> MIN_COVERAGE = 0.1<br/><strong>    private </strong><strong>var</strong> NUM_NEIGHBOR_STATES = 3 // Number of states accessible from any other state<br/><strong>    private </strong><strong>var</strong> REWARD_TYPE = "Maximum reward"<br/><strong>    private </strong><strong>var</strong> ret = JsObject(Seq())<br/><strong>    private </strong><strong>var</strong> retry = 0<br/><br/><strong>    private </strong><strong>def</strong> run(REWARD_TYPE: String,quantizeR: Int,alpha: Double,gamma: Double) = {<br/><strong>        val</strong> maybeModel = createModel(createOptionModel(DataSource(sPath, <strong>false</strong>, <strong>false</strong>, 1).get, quantizeR),             DataSource(oPath, <strong>false</strong>, <strong>false</strong>, 1).get.extract.get, alpha, gamma)<br/><strong>        if</strong> (maybeModel != None) {<br/><strong>            val</strong> model = maybeModel.get<br/><strong>            if</strong> (REWARD_TYPE != "Random") {<br/><strong>                var</strong> value = JsArray(Seq())<br/><strong>                var</strong> x = model.bestPolicy.EQ.distinct.map(x =&gt; {value = value.append(JsObject(Seq("x" -&gt;                     JsNumber(x._1), "y" -&gt; JsNumber(x._2))))})ret = ret.+("OPTIMAL", value)<br/>                }<br/>            }<br/>        }<br/>/** Create an option model for a given stock with default strike and minimum expiration time parameters.<br/>*/<br/><strong>    private</strong><strong>def</strong> createOptionModel(src: DataSource, quantizeR: Int): OptionModel =<br/><strong>        new</strong> OptionModel("IBM", STRIKE_PRICE, src, MIN_TIME_EXPIRATION, quantizeR)<br/>/** Create a model for the profit and loss on an option given<br/>* the underlying security. The profit and loss is adjusted to<br/>* produce positive values.<br/>*/<br/><strong>    private</strong><strong>def</strong> createModel(ibmOption: OptionModel,oPrice: Seq[Double],alpha: Double,gamma: Double): Option[QLModel] = {<br/><strong>        val</strong> qPriceMap = ibmOption.quantize(oPrice.toArray)<br/><strong>        val</strong> numStates = qPriceMap.size<br/><strong>        val</strong> neighbors = (n: Int) =&gt; {<br/><strong>            def</strong> getProximity(idx: Int, radius: Int): List[Int] = {<br/><strong>            val</strong> idx_max = <strong>if</strong> (idx + radius &gt;= numStates) numStates - 1<br/>            <strong>else</strong> idx + radius<br/><strong>            val</strong> idx_min = <strong>if</strong> (idx &lt; radius) 0 <br/>                        <strong>else</strong> idx - radiusscala.collection.immutable.Range(idx_min, idx_max + 1)<br/>                            .filter(_ != idx)./:(List[Int]())((xs, n) =&gt; n :: xs)<br/>                        }<br/>                getProximity(n, NUM_NEIGHBOR_STATES)<br/>            }<br/>       // Compute the minimum value for the profit, loss so the maximum loss is converted to a null profit<br/><strong>        val</strong> qPrice: DblVec = qPriceMap.values.toVector<br/><strong>        val</strong> profit: DblVec = normalize(zipWithShift(qPrice, 1).map {<br/>        <strong>case</strong> (x, y) =&gt; y - x }).get<br/><strong>        val</strong> maxProfitIndex = profit.zipWithIndex.maxBy(_._1)._2<br/><strong>        val</strong> reward = (x: Double, y: Double) =&gt; Math.exp(30.0 * (y - x))<br/><br/><strong>        val</strong> probabilities = (x: Double, y: Double) =&gt;<br/>             <strong>if</strong> (y &lt; 0.3 * x) 0.0 <strong>else</strong> 1.0ret = ret.+("GOAL_STATE_INDEX", JsNumber(maxProfitIndex))<br/><strong>            if</strong> (!QLearning.validateConstraints(profit.size, neighbors)) {ret = ret.+("error",                             JsString("QLearningEval Incorrect states transition constraint"))<br/><br/><strong>        throw</strong><strong>new</strong> IllegalStateException("QLearningEval Incorrect states transition constraint")}<br/><br/><strong>            val</strong> instances = qPriceMap.keySet.toSeq.drop(1)<br/><strong>            val</strong> config = QLConfig(alpha, gamma, MAX_EPISODE_LEN, NUM_EPISODES, MIN_COVERAGE)<br/><strong>            val</strong> qLearning = QLearning[Array[Int]](config,Array[Int]                <br/>                (maxProfitIndex),profit,reward,probabilities,instances,Some(neighbors))    <br/>            <strong>val</strong> modelO = qLearning.getModel<br/><br/><strong>            if</strong> (modelO.isDefined) {<br/><strong>                val</strong> numTransitions = numStates * (numStates - 1)ret = ret.+("COVERAGE",             <br/>                JsNumber(modelO.get.coverage))ret = ret.+("COVERAGE_STATES", JsNumber(numStates))<br/>                ret = ret.+("COVERAGE_TRANSITIONS", JsNumber(numTransitions))<br/><strong>                var</strong> value = JsArray()<br/><strong>                var</strong> x = qLearning._counters.last._2.distinct.map(x =&gt; {value = value.append(JsNumber(x))<br/>                })    <br/>                ret = ret.+("Q_VALUE", value)modelO<br/>                } <br/><strong>            else</strong> {<br/>                <strong>if</strong> (retry &gt; 5) {ret = ret.+("error", JsString(s"$name model undefined"))<br/><strong>                    return</strong> None<br/>                 }<br/>                retry += 1Thread.sleep(500)<br/><strong>                return</strong> createModel(ibmOption,oPrice,alpha,gamma)<br/>            }        <br/>        }<br/><strong>def</strong> compute = Action(parse.anyContent) { request =&gt;<br/><strong>    try</strong> {<br/>        <strong>if</strong> (request.body.asMultipartFormData != None) {<br/><strong>            val</strong> formData = request.body.asMultipartFormData.get<br/><strong>            if</strong> (formData.file("STOCK_PRICES").nonEmpty &amp;&amp; formData.file("STOCK_PRICES").get.filename.nonEmpty)sPath = formData.file("STOCK_PRICES").get.ref.file.toString<br/><strong>            if</strong> (formData.file("OPTION_PRICES").nonEmpty &amp;&amp; formData.file("OPTION_PRICES").get.filename.nonEmpty)oPath = formData.file("OPTION_PRICES").get.ref.file.toString<br/><strong>            val</strong> parts = formData.dataParts<br/><strong>            if</strong> (parts.get("STRIKE_PRICE") != None)STRIKE_PRICE = parts.get("STRIKE_PRICE").get.mkString("").toDouble<br/><strong>            if</strong> (parts.get("MIN_TIME_EXPIRATION") != None)MIN_TIME_EXPIRATION = parts.get("MIN_TIME_EXPIRATION").get.mkString("").toInt<br/><strong>            if</strong> (parts.get("QUANTIZATION_STEP") != None)QUANTIZATION_STEP = parts.get("QUANTIZATION_STEP").get.mkString("").toInt<br/><strong>            if</strong> (parts.get("ALPHA") != None)ALPHA = parts.get("ALPHA").get.mkString("").toDouble<br/><strong>            if</strong> (parts.get("DISCOUNT") != None)DISCOUNT = parts.get("DISCOUNT").get.mkString("").toDouble<br/><strong>            if</strong> (parts.get("MAX_EPISODE_LEN") != None)MAX_EPISODE_LEN = parts.get("MAX_EPISODE_LEN").get.mkString("").toInt<br/><strong>            if</strong> (parts.get("NUM_EPISODES") != None)NUM_EPISODES = parts.get("NUM_EPISODES").get.mkString("").toInt<br/><strong>            if</strong> (parts.get("MIN_COVERAGE") != None)MIN_COVERAGE = parts.get("MIN_COVERAGE").get.mkString("").toDouble<br/><strong>            if</strong> (parts.get("NUM_NEIGHBOR_STATES") != None)NUM_NEIGHBOR_STATES = parts.get("NUM_NEIGHBOR_STATES").get.mkString("").toInt<br/><strong>            if</strong> (parts.get("REWARD_TYPE") != None)REWARD_TYPE = parts.get("REWARD_TYPE").get.mkString("")<br/>            }<br/>        ret = JsObject(Seq("STRIKE_PRICE" -&gt;<br/>        JsNumber(STRIKE_PRICE),"MIN_TIME_EXPIRATION" -&gt; JsNumber(MIN_TIME_EXPIRATION),<br/>        "QUANTIZATION_STEP" -&gt; <br/>JsNumber(QUANTIZATION_STEP),<br/>        "ALPHA" -&gt; JsNumber(ALPHA),<br/>        "DISCOUNT" -&gt; JsNumber(DISCOUNT),<br/>        "MAX_EPISODE_LEN" -&gt; <br/>JsNumber(MAX_EPISODE_LEN),<br/>        "NUM_EPISODES" -&gt; JsNumber(NUM_EPISODES),<br/>        "MIN_COVERAGE" -&gt; JsNumber(MIN_COVERAGE),<br/>        "NUM_NEIGHBOR_STATES" -&gt; <br/>JsNumber(NUM_NEIGHBOR_STATES),<br/>        "REWARD_TYPE" -&gt; JsString(REWARD_TYPE)))<br/>        run(REWARD_TYPE, QUANTIZATION_STEP, ALPHA, DISCOUNT)<br/>    }<br/><strong>    catch</strong> {<br/>        <strong>case</strong> e: Exception =&gt; {<br/>            ret = ret.+("exception", JsString(e.toString))<br/>                }<br/>            }</pre>
+<pre class="chapter-content">       Ok(ret)<br/>    }<br/>}</pre>
+<p class="chapter-content">Look at the preceding code carefully; it has more or less the same structure as the <kbd>QLearningMain.scala</kbd> file. There are only two important things here, as follows:</p>
+<ul>
+<li>Compute is done as an Action that takes the input from the UI and computes the value</li>
+<li>Then the result is returned as a JSON object using the <kbd>JsObject()</kbd> method to be shown on the UI (see the following)</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">The frontend</h1>
+                </header>
+            
+            <article>
+                
+<p class="chapter-content">The app consists of two main parts: the API endpoint, built with the play framework, and the frontend single-page application, built with <kbd>Angular.js</kbd>. The frontend app sends the data to the API to get computed and then shows the results using <kbd>chart.js</kbd>. Here are the steps that we need for this:</p>
+<ul>
+<li>Initialize the form</li>
+<li>Communicate with the API</li>
+<li>Populate the view with coverage data and charts</li>
+</ul>
+<p class="chapter-content">The algorithm's JSON output should be as follows:</p>
+<ul>
+<li>All the config parameters are returned</li>
+<li><kbd>GOAL_STATE_INDEX</kbd>, the maximum Profit Index</li>
+<li><kbd>COVERAGE</kbd>,<span> the r</span>atio of training trials or epochs that reach a predefined goal state</li>
+<li><kbd>COVERAGE_STATES</kbd>, the size of the quantized option values</li>
+<li><kbd>COVERAGE_TRANSITIONS</kbd><span>, the </span>number of states squared</li>
+<li><kbd>Q_VALUE</kbd><span>, the </span>q-value of all the states</li>
+<li><kbd>OPTIMAL</kbd><span>, the </span>states with the most reward returned if the reward type isn't random</li>
+</ul>
+<p class="chapter-content"><strong>The frontend code</strong> initiates the <kbd>Angular.js</kbd> app with the <kbd>chart.js</kbd> module as follows (see in the <kbd>PlayML/public/assets/js/main.js</kbd> file):</p>
+<pre class="chapter-content">angular.module("App", ['chart.js']).controller("Ctrl", ['$scope', '$http', function ($scope, $http) {<br/>// First we initialize the form:<br/>$scope.form = {REWARD_TYPE: "Maximum reward",NUM_NEIGHBOR_STATES: 3,STRIKE_PRICE: 190.0,MIN_TIME_EXPIRATION: 6,QUANTIZATION_STEP: 32,ALPHA: 0.2,DISCOUNT: 0.6,MAX_EPISODE_LEN: 128,NUM_EPISODES: 20,MIN_COVERAGE: 0.1<br/>};</pre>
+<p class="chapter-content">Then the run button action prepares the form data to be sent to the API and sends the data to the backend. Next, it passes the returned data to the result variable to be used in the frontend. Then, it clears the charts and recreates them; if an optimal is found, it initializes the optimal chart. Finally, if the Q-value is found initialize, the q-value chart is getting initialized:</p>
+<pre class="chapter-content">$scope.run = function () {<br/>    var formData = new FormData(document.getElementById('form'));<br/>    $http.post('/api/compute', formData, {<br/>    headers: {'Content-Type': undefined}}).then(function successCallback(response) {<br/>    $scope.result = response.data;<br/>    $('#canvasContainer').html('');<br/><br/>    if (response.data.OPTIMAL) {<br/>        $('#canvasContainer').append('&lt;canvas id="optimalCanvas"&gt;&lt;/canvas&gt;')<br/>        Chart.Scatter(document.getElementById("optimalCanvas").getContext("2d"), {data: { datasets:             [{data: response.data.OPTIMAL}] }, options: {...}});}if (response.data.Q_VALUE) {<br/>        $('#canvasContainer').append('&lt;canvas id="valuesCanvas"&gt;&lt;/canvas&gt;')<br/>        Chart.Line(document.getElementById("valuesCanvas").getContext("2d"), {<br/>        data: { labels: new Array(response.data.Q_VALUE.length), datasets: [{<br/>        data: response.data.Q_VALUE }] }, options: {...}});}});}}]<br/>    );</pre>
+<p class="chapter-content">The preceding frontend code is then embedded in the HTML (see <kbd>PlayML/public/index.html</kbd>) to get the UI to be accessed on the Web as a fancy app at <kbd>http://localhost:9000/</kbd>. Feel free to edit the content according to your requirement. We will see the details soon.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Running and Deployment Instructions</h1>
+                </header>
+            
+            <article>
+                
+<p>As was already stated in <a href="51e66c26-e12b-4764-bbb7-444986c05870.xhtml" target="_blank">Chapter 3</a>, <em>High-Frequency Bitcoin Price Prediction from Historical Data</em>, you need Java 1.8+ and SBT as the dependencies. Then follow these instructions:</p>
+<ul>
+<li>Download the app. I named the code <kbd>PlayML.zip</kbd>.</li>
+<li>Unzip the file and you will get the folder <kbd>ScalaML</kbd>.</li>
+<li>Go to the PlayML project folder.</li>
+<li>Run <kbd>$ sudo sbt run</kbd> to download all the dependencies and run the app<span>.</span></li>
+</ul>
+<p>Then the application can be accessed at <kbd>http://localhost:9000/</kbd>, where we can upload the IBM stock and option prices and, of course, provide other config parameters:</p>
+<div class="CDPAlignCenter CDPAlign"><img height="250" width="568" src="assets/db3fee1d-a5a3-495e-99f3-1019e92ac422.png"/></div>
+<div class="chapter-content CDPAlignCenter CDPAlign packt_figref">Figure 17: The UI of options trading using QLearning</div>
+<p class="chapter-content">Now, if you upload the stock price and option price data and click on the run button, a graph will be generated as follows:</p>
+<div class="CDPAlignCenter CDPAlign"><img height="471" width="641" src="assets/9e0609eb-4652-44ce-84ef-b70bbc57c84a.png"/></div>
+<div class="chapter-content CDPAlignCenter CDPAlign packt_figref">Figure 18: QLearning reaches goal state 81 with a coverage of 0.2 for 126 states and 15,750 transitions</div>
+<p class="chapter-content">On the other hand, the API endpoint can be accessed at <a href="http://localhost:9000/api/compute">http://localhost:9000/api/compute</a>. </p>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/bb375ce1-4039-41c1-97e4-7c6924a92171.png"/></div>
+<div class="CDPAlignCenter CDPAlign packt_figref">Figure 19: The API endpoint (abridged)</div>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Model deployment</h1>
+                </header>
+            
+            <article>
+                
+<p class="chapter-content">You can easily deploy your application as a standalone server by setting the application HTTP port to 9000, for example:</p>
+<pre class="chapter-content"><strong>$ /path/to/bin/&lt;project-name&gt; -Dhttp.port=9000</strong></pre>
+<p class="chapter-content">Note that you probably need root permissions to bind a process to this port. Here is a short workflow:</p>
+<ul>
+<li>Run <kbd>$ sudo sbt dist</kbd> to build application binary. The output can be found at <kbd>PlayML /target/universal/APP-NAME-SNAPSHOT.zip</kbd>. In our case, it's <kbd>playml-1.0.zip</kbd>.</li>
+<li>Now, to run the application, unzip the file and then run the script in the <kbd>bin</kbd> directory:</li>
+</ul>
+<pre class="chapter-content"><strong>$ unzip APP-NAME-SNAPSHOT.zip$ APP-NAME-SNAPSHOT /bin/ APP-NAME -Dhttp.port=9000</strong></pre>
+<p class="chapter-content">Then you need to configure your web server to map to the app port configuration. Nevertheless, you can easily deploy your application as a standalone server by setting the application HTTP port to <kbd>9000</kbd>:</p>
+<pre class="chapter-content"><strong>$ /path/to/bin/&lt;project-name&gt; -Dhttp.port=9000</strong></pre>
+<p class="chapter-content">However, if you plan to host several applications on the same server or load-balance several instances of your application for scalability or fault tolerance, you can use a frontend HTTP server. Note that using a frontend HTTP server will rarely give you better performance than using a Play server directly.</p>
+<p class="chapter-content">However, HTTP servers are very good at handling HTTPS, conditional GET requests, and static assets, and many services assume that a frontend HTTP server is part of your architecture. Additional information can be found at <a href="https://www.playframework.com/documentation/2.6.x/HTTPServer">https://www.playframework.com/documentation/2.6.x/HTTPServer</a>.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Summary</h1>
+                </header>
+            
+            <article>
+                
+<p class="chapter-content">In this chapter, we learned how to develop a real-life application called options trading using a RL algorithm called Q-learning. The IBM stock datasets were used to design a machine learning system driven by criticisms and rewards. Additionally, we learned some theoretical background. Finally, we learned how to wrap up a Scala desktop application as a web app using Scala Play Framework and deploy it in production.</p>
+<p class="chapter-content">In the next chapter, we will see two examples of building very robust and accurate predictive models for predictive analytics using H2O on a bank marketing dataset. For this example, we will be using bank marketing datasets. The data is related to direct marketing campaigns of a Portuguese banking institution. The marketing campaigns were based on phone calls. The goal of this end-to-end project will be to predict that the client will subscribe a term deposit.</p>
+
+
+            </article>
+
+            
+        </section>
+    </body></html>
