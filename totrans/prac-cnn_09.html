@@ -1,0 +1,345 @@
+<html><head></head><body>
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Attention Mechanism for CNN and Visual Models</h1>
+                </header>
+            
+            <article>
+                
+<p>Not everything in an image or text—or in general, any data—is equally relevant from the perspective of insights that we need to draw from it. For example, consider a task where we are trying to predict the next word in a sequence of a verbose statement like <em>Alice and Alya are friends. Alice lives in France and works in Paris. Alya is British and works in London. Alice prefers to buy books written in French, whereas Alya prefers books in _____.</em></p>
+<p>When this example is given to a human, even a child with decent language proficiency can very well predict the next word will most probably be <em>English</em>. Mathematically, and in the context of deep learning, this can similarly be ascertained by creating a vector embedding of these words and then computing the results using vector mathematics, as follows:</p>
+<div class="CDPAlignCenter CDPAlign"><img class="fm-editor-equation" height="27" src="assets/7834171b-7edd-4d0f-84b3-cc116bcd796a.png" width="330"/></div>
+<p>Here, <em>V(Word)</em> is the vector embedding for the required word; similarly, <em>V(French)</em>, <em>V(Paris)</em>, and <em>V(London)</em> are the required vector embeddings for the words <em>French</em>, <em>Paris</em>, and <em>London</em>, respectively.</p>
+<div class="packt_infobox">Embeddings are (often) lower dimensional and dense (numerical) vector representations of inputs or indexes of inputs (for non-numerical data); in this case, text.</div>
+<div class="packt_tip">Algorithms such as <kbd>Word2Vec</kbd> and <kbd>glove</kbd> can be used to get word embeddings. Pretrained variants of these models for general texts are available in popular Python-based NLP libraries, such as SpaCy, Gensim and others can also be trained using most deep learning libraries, such as Keras, TensorFlow, and so on.</div>
+<div class="packt_infobox">The concept of embeddings is as much relevant to vision and images as it is to text.</div>
+<p>There may not be an existing vector exactly matching the vector we obtained just now in the form of <img class="fm-editor-equation" height="24" src="assets/c3f164b3-d260-4473-9ec8-892bf9703ee6.png" width="54"/>; but if we try to find the one closest to the so obtained <img class="fm-editor-equation" height="24" src="assets/a8e0ee9f-386b-48a2-a6df-61e883dde986.png" width="55"/> that exists and find the representative word using reverse indexing, that word would most likely be the same as what we as humans thought of earlier, that is, <em>English</em>.</p>
+<div class="packt_tip">Algorithms such as cosine similarity can be used to get the vector closest to the computed one.</div>
+<div class="packt_infobox">For implementation, a computationally more efficient way of finding the closest vector would be <strong>approximate nearest neighbor</strong> (<strong>ANN</strong>), as available in Python's <kbd>annoy</kbd> library.</div>
+<p>Though we have helped get the same results, both cognitively and through deep learning approaches, the input in both the cases was not the same. To humans, we had given the exact sentence as to the computer, but for deep learning applications, we had carefully picked the correct words (<em>French</em>, <em>Paris</em>, and <em>London</em>) and their right position in the equation to get the results. Imagine how we can very easily <span>realize</span><span> </span><span>the right words to pay attention to in order to understand the correct context, and hence we have the results; but in the current form, it was not possible for our deep learning approach to do the same.</span></p>
+<p>Now there are quite sophisticated algorithms in language modeling using different variants and architectures of RNN, such as LSTM and Seq2Seq, respectively. These could have solved this problem and got the right solution, but they are most effective in shorter and more direct sentences, such as <em>Paris is to French what London is to _____</em>. In order to correctly understand a long sentence and generate the correct result, it is important to have a mechanism to teach the architecture whereby specific words need to be paid more attention to in a long sequence of words. This is called the <strong>attention mechanism</strong> in deep learning, and it is applicable to many types of deep learning applications but in slightly different ways.</p>
+<div class="packt_infobox"><strong>RNN</strong> stands for <strong>recurrent neural networks</strong> and is used to depict a temporal sequence of data in deep learning. Due to the vanishing gradient problem, RNN is seldom used directly; instead, its variants, such as <strong>LSTM</strong> (<strong>Long-Short Term Memory</strong>) and <strong>GRU</strong> (<strong>Gated Recurrent Unit</strong>) are more popular in actual implementations.</div>
+<div class="packt_infobox"><strong>Seq2Seq</strong> stands for <strong>Sequence-to-Sequence</strong> models and comprises two RNN (or variant) networks (hence it is called <strong>Seq2Seq</strong>, where each RNN network represents a sequence); one acts as an encoder and the other as a decoder. The two RNN networks can be multi-layer or stacked RNN networks, and they are connected via a thought or context vector. Additionally, Seq2Seq models may use the attention mechanism to improve performance, especially for longer sequences. </div>
+<p><span>In fact, to be more precise, even we had to process the preceding information in layers, first understanding that the last sentence is about Alya. Then we can identify and extract Alya's city, then that for Alice, and so on. Such a layered way of human thinking is analogous to stacking in deep learning, and hence in similar applications, stacked architectures are quite common.</span></p>
+<div class="packt_tip">To know more about how stacking works in deep learning, especially with sequence-based architectures, explore topics such as stacked RNN and stacked attention networks.</div>
+<p>In this chapter, we will cover the following topics:</p>
+<ul>
+<li>Attention mechanism for image captioning</li>
+<li>Types of attention (Hard, and Soft Attentions)</li>
+<li>Using attention to improve visual models
+<ul>
+<li>Recurrent models of visual attention</li>
+</ul>
+</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Attention mechanism for image captioning</h1>
+                </header>
+            
+            <article>
+                
+<p>From the introduction, so far, it must be clear to you that the attention mechanism works on a sequence of objects, assigning each element in the sequence a weight for a specific iteration of a required output. With every next step, not only the sequence but also the weights in the attention mechanism <span>can change</span>. So, attention-based architectures are <span>essentially</span> sequence networks, best implemented in deep learning using RNNs (or their variants).</p>
+<p>The question now is: how do we implement a sequence-based attention on a static image, especially the one represented in a <strong>convolutional neural network</strong> (<strong>CNN</strong>)? Well, let's take an example that sits right in between a text and image to understand this. Assume that we need to caption an image with respect to its contents.</p>
+<p>We have some images with captions provided by humans as training data and using this, we need to create a system that can provide a decent caption for any new image not seen earlier by the model. As seen earlier, let's take an example and see how we, as humans, will perceive this task and the analogous process to it that needs to be implemented in deep learning and CNN. Let's consider the following image and conceive some plausible captions for it. We'll also rank them heuristically using human judgment:</p>
+<div class="CDPAlignCenter CDPAlign"><img height="257" src="assets/4769fd23-01c6-49b2-a5bb-003b7d071e8b.jpeg" width="386"/></div>
+<p>Some probable captions (in order of most likely to least likely) are:</p>
+<ul>
+<li>Woman seeing dog in snow forest</li>
+<li>Brown dog in snow</li>
+<li>A person wearing cap in woods and white land</li>
+<li>Dog, tree, snow, person, and sunshine</li>
+</ul>
+<p>An important thing to note here is that, despite the fact that the woman is central to the image and the dog is not the biggest object in the image, the caption we sought probable focused on them and then their surroundings here. This is because we consider them as important entities here (given no prior context). So as humans, how we reached this conclusion is as follows: we first glanced the whole image, and then we focused towards the woman, in high resolution, while putting everything in the background (assume a <strong>Bokeh</strong> effect in a dual-camera phone). <span>We identified the caption part for that,</span> and then the dog in high resolution while putting everything else in low resolution; and we appended the caption part. Finally, we did the same for the surroundings and caption part for that. </p>
+<p>So essentially, we saw it in this sequence to reach to the first caption:</p>
+<div class="CDPAlignCenter CDPAlign"><img height="255" src="assets/2f25f7ff-82b8-48db-b230-bbb01e70cc2e.jpg" width="383"/> </div>
+<div class="packt_figref CDPAlignCenter CDPAlign"><span>Image 1: Glance the image first</span></div>
+<div class="CDPAlignCenter CDPAlign"><img height="258" src="assets/c27a5da0-d904-4809-87fd-45f43765afcd.jpg" width="388"/> </div>
+<div class="packt_figref CDPAlignCenter CDPAlign"><span>Image 2: Focus on woman</span></div>
+<div class="CDPAlignCenter CDPAlign"> <img height="259" src="assets/75e4944d-5be6-42ca-b241-941152165171.jpg" width="388"/></div>
+<div class="CDPAlignCenter CDPAlign packt_figref"><span>Image 3: </span>Focus on dog</div>
+<div class="CDPAlignCenter"><img height="257" src="assets/1c6594a7-aeca-4723-b445-37b172ec0a1c.jpg" width="386"/></div>
+<div class="CDPAlignCenter CDPAlign packt_figref"><span>Image 4: Focus on snow</span></div>
+<div class="CDPAlignCenter"><img height="255" src="assets/cdf6808c-9cef-4710-bcf3-a959a2ab1810.jpg" width="384"/></div>
+<div class="CDPAlignCenter CDPAlign packt_figref"><span>Image 5: </span>Focus on forest</div>
+<p>In terms of weight of attention or focus, after glancing the image, we focus on the first most important object: the woman here. This is analogous to creating a mental frame in which we put the part of the image with the woman in high-resolution and the remaining part of the image in low-resolution.</p>
+<p>In a deep learning reference, the attention sequence will have the highest weight for the vector (embedding) representing the concept of the woman for this part of the sequence. In the next step of the output/sequence, the weight will shift more towards the vector representation for the dog and so on.</p>
+<p>To understand this intuitively, we convert the image represented in the form of CNN into a flattened vector or some other similar structure; then we create different splices of the image or sequences with different parts in varying resolutions. Also, as we understand now from our discussion in <a href="20952d99-3977-420f-a5c7-a3320b96bed6.xhtml" target="_blank">Chapter 7</a>, <em>Object-Detection &amp; Instance-Segmentation with CNN</em>, we must have the relevant portions that we need to detect in varying scales as well for effective detection. The same concept applies here too, and besides resolution, we also vary the scale; but for now, we will keep it simple and ignore the scale part for intuitive understanding.</p>
+<p>These splices or sequences of images now act as a sequence of words, as in our earlier example, and hence they can be treated inside an RNN/LSTM or similar sequence-based architecture for the purpose of attention. This is done to get the best-suited word as the output in every iteration. So the first iteration of the sequence leads to woman (from the weights of a sequence representing an object represented as a <em>Woman</em> in <em>Image 2</em>) → then the next iteration as → <em>seeing</em> (from a sequence identifying the back of the <em>Woman</em> as in <em>Image 2</em>) → <em>Dog</em> (sequence as in <em>Image 3</em>) → <span><em>in</em> (from a sequence where everything is blurred generating <em>filler</em> words transitioning from entities to surroundings) → <em>Snow</em> (sequence as in <em>Image 4</em>) → <em>Forest</em> (sequence as in <em>Image 5</em>).</span></p>
+<p>Filler words such as <em>in</em> and action words such as <em>seeing</em> can also be automatically learned when the best image splice/sequence mapping to human-generated captions is done across several images. But for the simpler version, a caption such as <em>Woman</em>, <em>Dog</em>, <em>Snow</em>, and <em>Forest</em> can also be a good depiction of entities and surroundings in the image.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Types of Attention</h1>
+                </header>
+            
+            <article>
+                
+<p>There are two types attention mechanisms. They are as follows:</p>
+<ul>
+<li>Hard attention</li>
+<li>Soft attention</li>
+</ul>
+<p>Let's now take a look at each one in detail in the following sections.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Hard Attention</h1>
+                </header>
+            
+            <article>
+                
+<p>In reality, in our recent image caption example, several more pictures would be selected, but due to our training with the handwritten captions, those would never be weighted higher. However, the essential thing to understand is how the system would understand what all pixels (or more precisely, the CNN representations of them) the system focuses on to draw these high-resolution images of different aspects and then how to choose the next pixel to repeat the process.</p>
+<p>In the preceding example, the points are chosen at random from a distribution and the process is repeated. Also, which pixels around this point get a higher resolution is decided inside the attention network. This type of attention is known as <strong>hard attention</strong>.</p>
+<p>Hard attention has something called the <strong>differentiability problem</strong>. Let's spend some time understanding this. We know that in deep learning the networks have to be trained and to train them we iterate across training batches in order to minimize the loss function. We can minimize the loss function by changing the weights in the direction of the gradient of the minima, which in turn is arrived at after differentiating the loss function<em>.</em></p>
+<div class="packt_infobox">This process of minimizing losses across layers of a deep network, starting from the last layer to the first, is known as <strong>back-propagation</strong>.</div>
+<div class="packt_tip"><span>Examples of some differentiable loss functions used in deep learning and machine learning are the log-likelihood loss function, squared-error loss function, binomial and multinominal cross-entropy, and so on.</span></div>
+<p>However, since the points are chosen <span>randomly </span>in each iteration in hard attention—and since such a random pixel choosing mechanism is not a differentiable function<span>—</span>we <span>essentially </span>cannot train this attention mechanism, as explained. This problem is overcome either by using <strong>Reinforcement Learning</strong> (<strong>RL</strong>) or by switching to soft attention.</p>
+<div class="packt_infobox"><span>RL involves mechanisms of solving two problems, either separately or in combination. The first is called the <strong>control problem</strong>, which determines the most optimal action that the agent should take in each step given its state, and the second is the <strong>prediction problem</strong>, which determines the optimal <em>value</em> of the state.</span></div>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Soft Attention</h1>
+                </header>
+            
+            <article>
+                
+<p>As introduced in the preceding sub-section on hard attention, soft attention uses RL to progressively train and determine where to seek next (<span>con</span><span>trol problem</span><span>)</span>.</p>
+<p>There exist two major problems with using the combination of hard attention and RL to achieve the required objective:</p>
+<ul>
+<li>It becomes slightly complicated to involve RL and train an RL agent and an RNN/deep network based on it separately.</li>
+<li>The variance in the gradient of the policy function is not only high (as in <strong>A3C</strong> model), but also has a computational complexity of <em>O(N)</em>, where <em>N</em> is the number of units in the network. This increases the computation load for such approaches massively. Also, given that the attention mechanism adds more value in overly long sequences (of words or image embedding splices)—and to train networks involving longer sequences requires larger memory, and hence much deeper networks<span>—</span>this approach is computationally not very efficient.</li>
+</ul>
+<div class="packt_infobox">The <strong>Policy Function </strong>in RL, determined as <em>Q(a,s)</em>, is the function used to determine the optimal policy or the action <em>(a)</em> that should be taken in any given state <em>(s)</em> to maximize the rewards.</div>
+<p>So what is the alternative? As we discussed, the problem arose because the mechanism that we were choosing for attention led to a non-differentiable function, because of which we had to go with RL. So let's take a different approach here. Taking an analogy of our l<span>anguage modeling</span> problem example (as in the A<em>ttention Mechanism - Intuition</em> section) earlier, we assume that we have the vector of the tokens for the objects/ words present in the attention network. Also, in same vector space <span>(say in the embedding hyperspace) </span>we bring the tokens for the object/ words in the required query of the particular sequence step. On taking this approach, finding the right attention weights for the tokens in the attention network with the respect to the tokens in query space is as easy as computing the vector similarity between them; for example, a cosine distance. Fortunately, most vector distance and similarity functions are differentiable; hence the loss function derived by using such vector distance/similarity functions in such space is also differentiable, and our back-propagation can work in this scenario.</p>
+<div class="packt_tip">The cosine distance between two vectors, say <img class="fm-editor-equation" height="20" src="assets/a1f3eff3-207d-4afa-89ea-46df50ec41d7.png" width="62"/>, and <img class="fm-editor-equation" height="19" src="assets/4d0ee39a-0f58-4d78-9d0c-9ac88bd3089f.png" width="56"/>, in a multi-dimensional (three in this example) vector space is given as:<img class="fm-editor-equation" height="34" src="assets/4ae1832d-60bb-4a85-b664-748a097ef5c4.png" width="356"/></div>
+<p>This approach of using a differentiable loss function for training an attention network is known as <strong>soft attention</strong>.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Using attention to improve visual models</h1>
+                </header>
+            
+            <article>
+                
+<p>As we discovered in the NLP example covered in the earlier section on Attention Mechanism - Intuition, Attention did help us a lot in both achieving new use-cases, not optimally feasible with conventional NLP, and vastly improving the performance of the existing NLP mechanism. Similar is the usage of Attention in CNN and Visual Models as well</p>
+<p>In the earlier chapter<span> </span><a href="20952d99-3977-420f-a5c7-a3320b96bed6.xhtml" target="_blank">Chapter 7</a><span>,</span> <em>Object-Detection &amp;<span> </span>Instance-Segmentation with CNN</em><span>, we discovered how Attention (like) mechanism are used as Region Proposal Networks for networks like Faster R-CNN and Mask R-CNN, to greatly enhance and optimize the proposed regions, and enable the generation of segment masks. This corresponds to the first part of the discussion. In this section, we will cover the second part of the discussion, where we will use 'Attention' mechanism to improve the performance of our CNNs, even under extreme conditions.</span></p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Reasons for sub-optimal performance of visual CNN models</h1>
+                </header>
+            
+            <article>
+                
+<p>The performance of a CNN network can be improved to a certain extent by adopting proper tuning and setup mechanisms such as: data pre-processing, <span>batch normalization</span>, optimal pre-initialization of weights; choosing the correct activation function; using techniques such as regularization to avoid overfitting; using an optimal optimization function; and training with plenty of (quality) data.</p>
+<p>Beyond these training and architecture-related decisions, there are image-related nuances because of which the performance of visual models may be impacted. Even after controlling the aforementioned training and architectural factors, the conventional CNN-based image classifier does not work well under some of the following conditions related to the underlying images:</p>
+<ul>
+<li>Very big images</li>
+<li>Highly cluttered images with a number of classification entities</li>
+<li>Very noisy images</li>
+</ul>
+<p>Let's try to understand the reasons behind the sub-optimal performance under these conditions, and then we will logically understand what may fix the problem.</p>
+<p>In conventional CNN-based models, even after a downsizing across layers, the computational complexity is quite high. In fact, the complexity is of the order of <img class="fm-editor-equation" height="16" src="assets/9576a375-e104-439d-8c29-614bc5121d3a.png" width="104"/>, where <em>L</em> and <em>W</em> are the length and width of the image in inches, and <em>PPI</em> is pixels per inch (pixel density). This translates into a linear complexity with respect to the total number of pixels (<em>P</em>) in the image, or <em>O(P)</em>. This directly answers the first point of the challenge; for higher <em>L</em>, <em>W</em>, or <em>PPI</em>, we need much higher computational power and time to train the network.</p>
+<div class="packt_tip">Operations such as max-pooling, average-pooling, and so on help downsize the computational load drastically vis-a-vis all the computations across all the layers performed on the actual image.</div>
+<p>If we visualize the patterns formed in each of the layers of our CNN, we would understand the intuition behind the working of the CNN and why it needs to be deep. In each subsequent layer, the CNN trains higher conceptual features, which may progressively better help understand the objects in the image layer after layer. So, in the case of MNIST, the first layer may only identify boundaries, the second the diagonals and straight-line-based shapes of the boundaries, and so on:</p>
+<div class="mce-root CDPAlignCenter CDPAlign"><img src="assets/84b09c81-669a-48a9-a78a-a9dc717454a5.jpg"/></div>
+<div class="mce-root CDPAlignCenter CDPAlign packt_figref">Illustrative conceptual features formed in different (initial) layers of CNN for MNIST</div>
+<div class="mce-root CDPAlignCenter CDPAlign"><img src="assets/7917f980-20eb-4bb3-9d7b-8c5add0c914a.jpg"/></div>
+<p>MNIST is a simple dataset, whereas real-life images are quite complex; this requires higher conceptual features to distinguish them, and hence more complex and much deeper networks. Moreover, in MNIST, we are trying to distinguish between similar types of objects (all handwritten numbers). Whereas in real life, the objects might differ widely, and hence the different types of features that may be required to model all such objects will be very high:</p>
+<div class="mce-root CDPAlignCenter CDPAlign"><img src="assets/902073a5-cb0b-4ff7-ac0a-7710d216b9de.jpeg"/></div>
+<p>This brings us to our second challenge. A cluttered image with too many objects would require a very complex network to model all these objects. Also, since there are too many objects to identify, the image resolution needs to be good to correctly extract and map the features for each object, which in turn means that the image size and the number of pixels need to be high for an effective classification. This, in turn, increases the complexity <span>exponentially </span>by combining the first two challenges. </p>
+<div class="packt_infobox">The number of layers, and hence the complexity of popular CNN architectures used in ImageNet challenges, have been increasing over the years. Some examples are VGG16 – Oxford (2014) <span>with </span><span>16 layers</span><span>, GoogLeNet (2014)</span> <span>with </span><span>19 layers</span><span>, and ResNet (2015) with </span><span>152 layers.</span></div>
+<p>Not all images are perfect SLR quality. Often, because of low light, image processing, low resolution, lack of stabilization, and so on, there may be a lot of noise introduced in the image. This is just one form of noise, one that is easier to understand. From the perspective of CNN, another form of noise can be image transition, rotation, or transformation:</p>
+<div class="mce-root CDPAlignCenter CDPAlign"><img height="351" src="assets/9a998d97-d806-4d65-ade6-9cb2aeab0b4e.jpeg" width="544"/> </div>
+<div class="packt_figref CDPAlignCenter CDPAlign">Image without noise</div>
+<div class="mce-root CDPAlignCenter CDPAlign"><img height="331" src="assets/843cf705-b4bc-4751-b10e-77f64284478f.jpg" width="513"/> </div>
+<div class="packt_figref CDPAlignCenter CDPAlign"><span>Same image with added noise</span></div>
+<p>In the preceding images, try reading the newspaper title <em>Business</em> in the image without and with noise, or identify the mobile in both the images. Difficult to do that in the image with noise, right? Similar is the detection/classification challenge with our CNN in the case of noisy images.</p>
+<p>Even with exhaustive training, perfect hyperparameter adjustment, and techniques such as dropouts and others, these real-life challenges continue to diminish the image recognition accuracy of CNN networks. Now that we've understood the causes and intuition behind the lack of accuracy and performance in our CNNs, let's explore some ways and architectures to alleviate these challenges using visual attention.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Recurrent models of visual attention</h1>
+                </header>
+            
+            <article>
+                
+<p><em>Recurrent models of visual attention</em> can be used to answer some of the challenges we covered in the earlier section. These models use the hard attention method, as covered in an earlier (<em>Types of attention</em>) section. <span>Here we use</span><span> one of the popular variants of recurrent models of visual attention, the</span> <span><strong>Recurrent Attention Model</strong></span><span> (<strong>RAM</strong>). </span></p>
+<p>As covered earlier, <span>hard attention</span> problems are non-differentiable and have to use RL for the control problem. The RAM thus uses RL for this optimization. </p>
+<p><span>A recurrent model of visual attention does not process the entire image, or even a sliding-window-based bounding box, at once. </span>It mimics the human eye and works on the concept of <em>Fixation</em> of <em>Gaze</em> at different locations of an image; with each <em>Fixation</em>, it incrementally combines information of importance to dynamically build up an internal representation of scenes in the image. It uses an <span>RNN to do this in a sequential manner. </span></p>
+<p>The model selects the next location to Fixate to based on the RL agents control policy to maximize the reward based on the current state. The current state, in turn, is a function of all the past information and the demands of the task. Thus, it finds the next coordinate for fixation so that it can maximize the reward (<span>demands of the task</span>), given the information collected until now across the previous gazes in the memory snapshot of the RNN and the previously visited coordinate.</p>
+<div class="packt_tip">Most RL mechanisms use the <strong>Markov Decision Process</strong> (<strong>MDP</strong>), in which the next action is determined only by the current state, irrespective of the states visited earlier. By using RNN here, important information from previous <em>Fixations</em> can be combined in the present state itself. </div>
+<p>The preceding mechanism solves the last two problems highlighted in CNN in the earlier section. Also, in the RAM, the <span>number of parameters and amount of computation it performs can be controlled independently of the size of the input image, thus solving the first problem as well.</span></p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Applying the RAM on a noisy MNIST sample</h1>
+                </header>
+            
+            <article>
+                
+<p>To understand the working of the <span>RAM</span> in greater detail, let's try to create an MNIST sample incorporating some of the problems as highlighted in the earlier section:</p>
+<div class="CDPAlignCenter CDPAlign"><img height="254" src="assets/a2c083ac-a490-449a-9c63-bf7c251244d2.jpg" width="414"/></div>
+<div class="packt_figref CDPAlignCenter CDPAlign">Larger image of noisy and distorted MNIST</div>
+<p>The preceding image represents a larger image/collage using an actual and slightly noisy sample of an MNIST image (of number <strong>2</strong>), and a lot of other distortions and snippets of other partial samples. Also, the actual digit <strong>2</strong> here is not centered. This example represents all the previously stated problems, yet it is simple enough to understand the working of the RAM.</p>
+<p>The RAM uses the concept of a <strong>Glimpse Sensor</strong>. The RL agent fixes its gaze at a particular coordinate (<em>l</em>) and particular time (<em>t-1</em>). The coordinate at time t-1, <em>l<sub>t-1</sub></em> of the image <em>x<sub>t </sub></em>and uses the <strong>Glimpse Sensor</strong> to extract retina-like multiple-resolution patches of the image with <em>l<sub>t-1</sub></em> as the center. These representations, extracted at time <em>t-1</em>, are collectively called <em>p(x<sub>t</sub></em>, <em>l<sub>t-1</sub>)</em>:</p>
+<div class="mce-root CDPAlignCenter CDPAlign"><img height="173" src="assets/619b6dcc-4967-458b-8628-3becc0bafd72.jpg" width="437"/></div>
+<div class="mce-root CDPAlignCenter CDPAlign packt_figref">The concept of the Glimpse Sensor</div>
+<div class="mce-root CDPAlignCenter CDPAlign"><img height="140" src="assets/a545ac17-e9dd-4116-b679-169f3fb2ec46.jpg" width="229"/>  ;<img height="141" src="assets/c44ab12e-cd94-4a50-ae69-1d5876ba0978.jpg" width="230"/></div>
+<p>These images show the representations of our image across two fixations using the <strong>Glimpse Sensor</strong>.</p>
+<p>The representations obtained from the <strong>Glimpse Sensor</strong> are passes through the 'Glimpse Network, which flattens the representation at two stages. In the first stage, the representations from the <strong>Glimpse Sensor</strong> and the <strong>Glimpse Network</strong> are flattened separately (<img class="fm-editor-equation" height="19" src="assets/7963a240-8377-44d3-ae47-0ddb6b5cd3e3.png" width="30"/>), and then they are combined into a single flattened layer (<img class="fm-editor-equation" height="21" src="assets/f6d21a4f-d1e9-4fbf-a645-7f785778784e.png" width="13"/>) to generate the output representation <em>g<sub>t</sub> </em>for time <em>t</em>:</p>
+<div class="mce-root CDPAlignCenter CDPAlign"><img height="176" src="assets/c09406b3-37cb-4929-a9c1-42e08c8742e7.jpg" width="449"/></div>
+<div class="mce-root CDPAlignCenter CDPAlign packt_figref">The concept of the Glimpse Network</div>
+<p>These output representations are then passed through the RNN model architecture. The fixation for the next step in the iteration is determined by the RL agent to maximize the reward from this architecture:</p>
+<div class="mce-root CDPAlignCenter CDPAlign"> <img height="326" src="assets/41cb0399-2275-462d-b820-135b3243e91d.jpg" width="389"/></div>
+<div class="mce-root CDPAlignCenter CDPAlign packt_figref">Model architecture (RNN)</div>
+<p>As can be intuitively understood, the Glimpse Sensor captures important information across fixations, which can help identify important concepts. For example, the multiple resolution (here 3) representations at the Fixation represented by our second sample image <span>have </span>three resolutions as marked (red, green, and blue in order of decreasing resolution). As can be seen, even if these are used directly, we have got a varying capability to detect the right digit represented by this noisy collage:</p>
+<div class="mce-root CDPAlignCenter CDPAlign"><img height="172" src="assets/c44ab12e-cd94-4a50-ae69-1d5876ba0978.jpg" width="282"/></div>
+<div class="mce-root CDPAlignCenter CDPAlign"><img height="234" src="assets/a15e4752-6c1d-4d40-b966-cacf871b6701.jpg" style="font-size: 1em" width="263"/></div>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Glimpse Sensor in code</h1>
+                </header>
+            
+            <article>
+                
+<p>As discussed in the earlier section, the Glimpse Sensor is a powerful concept. Combined with other concepts, such as RNN and RL, as discussed earlier, it is at the heart of improving the performance of visual models.</p>
+<p>Let's see this in greater detail here. The code is commented at every line for easy understanding and is self-explanatory:</p>
+<pre><br/><span>import </span>tensorflow <span>as </span>tf<br/># the code is in tensorflow<br/><span>import </span>numpy <span>as </span>np<br/><br/><br/><span>def </span>glimpseSensor(image, fixationLocation):<br/>    <span>'''<br/></span><span>    Glimpse Sensor for Recurrent Attention Model (RAM)<br/></span><span>    </span><span>:param</span><span> image: the image xt<br/></span><span>    </span><span>:type</span><span> image: numpy vector<br/></span><span>    </span><span>:param</span><span> fixationLocation: cordinates l for fixation center<br/></span><span>    </span><span>:type</span><span> fixationLocation: tuple<br/></span><span>    </span><span>:return</span><span>: Multi Resolution Representations from Glimpse Sensor<br/></span><span>    </span><span>:rtype</span><span>:<br/></span><span>    '''<br/></span><span><br/></span><span>    </span>img_size=np.asarray(image).shape[:<span>2</span>]<br/>    <span># this can be set as default from the size of images in our dataset, leaving the third 'channel' dimension if any<br/></span><span><br/></span><span>    </span>channels=<span>1<br/></span><span>    </span><span># settings channels as 1 by default<br/></span><span>    </span><span>if </span>(np.asarray(img_size).shape[<span>0</span>]==<span>3</span>):<br/>        channels=np.asarray(image).shape[-<span>1</span>]<br/>    <span># re-setting the channel size if channels are present<br/></span><span><br/></span><span>    </span>batch_size=<span>32<br/></span><span>    </span><span># setting batch size<br/></span><span><br/></span><span>    </span>loc = tf.round(((fixationLocation + <span>1</span>) / <span>2.0</span>) * img_size)<br/>    <span># fixationLocation coordinates are normalized between -1 and 1 wrt image center as 0,0<br/></span><span><br/></span><span>    </span>loc = tf.cast(loc, tf.int32)<br/>    <span># converting number format compatible with tf<br/></span><span><br/></span><span>    </span>image = tf.reshape(image, (batch_size, img_size[<span>0</span>], img_size[<span>1</span>], channels))<br/>    <span># changing img vector shape to fit tf<br/></span><span><br/></span><span>    </span>representaions = []<br/>    <span># representations of image<br/></span><span>    </span>glimpse_images = []<br/>    <span># to show in window<br/></span><span><br/></span><span>    </span>minRadius=img_size[<span>0</span>]/<span>10<br/></span><span>    </span><span># setting the side size of the smallest resolution image<br/></span><span>    </span>max_radius=minRadius*<span>2<br/></span><span>    </span>offset = <span>2 </span>* max_radius<br/>    <span># setting the max side and offset for drawing representations<br/></span><span>    </span>depth = <span>3<br/></span><span>    </span><span># number of representations per fixation<br/></span><span>    </span>sensorBandwidth = <span>8<br/></span><span>    </span><span># sensor bandwidth for glimpse sensor<br/></span><span><br/></span><span>    # process each image individually<br/></span><span>    </span><span>for </span>k <span>in </span><span>range</span>(batch_size):<br/>        imageRepresentations = []<br/>        one_img = image[k,:,:,:]<br/>        <span># selecting the required images to form a batch<br/></span><span><br/></span><span>        </span>one_img = tf.image.pad_to_bounding_box(one_img, offset, offset, max_radius * <span>4 </span>+ img_size, max_radius * <span>4 </span>+ img_size)<br/>        <span># pad image with zeros for use in tf as we require consistent size<br/></span><span><br/></span><span>        </span><span>for </span>i <span>in </span><span>range</span>(depth):<br/>            r = <span>int</span>(minRadius * (<span>2 </span>** (i)))<br/>            <span># radius of draw<br/></span><span>            </span>d_raw = <span>2 </span>* r<br/>            <span># diameter<br/></span><span><br/></span><span>            </span>d = tf.constant(d_raw, <span>shape</span>=[<span>1</span>])<br/>            <span># tf constant for dia<br/></span><span><br/></span><span>            </span>d = tf.tile(d, [<span>2</span>])<br/>            loc_k = loc[k,:]<br/>            adjusted_loc = offset + loc_k - r<br/>            <span># location wrt image adjusted wrt image transformation and pad<br/></span><span><br/></span><span>            </span>one_img2 = tf.reshape(one_img, (one_img.get_shape()[<span>0</span>].value, one_img.get_shape()[<span>1</span>].value))<br/>            <span># reshaping image for tf<br/></span><span><br/></span><span>            </span>representations = tf.slice(one_img2, adjusted_loc, d)<br/>            <span># crop image to (d x d) for representation<br/></span><span><br/></span><span>            </span>representations = tf.image.resize_bilinear(tf.reshape(representations, (<span>1</span>, d_raw, d_raw, <span>1</span>)), (sensorBandwidth, sensorBandwidth))<br/>            <span># resize cropped image to (sensorBandwidth x sensorBandwidth)<br/></span><span><br/></span><span>            </span>representations = tf.reshape(representations, (sensorBandwidth, sensorBandwidth))<br/>            <span># reshape for tf<br/></span><span><br/></span><span>            </span>imageRepresentations.append(representations)<br/>            <span># appending the current representation to the set of representations for image<br/></span><span><br/></span><span>        </span>representaions.append(tf.stack(imageRepresentations))<br/><br/>    representations = tf.stack(representations)<br/><br/>    glimpse_images.append(representations)<br/>    <span># return glimpse sensor output<br/></span><span>    </span><span>return </span>representations</pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">References</h1>
+                </header>
+            
+            <article>
+                
+<ol>
+<li>Kelvin Xu, Jimmy Ba, Ryan Kiros, Kyunghyun Cho, Aaron C. Courville, Ruslan Salakhutdinov, Richard S. Zemel, Yoshua Bengio, Show, Attend and Tell:<span> </span><em>Neural Image Caption Generation with Visual Attention</em>, CoRR, arXiv:1502.03044, 2015.</li>
+<li>Karl Moritz Hermann, Tom's Kocisk, Edward Grefenstette, Lasse Espeholt, Will Kay, Mustafa Suleyman, Phil Blunsom,<span> </span><em>Teaching Machines to Read and Comprehend</em>, CoRR, arXiv:1506.03340, 2015.</li>
+<li>Volodymyr Mnih, Nicolas Heess, Alex Graves, Koray Kavukcuoglu,<span> </span><em>Recurrent Models of Visual Attention</em>, CoRR, arXiv:1406.6247, 2014.</li>
+<li>Long Chen, Hanwang Zhang, Jun Xiao, Liqiang Nie, Jian Shao, Tat-Seng Chua, SCA-CNN:<span> </span><em>Spatial and Channel-wise Attention in Convolutional Networks for Image Captioning</em>, CoRR, arXiv:1611.05594, 2016.</li>
+<li>Kan Chen, Jiang Wang, Liang-Chieh Chen, Haoyuan Gao, Wei Xu, Ram Nevatia, ABC-CNN:<span> </span><em>An Attention Based Convolutional Neural Network for Visual Question Answering</em>, CoRR, arXiv:1511.05960, 2015.</li>
+<li>Wenpeng Yin, Sebastian Ebert, Hinrich Schutze,<span> </span><em>Attention-Based Convolutional Neural Network for Machine Comprehension</em>, CoRR, arXiv:1602.04341, 2016.</li>
+<li>Wenpeng Yin, Hinrich Schutze, Bing Xiang, Bowen Zhou, ABCNN:<span> </span><em>Attention-Based Convolutional Neural Network for Modeling Sentence Pairs</em>, CoRR, arXiv:1512.05193, 2015.</li>
+<li>Zichao Yang, Xiaodong He, Jianfeng Gao, Li Deng, Alexander J. Smola,<span> </span><em>Stacked Attention Networks for Image Question Answering</em>, CoRR, arXiv:1511.02274, 2015.</li>
+</ol>
+<ol start="9">
+<li><span>Y. Chen, D. Zhao, L. Lv and C. Li, <em>A visual attention based convolutional neural network for image classification</em>, </span><em>2016 12th World Congress on Intelligent Control and Automation (WCICA)</em><span>, Guilin, 2016, pp. 764-769.</span></li>
+<li><span>H. Zheng, J. Fu, T. Mei and J. Luo, <em>Learning Multi-attention Convolutional Neural Network for Fine-Grained Image Recognition</em>, </span><em>2017 IEEE International Conference on Computer Vision (ICCV)</em><span>, Venice, 2017, pp. 5219-5227.</span></li>
+<li>Tianjun Xiao, Yichong Xu, Kuiyuan Yang, Jiaxing Zhang, Yuxin Peng, Zheng Zhang,<span> </span><em>The Application of Two-level Attention Models in Deep Convolutional Neural Network for Fine-grained Image Classification</em>, CoRR, arXiv:1411.6447, 2014.</li>
+<li>Jlindsey15,<span> </span><em>A TensorFlow implementation of the recurrent attention model</em>, GitHub,<span> </span><a href="https://github.com/jlindsey15/RAM" target="_blank">https://github.com/jlindsey15/RAM</a>, Feb 2018.</li>
+<li><span>QihongL, <em>A TensorFlow implementation of the recurrent attention model</em>, GitHub,</span><span> </span><a href="https://github.com/QihongL/RAM" target="_blank">https://github.com/QihongL/RAM</a>, Feb 2018.</li>
+<li><span>Amasky, <em>Recurrent Attention Model</em>, GitHub, </span><a href="https://github.com/amasky/ram" target="_blank">https://github.com/amasky/ram</a>, Feb 2018.</li>
+</ol>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Summary</h1>
+                </header>
+            
+            <article>
+                
+<p>The attention mechanism is the hottest topic in deep learning today and is conceived to be in the center of most of the cutting-edge algorithms under current research, and in probable future applications. Problems such as <span>image captioning</span>, visual question answering, and many more have gotten great solutions by using this approach. In fact, attention is not limited to visual tasks and was conceived earlier for problems such as neural machine translations and other sophisticated NLP problems. Thus, understanding the attention mechanism is vital to mastering many advanced deep learning techniques.</p>
+<p>CNNs are used <span>not only </span>for vision but also for many good applications with attention for solving complex NLP problems, such as <strong>modeling sentence pairs and machine translation</strong>. This chapter covered the attention mechanism and its application to some NLP problems, along with image captioning and recurrent vision models. In RAMs, we did not use CNN; instead, we applied RNN and attention to reduced-size representations of an image from the Glimpse Sensor. But there are recent works to apply attention to CNN-based visual models as well.</p>
+<p>Readers are highly encouraged to go through the original papers in the references and also explore advanced concepts in using attention, such as multi-level attention, stacked attention models, and the use of RL models (such as the <strong>Asynchronous Advantage Actor-Critic</strong> (<strong>A3C</strong>) model for the hard attention control problem).</p>
+<p class="mce-root"/>
+
+
+            </article>
+
+            
+        </section>
+    </body></html>
