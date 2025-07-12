@@ -1,0 +1,263 @@
+<html><head></head><body>
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Streaming</h1>
+                </header>
+            
+            <article>
+                
+<p>In the previous chapter, we learned how to ingest and transform data to train or evaluate a model using a batch ETL approach. You would use this approach in the training or evaluation phases in most cases, but when running a model, streaming ingestion is needed. This chapter covers setting up streaming ingestion strategies for DL models using a combination of the Apache Spark, DL4J, DataVec, and Apache Kafka frameworks. Streaming data ingestion frameworks don't simply move data from source to destination such as in the traditional ETL approach. With streaming ingestion, any incoming data in any format can be simultaneously ingested, transformed, and/or enriched with other structured and previously stored data for DL purposes.</p>
+<p>In this chapter, we will cover the following topics:</p>
+<ul>
+<li>Streaming data with Apache Spark</li>
+<li>Streaming data with Kafka and Apache Spark</li>
+<li>Streaming data with DL4J and Apache Spark</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Streaming data with Apache Spark</h1>
+                </header>
+            
+            <article>
+                
+<p>In <a href="ad6da519-0705-4db6-aa38-2b98b85892cc.xhtml" target="_blank">Chapter 1</a>, <em>The Apache Spark Ecosystem</em>, the details about Spark Streaming and DStreams were covered. A new and different implementation of streaming, Structured Streaming, was introduced as an alpha release in Apache Spark 2.0.0. It finally became stable starting from Spark 2.2.0. </p>
+<p class="mce-root">Structured Streaming (which has been built on top of the Spark SQL engine) is a fault-tolerant, scalable stream-processing engine. Streaming can be done in the same way batch computation is done, that is, on static data, which we presented in <a href="ad6da519-0705-4db6-aa38-2b98b85892cc.xhtml" target="_blank"/><a href="ad6da519-0705-4db6-aa38-2b98b85892cc.xhtml" target="_blank">Chapter 1</a>, <em>The Apache Spark Ecosystem</em>. It is the Spark SQL engine that's responsible for incrementally and continuously running the computation and for finally updating the results as data continues to stream. In this scenario, end-to-end, exactly-once, and fault-tolerance guarantees are ensured through <strong>Write Ahead Logs</strong> (<strong>WAL</strong>) and check-pointing.</p>
+<p class="mce-root"/>
+<p class="mce-root">The difference between the traditional Spark Streaming and the Structured Streaming programming models is sometimes not easy to grasp, especially so for experienced Spark developers who are approaching this concept for the first time. The best way to describe it is like this: you can think of it as a way of handling a live data stream as a table (where the table is thought of as an RDBMS) that is being continuously appended. The streaming computation is expressed as a standard batch-like query (in the same way it happens on a static table), but Spark runs it incrementally on the unbounded table.<br/></p>
+<p>Here's how it works. The input data stream can be considered the input table. Every data item arriving in the stream is like a new row being appended to it:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-828 image-border" src="assets/8d9851de-66a9-49c9-8371-c0c8fd522cda.png" style="width:123.08em;height:54.42em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref">Figure 4.1: A data stream as an unbounded table</div>
+<p>A query on the input generates the result table. With every trigger, new interval rows are appended to the input table, which then update the result table (as shown in the following diagram). Any time the result table gets updated, the changed result rows can be written to an external sink. There are different modes for the output that is written to external storage:</p>
+<ul>
+<li><strong>Complete mode</strong>: In this mode, it is the entire updated result table being written to the external storage. How writing to the storage system of the entire table happens depends on the specific connector configuration or implementation.</li>
+<li><strong>Append mode</strong>: Only the new rows that are appended in the result table will be written to the external storage system. This means that it is possible to apply this mode in situations where the existing rows in the result table aren't expected to change.</li>
+<li><strong>Update mode</strong>: Only the rows that have been updated in the result table are written to the external storage system. The difference between this mode and the complete mode is that this one sends out only those rows that have changed since the last trigger:</li>
+</ul>
+<div class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-829 image-border" src="assets/973dd2e8-1e6e-4759-b3d3-f7b574106ee2.png" style="width:42.33em;height:25.75em;"/></div>
+<div class="mce-root CDPAlignCenter CDPAlign packt_figref">Figure 4.2: Programming model for Structured Streaming</div>
+<p>Now, let's implement a simple Scala example <span>– </span>a streaming word count self-contained application, which is the same use case that we used in <a href="ad6da519-0705-4db6-aa38-2b98b85892cc.xhtml" target="_blank">Chapter 1</a>, <em>The Apache Spark Ecosystem</em>, but for Structured Streaming instead. The code that's used for this class can be found among the examples that are bundled with a Spark distribution. The first thing we need to do is initialize a <kbd>SparkSession</kbd>:</p>
+<pre>val spark = SparkSession<br/>      .builder<br/>       .appName("StructuredNetworkWordCount")<br/>       .master(master)<br/>       .getOrCreate()</pre>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p>We must then create a DataFrame representing the stream of input lines from the connection to <kbd>host:port</kbd>:</p>
+<pre>val lines = spark.readStream<br/>       .format("socket")<br/>       .option("host", host)<br/>       .option("port", port)<br/>       .load()</pre>
+<p>The <kbd>lines</kbd> DataFrame represents the unbounded table. It contains the streaming text data. The content of that table is a value, that is, a single column of strings. Each incoming line in the streaming text becomes a row.</p>
+<p>Let's split the lines into words:</p>
+<pre>val words = lines.as[String].flatMap(_.split(" "))</pre>
+<p>Then, we need to count the words:</p>
+<pre>val wordCounts = words.groupBy("value").count()</pre>
+<p>Finally, we can start running the query that prints the running counts to the console:</p>
+<pre>val query = wordCounts.writeStream<br/>       .outputMode("complete")<br/>       .format("console")<br/>       .start()</pre>
+<p>We continue running until a termination signal is received:</p>
+<pre>query.awaitTermination()</pre>
+<p>Before running this example, first, you need to run netcat as a data server (or the data server that we implemented in Scala in <a href="ad6da519-0705-4db6-aa38-2b98b85892cc.xhtml">Chapter 1</a>, <em>The Apache Spark Ecosystem</em>):</p>
+<pre><strong>nc -lk 9999</strong> </pre>
+<p>Then, in a different Terminal, you can start the example by passing the following as arguments:</p>
+<pre><strong>localhost 9999</strong></pre>
+<p>Any line typed in the Terminal when running the netcat server will be counted and printed to the application screen. An output such as the following will occur:</p>
+<pre><strong>hello spark</strong><br/><strong> a stream</strong><br/><strong> hands on spark</strong></pre>
+<p>This will produce the following output:</p>
+<pre>-------------------------------------------<br/> Batch: 0<br/> -------------------------------------------<br/> +------+-----+<br/> | value|count|<br/> +------+-----+<br/> | hello|    1|<br/> | spark|    1|<br/> +------+-----+<br/> <br/> -------------------------------------------<br/> Batch: 1<br/> -------------------------------------------<br/> +------+-----+<br/> | value|count|<br/> +------+-----+<br/> | hello|    1|<br/> | spark|    1|<br/> |     a|    1|<br/> |stream|    1|<br/> +------+-----+<br/> <br/> -------------------------------------------<br/> Batch: 2<br/> -------------------------------------------<br/> +------+-----+<br/> | value|count|<br/> +------+-----+<br/> | hello|    1|<br/> | spark|    2|<br/> |     a|    1|<br/> |stream|    1|<br/> | hands|    1|<br/> |    on|    1|<br/> +------+-----+</pre>
+<p class="mce-root">The event time is defined as the time that's embedded in the data itself. In many applications, such as those in an IoT context, when the number of events generated by devices every minute needs to be retrieved, the time the data was generated has to be used rather than the time Spark receives it. Event-time is naturally expressed in this programming model—each event from the device is a row in the table, and event-time is a column value in that row. This paradigm makes window-based aggregations simply a special type of aggregation on that event-time column. This grants consistency, because event-time and window-based aggregation queries can be defined in the same way on both static datasets (for example, events logs from devices) and streaming data.</p>
+<p class="mce-root">Following the previous consideration, it is evident that this programming model naturally handles data that has arrived later than expected based on its event-time. Since it is Spark itself that updates the result table, it has full control over updating old aggregates when there is late data, as well as limiting the size of intermediate data by cleaning up old aggregates. Starting from Spark 2.1, there is also support for watermarking, which allows you to specify the threshold of late data and allows the underlying engine to clean up old states accordingly.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Streaming data with Kafka and Spark</h1>
+                </header>
+            
+            <article>
+                
+<p>Spark Streaming with Kafka is a common combination of technologies in data pipelines. This section will present some examples of streaming Kafka with Spark.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Apache Kakfa</h1>
+                </header>
+            
+            <article>
+                
+<p>Apache Kafka (<a href="http://kafka.apache.org/" target="_blank">http://kafka.apache.org/</a>) is an open source message broker written in Scala. Originally, it was developed by LinkedIn, but it was then released as open source in 2011 and is currently maintained by the Apache Software Foundation.</p>
+<p>Here are some of the reasons why you might prefer Kafka to a traditional JMS message broker:</p>
+<ul>
+<li><strong>It's fast</strong>: A single Kafka broker running on commodity hardware can handle hundreds of megabytes of reads and writes per second from thousands of clients</li>
+<li><strong>Great scalability</strong>: It can be easily and transparently expanded without downtime</li>
+<li><strong>Durability and replication</strong>: Messages are persisted on disk and replicated within the cluster to prevent data loss (by setting a proper configuration using the high number of available configuration parameters, you could achieve zero data loss)</li>
+<li><strong>Performance</strong>: Each broker can handle terabytes of messages without performance impact</li>
+<li>It allows real-time stream processing</li>
+<li>It can be easily integrated with other popular open source systems for big data architectures such as Hadoop, Spark, and Storm</li>
+</ul>
+<p>The following are the core concepts of Kafka that you should become familiar with:</p>
+<ul>
+<li><strong>Topics</strong>: These are categories or feed names to which upcoming messages are published</li>
+<li><strong>Producers</strong>: Any entity that publishes messages to a topic</li>
+<li><strong>Consumers</strong>: Any entity that subscribes to topics and consumes messages from them</li>
+<li><strong>Brokers</strong>: Services that handle read and write operations</li>
+</ul>
+<p>The following diagram shows a typical Kafka cluster architecture:</p>
+<div class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-830 image-border" src="assets/de224ee0-9bff-44c9-a960-f34697e9e593.png" style="width:45.42em;height:27.42em;"/></div>
+<div class="mce-root CDPAlignCenter CDPAlign packt_figref">Figure 4.3: Kafka architecture</div>
+<p>Kafka uses ZooKeeper (<a href="https://zookeeper.apache.org/">https://zookeeper.apache.org/</a>) behind the scenes to keep its nodes in sync. The Kafka binaries provide it, so if hosting machines don't have ZooKeeper on board, you can use the one that comes bundled with Kafka. The communication between clients and servers happens using a highly performant and language-agnostic TCP protocol.</p>
+<p>Typical use cases for Kafka are as follows:</p>
+<ul>
+<li>Messaging</li>
+<li>Stream processing</li>
+<li>Log aggregation</li>
+<li>Metrics</li>
+<li>Web activity tracking</li>
+<li>Event sourcing</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Spark Streaming and Kafka</h1>
+                </header>
+            
+            <article>
+                
+<p>To use Spark Streaming with Kafka, you can do two things: either use a receiver or be direct. The first option is similar to streaming from other sources such as text files and sockets <span>– </span>data received from Kafka is stored in Spark executors and processed by jobs that are launched by a Spark Streaming context. This is not the best approach <span>– </span>it can cause data loss in the event of failures. This means that the direct approach (introduced in Spark 1.3) is better. Instead of using receivers to receive data, it periodically queries Kafka for the latest offsets in each topic and partitions, and accordingly defines, the offset ranges to process for each batch. When the jobs to process the data are executed, Kafka's simple consumer API is used to read the defined ranges of offsets (almost in the same way as for reading files from a filesystem). The direct approach brings the following advantages:</p>
+<ul>
+<li><strong>Simplified parallelism</strong>: There's no need to create multiple input Kafka streams and then struggle trying to unify them. Spark Streaming creates as many RDD partitions as there are Kafka partitions to consume, which read data from Kafka in parallel. This means that there is 1:1 mapping between Kafka and RDD partitions that is easier to understand and tune.</li>
+<li><strong>Improved efficiency</strong>: Following the receiver approach, to achieve zero-data loss, we need the data to be stored in a WAL. However, this strategy is inefficient, as the data effectively gets replicated twice, by Kafka first and then by the WAL. In the direct approach, there is no receiver, and subsequently no need for WALs—messages can be recovered from Kafka, assuming there is sufficient Kafka retention.</li>
+<li><strong>Exactly-once semantics</strong>: The receiver approach uses Kafka's high-level API to store consumed offsets in ZooKeeper. While this approach (combined with WALs) can ensure zero data loss, there is a remote possibility that some records will get consumed twice when a failure happens. Inconsistencies between data being reliably received by Spark Streaming and offsets tracked by ZooKeeper lead to this. With the direct approach, the simple Kafka API involved doesn't use ZooKeeper<span>—</span>the offsets are tracked by Spark Streaming itself within its checkpoints. This ensures that each record is received by Spark Streaming effectively exactly once, even when a failure happens.</li>
+</ul>
+<p>One disadvantage of the direct approach is that it doesn't update the offsets in ZooKeeper—this means that the ZooKeeper-based Kafka monitoring tools will not show any progress.</p>
+<p>Now, let's implement a simple Scala example <span>– </span>a Kafka direct word count. The example that's presented in this section works with Kafka release 0.10.0.0 or later. The first thing to do is to add the required dependencies (Spark Core, Spark Streaming, and Spark Streaming Kafka) to your project:</p>
+<pre>groupId = org.apache.spark<br/> artifactId = spark-core_2.11<br/> version = 2.2.1<br/>     <br/> groupId = org.apache.spark<br/> artifactId = spark-streaming_2.11<br/> version = 2.2.1<br/>     <br/> groupId = org.apache.spark<br/> artifactId = spark-streaming-kafka-0-10_2.11<br/> version = 2.2.1</pre>
+<p>This application expects two arguments:</p>
+<ul>
+<li>A comma-separated list of one or more Kafka brokers</li>
+<li>A comma-separated list of one or more Kafka topics to consume from:</li>
+</ul>
+<pre>val Array(brokers, topics) = args</pre>
+<p>We need to create the Spark Streaming context. Let's choose a <kbd>5</kbd>-second batch interval:</p>
+<pre>val sparkConf = new SparkConf().setAppName("DirectKafkaWordCount").setMaster(master)<br/> val ssc = new StreamingContext(sparkConf, Seconds(5))</pre>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p>Now, let's create a direct Kafka stream with the given brokers and topics:</p>
+<pre>val topicsSet = topics.split(",").toSet<br/> val kafkaParams = Map[String, String]("metadata.broker.list" -&gt; brokers)<br/> val messages = KafkaUtils.createDirectStream[String, String, StringDecoder, StringDecoder](<br/>       ssc, kafkaParams, topicsSet)</pre>
+<p>We can implement the word count now, that is, get the lines from the stream, split them into words, count the words, and then print:</p>
+<pre>val lines = messages.map(_._2)<br/> val words = lines.flatMap(_.split(" "))<br/> val wordCounts = words.map(x =&gt; (x, 1L)).reduceByKey(_ + _)<br/> wordCounts.print()</pre>
+<p>Finally, let's start the computation and keep it alive, waiting for a termination signal:</p>
+<pre>ssc.start()<br/> ssc.awaitTermination()</pre>
+<p>To run this example, we first need to start a Kafka cluster and create a topic. The Kafka binaries can be downloaded from the official website (<a href="http://kafka.apache.org/downloads">http://kafka.apache.org/downloads</a>). Once it has been downloaded, we can follow the following instructions.</p>
+<p>Start a <kbd>zookeeper</kbd> node first:</p>
+<pre><strong>$KAFKA_HOME/bin/zookeeper-server-start.sh $KAFKA_HOME/config/zookeeper.properties</strong></pre>
+<p>It will start listening to the default port, <kbd>2181</kbd>.</p>
+<p>Then, start a Kafka broker:</p>
+<pre><strong>$KAFKA_HOME/bin/kafka-server-start.sh $KAFKA_HOME/config/server.properties</strong></pre>
+<p>It will start listening to the default port, <kbd>9092</kbd>.</p>
+<p>Create a topic called <kbd>packttopic</kbd>:</p>
+<pre><strong>$KAFKA_HOME/bin/kafka-topics.sh --create --zookeeper localhost:2181 --replication-factor 1 --partitions 1 --topic packttopic</strong></pre>
+<p>Check that the topic has been successfully created:</p>
+<pre><strong>$KAFKA_HOME/bin/kafka-topics.sh --list --zookeeper localhost:2181</strong></pre>
+<p>The topic name, <kbd>packttopic</kbd>, should be in the list that was printed to the console output.</p>
+<p class="mce-root"/>
+<p>We can now start to produce messages for the new topic. Let's start a command-line producer:</p>
+<pre><strong>$KAFKA_HOME/bin/kafka-console-producer.sh --broker-list localhost:9092 --topic packttopic</strong></pre>
+<p>Here, we can write some messages to the producer console:</p>
+<pre>First message<br/> Second message<br/> Third message<br/> Yet another message for the message consumer</pre>
+<p>Let's build the Spark application and execute it through the <kbd>$SPARK_HOME/bin/spark-submit</kbd> command, specifying the JAR filename, the Spark master URL, the job name, the main class name, the maximum memory to be used by each executor, and the job arguments (<kbd>localhost:9092</kbd> and <kbd>packttopic</kbd>).</p>
+<p>The output printed by the Spark job for each consumed message line will be something like the following:</p>
+<pre>-------------------------------------------<br/> Time: 1527457655000 ms<br/> -------------------------------------------<br/> (consumer,1)<br/> (Yet,1)<br/> (another,1)<br/> (message,2)<br/> (for,1)<br/> (the,1)</pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Streaming data with DL4J and Spark</h1>
+                </header>
+            
+            <article>
+                
+<p>In this section, we are going to apply data streaming with Kafka and Spark to a use case scenario of a DL4J application. The DL4J module we are going to use is DataVec.</p>
+<p>Let's consider the example that we presented in the <em>Spark Streaming and Kafka</em> section. What we want to achieve is direct Kafka streaming with Spark, then apply DataVec transformations on the incoming data as soon as it arrives, before using it downstream.</p>
+<p>Let's define the input schema first. This is the schema we expect for the messages that are consumed from a Kafka topic. The schema structure is the same as for the classic <kbd>Iris</kbd> dataset (<a href="https://en.wikipedia.org/wiki/Iris_flower_data_set">https://en.wikipedia.org/wiki/Iris_flower_data_set</a>):</p>
+<pre>val inputDataSchema = new Schema.Builder()<br/>     .addColumnsDouble("Sepal length", "Sepal width", "Petal length", "Petal width")<br/>     .addColumnInteger("Species")<br/>     .build</pre>
+<p>Let's define a transformation on it (we are going to remove the petal fields because we are going to do some analysis based on the sepal features only):</p>
+<pre>val tp = new TransformProcess.Builder(inputDataSchema)<br/>     .removeColumns("Petal length", "Petal width")<br/>     .build</pre>
+<p class="mce-root">Now, we can generate the new schema (after applying the transformation to the data):</p>
+<pre>val outputSchema = tp.getFinalSchema</pre>
+<p class="mce-root">The next part of this Scala application is exactly the same as for the example in the <em>Spark Streaming and Kafka</em> section. Here, create a streaming context with a <kbd>5</kbd>-second batch interval and a direct Kafka stream:</p>
+<pre>val sparkConf = new SparkConf().setAppName("DirectKafkaDataVec").setMaster(master)<br/> val ssc = new StreamingContext(sparkConf, Seconds(5))<br/>     <br/> val topicsSet = topics.split(",").toSet<br/> val kafkaParams = Map[String, String]("metadata.broker.list" -&gt; brokers)<br/> val messages = KafkaUtils.createDirectStream[String, String, StringDecoder, StringDecoder](<br/>     ssc, kafkaParams, topicsSet)</pre>
+<p>Let's get the input lines:</p>
+<pre>val lines = messages.map(_._2)</pre>
+<p><kbd>lines</kbd> is a <kbd>DStream[String]</kbd>. We need to iterate for each RDD there, convert it to <kbd>javaRdd</kbd> (required by the DataVec reader), use a DataVec <kbd>CSVRecordReader</kbd>, parse the incoming comma-separated messages, apply the schema transformation, and print the result data:</p>
+<pre>lines.foreachRDD { rdd =&gt;<br/>   val javaRdd = rdd.toJavaRDD()<br/>   val rr = new CSVRecordReader<br/>   val parsedInputData = javaRdd.map(new StringToWritablesFunction(rr))<br/>  <br/>   if(!parsedInputData.isEmpty()) {<br/>     val processedData = SparkTransformExecutor.execute(parsedInputData, tp)<br/>     <br/>     val processedAsString = processedData.map(new WritablesToStringFunction(","))<br/>     val processedCollected = processedAsString.collect<br/>     val inputDataCollected = javaRdd.collect<br/>     <br/>     println("\n\n---- Original Data ----")<br/>     for (s &lt;- inputDataCollected.asScala) println(s)<br/> <br/>     println("\n\n---- Processed Data ----")<br/>     for (s &lt;- processedCollected.asScala) println(s)<br/>   }<br/> }</pre>
+<p>Finally, we start the streaming context and keep it alive, waiting for a termination signal:</p>
+<pre>ssc.start()<br/> ssc.awaitTermination()</pre>
+<p>To run this example, we need to start a Kafka cluster and create a new topic called <kbd>csvtopic</kbd>. The steps are the same as for the example described in the <em>Spark Streaming and Kafka</em> section. Once the topic has been created, we can start to produce comma-separated messages on it. Let's start a command-line producer:</p>
+<pre><strong>$KAFKA_HOME/bin/kafka-console-producer.sh --broker-list localhost:9092 --topic csvtopic</strong></pre>
+<p>Now, we can write some messages to the producer console:</p>
+<pre>5.1,3.5,1.4,0.2,0<br/> 4.9,3.0,1.4,0.2,0<br/> 4.7,3.2,1.3,0.2,0<br/> 4.6,3.1,1.5,0.2,0</pre>
+<p>Let's build the Spark application and execute it through the <kbd>$SPARK_HOME/bin/spark-submit</kbd> command, specifying the JAR filename, the Spark master URL, the job name, the main class name, the maximum memory to be used by each executor, and the job arguments (<kbd>localhost:9092</kbd> and <kbd>csvtopic</kbd>).</p>
+<p>The output printed by the Spark job for each consumed message line will be something like the following:</p>
+<pre>4.6,3.1,1.5,0.2,0<br/>  <br/> ---- Processed Data ----<br/> 4.6,3.1,0</pre>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p>The full code for this example can be found among the source code that's bundled with this book at <a href="https://github.com/PacktPublishing/Hands-On-Deep-Learning-with-Apache-Spark" target="_blank">https://github.com/PacktPublishing/Hands-On-Deep-Learning-with-Apache-Spark</a>.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Summary</h1>
+                </header>
+            
+            <article>
+                
+<p>To complete our overview of data ingestion possibilities when training, evaluating, and running DL models after exploring them in <a href="44fab060-12c9-4eec-9e15-103da589a510.xhtml" target="_blank">Chapter 3</a>, <em>Extract, Transform, Load</em>, in this chapter, we explored the different options that are available to us when we perform data streaming.</p>
+<p>This chapter concludes the exploration of Apache Spark features. Starting from the next chapter, the focus will be on DL4J and some other deep learning framework features. These will be used in different use case scenarios, where they will be implemented on top of Spark.</p>
+
+
+            </article>
+
+            
+        </section>
+    </body></html>

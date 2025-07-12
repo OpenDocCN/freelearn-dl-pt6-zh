@@ -1,0 +1,273 @@
+<html><head></head><body>
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Interpreting Neural Network Output</h1>
+                </header>
+            
+            <article>
+                
+<p class="mce-root">In the previous chapter, the ability to use the DL4J UI to monitor and debug a <strong>Multilayer Neural Network</strong> (<strong>MNN</strong>) was fully described. The last part of the previous chapter also explained how to interpret and use the real-time visual results in the UI charts to tune training. In this chapter, we will explain how to evaluate the accuracy of a model after its training and before it is moved to production. Several evaluation strategies exist for neural networks. This chapter covers the principal ones and all their implementations, which are provided by the DL4J API.</p>
+<p class="mce-root">While describing the different evaluation techniques, I have tried to reduce the usage of math and formulas as much as possible and keep the focus on the Scala implementation with DL4J and Spark.</p>
+<p>In this chapter, we will cover the following topics:</p>
+<ul>
+<li>Interpreting the output of a neural network</li>
+<li>Evaluation techniques with DL4J, including the following:<br/>
+<ul>
+<li>Evaluation for classification</li>
+<li>Evaluation for classification in a Spark context</li>
+<li>Other types of evaluation that are supported by DL4J</li>
+</ul>
+</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Evaluation techniques with DL4J</h1>
+                </header>
+            
+            <article>
+                
+<p>At training time and before deploying a MNN, it is important to know the accuracy of the model and understand its performance. In the previous chapter, we learned that at the end of a training phase, the model can be saved in a ZIP archive. From there, it is possible to run it and test it implementing a custom UI, like that shown in <em>Figure 8.1</em> (it has been implemented using the JavaFX features; the example code is part of the source code that's bundled with this book). But more significant strategies can be utilized to perform an evaluation. DL4J provides an API that can be used to evaluate the performance of both binary and multi-class classifiers.</p>
+<p>This first section and its subsections cover all the details of doing evaluation for classification (DL4J and Spark), while the next section provides an overview of other evaluation strategies that can be done, all of which rely on the DL4J API.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Evaluation for classification</h1>
+                </header>
+            
+            <article>
+                
+<p>The core DL4J class when implementing evaluations is called <strong>evaluation</strong> (<a href="https://static.javadoc.io/org.deeplearning4j/deeplearning4j-nn/0.9.1/org/deeplearning4j/eval/Evaluation.html">https://static.javadoc.io/org.deeplearning4j/deeplearning4j-nn/0.9.1/org/deeplearning4j/eval/Evaluation.html</a>, part of the DL4J NN module).</p>
+<p>The dataset that will be used for the example presented in this subsection is the Iris dataset (it is available for download at <a href="https://archive.ics.uci.edu/ml/datasets/iris">https://archive.ics.uci.edu/ml/datasets/iris</a>). It is a multivariate dataset that was introduced in 1936 by the British statistician and biologist Ronald Fisher (<a href="https://en.wikipedia.org/wiki/Ronald_Fisher">https://en.wikipedia.org/wiki/Ronald_Fisher</a>). It contains 150 records <span>– </span>50 samples <span>– </span>from three species of Iris flower (Iris setosa, Iris virginica, and Iris versicolor). Four attributes (features) have been measured from each sample <span>– the </span>length and width of the sepals and petals (in centimeters). The structure of this dataset was used for the example that was presented in <a href="198c1dc7-bc2a-47e8-9f97-8dbe37b7a2e3.xhtml" target="_blank">Chapter 4</a>, <em>Streaming</em>, in the <em>Streaming data with DL4J and Spark</em> section. Here's a sample of the data that's contained in this set:</p>
+<pre>sepal_length,sepal_width,petal_length,petal_width,species<br/> 5.1,3.5,1.4,0.2,0<br/> 4.9,3.0,1.4,0.2,0<br/> 4.7,3.2,1.3,0.2,0<br/> 4.6,3.1,1.5,0.2,0<br/> 5.0,3.6,1.4,0.2,0<br/> 5.4,3.9,1.7,0.4,0<br/> ...</pre>
+<p>Typically, for cases of supervised learning like this, a dataset is split into two parts: 70% and 30%. The first part is for the training, while the second is used to calculate the error and modify the network if necessary. This is also the case for this section example <span>– </span>we are going to use 70% of the dataset for the network training and the remaining 30% for evaluation purposes.</p>
+<p>The first thing we need to do is get the dataset using a <kbd>CSVRecordReader</kbd> (the input file is a list of comma-separated records):</p>
+<pre>val numLinesToSkip = 1<br/> val delimiter = ","<br/> val recordReader = new CSVRecordReader(numLinesToSkip, delimiter)<br/> recordReader.initialize(new FileSplit(new ClassPathResource("iris.csv").getFile))</pre>
+<p>Now, we need to convert the data that's going to be used in the neural network:</p>
+<pre>val labelIndex = 4<br/> val numClasses = 3<br/> val batchSize = 150<br/> <br/> val iterator: DataSetIterator = new RecordReaderDataSetIterator(recordReader, batchSize, labelIndex, numClasses)<br/> val allData: DataSet = iterator.next<br/> allData.shuffle()</pre>
+<p>Each row of the input file contains five values <span>–</span> the four input features, followed by an integer label (class) index. This means that the labels are the fifth value (<kbd>labelIndex</kbd> is <kbd>4</kbd>). The dataset has three classes representing the types of Iris flowers. They have integer values of either zero (setosa), one (versicolor), or two (virginica).</p>
+<p>As we mentioned previously, we split the dataset into two parts <span>– </span>70% of the data is for training, while the rest is for evaluation:</p>
+<pre>val iterator: DataSetIterator = new RecordReaderDataSetIterator(recordReader, batchSize, labelIndex, numClasses)<br/> val allData: DataSet = iterator.next<br/> allData.shuffle()<br/> val testAndTrain: SplitTestAndTrain = allData.splitTestAndTrain(0.70)<br/> <br/> val trainingData: DataSet = testAndTrain.getTrain<br/> val testData: DataSet = testAndTrain.getTest</pre>
+<p>The split happens through the <kbd>SplitTestAndTrain</kbd> class (<a href="https://deeplearning4j.org/api/latest/org/nd4j/linalg/dataset/SplitTestAndTrain.html">https://deeplearning4j.org/api/latest/org/nd4j/linalg/dataset/SplitTestAndTrain.html</a>) of ND4J.</p>
+<p><span class="pl-c">We also need to normalize the input data (for both the training and evaluation sets) using the ND4J</span> <kbd>NormalizeStandardize</kbd> <span class="pl-c">class (<a href="https://deeplearning4j.org/api/latest/org/nd4j/linalg/dataset/api/preprocessor/NormalizerStandardize.html">https://deeplearning4j.org/api/latest/org/nd4j/linalg/dataset/api/preprocessor/NormalizerStandardize.html</a>) so that we have a zero mean and a standard deviation of one:<br/></span></p>
+<pre>val normalizer: DataNormalization = new NormalizerStandardize<br/> normalizer.fit(trainingData)<br/> normalizer.transform(trainingData)<br/> normalizer.transform(testData)</pre>
+<p>We can now configure and build the model (a simple feedforward neural network):</p>
+<pre>val conf = new NeuralNetConfiguration.Builder()<br/>   .seed(seed)<br/>   .activation(Activation.TANH)<br/>   .weightInit(WeightInit.XAVIER)<br/>   .l2(1e-4)<br/>   .list<br/>   .layer(0, new DenseLayer.Builder().nIn(numInputs).nOut(3)<br/>     .build)<br/>   .layer(1, new DenseLayer.Builder().nIn(3).nOut(3)<br/>     .build)<br/>   .layer(2, new OutputLayer.Builder(LossFunctions.LossFunction.NEGATIVELOGLIKELIHOOD)<br/>     .activation(Activation.SOFTMAX)<br/>     .nIn(3).nOut(outputNum).build)<br/>   .backprop(true).pretrain(false)<br/>   .build</pre>
+<p>The following screenshot shows a graphical representation of the network for this example:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/3bed52a4-5815-453c-98df-a3fd060bd86e.png" style="width:8.08em;height:20.25em;"/></p>
+<p>The MNN can be created by starting from the preceding configuration:</p>
+<pre>val model = new MultiLayerNetwork(conf)<br/> model.init()<br/> model.setListeners(new ScoreIterationListener(100))</pre>
+<p>The training can be started if we use the portion (70%) of the input dataset that has been reserved for it:</p>
+<pre>for(idx &lt;- 0 to 2000) {<br/>   model.fit(trainingData)<br/> }</pre>
+<p>At the end of training, the evaluation can be done using the reserved portion (30%) of the input dataset:</p>
+<pre>val eval = new Evaluation(3)<br/> val output = model.output(testData.getFeatureMatrix)<br/> eval.eval(testData.getLabels, output)<br/> println(eval.stats)</pre>
+<p class="mce-root"/>
+<p>The value that's passed to the evaluation class constructor is the number of classes to account for in the evaluation <span>– </span>this is <kbd>3</kbd> here because we have <kbd>3</kbd> classes of flowers in the dataset. The <kbd>eval</kbd> method compares the labels array from the test dataset with the labels that were generated by the model. The result of the evaluation is finally printed to the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/be1b6651-5593-4f76-9a37-ef49197c5fa1.png" style="width:39.83em;height:16.83em;"/></p>
+<p>By default, the <kbd>stats</kbd> method of the <kbd>Evaluation</kbd> class displays the confusion matrix entries (one entry per line), <span class="packt_screen">Accuracy</span>, <span class="packt_screen">Precision</span>, <span class="packt_screen">Recall</span>, and <span class="packt_screen">F1 Score</span>, but other information can be displayed. Let's talk about what these <kbd>stats</kbd> are.</p>
+<p>The <strong>confusion matrix</strong> is a table that is used to describe the performance of a classifier on a test dataset for which the true values are known. Let's consider the following example (for a binary classifier):</p>
+<table border="1" style="border-collapse: collapse;width: 71.1955%">
+<tbody>
+<tr>
+<td style="width: 25%">
+<p><strong>Prediction count = 200</strong></p>
+</td>
+<td style="width: 18%">
+<p><strong>Predicted as no</strong></p>
+</td>
+<td style="width: 24.3336%">
+<p><strong>Predicted as yes</strong></p>
+</td>
+</tr>
+<tr>
+<td style="width: 25%">
+<p>Actual: no</p>
+</td>
+<td style="width: 18%">
+<p>55</p>
+</td>
+<td style="width: 24.3336%">
+<p>5</p>
+</td>
+</tr>
+<tr>
+<td style="width: 25%">
+<p>Actual: yes</p>
+</td>
+<td style="width: 18%">
+<p>10</p>
+</td>
+<td style="width: 24.3336%">
+<p>130</p>
+</td>
+</tr>
+</tbody>
+</table>
+<p> </p>
+<p>These are the insights we can get from the preceding matrix:</p>
+<ul>
+<li>There are two possible predicted classes, yes and no</li>
+<li>The classifier made 200 predictions in total</li>
+<li>Out of those 200 cases, the classifier predicted yes 135 times and no 65 times</li>
+<li>In reality, 140 cases in the sample are yes and 60 are no</li>
+</ul>
+<p>When this is translated into proper terms, the insights are as follows:</p>
+<ul>
+<li><strong>True positives</strong> (<strong>TP</strong>): These are cases in which yes has been predicted and it is really a yes</li>
+<li><strong>True negatives</strong> (<strong>TN</strong>): No has been predicted and it is really a no</li>
+<li><strong>False positives</strong> (<strong>FP</strong>): Yes has been predicted, but really it is a no</li>
+<li><strong>False negatives</strong> (<strong>FN</strong>): No has been predicted, but really it is a yes</li>
+</ul>
+<p>Let's consider the following example:</p>
+<table border="1" style="border-collapse: collapse;width: 55.9225%">
+<tbody>
+<tr>
+<td style="width: 13%"/>
+<td style="width: 19%"><strong>Predicted as no</strong></td>
+<td style="width: 20.031%"><strong>Predicted as yes</strong></td>
+</tr>
+<tr>
+<td style="width: 13%">Actual: no</td>
+<td style="width: 19%">TN</td>
+<td style="width: 20.031%">FP</td>
+</tr>
+<tr>
+<td style="width: 13%">Actual: yes</td>
+<td style="width: 19%">FN</td>
+<td style="width: 20.031%">TP</td>
+</tr>
+</tbody>
+</table>
+<p> </p>
+<p>This is done in terms of numbers. A list of rates can be calculated from a confusion matrix. With reference to the code example in this section, they are as follows:</p>
+<ul>
+<li><strong>Accuracy</strong>: Represents how often a classifier is correct:<span> </span><em>(TP+TN)/total</em>.</li>
+<li><strong>Precision</strong>: Represents how often a classifier is correct when it predicts a positive observation.</li>
+<li><strong>Recall</strong>: The average recall for all classes (labels) in the evaluation dataset:<span> </span><em>TP/TP+FN</em>.</li>
+<li><strong>F1 Score</strong>: This is the weighted average of precision and recall. It takes into account both false positives and false negatives:<span> </span><em>2 * TP / (2TP + FP + FN)</em>.</li>
+</ul>
+<p>The <kbd>Evaluation</kbd> class can also display other information such as the G-measure or the Matthews Correlation Coefficient, and much more. The confusion matrix can be also displayed in its full form:</p>
+<pre>println(eval.confusionToString)</pre>
+<p>The preceding command returns the following output:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/0a522cc7-b4e8-4dbe-a26f-6f6341dfcc73.png" style="width:21.17em;height:6.08em;"/></p>
+<p>The confusion matrix can be also accessed directly and converted into CSV format:</p>
+<pre>eval.getConfusionMatrix.toCSV</pre>
+<p class="mce-root"/>
+<p><span>The preceding command returns the following output:</span></p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/cea6aeef-8411-4b1d-be13-4236f9ac291e.png" style="width:14.75em;height:7.75em;"/></p>
+<p>It can also be converted into HTML:</p>
+<pre>eval.getConfusionMatrix.toHTML</pre>
+<p><span>The preceding command returns the following output:</span></p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/27fed4c0-2166-4666-a7cf-d674104bd334.png"/></p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Evaluation for classification – Spark example</h1>
+                </header>
+            
+            <article>
+                
+<p>Let's examine another example of evaluation for classification, but in a context where Spark is involved too (distributed evaluation). We are going to complete the example that was presented in <a href="fbec1d8a-a92f-4899-af0f-11f3d545e0eb.xhtml" target="_blank">Chapter 5</a>, <em>Convolutional Neural Networks</em>, in the <em>Hands-on CNN with Spark</em> section, <a href="3b6f47c0-6e17-484b-ad30-b6f92eb0473c.xhtml" target="_blank">Chapter 7</a>, <em>Training Neural Networks with Spark</em>, in the <em>CNN distributed training with Spark and DL4J</em> section, and <a href="b30120ea-bd42-4cb7-95d9-5ecaa2b7c181.xhtml" target="_blank">Chapter 8</a>, <em>Monitoring and Debugging Neural Network Training</em>, in the <em>The DL4J Training UI and Spark</em> section. Remember that this is an example of handwritten digits image classification that's trained on the <kbd>MNIST</kbd> dataset.</p>
+<p>In these chapters, we used only a portion of the <kbd>MNIST</kbd> dataset for training purposes, but the downloaded archive also includes a separate directory named <kbd>testing</kbd>, which contains the portion of the dataset that's reserved for evaluation purposes. The evaluation dataset also needs to be vectorized, just like the training dataset:</p>
+<pre>val testData = new ClassPathResource("/mnist_png/testing").getFile<br/> val testSplit = new FileSplit(testData, NativeImageLoader.ALLOWED_FORMATS, randNumGen)<br/> val testRR = new ImageRecordReader(height, width, channels, labelMaker)<br/> testRR.initialize(testSplit)<br/> val testIter = new RecordReaderDataSetIterator(testRR, batchSize, 1, outputNum)<br/> testIter.setPreProcessor(scaler)</pre>
+<p>We need to do this before we load it into memory at evaluation time and parallelize it:</p>
+<pre>val testDataList = mutable.ArrayBuffer.empty[DataSet]<br/> while (testIter.hasNext) {<br/>     testDataList += testIter.next<br/> }<br/> <br/> val paralleltesnData = sc.parallelize(testDataList)</pre>
+<p>Then, the evaluation can be done through the <kbd>Evaluation</kbd> class, which is what we did for the example in the previous section:</p>
+<pre>val sparkNet = new SparkDl4jMultiLayer(sc, conf, tm)<br/>  <br/> var numEpochs: Int = 15<br/> var i: Int = 0<br/> for (i &lt;- 0 until numEpochs) {<br/>     sparkNet.fit(paralleltrainData)<br/>     val eval = sparkNet.evaluate(parallelTestData)<br/>     println(eval.stats)<br/>     println("Completed Epoch {}", i)<br/>     trainIter.reset<br/>     testIter.reset<br/> }</pre>
+<p>The produced output of the <kbd>stas</kbd> method of the <kbd>Evaluation</kbd> class is the same as for any other network implementation that's trained and evaluated through DL4J. For example:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/7244abfe-90e1-4132-92f4-3ff6806704cd.png" style="width:41.25em;height:19.08em;"/></p>
+<p>It is also possible to perform multiple evaluations in the same pass using the <kbd>doEvaluation</kbd> method of the <kbd>SparkDl4jMultiLayer</kbd> class. This method expects three input parameters: the data to evaluate on (in the form of a <kbd>JavaRDD&lt;org.nd4j.linalg.dataset.DataSet&gt;</kbd>), an empty <kbd>Evaluation</kbd> instance, and a integer that represents the evaluation batch size. It returns the populated <kbd>Evaluation</kbd> object.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Other types of evaluation</h1>
+                </header>
+            
+            <article>
+                
+<p>Other evaluations are available through the DL4J API. This section lists them.</p>
+<p>It is possible to evaluate a network performing regression through the <kbd>RegressionEvaluation</kbd> class (<a href="https://static.javadoc.io/org.deeplearning4j/deeplearning4j-nn/1.0.0-alpha/org/deeplearning4j/eval/RegressionEvaluation.html">https://static.javadoc.io/org.deeplearning4j/deeplearning4j-nn/1.0.0-alpha/org/deeplearning4j/eval/RegressionEvaluation.html</a>, DL4J NN). With reference to the example that we used in the <em>Evaluation for classification</em> section, evaluation for regression can be done the following way:</p>
+<pre>val eval = new RegressionEvaluation(3)<br/> val output = model.output(testData.getFeatureMatrix)<br/> eval.eval(testData.getLabels, output)<br/> println(eval.stats)</pre>
+<p>The produced output of the <kbd>stats</kbd> method includes the <span class="packt_screen">MSE</span>, the <span class="packt_screen">MAE</span>, the <span class="packt_screen">RMSE</span>, the <span class="packt_screen">RSE</span>, and the <span class="packt_screen">R^2</span>:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/1e5ef8ad-0379-460e-88ff-d21ab98964a1.png" style="width:53.67em;height:6.08em;"/></p>
+<p><strong>ROC</strong> (short for <strong>Receiver Operating Characteristic</strong>, <a href="https://en.wikipedia.org/wiki/Receiver_operating_characteristic">https://en.wikipedia.org/wiki/Receiver_operating_characteristic</a>) is another commonly used metric for the evaluation of classifiers. DL4J provides three different implementations for ROC:</p>
+<ul>
+<li><kbd>ROC</kbd>: <a href="https://deeplearning4j.org/api/1.0.0-beta2/org/deeplearning4j/eval/ROC.html">https://deeplearning4j.org/api/1.0.0-beta2/org/deeplearning4j/eval/ROC.html</a>, the implementation for binary classifiers</li>
+<li><kbd>ROCBinary</kbd>: <a href="https://deeplearning4j.org/api/1.0.0-beta2/org/deeplearning4j/eval/ROCBinary.html">https://deeplearning4j.org/api/1.0.0-beta2/org/deeplearning4j/eval/ROCBinary.html</a>, for multi-task binary classifiers</li>
+<li><kbd>ROCMultiClass</kbd>: <a href="https://deeplearning4j.org/api/1.0.0-beta2/org/deeplearning4j/eval/ROCMultiClass.html">https://deeplearning4j.org/api/1.0.0-beta2/org/deeplearning4j/eval/ROCMultiClass.html</a>, for multi-class classifiers</li>
+</ul>
+<p>All of the three preceding classes have the ability to calculate the area under <strong>ROC curve</strong> (<strong>AUROC</strong>), through the <kbd>calculateAUC</kbd> method, and the area under <strong>Precision-Recall curve</strong> (<strong>AUPRC</strong>), through the <kbd>calculateAUPRC</kbd> method. These three ROC implementations support two modes of calculation:</p>
+<ul>
+<li><strong>Thresholded</strong>: It uses less memory and approximates the calculation of the AUROC and AUPRC. This is suitable for very large datasets.</li>
+<li><strong>Exact</strong>: This is the default. It is accurate, but requires more memory. This is not suitable for very large datasets.</li>
+</ul>
+<p>It is possible to export the AUROC and AUPRC in HTML format so that they can be viewed using a web browser. The <kbd>exportRocChartsToHtmlFile</kbd> method of the <kbd>EvaluationTools</kbd> class (<a href="https://deeplearning4j.org/api/1.0.0-beta2/org/deeplearning4j/evaluation/EvaluationTools.html">https://deeplearning4j.org/api/1.0.0-beta2/org/deeplearning4j/evaluation/EvaluationTools.html</a>) has to be used to do this export. It expects the ROC implementation to export and a File object (the destination HTML file) as parameters. It saves both curves in a single HTML file.</p>
+<p>To evaluate networks with binary classification outputs, the <kbd>EvaluationBinary</kbd> class (<a href="https://deeplearning4j.org/api/1.0.0-beta2/org/deeplearning4j/eval/EvaluationBinary.html">https://deeplearning4j.org/api/1.0.0-beta2/org/deeplearning4j/eval/EvaluationBinary.html</a>) is used. The typical classification metrics (<span class="packt_screen">Accuracy</span>, <span class="packt_screen">Precision</span>, <span class="packt_screen">Recall</span>, <span class="packt_screen">F1 Score</span>, and so on) are calculated for each output. The following is the syntax for this class:</p>
+<pre>val size:Int = 1<br/> val eval: EvaluationBinary = new EvaluationBinary(size)</pre>
+<p>What about time series evaluation (in the case of RNNs)? It is quite similar to the evaluation approaches for classification that we have described so far in this chapter. For time series in DL4J, the evaluation is performed on all the non-masked time steps in a separate way. But what is masking for RNNs? RNNs require that inputs have a fixed length. Masking is a technique that's used to handle this because it marks missing time steps. The only difference between the other evaluation cases that were presented previously is the optional presence of mask arrays. This means that, in many time series cases, you can just use the <kbd>evaluate</kbd> or <kbd>evaluateRegression</kbd> methods of the <kbd>MultiLayerNetwork</kbd> class <span>– regardless of </span>whether mask arrays should be present, they can be properly handled by those two methods.</p>
+<p>DL4J also provides a way to analyze the calibration of a classifier <span>– </span>the <kbd>EvaluationCalibration</kbd> class (<a href="https://deeplearning4j.org/api/1.0.0-beta2/org/deeplearning4j/eval/EvaluationCalibration.html">https://deeplearning4j.org/api/1.0.0-beta2/org/deeplearning4j/eval/EvaluationCalibration.html</a>). It provides a number of tools for this, such as the following:</p>
+<ul>
+<li>The counts of the number of labels and predictions for each class</li>
+<li>The reliability diagram (<a href="http://www.bom.gov.au/wmo/lrfvs/reliability.shtml">http://www.bom.gov.au/wmo/lrfvs/reliability.shtml</a>)</li>
+<li>The residual plot (<a href="http://www.statisticshowto.com/residual-plot/">http://www.statisticshowto.com/residual-plot/</a>)</li>
+<li>Histograms of probabilities for each class</li>
+</ul>
+<p>The evaluation of a classifier using this class is performed in a similar manner to the other evaluation classes. It is possible to export its plots and histograms in HTML format through the <kbd>exportevaluationCalibrationToHtmlFile</kbd> method of the <kbd>EvaluationTools</kbd> class. This method expects an <kbd>EvaluationCalibration</kbd> instance and a file object (the destination HTML file) as arguments.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Summary</h1>
+                </header>
+            
+            <article>
+                
+<p>In this chapter, we have learned how to programmatically evaluate a model's efficiency using the different facilities that are provided by the DL4J API. We have now closed the full circle in terms of the implementation, training, and evaluation of MNN using DL4J and Apache Spark.</p>
+<p>The next chapter will give us some insight into the deployment of a distribution environment and importing and executing pre-trained Python models, as well as a comparison of DL4J with some alternative DL frameworks for the Scala programming language.</p>
+
+
+            </article>
+
+            
+        </section>
+    </body></html>

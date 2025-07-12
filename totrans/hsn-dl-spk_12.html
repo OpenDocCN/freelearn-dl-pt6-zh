@@ -1,0 +1,255 @@
+<html><head></head><body>
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Textual Analysis and Deep Learning</h1>
+                </header>
+            
+            <article>
+                
+<p class="mce-root">In the previous chapter, we became familiar with the core concepts of <strong>Natural Language Processing</strong> (<strong>NLP</strong>) and then we saw some implementation examples in Scala with Apache Spark, and two open source libraries for this framework. We also understood the pros and cons of those solutions. This chapter walks through hands-on examples of NLP use case implementations using DL (Scala and Spark). The following four cases will be covered:</p>
+<ul>
+<li>DL4J</li>
+<li>TensorFlow</li>
+<li>Keras and TensorFlow backend</li>
+<li>DL4J and Keras model import</li>
+</ul>
+<p>The chapter covers some considerations regarding the pros and cons for each of those DL approaches in order, so that readers should then <span>be</span><span> </span><span>ready to understand in which cases one framework is preferred over the others.</span></p>
+<p> </p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Hands-on NLP with DL4J</h1>
+                </header>
+            
+            <article>
+                
+<p>The first example we are going to examine is a sentiment analysis case for movie reviews, the same as for the last example shown in the previous chapter (the <em>Hands-on NLP with Spark-NLP </em><span>section)</span>. The difference is that here, we are going to combine Word2Vec (<a href="https://en.wikipedia.org/wiki/Word2vec">https://en.wikipedia.org/wiki/Word2vec</a>) and an RNN model.</p>
+<p>Word2Vec can be seen as a neural network with two layers only, which expects as input some text content and then returns vectors. It isn't a deep neural network, but it is used to turn text into a numerical format that deep neural networks can understand. Word2Vec is useful because it can group the vectors of similar words together in a vector space. It does this mathematically. It creates, without human intervention, distributed numerical representations of word features. The vectors that represent words are called <strong>neural word embeddings</strong><em>. W</em>ord2vec trains words against others that neighbor them in the input text. The way it does it is using context to predict a target word (<strong><span>Continuous Bag Of Words</span></strong> (<strong><span>CBOW</span></strong>)) or using a word to predict a target context (skip-gram). It has been demonstrated that the second approach produces more accurate results when dealing with large datasets. If the feature vector assigned to a word can't be used to accurately predict its context, an adjustment happens to the vector components. Each word's context in the input text becomes the teacher by sending errors back. This way the word vectors that have been estimated similar by the context where they are, are moved closer together.</p>
+<p>The dataset used for training and testing is the <em>Large Movie Review Dataset,</em> which is available for download at <a href="http://ai.stanford.edu/~amaas/data/sentiment/">http://ai.stanford.edu/~amaas/data/sentiment/</a> and is free to use. It contains 25,000 highly popular movie reviews for training and another 25,000 for testing.</p>
+<p>The dependencies for this example are DL4J NN, DL4J NLP, and ND4J.</p>
+<p>Set up the RNN configuration using, as usual, the DL4J <kbd>NeuralNetConfiguration.Builder</kbd> class<span>, as follows</span>:</p>
+<pre>val conf: MultiLayerConfiguration = new NeuralNetConfiguration.Builder<br/>   .updater(Updater.ADAM)<br/>   .l2(1e-5)<br/>   .weightInit(WeightInit.XAVIER)<br/>   .gradientNormalization(GradientNormalization.ClipElementWiseAbsoluteValue)<br/>   .gradientNormalizationThreshold(1.0)<br/>   .list<br/>   .layer(0, new GravesLSTM.Builder().nIn(vectorSize).nOut(256)<br/>     .activation(Activation.TANH)<br/>     .build)<br/>   .layer(1, new RnnOutputLayer.Builder().activation(Activation.SOFTMAX)<br/>     .lossFunction(LossFunctions.LossFunction.MCXENT).nIn(256).nOut(2).build)<br/>   .pretrain(false).backprop(true).build</pre>
+<p>This network is made by a Graves LSTM RNN (please go back to<span> </span><a href="3b6f47c0-6e17-484b-ad30-b6f92eb0473c.xhtml" target="_blank">Chapter 6</a>,<a href="3b6f47c0-6e17-484b-ad30-b6f92eb0473c.xhtml" target="_blank"/> <em>Recurrent Neural Networks</em>, for more details on it) plus the DL4J—specific RNN output layer <kbd>RnnOutputLayer</kbd>. The activation function for this output layer is SoftMax.</p>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p>We can now create the network using the preceding configuration set<span>, as follows</span>:</p>
+<pre>val net = new MultiLayerNetwork(conf)<br/> net.init()<br/> net.setListeners(new ScoreIterationListener(1))</pre>
+<p>Before starting the training, we need to prepare the training set to make it ready to be used. For this purpose, we are going to use the dataset iterator by Alex Black that can be found among the GitHub examples for DL4J (<a href="https://github.com/deeplearning4j/dl4j-examples/blob/master/dl4j-examples/src/main/java/org/deeplearning4j/examples/recurrent/word2vecsentiment/SentimentExampleIterator.java" target="_blank">https://github.com/deeplearning4j/dl4j-examples/blob/master/dl4j-examples/src/main/java/org/deeplearning4j/examples/recurrent/word2vecsentiment/SentimentExampleIterator.java</a>). It is in Java, so it has been adapted to Scala and added to the source code examples of this book. It implements the <kbd>DataSetIterator</kbd> interface (<a href="https://static.javadoc.io/org.nd4j/nd4j-api/1.0.0-alpha/org/nd4j/linalg/dataset/api/iterator/DataSetIterator.html">https://static.javadoc.io/org.nd4j/nd4j-api/1.0.0-alpha/org/nd4j/linalg/dataset/api/iterator/DataSetIterator.html</a>) and it <span class="pl-c">is specialized for the IMDB review datasets. It expects as input a raw IMDB dataset (it could be a training or testing dataset), plus a <kbd>wordVectors</kbd> object, and then generates the dataset ready to be used for training/test purposes. This particular implementation uses the Google News 300 pre-trained vectors as <kbd>wordVectors</kbd> objects; it can be freely downloaded in GZIP format from the <a href="https://github.com/mmihaltz/word2vec-GoogleNews-vectors/">https://github.com/mmihaltz/word2vec-GoogleNews-vectors/</a> GitHub repo. It needs to be unzipped before it can be used. Once extracted, the model can be loaded though the</span> <kbd>loadStaticModel</kbd> <span class="pl-c">of the</span> <kbd>WordVectorSerializer</kbd> <span class="pl-c">class <span>(</span><a href="https://static.javadoc.io/org.deeplearning4j/deeplearning4j-nlp/1.0.0-alpha/org/deeplearning4j/models/embeddings/loader/WordVectorSerializer.html">https://static.javadoc.io/org.deeplearning4j/deeplearning4j-nlp/1.0.0-alpha/org/deeplearning4j/models/embeddings/loader/WordVectorSerializer.html</a>) as follows: </span></p>
+<pre>val WORD_VECTORS_PATH: String = getClass().getClassLoader.getResource("GoogleNews-vectors-negative300.bin").getPath<br/> val wordVectors = WordVectorSerializer.loadStaticModel(new File(WORD_VECTORS_PATH))</pre>
+<p>Training and test data can be now prepared through the custom dataset iterator <kbd>SentimentExampleIterator</kbd>:</p>
+<pre>val DATA_PATH: String = getClass.getClassLoader.getResource("aclImdb").getPath<br/> val train = new SentimentExampleIterator(DATA_PATH, wordVectors, batchSize, truncateReviewsToLength, true)<br/> val test = new SentimentExampleIterator(DATA_PATH, wordVectors, batchSize, truncateReviewsToLength, false)</pre>
+<p>Then, we can test and evaluate the model in DL4J and Spark as explained i<span>n </span><a href="3b6f47c0-6e17-484b-ad30-b6f92eb0473c.xhtml" target="_blank">Chapter 6</a>, <em>Recurrent Neural Networks</em>, <a href="3b6f47c0-6e17-484b-ad30-b6f92eb0473c.xhtml" target="_blank">Chapter 7</a>, <em>Training Neural Networks with Spark</em>, and <a href="3b6f47c0-6e17-484b-ad30-b6f92eb0473c.xhtml" target="_blank">Chapter 8</a>, <em>Monitoring and Debugging Neural Network Training</em>. Please be aware that the Google model used here is pretty big (a<span>bout </span><span>3.5 GB), so take this into account when training the model in this example, in terms of resources needed (memory in particular).</span></p>
+<p>In this first code example, we have used the common API of the DL4J main modules that are typically used for different MNNs in different use case scenarios. We have also explicitly used Word2Vec there. Anyway, the DL4J API also provides some basic facilities specific for NLP built on top of ClearTK (<a href="https://cleartk.github.io/cleartk/">https://cleartk.github.io/cleartk/</a>), an open source framework for ML, and NLP for Apache UIMA (<a href="http://uima.apache.org/">http://uima.apache.org/</a>). In the second example that is going to be presented in this section, we are going to use those facilities.</p>
+<p>The dependencies for this second example are DataVec, DL4J NLP, and ND4J. While they are properly loaded as transitive dependencies by Maven or Gradle, the following two libraries. <span>Need to be explicitly declared among the project dependencies to skip </span><kbd>NoClassDefFoundError</kbd><span> at runtime:</span></p>
+<pre>groupId: com.google.guava<br/> artifactId: guava<br/> version: 19.0<br/>groupId: org.apache.commons<br/> artifactId: commons-math3<br/> version: 3.4</pre>
+<p> </p>
+<p>A file containing about 100,000 generic sentences has been used as input for this example. We need to load it in our application, as follows:</p>
+<pre>val filePath: String = new ClassPathResource("rawSentences.txt").getFile.getAbsolutePath</pre>
+<p>The DL4J NLP library provides the <kbd>SentenceIterator</kbd> interface (<a href="https://static.javadoc.io/org.deeplearning4j/deeplearning4j-nlp/1.0.0-alpha/org/deeplearning4j/text/sentenceiterator/SentenceIterator.html">https://static.javadoc.io/org.deeplearning4j/deeplearning4j-nlp/1.0.0-alpha/org/deeplearning4j/text/sentenceiterator/SentenceIterator.html</a>) and several implementations for it. In this specific example, we are going to use the <kbd>BasicLineIterator</kbd> implementation (<a href="https://static.javadoc.io/org.deeplearning4j/deeplearning4j-nlp/1.0.0-alpha/org/deeplearning4j/text/sentenceiterator/BasicLineIterator.html">https://static.javadoc.io/org.deeplearning4j/deeplearning4j-nlp/1.0.0-alpha/org/deeplearning4j/text/sentenceiterator/BasicLineIterator.html</a>) in order to remove white spaces at the beginning and the end of each sentence in the input text<span>, as follows</span>:</p>
+<pre>val iter: SentenceIterator = new BasicLineIterator(filePath)</pre>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p>We need to do the tokenization now in order to segment the input text into single words. For this, we use the <kbd>DefaultTokenizerFactory</kbd> implementation (<a href="https://static.javadoc.io/org.deeplearning4j/deeplearning4j-nlp/1.0.0-alpha/org/deeplearning4j/text/tokenization/tokenizerfactory/DefaultTokenizerFactory.html">https://static.javadoc.io/org.deeplearning4j/deeplearning4j-nlp/1.0.0-alpha/org/deeplearning4j/text/tokenization/tokenizerfactory/DefaultTokenizerFactory.html</a>) and set as tokenizer a <kbd>CommomPreprocessor</kbd> (<a href="https://static.javadoc.io/org.deeplearning4j/deeplearning4j-nlp/1.0.0-alpha/org/deeplearning4j/text/tokenization/tokenizer/preprocessor/CommonPreprocessor.html">https://static.javadoc.io/org.deeplearning4j/deeplearning4j-nlp/1.0.0-alpha/org/deeplearning4j/text/tokenization/tokenizer/preprocessor/CommonPreprocessor.html</a>) to remove punctuation marks, numbers, and special characters, and then force lowercase for all the generated tokens<span>, as follows</span>:</p>
+<pre>val tokenizerFactory: TokenizerFactory = new DefaultTokenizerFactory<br/> tokenizerFactory.setTokenPreProcessor(new CommonPreprocessor)</pre>
+<p>The model can now be built<span>, as follows</span>:</p>
+<pre>val vec = new Word2Vec.Builder()<br/>   .minWordFrequency(5)<br/>   .iterations(1)<br/>   .layerSize(100)<br/>   .seed(42)<br/>   .windowSize(5)<br/>   .iterate(iter)<br/>   .tokenizerFactory(tokenizerFactory)<br/>   .build</pre>
+<p>As mentioned earlier, we are using Word2Vec, so the model is built through the <kbd>Word2Vec.Builder</kbd> class (<a href="https://static.javadoc.io/org.deeplearning4j/deeplearning4j-nlp/1.0.0-alpha/org/deeplearning4j/models/word2vec/Word2Vec.Builder.html">https://static.javadoc.io/org.deeplearning4j/deeplearning4j-nlp/1.0.0-alpha/org/deeplearning4j/models/word2vec/Word2Vec.Builder.html</a>), setting as tokenizer factory for the one created previously.</p>
+<p>Let's start the model fitting:</p>
+<pre>vec.fit()</pre>
+<p>And save the word vectors in a file when finished<span>, as follows</span>:</p>
+<pre>WordVectorSerializer.writeWordVectors(vec, "wordVectors.txt")</pre>
+<p>The <kbd>WordVectorSerializer</kbd> utility class (<a href="https://static.javadoc.io/org.deeplearning4j/deeplearning4j-nlp/1.0.0-alpha/org/deeplearning4j/models/embeddings/loader/WordVectorSerializer.html">https://static.javadoc.io/org.deeplearning4j/deeplearning4j-nlp/1.0.0-alpha/org/deeplearning4j/models/embeddings/loader/WordVectorSerializer.html</a>) handles word vector serialization and persistence.</p>
+<p>The model can be tested this way:</p>
+<pre>val lst = vec.wordsNearest("house", 10)<br/> println("10 Words closest to 'house': " + lst)</pre>
+<p>The produced output is<span> as follows:</span></p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/e3123b10-3450-4244-9fa8-e00c7c0f457e.png"/></p>
+<p><strong>GloVe</strong> (<a href="https://en.wikipedia.org/wiki/GloVe_(machine_learning)">https://en.wikipedia.org/wiki/GloVe_(machine_learning)</a>), like Wor2Vec, is a model for distributed word representation, but it uses a different approach. While Word2Vec extracts the embeddings from a neural network that is designed to predict neighboring words, in GloVe the embeddings are optimized directly. This way the product of two-word vectors is equal to the logarithm of the number of times the two words occur near each other. For example, if the words <em>cat</em> and <em>mouse</em> occur near each other 20 times in a text, then <em>(vec(cat) * vec(mouse)) = log(20)</em>. The DL4J NLP library also provides a GloVe model implementation, <kbd>GloVe.Builder</kbd> (<a href="https://static.javadoc.io/org.deeplearning4j/deeplearning4j-nlp/1.0.0-alpha/org/deeplearning4j/models/glove/Glove.Builder.html">https://static.javadoc.io/org.deeplearning4j/deeplearning4j-nlp/1.0.0-alpha/org/deeplearning4j/models/glove/Glove.Builder.html</a>). So, this example could be adapted for the GloVe model. The same file containing about 100,000 generic sentences used for the Word2Vec example is the input for this new one. The <kbd>SentenceIterator</kbd> and tokenization don't change (the same as for the Word2Vec example). What's different is the model to build, as follows:</p>
+<pre>val glove = new Glove.Builder()<br/>   .iterate(iter)<br/>   .tokenizerFactory(tokenizerFactory)<br/>   .alpha(0.75)<br/>   .learningRate(0.1)<br/>   .epochs(25)<br/>   .xMax(100)<br/>   .batchSize(1000)<br/>   .shuffle(true)<br/>   .symmetric(true)<br/>   .build</pre>
+<p>We can fit the model by invoking its <kbd>fit</kbd> method<span>, as follows</span>:</p>
+<pre>glove.fit()</pre>
+<p>After the fitting process completes, we can use model to do several things, such as find the similarity between two words<span>, as follows</span>:</p>
+<pre>val simD = glove.similarity("old", "new")<br/> println("old/new similarity: " + simD)</pre>
+<p>Or, find the <em>n</em> nearest words to a given one:</p>
+<pre>val words: util.Collection[String] = glove.wordsNearest("time", 10)<br/> println("Nearest words to 'time': " + words)</pre>
+<p>The output produced will look like this:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/c8400fd5-a95a-4df1-af5f-ab92a0e621f5.png"/></p>
+<p>After seeing these last two examples, you are <span>probably </span>wondering which model, Word2Vec or GloVe, is better. There is no winner; it all depends on the data. It is possible to pick up one model and train it in a way that the encoded vectors at the end become specific for the domain of the use case scenario in which the model is working.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Hands-on NLP with TensorFlow</h1>
+                </header>
+            
+            <article>
+                
+<p>In this section, we are going to use TensorFlow (Python) to do DL sentiment analysis using the same <em>Large Movie Review Dataset</em> as for the first example in the previous section. Prerequisites for this example are Python 2.7.x, the PIP package manager, and Tensorflow. The <em>Importing Python Models in the JVM with DL4J</em> section in <a href="3b6f47c0-6e17-484b-ad30-b6f92eb0473c.xhtml" target="_blank">Chapter 10</a>, <em>Deploying on a Distributed System</em>, covers the details of setting up the required tools. We are also going to use the TensorFlow hub library (<a href="https://www.tensorflow.org/hub/">https://www.tensorflow.org/hub/</a>), which has been created for reusable ML modules. It needs to be installed through <kbd>pip</kbd><span>, as follows</span>:</p>
+<pre><strong>pip install tensorflow-hub</strong></pre>
+<p>The example<span> also</span> requires the <kbd>pandas</kbd> (<a href="https://pandas.pydata.org/">https://pandas.pydata.org/</a>) data analysis library<span>, as follows</span>:</p>
+<pre><strong>pip install pandas</strong></pre>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p>Import the necessary modules:</p>
+<pre>import tensorflow as tf<br/> import tensorflow_hub as hub<br/> import os<br/> import pandas as pd<br/> import re</pre>
+<p>Next, we define a function to load all of the files from an input directory into a pandas DataFrame, <span>as follows</span>:</p>
+<pre>def load_directory_data(directory):<br/>   data = {}<br/>   data["sentence"] = []<br/>   data["sentiment"] = []<br/>   for file_path in os.listdir(directory):<br/>     with tf.gfile.GFile(os.path.join(directory, file_path), "r") as f:<br/>       data["sentence"].append(f.read())<br/>       data["sentiment"].append(re.match("\d+_(\d+)\.txt", file_path).group(1))<br/>   return pd.DataFrame.from_dict(data)</pre>
+<p>Then, we define another function to merge the positive and negative reviews, add a column called <kbd>polarity</kbd><em>,</em> and do some shuffling<span>, as follows</span>:</p>
+<pre>def load_dataset(directory):<br/>   pos_df = load_directory_data(os.path.join(directory, "pos"))<br/>   neg_df = load_directory_data(os.path.join(directory, "neg"))<br/>   pos_df["polarity"] = 1<br/>   neg_df["polarity"] = 0<br/>   return pd.concat([pos_df, neg_df]).sample(frac=1).reset_index(drop=True)</pre>
+<p>Implement a third function to download the movie review dataset and use the <kbd>load_dataset</kbd> function to create the following training and test DataFrames:</p>
+<pre>def download_and_load_datasets(force_download=False):<br/>   dataset = tf.keras.utils.get_file(<br/>       fname="aclImdb.tar.gz",<br/>       origin="http://ai.stanford.edu/~amaas/data/sentiment/aclImdb_v1.tar.gz",<br/>       extract=True)<br/>  <br/>   train_df = load_dataset(os.path.join(os.path.dirname(dataset),<br/>                                        "aclImdb", "train"))<br/>   test_df = load_dataset(os.path.join(os.path.dirname(dataset),<br/>                                       "aclImdb", "test"))<br/>  <br/>   return train_df, test_df</pre>
+<p>This function downloads the datasets the first time the code is executed. Then, unless you delete them, the following executions get them from the local disk.</p>
+<p>The two DataFrames are then created this way:</p>
+<pre>train_df, test_df = download_and_load_datasets()</pre>
+<p>We can also pretty-print the training DataFrame head to the console to check that everything went fine<span>, as follows</span>:</p>
+<pre>print(train_df.head())</pre>
+<p>The example output is as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/0892372b-9b6d-40d6-a465-3292fffac720.png"/></p>
+<p>Now that we have the data, we can define the model. We are going to use the <strong>Estimator</strong> API (<a href="https://www.tensorflow.org/guide/estimators">https://www.tensorflow.org/guide/estimators</a>), a high-level TensorFlow API that has been introduced in the framework to simplify ML programming. <em>Estimator</em> provides some input functions that form the wrapper of the pandas DataFrames. So, we define the following function: <kbd>train_input_fn</kbd> to train on the whole training set with no limit on training epochs:</p>
+<pre>train_input_fn = tf.estimator.inputs.pandas_input_fn(<br/>     train_df, train_df["polarity"], num_epochs=None, shuffle=True)<br/>predict_train_input_fn </pre>
+<p>To do prediction on the whole training set execute the following:</p>
+<pre>predict_train_input_fn = tf.estimator.inputs.pandas_input_fn(<br/>     train_df, train_df["polarity"], shuffle=False)</pre>
+<p>And we use <kbd>predict_test_input_fn</kbd> to do predictions on the test set:</p>
+<pre>predict_test_input_fn = tf.estimator.inputs.pandas_input_fn(<br/>     test_df, test_df["polarity"], shuffle=False)</pre>
+<p>The TensorFlow hub library provides a feature column that applies a module on a given input text feature whose values are strings, and then passes the outputs of the module downstream. In this example, we are going to use the <kbd>nnlm-en-dim128</kbd> module (<a href="https://tfhub.dev/google/nnlm-en-dim128/1">https://tfhub.dev/google/nnlm-en-dim128/1</a>), which has been trained on the English Google News 200B corpus. The way we embed and use this module in our code is<span> as follows</span>:</p>
+<pre>embedded_text_feature_column = hub.text_embedding_column(<br/>     key="sentence",<br/>     module_spec="https://tfhub.dev/google/nnlm-en-dim128/1")</pre>
+<p>For classification purposes, we use a <kbd>DNNClassifier</kbd> (<a href="https://www.tensorflow.org/api_docs/python/tf/estimator/DNNClassifier">https://www.tensorflow.org/api_docs/python/tf/estimator/DNNClassifier</a>) provided by the TensorFlow hub library. It extends <kbd>Estimator</kbd> (<a href="https://www.tensorflow.org/api_docs/python/tf/estimator/Estimator">https://www.tensorflow.org/api_docs/python/tf/estimator/Estimator</a>) and is a classifier for TensorFlow DNN models. So the <kbd>Estimator</kbd> in our example is created this way:</p>
+<pre>estimator = tf.estimator.DNNClassifier(<br/>     hidden_units=[500, 100],<br/>     feature_columns=[embedded_text_feature_column],<br/>     n_classes=2,<br/>     optimizer=tf.train.AdagradOptimizer(learning_rate=0.003))</pre>
+<p>Note that we are specifying <kbd>embedded_text_feature_column</kbd> as a feature column. The two hidden layers have <kbd>500</kbd> and <kbd>100</kbd> nodes respectively. <kbd>AdagradOptimizer</kbd> is the default optimizer for <kbd>DNNClassifier</kbd>.</p>
+<p>The training of the model can be implemented with a single line of code, by invoking the <kbd>train</kbd> method of our <kbd>Estimator</kbd><em><span>,</span></em> <span>as follows</span>:</p>
+<pre>estimator.train(input_fn=train_input_fn, steps=1000);</pre>
+<p>Given the size of the training dataset used for this example (25 KB), 1,000 steps is equivalent to five epochs (using the default batch size).</p>
+<p>After the training has completed, we can then do predictions for the training dataset<span>, as follows</span>:</p>
+<pre>train_eval_result = estimator.evaluate(input_fn=predict_train_input_fn)<br/> print("Training set accuracy: {accuracy}".format(**train_eval_result))</pre>
+<p>And the test dataset as well<span>, as follows</span>:</p>
+<pre>test_eval_result = estimator.evaluate(input_fn=predict_test_input_fn)<br/> print("Test set accuracy: {accuracy}".format(**test_eval_result))</pre>
+<p>Here's the output of the application, showing the accuracy for both predictions:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/19709820-20cd-46cc-81e6-039c059c3b41.png" style="width:29.50em;height:6.75em;"/></p>
+<p>We can also do evaluation of the model and, as explained in<span> </span><a href="3b6f47c0-6e17-484b-ad30-b6f92eb0473c.xhtml" target="_blank">Chapter 9</a>, <em>Interpreting Neural Network Output</em>, in the <em>Evaluation for Classification</em> section, calculate the confusion matrix in order to understand the distribution of wrong classifications. Let's define a function to get the predictions first<span>, as follows</span>:</p>
+<pre>def get_predictions(estimator, input_fn):<br/>   return [x["class_ids"][0] for x in estimator.predict(input_fn=input_fn)]</pre>
+<p>Now, create the confusion matrix starting on the training dataset<span>, as follows</span>:</p>
+<pre>with tf.Graph().as_default():<br/>   cm = tf.confusion_matrix(train_df["polarity"],<br/>                            get_predictions(estimator, predict_train_input_fn))<br/>   with tf.Session() as session:<br/>     cm_out = session.run(cm)</pre>
+<p>And, normalize it to have each row sum equals to <kbd>1</kbd><span>, as follows</span>:</p>
+<pre>cm_out = cm_out.astype(float) / cm_out.sum(axis=1)[:, np.newaxis]</pre>
+<p>The output of the confusion matrix on screen will look like this:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/1a61cf30-383f-406d-aafe-31d1bff21dd3.png" style="width:25.42em;height:5.92em;"/></p>
+<p>However, you can also render it in a more elegant way using some chart library available in Python of your choice.</p>
+<p>You have noticed that, while this code is compact and doesn't require advanced Python knowledge, it isn't an easy entry point for a starter in ML and DL, as TensorFlow implicitly requires a good knowledge of ML concepts in order to understand its API. Making a comparison with the DL4J API, you can tangibly feel this difference.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Hand-on NLP with Keras and a TensorFlow backend</h1>
+                </header>
+            
+            <article>
+                
+<p>As mentioned in <a href="3b6f47c0-6e17-484b-ad30-b6f92eb0473c.xhtml" target="_blank">Chapter 10</a>, <em>Deploying on a Distributed System</em>, in the  <em>Importing Python Models in the JVM with DL4J</em> section, when doing DL in Python, an alternative to TensorFlow is Keras. It can be used as a high-level API on top of a TensorFlow backed. In this section, we are going to learn how to do sentiment analysis in Keras, and finally we will make a comparison between this implementation and the previous one in TensorFlow.</p>
+<p>We are going to use the exact same IMDB dataset (25,000 samples for training and 25,000 for test) as for the previous implementations through DL4J and TensorFlow. The prerequisites for this example are the same as for the TensorFlow example (Python 2.7.x, the PIP package manager, and Tensorflow), plus of course Keras. The Keras code module has that dataset built in:</p>
+<pre>from keras.datasets import imdb</pre>
+<p>So, we just need to set the vocabulary size and load the data from there, and not from any other external location, as follows:</p>
+<pre>vocabulary_size = 5000<br/> <br/> (X_train, y_train), (X_test, y_test) = imdb.load_data(num_words = vocabulary_size)</pre>
+<p>At the end of the download, you can print a sample of the downloaded reviews for inspection purposes<span>, as follows</span>:</p>
+<pre>print('---review---')<br/> print(X_train[6])<br/> print('---label---')<br/> print(y_train[6])</pre>
+<p>The output is shown as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/d6c6c8d4-2558-41b2-bd8c-f261f020c74e.png"/></p>
+<p class="mce-root"/>
+<p>You can see that at this stage the reviews are stored as a sequence of integers, IDs that have been preassigned to single words. Also the label is an integer (0 means negative, 1 means positive). It is possible anyway to map the downloaded reviews back to their original words by using the dictionary returned by the <kbd>imdb.get_word_index()</kbd> method<span>, as follows</span>:</p>
+<pre>word2id = imdb.get_word_index()<br/> id2word = {i: word for word, i in word2id.items()}<br/> print('---review with words---')<br/> print([id2word.get(i, ' ') for i in X_train[6]])<br/> print('---label---')<br/> print(y_train[6])</pre>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/f6aedc98-82c7-44d2-addf-c3a8c3f67bcb.png"/></p>
+<p>In the preceding screenshot, you can see the returned dictionary of the words used in the input reviews. We are going to use an RNN model for this example. In order to feed data to it, all the inputs should have the same length. Looking at the maximum and minimum lengths of the downloaded reviews (following is the code to get this info and its output):</p>
+<pre>print('Maximum review length: {}'.format(<br/> len(max((X_train + X_test), key=len))))<br/> print('Minimum review length: {}'.format(<br/> len(min((X_test + X_test), key=len))))</pre>
+<p>The output is shown as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/3517618f-f769-4a64-a8e6-e54fb4178429.png" style="width:14.92em;height:3.58em;"/></p>
+<p>We can see that they don't have all the same length. So, we need to limit the maximum review length to, let's say, 500 words by truncating the longer reviews and padding the shorter ones with zeros. This can be done through the <kbd>sequence.pad_sequences</kbd> Keras function<span>, as follows</span>:</p>
+<pre>from keras.preprocessing import sequence<br/> <br/> max_words = 500<br/> X_train = sequence.pad_sequences(X_train, maxlen=max_words)<br/> X_test = sequence.pad_sequences(X_test, maxlen=max_words)</pre>
+<p>Let's design the RNN model<span>, as follows</span>:</p>
+<pre>from keras import Sequential<br/> from keras.layers import Embedding, LSTM, Dense, Dropout<br/> <br/> embedding_size=32<br/> model=Sequential()<br/> model.add(Embedding(vocabulary_size, embedding_size, input_length=max_words))<br/> model.add(LSTM(100))<br/> model.add(Dense(1, activation='sigmoid'))</pre>
+<p>It is a simple RNN model, with three layers, embedding, LSTM, and dense<span>, as follows</span>:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/d5d01892-b8c9-4725-8cc3-0d848814f30e.png"/></p>
+<p>The input for this model is a sequence of integer word IDs with a maximum length of <kbd>500</kbd>, and its output is a binary label (<kbd>0</kbd> or <kbd>1</kbd>).</p>
+<p>The configuration of the learning process for this model can be done through its <kbd>compile</kbd> method, as follows:</p>
+<pre>model.compile(loss='binary_crossentropy',<br/>              optimizer='adam',<br/>              metrics=['accuracy'])</pre>
+<p>After setting up the batch size and number of training epochs<span>, as follows</span>:</p>
+<pre>batch_size = 64<br/> num_epochs = 3</pre>
+<p class="mce-root"/>
+<p class="mceNonEditable"/>
+<p>We can start the training<span>, as follows</span>:</p>
+<pre>X_valid, y_valid = X_train[:batch_size], y_train[:batch_size]<br/> X_train2, y_train2 = X_train[batch_size:], y_train[batch_size:]<br/> <br/> model.fit(X_train2, y_train2, validation_data=(X_valid, y_valid), batch_size=batch_size, epochs=num_epochs)</pre>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/478ba6b3-4b25-4568-84a7-955ff745d274.png"/></p>
+<p>When the training completes, we can evaluate the model to assess its level of accuracy using the test dataset<span>, as follows</span>:</p>
+<pre>scores = model.evaluate(X_test, y_test, verbose=0)<br/> print('Test accuracy:', scores[1])</pre>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/0cf6ea34-cc97-4000-b328-39e87834b7ee.png" style="width:19.83em;height:5.42em;"/></p>
+<p>Looking at the code of this example, you should have noticed that it is more high-level if than the previous example with TensorFlow, and that the focus at development time is mostly on the specific problem model implementation details rather than the ML/DL mechanisms behind it.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Hands-on NLP with Keras model import into DL4J</h1>
+                </header>
+            
+            <article>
+                
+<p><span>In </span><a href="3b6f47c0-6e17-484b-ad30-b6f92eb0473c.xhtml" target="_blank">Chapter 10</a>, <em>Deploying on a Distributed System</em>, <em>Importing Python Models in the JVM with DL4J</em> section, we learned how to import existing Keras models into DL4J and use them to make predictions or re-train them in a JVM-based environment.</p>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p>This applies to the model we implemented and trained in the <em>Hand-on NLP with Keras and TensorFlow backend</em><span> section </span>in Python, using Keras with a TensorFlow backed. We need to modify the code for that example to serialize the model in HDF5 format by doing the following:</p>
+<pre>model.save('sa_rnn.h5')</pre>
+<p>The <kbd>sa_rnn.h5</kbd> file produced needs to be copied into the resource folder for the Scala project to be implemented. The dependencies for the project are the DataVec API, the DL4J core, ND4J, and the DL4J model import library.</p>
+<p>We need to import and transform the Large Movie Review database as explained in section 12.1, in case we want to retrain the model through DL4J. Then, we need to import the Keras model programmatically, as follows:</p>
+<pre>val saRnn = new ClassPathResource("sa_rnn.h5").getFile.getPath<br/> val model = KerasModelImport.importKerasSequentialModelAndWeights(saRnn)</pre>
+<p>Finally, we can start to do predictions by invoking the <kbd>predict</kbd> method of <kbd>model</kbd> (which is an instance of <kbd>MultiLayerNetwork</kbd>, as usual in DL4J), passing the input data as an ND4J DataSet (<a href="https://static.javadoc.io/org.nd4j/nd4j-api/1.0.0-alpha/org/nd4j/linalg/dataset/api/DataSet.html">https://static.javadoc.io/org.nd4j/nd4j-api/1.0.0-alpha/org/nd4j/linalg/dataset/api/DataSet.html</a>).</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Summary</h1>
+                </header>
+            
+            <article>
+                
+<p>This chapter closes the explanation of the NLP implementation process with Scala. In this chapter and the previous one, we evaluated different frameworks for this programming language, and the pros and cons of each have been detailed. In this chapter, the focus has been mostly on a DL approach to NLP. For that, some Python alternatives have been presented, and the potential integration of those Python models in a JVM context with the DL4J framework has been highlighted. At this stage, a reader should be able to accurately evaluate what will be the best fit for his/her particular NLP use case.</p>
+<p>Starting from the next chapter, we will learn more about convolution and how CNNs apply to image recognition problems. Image recognition will be explained by presenting different implementations using different frameworks, including DL4J, Keras, and TensorFlow.</p>
+
+
+            </article>
+
+            
+        </section>
+    </body></html>

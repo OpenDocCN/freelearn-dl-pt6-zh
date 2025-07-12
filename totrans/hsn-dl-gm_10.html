@@ -1,0 +1,579 @@
+<html><head></head><body>
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Understanding PPO</h1>
+                </header>
+            
+            <article>
+                
+<p class="mce-root">We have avoided going too deep into the more advanced inner workings of the <span><strong>proximal policy optimization</strong></span> (<strong>PPO</strong>) algorithm, even going so far as to avoid any policy-versus-model discussion. If you recall, PPO is the <strong>reduced level</strong> (<strong>RL</strong>) method first developed at OpenAI that powers ML-Agents, and is a policy-based algorithm. In this chapter, we will look at the differences between policy-and model-based RL algorithms, as well as the more advanced inner workings of the Unity implementation.</p>
+<p>The following is a list of the main topics we will cover in this chapter:</p>
+<ul>
+<li>Marathon reinforcement learning</li>
+<li>The partially observable Markov decision process</li>
+<li>Actor-Critic and continuous action spaces</li>
+<li>Understanding TRPO and PPO</li>
+<li>Tuning PPO with hyperparameters</li>
+</ul>
+<p class="mce-root">The content in this chapter is at an advanced level, and assumes that you have covered several previous chapters and exercises. For the purposes of this chapter, we will also assume that you are is able to open and run a learning environment in Unity with ML-Agents without difficulty.</p>
+<p class="mce-root"/>
+<p class="mce-root"/>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Marathon RL</h1>
+                </header>
+            
+            <article>
+                
+<p>So far, our focus has been on discrete actions and episodic environments, where the agent often learns to solve a puzzle or accomplish some task. The best examples of such environments are GridWorld, and, of course, the Hallway/VisualHallway samples, where the agent discretely chosses actions such as up, left, down, or right, and, using those actions, has to navigate to some goal. While these are great environments to play with and learn the basic concepts of RL, they can be quite tedious environments to learn from, since results are not often automatic and require extensive exploration. However, in marathon RL environments, the agent is always learning by receiving rewards in the form of control feedback. <span>In fact, this form of RL is analogus to control systems for robotics and simulations. Since these environments are rich with rewards in the form of feedback, they provide us with better immediate feedback when we alter/tune hyperparameters, which will make these types of environments perfect for our own learning purposes.</span></p>
+<div class="packt_infobox">Unity provides several examples of marathon RL environments, and at the time of writing featured the Crawler, Reacher, Walker, and Humanoid example environments, but these will likely be changed in the future.</div>
+<p>Marathon environments are constructed differently, and we should probably understand some of these differences before going any further. Open up the Unity editor and your Python command window of choice, set up to run <kbd>mlagents-learn</kbd>, and complete the following the exercise:</p>
+<ol>
+<li>Open the <kbd>CrawlerDynamicTarget</kbd> example scene from the <kbd>Assets/ML-Agents/Examples/Crawler/Scenes</kbd> folder. This example features an agent with four movable limbs, each with two joints that can move as well. The goal is for the agent to move toward some dynamic target that keeps changing. </li>
+<li>Select the <span class="packt_screen">DynamicPlatform</span> | <span class="packt_screen">Crawler</span> object in the <span class="packt_screen">Hierarchy</span> window and take note of the <span class="packt_screen">Crawler Agent</span> component and <span class="packt_screen">CrawlerDynamicLearning</span> brain, as shown in the following
+<p><strong>screenshot:</strong></p>
+</li>
+</ol>
+<div class="packt_figref CDPAlignCenter CDPAlign" style="color: black"><img src="assets/45721812-4056-48f1-9b7a-cde4486d892d.png"/></div>
+<div class="packt_figref CDPAlignCenter CDPAlign" style="color: black">Inspecting the Crawler agent and brain</div>
+<ol start="3">
+<li>Notice how the space size of the brain is 129 vector observations and 20 continuous actions. A continuous action returns a value that determines the degree to which a joint may rotate, thus allowing the agent to learn how to coordinate these joint actions into movements that will allow it to crawl to a goal. </li>
+</ol>
+<ol start="4">
+<li>Click the target icon beside the <span class="packt_screen">Crawler Agent</span> component, and from the context menu, select <strong><span class="packt_screen">Edit Script</span></strong>. </li>
+<li class="mce-root"><span>After the script opens, scroll down and look for the</span> <kbd>CollectObservations</kbd> method:</li>
+</ol>
+<pre style="color: black;padding-left: 60px">public override void CollectObservations()<br/>{<br/>  jdController.GetCurrentJointForces();<br/><br/>  AddVectorObs(dirToTarget.normalized);<br/>  AddVectorObs(body.transform.position.y);<br/>  AddVectorObs(body.forward);<br/>  AddVectorObs(body.up);<br/>  foreach (var bodyPart in jdController.bodyPartsDict.Values)<br/>  {<br/>    CollectObservationBodyPart(bodyPart);<br/>  }<br/>}</pre>
+<ol start="6">
+<li>Again, the code is in C#, but it should be fairly self-explanatory as to what inputs the agent is perceiving. We can first see that the agent takes the direction to target, its up and forward, as well as observations from each body part <span>as input</span>.</li>
+<li>Select <strong><span class="packt_screen">Academy</span></strong> in the scene and make sure the <strong><span class="packt_screen">Brain</span></strong> configuration is set for <strong><span class="packt_screen">Control</span></strong> (learning).</li>
+<li class="mce-root"><span>From your previously prepared command window or Anaconda window, run the</span> <kbd>mlagents-learn</kbd> script as follows:</li>
+</ol>
+<pre style="color: black;padding-left: 60px"><strong>mlagents-learn config/trainer_config.yaml --run-id=crawler --train</strong></pre>
+<ol start="9">
+<li>Quite quickly after the training begins, you will see the agent making immediate measurable progress. </li>
+</ol>
+<p>This agent can impressively train very quickly, and will be incredibly useful for testing our knowledge of how RL works in the coming sections. Feel free to look through and explore this sample, but avoid tuning any parameters, as we will begin doing that in the next section.</p>
+<p class="mce-root"/>
+<p class="mce-root"/>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">The partially observable Markov decision process</h1>
+                </header>
+            
+            <article>
+                
+<p>Back in <a href="6ca7a117-1a8c-49f9-89c0-ee2f2a1e8baf.xhtml" target="_blank">Chapter 5</a>, <em>Introducing DRL</em>, we learned that a <strong>Markov Decision Process</strong> (<strong>MDP</strong>) is used to define the state/model an agent uses to calculate an action/value from. In the case of Q-learning, we have seen how a table or grid could be used to hold an entire MDP for an environment such as the Frozen Pond or GridWorld. These types of RL are model-based, meaning they completely model every state in the environment—every square in a grid game, for instance. Except, in most complex games and environments, being able to map physical or visual state becomes a partially observable problem, or what we may refer to as a <strong>partially observable Markov decision process</strong> (<strong>POMDP</strong>).</p>
+<p>A POMDP defines a process where an agent never has a complete view of its environment, but instead learns to conduct actions based on a derived general policy. This is demonstrated well in the Crawler example, because we can see the agent learning to move using only limited information—the direction to target. The following table outlines the definition of Markov models we generally use for RL:</p>
+<table border="1" style="border-collapse: collapse;width: 100%">
+<tbody>
+<tr>
+<td class="CDPAlignCenter CDPAlign"/>
+<td class="CDPAlignCenter CDPAlign"><strong>No</strong></td>
+<td class="CDPAlignCenter CDPAlign"><strong>Yes</strong></td>
+<td/>
+</tr>
+<tr>
+<td class="CDPAlignCenter CDPAlign" rowspan="2"><strong>All states observable?</strong></td>
+<td class="CDPAlignCenter CDPAlign"><strong>No</strong></td>
+<td class="CDPAlignCenter CDPAlign">Markov Chain</td>
+<td class="CDPAlignCenter CDPAlign">MDP</td>
+</tr>
+<tr>
+<td class="CDPAlignCenter CDPAlign"><strong>Yes</strong></td>
+<td class="CDPAlignCenter CDPAlign">Hidden Markov Model</td>
+<td class="CDPAlignCenter CDPAlign">POMDP</td>
+</tr>
+</tbody>
+</table>
+<p> </p>
+<p>Since we provide our agent with control over its states in the form of actions, the Markov models we study are the MDP and POMDP. Likewise, these processes will also be often referred to as on or off model, while if an RL algorithm is completely aware of state, we call it a model-based process. Conversely, a POMDP refers to an off-model process, or what we will refer to as a policy-based method. Policy-based algorithms, provide better generalization and have the ability to learn in environments with an unknown or infinite number of observable states. Examples of partially observable states are environments such as the <span class="packt_screen">Hallway</span>, <span class="packt_screen">VisualHallway</span>, and, of course, <span class="packt_screen">Crawler</span>.</p>
+<div class="packt_infobox">Markov models provide a foundation for many aspects of machine learning, and you may encounter their use in more advanced deep learning methods known as deep probabilistic programming. Deep PPL, as it is referred to, is a combination or variational inference and deep learning methods.</div>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p>Model-free methods typically use an experienced buffer to store a set of experiences that it will use later to learn a general policy from. This buffer is defined by a few hyperparameters, called <kbd>time_horizon</kbd>, <kbd>batch_size</kbd>, and <kbd>buffer_size</kbd>.<strong> </strong>Definitions of each of these parameters extracted from the ML-Agents documentation are given here:</p>
+<ul>
+<li><kbd>time_horizon</kbd>: This corresponds to how many steps of experience to collect per agent before adding them to the experience buffer. When this limit is reached before the end of an episode, a value estimate is used to predict the overall expected reward from the agent's current state. As such, this parameter trades off between a less biased, but higher variance estimate (long time horizon), and a more biased, but less varied estimate (short time horizon). In cases where there are frequent rewards within an episode, or episodes are prohibitively large, a smaller number can be more ideal. This number should be large enough to capture all the important behavior within a sequence of an agent's actions:
+<ul>
+<li>Typical range: 32 – 2,048</li>
+</ul>
+</li>
+<li><kbd>buffer_size</kbd>: This corresponds to how many experiences (agent observations, actions, and rewards obtained) should be collected before we update the model or do any learning. This should be a multiple of <kbd>batch_size</kbd>. Typically, a larger <kbd>buffer_size</kbd> parameter corresponds to more stable training updates.
+<ul>
+<li>Typical range: 2,048 – 4,09,600</li>
+</ul>
+</li>
+<li>
+<p class="mce-root"><kbd>batch_size</kbd>: This is the number of experiences used for one iteration of a gradient descent update. This should always be a fraction of the <kbd>buffer_size</kbd> parameter. If you are using a continuous action space, this value should be large (in the order of thousands). If you are using a discrete action space, this value should be smaller (in order of tens). </p>
+<ul>
+<li>
+<p class="mce-root">Typical range (continuous): 512 – 5,120</p>
+</li>
+<li>
+<p class="mce-root">Typical range (discrete): 32 – 512</p>
+</li>
+</ul>
+</li>
+</ul>
+<p>We can see how these values are set by looking at the <kbd>CrawlerDynamicLearning</kbd> brain configuration, and altering this to see the effect this has on training. Open up the editor and a properly configured Python window to the <kbd>CrawlerDynamicTarget</kbd> scene and follow this exercise:</p>
+<ol>
+<li>Open the <kbd>trainer_config.yaml</kbd> file located in the <kbd>ML-Agents/ml-agents/config</kbd> folder.</li>
+</ol>
+<ol start="2">
+<li class="mce-root">Scroll down to the <kbd>CrawlerDynamicLearning</kbd> brain configuration section:</li>
+</ol>
+<pre style="color: black;padding-left: 60px">CrawlerDynamicLearning:<br/>  normalize: true<br/>  num_epoch: 3<br/>  <strong>time_horizon: 1000</strong><br/><strong>  batch_size: 2024</strong><br/><strong>  buffer_size: 20240</strong><br/>  gamma: 0.995<br/>  max_steps: 1e6<br/>  summary_freq: 3000<br/>  num_layers: 3<br/>  hidden_units: 512</pre>
+<ol start="3">
+<li>Note the highlighted lines showing the <kbd>time_horizon</kbd>, <kbd>batch_size</kbd>, and <kbd>buffer_size</kbd> parameters. If you recall from our earlier <span class="packt_screen">Hallway</span>/<span class="packt_screen">VisualHallway</span> examples, the <kbd>time_horizon</kbd> parameter was only 32 or 64. Since those examples used a discrete action space, we could set a much lower value for <kbd>time_horizon</kbd>.</li>
+<li class="mce-root"><span> Double all the parameter values, as shown in the following code excerpt:</span></li>
+</ol>
+<pre style="color: black;padding-left: 60px"><strong>time_horizon: 2000</strong><br/><strong>batch_size: 4048</strong><br/><strong>buffer_size: 40480</strong></pre>
+<ol start="5">
+<li>Essentially, what we are doing here is doubling the amount of experiences the agent will use to build a policy of the environment around it. In essence, we are giving the agent a larger snapshot of experiences to train against.</li>
+<li>Run the agent in training as you have done so many times before.</li>
+<li>Let the agent train for as long as you ran the previous base sample. This will give you a good comparison in training performance.</li>
+</ol>
+<p>One thing that will become immediately obvious is how much more stable the agent trains, meaning the agent's mean reward will progress more steadily and jump around less. Recall that we want to avoid training jumps, spikes, or wobbles, as this could indicate poor convergence on the part of the network's optimization method. This means that more gradual changes are generally better, and indicate good training performance. By doubling <kbd>time_horizon</kbd> and associated parameters, we have doubled the amount of experiences the agent used to learn from. This, in turn, had the effect of stabilizing the training, but it is likely that you noticed the agent took longer to train to the same number of iterations. </p>
+<p>Partially observable RL algorithms are classed as policy-based, model-free, or off-model, and are a foundation for PPO. In the next section, we will look at the improvements in RL that deal with the additional complexities of managing continuous action spaces better. </p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Actor-Critic and continuous action spaces</h1>
+                </header>
+            
+            <article>
+                
+<p>Another complexity we introduced when looking at marathon <span><span>RL</span></span> or control learning was the introduction of continuous action spaces. Continuous action spaces represent a set of infinite possible actions an agent could take. Where our agent could previously favor a discrete action, yes or no, it now has to select some points within an infinite space of actions as an action for each joint. This mapping from an infinite action space to an action is not easy to solve—however, we do have neural networks at our disposal, and these provide us with an excellent solution using an architecture not unlike the GANs we looked at in <a href="cb51d15b-9855-47e2-8e45-f74a115ebfa8.xhtml" target="_blank">Chapter 3</a>, <em>GAN for</em> <em>Games</em>.</p>
+<p>As we discovered in the chapter on GANs, we could propose a network architecture composed of two competing networks. These competing networks would force each network to learn by competing against each other for the best solution to mapping a random space into a convincing forgery. A similar concept to a GAN can be applied in this case as well, and is called the Actor-Critic model. A diagram of this model is as follows:</p>
+<div class="packt_figref CDPAlignCenter CDPAlign"><img src="assets/76a62795-5bcf-47ca-8854-38bec7a20d00.png" style="width:22.33em;height:21.17em;"/><br/>
+<br/>
+Actor-Critic architecture</div>
+<p>What happens here is that the <strong>Actor</strong> selects an <strong>action</strong> from the policy given a <strong>state</strong>. The <strong>state</strong> is first passed through a <strong>Critic</strong>, which values the best action given the current <strong>state</strong>, provided some <strong>error</strong>. More simply put, the <strong>Critic</strong> criticizes each action based on the current <strong>state</strong>, and then the <strong>Actor</strong> chooses the best action given the <strong>state</strong>. </p>
+<div class="packt_infobox">This method of action selection was first explored in an algorithm called <strong>dueling double Q networks</strong> (<span><strong>DDQN</strong>)</span>. It is now the basis for most advanced RL algorithms.</div>
+<p>Actor-Critic was essentially required to solve the continuous action space problem, but, given its performance, this method has been incorporated into some advanced discrete algorithms as well. ML-Agents uses an Actor-Critic model for continuous spaces, but does not use one for discrete action spaces. </p>
+<p>Using Actor-Critic requires, or works best with, additional layers and neurons in our network, which is something we can configure in ML-Agents. The hyperparameter definitions for these are pulled from the ML-Agents documents, and are as follows:</p>
+<ul>
+<li><kbd>num_layers</kbd>: This corresponds to how many hidden layers are present after the observation input, or after the CNN encoding of the visual observation. For simple problems, fewer layers are likely to train faster and more efficiently. More layers may be necessary for more complex control problems:<br/>
+<ul>
+<li>Typical range: 1 – 3</li>
+</ul>
+</li>
+</ul>
+<ul>
+<li>
+<p class="mce-root"><kbd>hidden_units</kbd>: These correspond to how many units are in each fully-connected layer of the neural network. For simple problems where the correct action is a straightforward combination of the observation inputs, this should be small. For problems where the action is a very complex interaction between the observation variables, this should be larger:</p>
+<ul>
+<li>Typical range: 32 – 512</li>
+</ul>
+</li>
+</ul>
+<p>Let's open up a new ML-Agents marathon or control sample and see what effect modifying these parameters has on training. Follow this exercise to understand the effect of adding layers and neurons (units) to a control problem:</p>
+<ol>
+<li>Open the <span class="packt_screen">Walker</span> scene from the <kbd>Assets/ML-Agents/Examples/Walker/Scenes</kbd> folder. This example features a walking humanoid animation.</li>
+<li><span>Locate and select the</span> <span class="packt_screen">WalkerAgent</span> <span>object in the</span> <span class="packt_screen">Hierarchy</span> <span>window, and then look to the</span> <span class="packt_screen">Inspector</span> <span>window and examine the <span class="packt_screen">Agent</span> and <span class="packt_screen">Brain</span> settings, as shown in the following screenshot:</span></li>
+</ol>
+<div class="packt_figref CDPAlignCenter CDPAlign" style="color: black"><img src="assets/ccf7c439-29cb-4b2d-8745-f26137f898dc.png"/></div>
+<div class="packt_figref CDPAlignCenter CDPAlign" style="color: black">The WalkerAgent and WalkerLearning properties</div>
+<ol start="3">
+<li>Select <kbd>WalkerAcademy</kbd> in the <span class="packt_screen">Hierarchy</span> window and make sure the <span class="packt_screen">Control</span> option is enabled for the <kbd>Brains</kbd> parameter.</li>
+<li class="mce-root"><span>Open the</span> <kbd>trainer_config.yaml</kbd> file located in the <kbd>ML-Agents/ml-agents/config</kbd> folder and scroll down to the <kbd>WalkerLearning</kbd> section as follows:</li>
+</ol>
+<pre style="color: black;padding-left: 60px">WalkerLearning:<br/>    normalize: true<br/>    num_epoch: 3<br/>    time_horizon: 1000<br/>    batch_size: 2048<br/>    buffer_size: 20480<br/>    gamma: 0.995<br/>    max_steps: 2e6<br/>    summary_freq: 3000<br/>    <strong>num_layers: 3</strong><br/><strong>    hidden_units: 512</strong></pre>
+<ol start="5">
+<li>Notice how many layers and units this example is using. Is it more or fewer than what we used for the discrete action problems?</li>
+<li>Save everything and set the sample up for training.</li>
+<li class="mce-root"><span>Launch a training session from your</span> Python console with the following command:</li>
+</ol>
+<pre style="color: black;padding-left: 60px"><strong>mlagents-learn config/trainer_config.yaml --run-id=walker --train</strong></pre>
+<ol start="8">
+<li>This agent may take considerably longer to train, but try and wait for about 100,000 iterations in order to get a good sense of its training progress.</li>
+</ol>
+<p>Now that we have a better understanding of Actor-Critic and how it is used in continuous action spaces, we can move on to exploring what effect changing the network size has on training these more complex networks in the next section.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Expanding network architecture</h1>
+                </header>
+            
+            <article>
+                
+<p>Actor-Critic architectures increase the complexity of the problem, and thus the complexity and size of the networks needed to solve them. This is really no different than the case in our earlier look at PilotNet, the multilayer CNN architecture that was used by Nvidia to self-drive.</p>
+<p class="mce-root"/>
+<p>What we want to see is the immediate effect that increasing the size of our network has on a complex example such as the Walker example. Open Unity to the <kbd>Walker</kbd> example and complete the following exercise:</p>
+<ol>
+<li>Open <kbd>trainer_config.yaml</kbd> from where it is normally located.</li>
+<li class="mce-root"><span>Modify the</span> <kbd>WalkerLearning</kbd> configuration, as shown in the following code:</li>
+</ol>
+<pre style="color: black;padding-left: 60px">WalkerLearning:<br/>    normalize: true<br/>    num_epoch: 3<br/>    time_horizon: 1000<br/>    batch_size: 2048<br/>    buffer_size: 20480<br/>    gamma: 0.995<br/>    max_steps: 2e6<br/>    summary_freq: 3000<br/>    <strong>num_layers: 1</strong><br/><strong>    hidden_units: 128</strong></pre>
+<ol start="3">
+<li>Set <kbd>num_layers: 1</kbd> and <kbd>hidden_units: 128</kbd>. These are typical values that we would use for discrete action space problems. You can confirm this by looking at another discrete sample, such as the <kbd>VisualHallwayLearning</kbd> configuration, as follows:</li>
+</ol>
+<pre style="padding-left: 60px">VisualHallwayLearning:<br/>    use_recurrent: false<br/>    sequence_length: 64<br/>   <strong> num_layers: 1</strong><br/><strong>    hidden_units: 128</strong><br/>    memory_size: 256<br/>    beta: 1.0e-2<br/>    gamma: 0.99<br/>    num_epoch: 3<br/>    buffer_size: 1024<br/>    batch_size: 64<br/>    max_steps: 5.0e5<br/>    summary_freq: 1000<br/>    time_horizon: 64</pre>
+<ol start="4">
+<li>This sample uses the same settings as we just set our continuous action problem to.</li>
+<li>When you are done editing, save everything and get ready for training.</li>
+<li>Launch a training session, with a new <kbd>run-id</kbd> parameter. Remember to get in the practice of changing the <kbd>run-id</kbd> parameter with every run so that it is easier to discern each run in TensorBoard.</li>
+<li>As always, let the sample run for as long as you did the earlier unaltered run for a good comparison.</li>
+</ol>
+<p>One of the things you may immediately notice when running this sample is how<span> </span><span>stable the training is. The second thing you may notice is that training stability increases, but performance slightly decreases. Remember that a smaller network has less weights and will generally be more stable and quicker to train. However, in this problem, while the training is </span><span>more stable on the network and promises to be faster, you may notice that training hits a wall. The agent, now limited by network size, is able to optimize the smaller network faster, but without the fine control we have seen before. In fact, this agent will never be as good as the first unaltered run since it is now limited by a smaller network. This is another one of those trade-offs you need to balance when building DRL agents for games/simulations.</span></p>
+<p>In the next section, we take a further look at what we call advantage functions or those used like in Actor-Critic, and will first explore TRPO, and, of course, PPO.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Understanding TRPO and PPO</h1>
+                </header>
+            
+            <article>
+                
+<p>There are many variations to the policy-and model-free algorithms that have become popular for solving RL problems of optimizing predictions of future rewards. As we have seen, many of these algorithms use an advantage function, such as Actor-Critic, where we have two sides of the problem trying to converge to the optimum solution. In this case, the advantage function is trying to find the maximum expected discounted rewards. TRPO and PPO do this by using an optimization method called a <span><strong>Minorize-Maximization</strong> (</span><strong>MM)</strong><span> algorithm. An example of how the MM algorithm solves a problem is shown in the following diagram:</span></p>
+<div class="packt_figref CDPAlignCenter CDPAlign"><img src="assets/2942a112-735d-42c4-8c0b-91d658772882.png" style="width:50.50em;height:12.17em;"/><br/>
+<br/>
+Using the MM algorithm</div>
+<p>This diagram was extracted from a series of blogs by Jonathon Hui that elegantly describe the MM algorithm along with the TRPO and PPO methods in much greater detail<em>.</em> See the following link for the source<span>: (<a href="https://medium.com/@jonathan_hui/rl-proximal-policy-optimization-ppo-explained-77f014ec3f12" target="_blank">https://medium.com/@jonathan_hui/rl-proximal-policy-optimization-ppo-explained-77f014ec3f12</a>).</span></p>
+<p>Essentially, the MM algorithm finds the optimum pair function by interactively maximizing and minimizing function parameters until it arrives at a converged solution. In the diagram, the red line denotes the function we are looking to approximate, and the blue line denotes the converging function. You can see the progression as the algorithm picks min/max values that will find a solution.</p>
+<p class="mce-root"><span>The problem we encounter when using MM is that the function approximation can sometimes fall off, or down into a valley. In order to understand this better, let's consider this as solving the problem of climbing an uneven hill using a straight line. An example of such a scenario is seen here:</span></p>
+<div class="packt_figref CDPAlignCenter CDPAlign"><img src="assets/7a561b98-be5b-4d4f-bf2f-b5ac4303dd07.png" style="width:40.42em;height:30.08em;"/><br/>
+<br/>
+Attempting to climb a hill using linear methods</div>
+<p>You can see that using only linear paths to try and navigate this quite treacherous ridge would, in fact, be dangerous. While the danger may not be as real, it is still a big problem when using linear methods to solve MM, as it is if you were hiking up a steep ridge using only a straight fixed path. </p>
+<p>TRPO solves the problem of using linear methods by using a quadratic method, and by  limiting the amount of steps each iteration can take in a form of trust region. That is, the algorithm makes sure that every position is positive and safe. If we consider our hill climbing example again, we may consider TRPO as placing a path or region of trust, like in the following photo:</p>
+<div class="packt_figref CDPAlignCenter CDPAlign"><img src="assets/1f867818-2804-442b-9cec-fdd67792c95c.png" style="width:37.67em;height:28.08em;"/><br/>
+<br/>
+A trust region path up the hill</div>
+<p>In the preceding photo, the path is shown for example purposes only as a connected set of circles or regions; the real trust path may or may not be closer to the actual peak or ridge. Regardless, this has the effect of allowing the agent to learn at a more gradual and progressive pace. With TRPO, the size of the trust region can be altered and made bigger or smaller to coincide with our preferred policy convergence. The problem with TRPO is that it is quite complex to implement since it requires the second-degree derivation of some complex equations.</p>
+<p class="mce-root"/>
+<p>PPO addresses this issue by limiting or clipping the Kulbach-Leibler (<strong>KL</strong>) divergence between two policies through each iteration. KL divergence measures the difference in probability distributions and can be described through the following <span><span>diagram:</span></span></p>
+<div class="packt_figref CDPAlignCenter CDPAlign"><img src="assets/15484cb4-865c-4d5b-b788-e193fbf80aeb.png" style="width:46.42em;height:17.67em;"/><br/>
+<br/>
+Understanding KL divergence</div>
+<p>In the preceding diagram, <strong>p(x)</strong> and <strong>q(x)</strong> each represent a different policy where the KL divergence is measured. The algorithm then, in turn, uses this measure of divergence to limit or clip the amount of policy change that may occur in an iteration. ML-Agents uses two hyperparameters that allow you to control this amount of clipping applied to the objective or function that determines the amount of policy change in an iteration. The following are the definitions for the beta and epsilon parameters, as described in the Unity documentation:</p>
+<ul>
+<li><strong>Beta</strong>: This corresponds to the strength of the entropy regularization, which makes the policy <em>more random</em>. This ensures that agents properly explore the action space during training. Increasing this will ensure that more random actions are taken. This should be adjusted so that the entropy (measurable from TensorBoard) slowly decreases alongside increases in reward. If entropy drops too quickly, increase beta. If entropy drops too slowly, decrease beta:</li>
+<li style="padding-left: 30px">   Typical range: 1e-4 – 1e-2</li>
+<li><strong>Epsilon</strong><span>: This corresponds to the acceptable threshold of divergence between the old and new policies during gradient descent updating. Setting this value to be small will result in more stable updates, but will also slow the training process:</span></li>
+<li style="padding-left: 30px"><span>   Typical range: 0.1 – 0.3</span></li>
+</ul>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p>The key thing to remember about these parameters is that they control how quickly a policy changes from one iteration to the next. If you notice an agent training somewhat erratically, it may be beneficial to tune these parameters to smaller values. The default value for <strong>epsilon</strong> is <strong>.2</strong> and for <strong>beta</strong> is <strong>1.0e-2</strong>, but, of course, we will want to explore how these values may affect training, either in a positive or negative way. In the next exercise, we will modify these policy change parameters and see what effect they have in training:</p>
+<ol>
+<li>For this example, we will open up the <kbd>CrawlerDynamic</kbd> scene from the <kbd>Assets/ML-Agents/Examples/Crawler/Scenes</kbd> folder.</li>
+<li>Open the <kbd>trainer_config.yaml</kbd> file located in the <kbd>ML-Agents/ml-agents/config</kbd> folder. Since we have already evaluated the performance of this sample, there are a couple of ways we will revert the training configuration and make some modification to the beta and epsilon parameters.</li>
+<li class="mce-root"><span>Scroll down to the</span> <kbd>CrawlerDynamicLearning</kbd> configuration section and modify it as follows:</li>
+</ol>
+<pre style="color: black;padding-left: 60px">CrawlerDynamicLearning:<br/>    normalize: true<br/>    num_epoch: 3<br/>    time_horizon: 1000<br/>    batch_size: 1024<br/>    buffer_size: 20240<br/>    gamma: 0.995<br/>    max_steps: 1e6<br/>    summary_freq: 3000<br/>    num_layers: 3<br/>    hidden_units: 512<br/>    <strong>epsilon: .1</strong><br/><strong>    beta: .1</strong> </pre>
+<ol start="4">
+<li>We modified the <kbd>epsilon</kbd> and <kbd>beta</kbd> parameters to higher values, meaning that the training will be less stable. If you recall, however, these marathon examples generally train in a more stable manner.</li>
+<li class="mce-root"><span>Open up a properly configured Python console and run the following command to launch training:</span></li>
+</ol>
+<pre style="color: black;padding-left: 60px"><strong>mlagents-learn config/trainer_config.yaml --run-id=crawler_policy --train</strong></pre>
+<ol start="6">
+<li>As usual, wait for a number of training sessions for a good comparison from one example to the next.</li>
+</ol>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p>What you may find unexpected is that the agent appears to start regressing, and in fact, it is. This is happening because we made those trust regions too large (a large <strong>beta</strong>), and while we allowed the rate of change to be lower (.1 <strong>epsilon</strong>), we can see the <strong>beta</strong> value is more sensitive to training.</p>
+<p>Keep in mind that the Unity ML-Agents implementation uses a number of cross-features in tandem, which comprise a powerful RL framework. In the next section, we will take another quick look at a late-comer optimization parameter that Unity has recently added.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Generalized advantage estimate</h1>
+                </header>
+            
+            <article>
+                
+<p>The area of RL is seeing explosive growth due to constant research that is pushing the envelope on what is possible. With every little advancement comes additional hyperparameters and small tweaks that can be applied to stabilize and/or improve training performance. Unity has recently add a new parameter called lambda, and the definition taken from the documentation is as follows:</p>
+<ul>
+<li><strong>lambda</strong>: This corresponds to the lambda parameter used when calculating the <strong>Generalized Advantage Estimate</strong> (<strong>GAE</strong>) <a href="https://arxiv.org/abs/1506.02438" target="_blank">https://arxiv.org/abs/1506.02438</a>. This can be thought of as how much the agent relies on its current value estimate when calculating an updated value estimate. Low values correspond to more reliance on the current value estimate (which can be high bias), and high values correspond to more reliance on the actual rewards received in the environment (which can be high variance). The parameter provides a trade-off between the two, and the right value can lead to a more stable training process:
+<ul>
+<li>Typical range: 0.9 – 0.95</li>
+</ul>
+</li>
+</ul>
+<p>The GAE paper describes a function parameter called lambda that can be used to shape the reward estimation function, and is best used for control or marathon RL tasks. We won't go too far into details, and interested readers should certainly pull down the paper and review it on their own. However, we will explore how altering this parameter can affect a control sample such as the <kbd>Walker</kbd> scene in the next exercise:</p>
+<ol>
+<li>Open the Unity editor to the <kbd>Walker</kbd> example scene.</li>
+<li>Select the <span class="packt_screen">Academy</span> object in the <span class="packt_screen">Hierarchy</span> and confirm that the scene is still set for training/learning. If it is, you won't have to do anything else. If the scene isn't set up to learn, you know what to do.</li>
+</ol>
+<ol start="3">
+<li>Open the <kbd>trainer_config.yaml</kbd> file and modify <kbd>WalkerLearning</kbd> as follows:</li>
+</ol>
+<pre style="color: black;padding-left: 60px">WalkerLearning:<br/>    normalize: true<br/>    num_epoch: 3<br/>    time_horizon: 1000<br/>    batch_size: 2048<br/>    buffer_size: 20480<br/>    gamma: 0.995<br/>    max_steps: 2e6<br/>    summary_freq: 3000<br/>    num_layers: 3<br/>    hidden_units: 512<br/>    <strong>lambd: .99</strong></pre>
+<ol start="4">
+<li>Notice how we are setting the <kbd>lambd</kbd> parameters and make sure that <kbd>num_layers</kbd> and <kbd>hidden_units</kbd> are reset to the original values. In the paper, the authors describe optimum values from <kbd>.95</kbd> to <kbd>.99</kbd>, but this differs from the Unity documentation.</li>
+<li>Save the file when you are done editing.</li>
+<li class="mce-root"><span>Open up a Python console setup for training and run it with the following command:</span></li>
+</ol>
+<pre style="color: black;padding-left: 60px"><strong>mlagents-learn config/trainer_config.yaml --run-id=walker_lambd --train</strong></pre>
+<ol start="7">
+<li>Make sure that you let the sample run as long as you have previously to get a good comparison.</li>
+</ol>
+<p>One thing you will notice after a log of training is that the agent does indeed train almost 25% slower on this example. What this result tells us is that, by increasing lambda, we are telling the agent to put more value on rewards. Now, this may seem counter-intuitive, but in this sample or this type of environment, the agent is receiving constant small positive rewards. This results in each reward getting skewed, which, as we can see, skews training and impedes agent progress. It may be an interesting exercise for interested readers to try and play with the lambda parameter in the Hallway environment, where the agent only receives a single positive episode reward.</p>
+<p>The RL advantage function or functions come in many forms, and are in place to address many of the issues with off-model or policy-driven algorithms such as PPO. In the next section, we round off the chapter by modifying and creating a new sample control/marathon learning environment on our own.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Learning to tune PPO </h1>
+                </header>
+            
+            <article>
+                
+<p>In this section, we are going to learn to tune a modified/new control learning environment. This will allow us to learn more about some inner workings of the Unity example, but will also show you how to modify a new or modified sample on your own later. Let's begin by opening up the Unity editor so we can complete the following exercise:</p>
+<ol>
+<li>Open the <kbd>Reacher</kbd> scene, set it for learning, and run it in training. You should be able to do this part in your sleep now. Let the agent train for a substantial amount of time so you can establish a baseline, as always.</li>
+<li>From the menu, select <kbd>Assets/Import Package/Custom Package</kbd>. Locate <kbd>Chapter_8_Assets.unitypackage</kbd> from the <kbd>Chapter08</kbd> folder of the books downloaded to the source code.</li>
+<li>Open up the <span class="packt_screen">Reacher_3_joint </span>scene from the <kbd>Assets/HoDLG/Scenes</kbd> folder. This is the modified scene, but we will go through its construction as well.</li>
+<li class="mce-root"><span>First, notice that there is only a single</span> <strong>Reacher</strong> <span>arm active, but now with three joints, as shown in the following screenshot:</span></li>
+</ol>
+<div class="packt_figref CDPAlignCenter CDPAlign" style="color: black"><img src="assets/e473ca06-9250-4c2f-90a8-ae6225372b74.png"/></div>
+<div class="packt_figref CDPAlignCenter CDPAlign" style="color: black">Inspecting the Agent game object</div>
+<ol start="5">
+<li>Notice how the arm now has three sections, with the new section called <span class="packt_screen">Capsule(2)</span> and identified as <span class="packt_screen">Pendulum C</span>. The order of the joints is now out of order, meaning <span class="packt_screen">Pendulum C</span> is actually the middle pendulum and not the bottom.</li>
+<li>Select each of the <span class="packt_screen">Capsule</span> objects and inspect their configuration and placement, as summarized in the following screenshot:</li>
+</ol>
+<div class="CDPAlignCenter CDPAlign packt_figref"><img src="assets/909c7124-2b2d-427d-93ff-c5a7257beedb.png" style="width:40.00em;height:40.00em;"/></div>
+<div class="CDPAlignCenter CDPAlign packt_figref">Inspecting the Capsule objects</div>
+<ol start="7">
+<li>Be sure to note the <span class="packt_screen">Configurable Joint | Connected Body</span> object for each of the capsules as well. This property sets the body that the object will hinge or join to. There are plenty of other properties on the <span class="packt_screen">Configurable Joint</span> component that would allow you to mimic this joint interaction in any form, perhaps even biological. For example, you may want to make the joints in this arm to be more human-like by only allowing certain angles of movement. Likewise, if you were designing a robot with limited motion, then you could simulate that with this joint component as well.</li>
+<li>At this stage, we can set up and run the example. Open and set up for training a Python console or Anaconda window.</li>
+<li>Run the sample in training and observe the progress of the agent. Let the agent run for enough iterations in order to compare training performance with the baseline.</li>
+</ol>
+<p>At this stage, we have our sample up and running and we are ready to start tuning new parameters in to optimize training. However, before we do that, we will step back and take a look at the C# code changes required to make the last sample possible. The next section covers the C# code changes, and is optional for those developers not interested in the code. If you plan to build your own control or marathon environments in Unity, you will need to read the next section.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Coding changes required for control projects</h1>
+                </header>
+            
+            <article>
+                
+<p>As we already mentioned, this section is optional and is for those curious about getting into the details of building their own control sample using Unity C#. It is also likely that, in the future, no coding changes will be required to modify these types of samples, and that is the other reason this section is optional.</p>
+<p>Complete the following exercise to go through the coding changes needed to add a joint in the Reacher control example:</p>
+<ol>
+<li>Select the <span class="packt_screen">Agent</span> object in the <span class="packt_screen">Hierarchy</span> window and then, in the <span class="packt_screen">Inspector</span> window, note the <span class="packt_screen">Reacher</span> <span class="packt_screen">Agent_3</span> component. This is the modified script that we will be inspecting.</li>
+<li>Click the target icon beside the <span class="packt_screen">Reach Agent_3</span> component, and from the context menu, select <span class="packt_screen">Edit Script</span>.</li>
+<li>This will open the <kbd>ReacherAgent_3.cs</kbd> script in your C# code editor of choice.</li>
+<li class="mce-root"><span>The first thing to note under the declarations is the addition of new variables, highlighted in bold as follows:</span></li>
+</ol>
+<pre style="color: black;padding-left: 60px">public GameObject pendulumA;<br/>public GameObject pendulumB;<br/><strong>public GameObject pendulumC;</strong><br/>public GameObject hand;<br/>public GameObject goal;<br/>private ReacherAcademy myAcademy;<br/>float goalDegree;<br/>private Rigidbody rbA;<br/>private Rigidbody rbB;<br/><strong>private Rigidbody rbC;</strong><br/>private float goalSpeed;<br/>private float goalSize;</pre>
+<p class="mce-root"/>
+<ol start="5">
+<li>Two new variables, <kbd>pendulumC</kbd> and <kbd>rbC</kbd>, <span>are added </span>for holding the new joints GameObject and RigidBody. Now, <kbd>Rigidbody</kbd> in Unity physics denotes an object that can be moved or manipulated by the physics engine. <br/>
+Unity is in the process of performing an upgrade to their physics engine that will alter some of the teachings here. The current version of ML-Agents uses the old physics system, so this example will as well. </li>
+<li>The next thing of importance to note is the addition of additional agent observations, as shown in the following <kbd>CollectObservations</kbd> method:</li>
+</ol>
+<pre style="padding-left: 60px">public override void CollectObservations()<br/>    {<br/>        AddVectorObs(pendulumA.transform.localPosition);<br/>        AddVectorObs(pendulumA.transform.rotation);<br/>        AddVectorObs(rbA.angularVelocity);<br/>        AddVectorObs(rbA.velocity);<br/><br/>        AddVectorObs(pendulumB.transform.localPosition);<br/>        AddVectorObs(pendulumB.transform.rotation);<br/>        AddVectorObs(rbB.angularVelocity);<br/>        AddVectorObs(rbB.velocity);<br/><br/>        <strong>AddVectorObs(pendulumC.transform.localPosition);</strong><br/><strong>        AddVectorObs(pendulumC.transform.rotation);</strong><br/><strong>        AddVectorObs(rbC.angularVelocity);</strong><br/><strong>        AddVectorObs(rbC.velocity);</strong><br/><br/>        AddVectorObs(goal.transform.localPosition);<br/>        AddVectorObs(hand.transform.localPosition);<br/>        <br/>        AddVectorObs(goalSpeed);<br/>  }</pre>
+<p class="mce-root"/>
+<ol start="7">
+<li>The section in bold is adding the new observations for <kbd>pendulumC</kbd> and <kbd>rbC</kbd>, which total another 13 vectors. Recall that this means we also needed to switch our brain from 33 vector observations to <span class="packt_screen">46</span> observations, as shown in the following screenshot:</li>
+</ol>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/15dec040-4804-44a0-9dac-cc20311fad51.png" style="width:38.83em;height:20.75em;"/></div>
+<div class="packt_figref CDPAlignCenter CDPAlign">Inspecting the update ReacherLearning_3 brain</div>
+<ol start="8">
+<li>Next, we will look to the <kbd>AgentAction</kbd> method; this is where the Python trainer code calls the agent and tells it what movements it makes, and is as follows:</li>
+</ol>
+<pre style="padding-left: 60px">public override void AgentAction(float[] vectorAction, string textAction)<br/>  {<br/>        goalDegree += goalSpeed;<br/>        UpdateGoalPosition();<br/><br/>        var torqueX = Mathf.Clamp(vectorAction[0], -1f, 1f) * 150f;<br/>        var torqueZ = Mathf.Clamp(vectorAction[1], -1f, 1f) * 150f;<br/>        rbA.AddTorque(new Vector3(torqueX, 0f, torqueZ));<br/><br/>        torqueX = Mathf.Clamp(vectorAction[2], -1f, 1f) * 150f;<br/>        torqueZ = Mathf.Clamp(vectorAction[3], -1f, 1f) * 150f;<br/>        rbB.AddTorque(new Vector3(torqueX, 0f, torqueZ));<br/><br/>        <strong>torqueX = Mathf.Clamp(vectorAction[3], -1f, 1f) * 150f;</strong><br/><strong>        torqueZ = Mathf.Clamp(vectorAction[4], -1f, 1f) * 150f;</strong><br/><strong>        rbC.AddTorque(new Vector3(torqueX, 0f, torqueZ));</strong><br/>    }</pre>
+<ol start="9">
+<li>In this method, we are extending the code to allow the agent to move the new joint in the form of <kbd>rigidbody rbC</kbd>. Did you notice that the new learning brain also added more action space?</li>
+<li>Lastly, we look at the <kbd>AgentReset</kbd> method to see how the agent will reset itself with the new limb, as follows:</li>
+</ol>
+<pre style="padding-left: 60px">public override void AgentReset()<br/>    {<br/>        pendulumA.transform.position = new Vector3(0f, -4f, 0f) + transform.position;<br/>        pendulumA.transform.rotation = Quaternion.Euler(180f, 0f, 0f);<br/>        rbA.velocity = Vector3.zero;<br/>        rbA.angularVelocity = Vector3.zero;<br/><br/>        pendulumB.transform.position = new Vector3(0f, -10f, 0f) + transform.position;<br/>        pendulumB.transform.rotation = Quaternion.Euler(180f, 0f, 0f);<br/>        rbB.velocity = Vector3.zero;<br/>        rbB.angularVelocity = Vector3.zero;<br/><br/>        <strong>pendulumC.transform.position = new Vector3(0f, -6f, 0f) + transform.position;</strong><br/><strong>        pendulumC.transform.rotation = Quaternion.Euler(180f, 0f, 0f);</strong><br/><strong>        rbC.velocity = Vector3.zero;</strong><br/><strong>        rbC.angularVelocity = Vector3.zero;</strong><br/><br/>        goalDegree = Random.Range(0, 360);<br/>        UpdateGoalPosition();<br/><br/>        goalSize = myAcademy.goalSize;<br/>        goalSpeed = Random.Range(-1f, 1f) * myAcademy.goalSpeed;<br/><br/>        goal.transform.localScale = new Vector3(goalSize, goalSize, goalSize);<br/>    }</pre>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p class="mceNonEditable"/>
+<p class="mceNonEditable"/>
+<ol start="11">
+<li>All this code does is reset the position of the arm to its original position and stop all movement.</li>
+</ol>
+<p>That covers the only required code changes for this example. Fortunately, only one script needed to be modified. It is likely that in the future you won't have to modify these scripts at all. In the next section, we will follow up by refining the sample's training by tuning extra parameters and introducing another training optimization for policy learning methods.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Multiple agent policy</h1>
+                </header>
+            
+            <article>
+                
+<p class="mce-root">In this section, we are going to look at how policy or off-model based methods such as PPO can be improved on by introducing multiple agents to train the same policy. The example exercise you will use in this section will be completely up to you, and should be one that you are familiar with and/or interested in. For our purposes, we will explore a sample that we have looked at extensively—the Hallway/VisualHallway. If you have been following most of the exercises in this book, you should be more than capable of adapting this example. However, note that, for this exercise, we want to use a sample that is set up to use multiple agents for training.</p>
+<p><span>Previously, we avoided discussing the multiple agents; we avoided this aspect of training before because it may complicate the discussion of on-model versus off-model. Now that you understand the differences and reasons for using a policy-based method, you can better appreciate that since our agents are using a policy-based method, we can simultaneously train multiple agents against the same policy. However, this can have repercussions for other training parameters and configuration, as you may well imagine.</span></p>
+<p>Open up the Unity editor to the <kbd>Hallway</kbd>/<kbd>VisualHallway</kbd> example scene, or one of your choosing, and complete the following exercise:</p>
+<ol>
+<li>Open up a Python or Anaconda console window and get it ready to train.</li>
+<li>Select and enable the <span class="packt_screen">HallwayArea</span>, selecting areas (1) to (19) so they become active and viewable in the scene. </li>
+<li>Select the <span class="packt_screen">Agent</span> object in each <strong><span class="packt_screen">HallwayArea</span></strong>, and make sure that <strong><span class="packt_screen">Hallway Agent</span></strong> | <strong><span class="packt_screen">Brain</span></strong> is set to <span class="packt_screen">HallwayLearning</span> and not <span class="packt_screen">HallwayPlayer</span>. This will turn on all the additional training areas.</li>
+<li>Depending on your previous experience, you may or may not want to modify the sample back to the original. Recall that in an earlier exercise, we modified the <span class="packt_screen">HallwayAgent</span> script to only scan a smaller section of angles. This may also require you to alter the <span class="packt_screen">brain</span> parameters as well.</li>
+<li>After you have the scene set up, save it and the project.</li>
+</ol>
+<ol start="6">
+<li>Run the scene in training using a unique <kbd>run-id</kbd> and wait for a number of training iterations. This sample may train substantially slower, or even faster, depending on your hardware. </li>
+</ol>
+<p>Now that we have established a new baseline for the Hallway environment, we can now determine what effect modifying some hyperparameters has on discrete action samples. The two parameters we will revisit are the <kbd>num_epochs</kbd> (number of training epochs) and <kbd>batch_size</kbd> (experiences per training epoch) parameters that we looked at earlier with the continuous action (control) sample. In the documentation, we noted that a larger batch size was preferred when training control agents. </p>
+<p>Before we continue, let's open the <kbd>trainer_config.yaml</kbd> file and inspect the <span class="packt_screen">HallwayLearning</span> configuration section as follows:</p>
+<pre>HallwayLearning:<br/>    use_recurrent: true<br/>    sequence_length: 64<br/>    num_layers: 2<br/>    hidden_units: 128<br/>    memory_size: 256<br/>    beta: 1.0e-2<br/>    gamma: 0.99<br/>    <strong>num_epoch: 3</strong><br/>    buffer_size: 1024<br/>    <strong>batch_size: 128</strong><br/>    max_steps: 5.0e5<br/>    summary_freq: 1000<br/>    time_horizon: 64</pre>
+<p>In the Unity documentation, it specifically mentions only increasing the number of epochs when increasing the batch size, and this is in order to account for additional training experiences. We learned that control examples generally benefit from a larger batch size, and, consequently, a larger epoch size. However, one last thing we want to determine is the effect of altering the <kbd>batch_size</kbd> and <kbd>num_epoch</kbd> parameters in a discrete action example with multiple agents feeding into and learning from the same policy.</p>
+<p>For the purposes of this exercise, we are only going to modify <kbd>batch_size</kbd> and <kbd>num_epoch</kbd> to values as follows:</p>
+<ol>
+<li>Update the <kbd>HallwayLearning</kbd> or brain configuration you are using to use the following parameters:</li>
+</ol>
+<pre style="padding-left: 60px">HallwayLearning:<br/>    use_recurrent: true<br/>    sequence_length: 64<br/>    num_layers: 2<br/>    hidden_units: 128<br/>    memory_size: 256<br/>    beta: 1.0e-2<br/>    gamma: 0.99<br/>    <strong>num_epoch: 10</strong><br/>    buffer_size: 1024<br/>    <strong>batch_size: 1000</strong><br/>    max_steps: 5.0e5<br/>    summary_freq: 1000<br/>    time_horizon: 64</pre>
+<ol start="2">
+<li>We set <kbd>num_epoch</kbd> to 10 and <kbd>batch_size</kbd> to <kbd>1000</kbd>. These settings are typical for a control sample, as we have previously seen, but now we want to see the effect in a discrete action example with multiple agents training the same policy.</li>
+<li>Prepare the sample for training, and get the Python console ready and open.</li>
+<li>Run the training session with the following command:</li>
+</ol>
+<pre style="padding-left: 60px"><strong>mlagents-learn config/trainer_config.yaml --run-id=hallway_e10b1000 --train</strong></pre>
+<ol start="5">
+<li>Notice how we have set <kbd>run-id</kbd> using a helper prefix to name the iteration. We used <kbd>e10</kbd> to represent <span>that</span> the <kbd>num_epoch</kbd> parameter is set to <kbd>10</kbd>, and <kbd>b1000</kbd> represents the <kbd>batch_size</kbd> value of <kbd>1000</kbd>. This type of naming scheme can be helpful, and is one we will continue using through this book.</li>
+</ol>
+<p>As the agent trains, try and answer the following questions:</p>
+<ul>
+<li>Does the agent train better or worse than you expected? </li>
+<li>Why do you think that is?</li>
+</ul>
+<p>It will be up to you to run the sample in order to learn the answer to those questions. In the next section, we will look at helpful exercises you can do on your own to help your understanding of these complex topics.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Exercises </h1>
+                </header>
+            
+            <article>
+                
+<p>Attempt one or two of the following exercises on your own:</p>
+<ol>
+<li>Run the <span class="packt_screen">CrawlerStaticTarget</span> example scene and compare its performance to the dynamic sample.</li>
+</ol>
+<ol start="2">
+<li>Double the <kbd>time_horizon</kbd>, <kbd>batch_size</kbd>, and <kbd>buffer_size</kbd><span> brain hyperparameters</span> in one of the other control examples:</li>
+</ol>
+<pre style="padding-left: 60px"><strong>time_horizon: 2000</strong><br/><strong>batch_size: 4048</strong><br/><strong>buffer_size: 40480</strong></pre>
+<ol start="3">
+<li>Perform the same modification of <kbd>time_horizon</kbd>, <kbd>batch_size</kbd>, and <kbd>buffer_size</kbd> on another control sample and observe the combined effect.</li>
+<li>Modify the <kbd>num_layers</kbd> and <kbd>hidden_units</kbd> <span>brain hyperparameters </span>to values we used in a control sample and apply them to a discrete action example, such as the <span class="packt_screen">Hallway</span> example, as shown in the following code. How did it affect training?</li>
+</ol>
+<pre style="padding-left: 60px"><strong>num_layers: 3</strong><br/><strong>hidden_units: 512</strong></pre>
+<ol start="5">
+<li>Alter the <kbd>num_layers</kbd> and <kbd>hidden_units</kbd> hyperparameters on another continuous or discrete action example and combine it with other parameter modifications.</li>
+<li>Modify the lambda <kbd>lambd</kbd> brain hyperparameter in a discrete action example to a value of <kbd>.99</kbd>. Remember that this will have the effect of strengthening the rewards:</li>
+</ol>
+<pre style="padding-left: 60px"><strong>lambd: .99</strong></pre>
+<ol start="7">
+<li>Create your own control creature with joints and limbs. A good place to start is using the Crawler example and modifying that.</li>
+<li>Modify one of the control samples by adding new limbs or joints. </li>
+<li>Modify the <span class="packt_screen">Walker</span> control example to give the agent a weapon and a target. You will have to combine elements of the <span class="packt_screen">Walker</span> and <span class="packt_screen">Reacher</span> examples.</li>
+<li>Run the <span class="packt_screen">VisualHallwayLearning</span> sample scene with altered <kbd>num_epoch</kbd> and <kbd>batch_size</kbd> parameters. Are the results what you expected?</li>
+</ol>
+<p>As we progress through the book, these exercises may become more and more tedious, especially if you run them on an older and slower system. However, it is important to understand how these parameters can alter an agent's training. </p>
+<p>When speaking to deep learning and RL practitioners, they will often compare the subtlely of training to the difference between being a good or great cook. A good cook may make things taste good and serve a completely acceptable meal, but it takes a great cook, and their attention to detail, to make you an exceptional meal that you will remember.</p>
+<p class="mce-root"/>
+<p class="mce-root"/>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Summary</h1>
+                </header>
+            
+            <article>
+                
+<p>In this chapter, we dug in and learned more of the inner workings of RL by understanding the differences between model-based versus off-model and/or policy-based algorithms. As we learned, Unity ML-Agents uses the PPO algorithm, a powerful and flexible policy learning model that works exceptionally well when training control, or what is sometimes referred to as marathon RL. After learning more basics, we jumped into other RL improvements in the form of Actor-Critic, or advantage training, and what options ML-Agents supports. Next, we looked at the evolution of PPO and its predecessor, the TRPO algorithm, how they work at a basic level, and how they affect training. This is where we learned how to modify one of the control samples to create a new joint on the Reacher arm. We finished the chapter by looking at how multi-agent policy training can be improved on, again by tuning hyperparameters.</p>
+<p>We have covered many aspects and details of RL and how agents train, but we have left the most important part of training, rewards, to the next chapter. In the next chapter, we look into rewards, reward functions, and how rewards can even be simulated.</p>
+
+
+            </article>
+
+            
+        </section>
+    </body></html>

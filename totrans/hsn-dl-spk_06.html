@@ -1,0 +1,270 @@
+<html><head></head><body>
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Recurrent Neural Networks</h1>
+                </header>
+            
+            <article>
+                
+<p class="mce-root"><span>In this chapter, we are going to learn more about <strong>Recurrent Neural Networks</strong> (<strong>RNNs</strong>), an overview of their most common use cases, and, finally, a possible implementation by starting to be hands-on using the DeepLearning4j framework. This chapter's code examples involve Apache Spark too. As stated in the previous chapter for</span> CNNs<span>, training and evaluation strategies for RNNs will be covered in <a href="3b6f47c0-6e17-484b-ad30-b6f92eb0473c.xhtml" target="_blank">Chapter 7</a>, <em>Training Neural Networks with Spark</em>, <a href="b30120ea-bd42-4cb7-95d9-5ecaa2b7c181.xhtml" target="_blank">Chapter 8</a>, <em>Monitoring and Debugging Neural Network Training</em>, and <a href="869a9495-e759-4810-8623-d8b76ba61398.xhtml" target="_blank">Chapter 9</a>, <em>Interpreting Neural Network Output</em>.</span></p>
+<p class="mce-root">In this chapter, I have tried to reduce the usage of math concepts and formulas as much as possible in order to make the reading and comprehension easier for developers and data analysts who might have no math or data science background.</p>
+<p>The chapter covers the following topics:</p>
+<ul>
+<li class="mce-root"><strong>Long short-term memory</strong> (<strong>LSTM</strong>)</li>
+<li class="mce-root">Use cases</li>
+<li class="mce-root">Hands-on RNN with Spark</li>
+</ul>
+<p class="mce-root"/>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">LSTM</h1>
+                </header>
+            
+            <article>
+                
+<p>RNNs are multilayer neural networks that are used to recognize patterns in sequences of data. By sequences of data, we mean text, handwriting, numerical times series (coming for example from sensors), log entries, and so on. The algorithms involved here have a temporal dimension too: they take time (and this is the main difference with CNNs) and sequence both into account. For a better understanding of the need for RNNs, we have to look at the basics of feedforward networks first. Similar to RNNs, these networks channel information through a series of mathematical operations performed at the nodes of the network, but they feed information straight through, never touching a given node twice. The network is fed with input examples that are then transformed into an output: in simple words, they map raw data to categories. Training happens for them on labeled inputs, until the errors made when guessing input categories has been minimized. This is the way a network learns to categorize new data it has never seen before. A feedforward network hasn't any notion of order in time: the only input it considers is the current one it has been exposed to, and it doesn't necessarily alter how it classifies the next one. RNNs take as input the current example they see, plus anything they have perceived previously. A RNN can be then be seen as multiple feedforward neural networks passing information from one to the other.</p>
+<p>In the RNNs' use case scenarios, a sequence could be a finite or infinite stream of interdependent data. CNNs can't work well in those cases because they don’t have any correlation between previous and next input. From <a href="fbec1d8a-a92f-4899-af0f-11f3d545e0eb.xhtml" target="_blank">Chapter 5</a>, <em>Convolutional Neural Networks</em>, you have learned that a CNN takes an input and then outputs based on the trained model. Running a given number of different inputs, none of them would be biased by taking into account any of the previous outputs. But if you consider a case like that presented in the last sections of this chapter (a sentence generation case), where all the generated words are dependent on the those generated before, there is definitely a need to bias based on previous output. This is where RNNs come to the rescue, because they have memory of what happened earlier in the sequence of data and this helps them to get the context. RNNs in theory can look back indefinitely at all of the previous steps, but really, for performance reasons, they have to restrict looking back at the last few steps only.</p>
+<p>Let's go into the details of RNNs. For this explanation, I am going to start from a <strong>Multilayer Perception</strong> (<strong>MLP</strong>), a class of feedforward ANN. The minimal implementation of an MLP has at least three layers of nodes. But for the input nodes, each node is a neuron that uses a nonlinear activation function. The input layer, of course, takes the input. It is the first hidden layer that does the activation, passing onto the next hidden layers, and so on. Finally, it reaches the output layer. This is responsible for providing the output. All of the hidden layers behave differently, because each one has different weights, bias, and activation functions. In order to make it possible and easier to merge them, all the layers need to be replaced with the same weights (and also same biases and activation function). This is the only way to combine all the hidden layers into a single recurrent layer. They start looking as shown in the following diagram.</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/f7fe7d22-1b68-4038-bf16-8b4e3c859d78.png" style="width:16.75em;height:21.08em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref">Figure 6.1</div>
+<p>With reference to the preceding diagram, the network <strong>H</strong> receives some input <strong>x</strong> and produces an output <strong>o</strong>. Any info passes from one step of the network to the next through a loop mechanism. An input is provided to the hidden layer of the network at each step. Any neuron of an RNN stores the inputs it receives during all of the previous steps and then can merge that information with input passed to it at the current step. This means that a decision taken at a time step <em>t-1</em> affects the decision that is taken at a time <em>t</em>.</p>
+<p>Let’s rephrase the preceding explanation with an example: let's say we want to predict what the next letter would be after a sequence of letters. Let's assume the input word is <strong>pizza</strong>, which is of five letters. What happens when the network tries to figure out the fifth letter after the first four letters have been fed to the network? Five iterations happen for the hidden layer. If we unfold the network, it would be a five layers network, one for each letter of the input word (see <a href="a177e128-f96b-4a3a-8e3e-24f133492cb0.xhtml" target="_blank">Chapter 2</a>, <em>Deep Learning Basics</em>, <em>Figure 2.11</em> as reference). We can see it then as a normal neural network repeated multiple times (5). The number of times we unroll it has a direct correlation with how far in the past the network can remember. Going back to the <strong>pizza</strong> example, the total vocabulary of the input data is <em>{p, i, z, a}</em>. The hidden layer or the RNN applies a formula to the current input as well as the previous state. In our example, the letter <em>p</em> from the word <em>pizza</em>, being the first letter, has nothing preceding it, so nothing is done and we can move on to the next letter, which is <em>i</em>. The formula is applied by the hidden layer at the time between letter <em>i</em> and the previous state, which was letter <em>p</em>. If at a given time <em>t</em>, the input is <em>i</em>, then at time <em>t-1</em>, the input is <em>p</em>. By applying the formula to both <em>p</em> and <em>i</em> we get a new state. The formula to calculate the current state can be written as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><em>h<sub>t</sub> = f(h<sub>t-1</sub>, x<sub>t</sub>)</em></p>
+<p>where <em>h<sub>t</sub></em> is the new state, <em>h<sub>t-1</sub></em> is the previous state and <em>x<sub>t</sub></em> is the current input. From the previous formula, we can understand that the current state is a function of the previous input (the input neuron has applied transformations on the previous input). Any successive input is used as a time step. In this <em>pizza</em> example we have four inputs to the network. The same function and the same weights are applied to the network at each time step. Considering the simplest implementation of an RNN, the activation function is <em>tanh</em>, a hyperbolic tangent that ranges from <em>-1</em> to <em>1</em>, which is one of the most common sigmoid activation function for MLPs. So, the formula looks as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><em>h<sub>t</sub> = tanh(W<sub>hh</sub>h<sub>t-1</sub> + W<sub>xh</sub>x<sub>t</sub>)</em></p>
+<p>Here <em>W<sub>hh</sub></em> is the weight at the recurrent neuron and <em>W<sub>xh</sub></em> is the weight at the input neuron. That formula means that the immediate previous state is taken into account by a recurrent neuron. Of course, the preceding equation can involve multiple states in cases of longer sequence than <em>pizza</em>. Once the final state is calculated then the output <em>y<sub>t</sub></em> can be obtained this way:</p>
+<p class="CDPAlignCenter CDPAlign"><em>y<sub>t</sub> = W<sub>hy</sub>h<sub>t</sub></em></p>
+<p>One final note about the error. It is calculated by comparing the output to the actual output. Once the error has been calculated, then the learning process happens by backpropagating it through the network in order to update the network weights.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Backpropagation Through Time (BPTT)</h1>
+                </header>
+            
+            <article>
+                
+<p>Multiple variant architectures have been proposed for RNNs (some of them have been listed in <a href="a177e128-f96b-4a3a-8e3e-24f133492cb0.xhtml" target="_blank">Chapter 2</a>, <em>Deep Learning Basics</em>, in the section <em>Recurrent Neural Networks</em>). Before entering into details of the LSTM implementation, a few words must be spent about the problems with the generic RNN architecture described previously. In general for neural networks, forward propagation is the technique used to get the output of a model and check if it is correct or not. Likewise, backward propagation is a technique to go backwards through a neural network to find the partial derivatives of the error over the weights (this makes it possible to subtract the found value from the weights). These derivatives are then used by the Gradient Descent Algorithm, which, in an iterative way, minimizes a function and then does up or down adjustments to the weights (the direction depends on which one decreases the error). At training time, backpropagation is then the way in which it is possible to adjust the weights of a model. BPTT is just a way to define the process of doing backpropagation on an unrolled RNN. With reference to <a href="a177e128-f96b-4a3a-8e3e-24f133492cb0.xhtml" target="_blank">Chapter 2</a>, <em>Deep Learning Basics</em>, <em>Figure 2.11</em>, in doing BPTT, it is mandatory to do the formulation of unrolling, this being the error of a given time step, depending on the previous one. In the BPTT technique, the error is backpropagated from the last time step to the first one, while unrolling all of them. This allows error calculation for each time step, making it possible to update the weights. Please be aware that BPTT can be computationally expensive in those cases where the number of time steps is high.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">RNN issues</h1>
+                </header>
+            
+            <article>
+                
+<p>The two major issues affecting RNNs are the <strong>Exploding Gradients</strong> and <strong>Vanishing Gradients</strong>. We talk about Exploding Gradients when an algorithm assigns, without a reason, a high importance to the model weights. But, the solution to this problem is easy, as this would require just truncating or compressing the gradients. We talk about Vanishing Gradients when the values of a gradient are so small that they cause a model to stop or take too long to learn. This is a major problem if compared with the Exploding Gradients, but it has now been solved through the <strong>LSTM</strong> (Long Short-Term Memory) neural networks. LSTMs are a special kind of RNN, capable of learning long-term dependencies, that were introduced by Sepp Hochreiter (<a href="https://en.wikipedia.org/wiki/Sepp_Hochreiter">https://en.wikipedia.org/wiki/Sepp_Hochreiter</a>) &amp; Juergen Schmidhuber (<a href="https://en.wikipedia.org/wiki/J%C3%BCrgen_Schmidhuber">https://en.wikipedia.org/wiki/J%C3%BCrgen_Schmidhuber</a>) in 1997.</p>
+<p>They are explicitly designed with the default ability to remember information for long periods of time. This can be achieved because LSTMs retain their information in a memory, which is pretty much like that of a computer: a LSTM can read, write, and delete information from it. The LSTM's memory can be considered as a gated cell: it decides whether or not to store or delete information (open gates or not), depending on the importance it puts on a given information. The process of assigning importance happens through weights: consequently a network learns over time which information has to be considered important and which not. An LSTM has three gates: the input, the forget, and the output gate. The <strong>Input Gate</strong> determines if a new input in should be let in, the <strong>Forget Gate</strong> deletes the non-important information, and the <strong>Output Gate</strong> influences the output of the network at the current time step, as shown in the following diagram:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1114 image-border" src="assets/1cebafbc-4831-480b-b561-f880b3a85ac0.png" style="width:52.42em;height:29.50em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref">Figure 6.2: The three gates of an LSTM</div>
+<p>You can think of each of these three gates as a conventional artificial neuron, as in a feedforward MNN: they compute an activation (using an activation function) of a weighted sum. What enables the LSTM gates to do backpropagation is the fact that they are analog (sigmoids, they range from zero to one). This implementation solves the problems of Vanishing Gradients because it keeps the gradients steep enough, and consequently the training completes in a relatively short time, while maintaining an high accuracy.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Use cases</h1>
+                </header>
+            
+            <article>
+                
+<p>RNNs have several use cases. Here is a list of the most frequently used:</p>
+<ul>
+<li><strong>Language modelling and text generation</strong>: This is the attempt to predict the likelihood of the next word, given a sequence of words. This is useful for language translation: the most likely sentence would be the one that is correct.</li>
+<li><strong>Machine translation</strong>: This is the attempt to translate text from one language to another.</li>
+<li><strong>Anomaly detection in time series</strong>: It has been demonstrated that LSTM networks in particular are useful for learning sequences containing longer term patterns of unknown length, due to their ability to maintain long-term memory. For this reason they are useful for anomaly or fault detection in time series. Practical use cases are in log analysis and sensor data analysis.</li>
+<li><strong>Speech recognition</strong>: This is the attempt to predict phonetic segments based on input sound waves and then to formulate a word.</li>
+<li><strong>Semantic parsing</strong>: Converting a natural language utterance to a logical form—a machine-understandable representation of its meaning. Practical applications include question answering and programming language code generation.</li>
+<li><strong>Image captioning</strong>: This is a case that usually involves a combination of a CNN and an RNN. The first makes the segmentation, while the other then uses the data segmented by the CNN to recreate the descriptions.</li>
+<li><strong>Video tagging</strong>: RNNs can be used for video search when doing frame by frame image captioning of a video.</li>
+<li><strong>Image generation</strong>: This is the process of creating parts of a scene independently from others and to successively refine approximate sketches, generating at the end, images that cannot be distinguished from real data with the naked eye.</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Hands-on RNNs with Spark</h1>
+                </header>
+            
+            <article>
+                
+<p>Let's start now being hands-on with RNNs. This section is divided into two parts—the first one is about using DL4J to implement a network, while the second one will introduce using both DL4J and Spark for the same purpose. As with CNNs, you will discover that, thanks to the DL4J framework, lots of high-level facilities come out-of-the-box with it, so that the implementation process is easier than you might expect.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">RNNs with DL4J</h1>
+                </header>
+            
+            <article>
+                
+<p>The first example presented in this chapter is an LSTM which, after the training, will recite the following characters once the first character of the learning string has been used as input for it.</p>
+<p>The dependencies for this example are the following:</p>
+<ul>
+<li>Scala 2.11.8</li>
+<li>DL4J NN 0.9.1</li>
+<li>ND4J Native 0.9.1 and the specific classifier for the OS of the machine where you would run it</li>
+<li>ND4J jblas 0.4-rc3.6</li>
+</ul>
+<p>Assuming we have a learn string that is specified through an immutable variable <kbd>LEARNSTRING</kbd>, let's start creating a dedicated list of possible characters from it, as follows:</p>
+<pre>val LEARNSTRING_CHARS: util.LinkedHashSet[Character] = new util.LinkedHashSet[Character]<br/>for (c &lt;- LEARNSTRING) {<br/>        LEARNSTRING_CHARS.add(c)<br/>}<br/>LEARNSTRING_CHARS_LIST.addAll(LEARNSTRING_CHARS)</pre>
+<p>Let's configure the network<span>, as follows</span>:</p>
+<pre>val builder: NeuralNetConfiguration.Builder = new NeuralNetConfiguration.Builder<br/>builder.iterations(10)<br/>builder.learningRate(0.001)<br/>builder.optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)<br/>builder.seed(123)<br/>builder.biasInit(0)<br/>builder.miniBatch(false)<br/>builder.updater(Updater.RMSPROP)<br/>builder.weightInit(WeightInit.XAVIER)</pre>
+<p>You will notice that we are using the same <kbd>NeuralNetConfiguration.Builder</kbd> class as for the CNN example presented in the previous chapter. This same abstraction is used for any network you need to implement through DL4J. The optimization algorithm used is the Stochastic Gradient Descent (<a href="https://en.wikipedia.org/wiki/Stochastic_gradient_descent">https://en.wikipedia.org/wiki/Stochastic_gradient_descent</a>). The meaning of the other parameters will be explained in the next chapter that will focus on training.</p>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p>Let's now define the layers for this network. The model we are implementing is based on the LSTM RNN by Alex Graves (<a href="https://en.wikipedia.org/wiki/Alex_Graves_(computer_scientist)">https://en.wikipedia.org/wiki/Alex_Graves_(computer_scientist)</a>). After deciding their total number assigning a value to an immutable variable <kbd>HIDDEN_LAYER_CONT</kbd>, we can define the hidden layers of our network, as follows:</p>
+<pre>val listBuilder = builder.list<br/>for (i &lt;- 0 until HIDDEN_LAYER_CONT) {<br/>  val hiddenLayerBuilder: GravesLSTM.Builder = new GravesLSTM.Builder<br/>  hiddenLayerBuilder.nIn(if (i == 0) LEARNSTRING_CHARS.size else HIDDEN_LAYER_WIDTH)<br/>  hiddenLayerBuilder.nOut(HIDDEN_LAYER_WIDTH)<br/>  hiddenLayerBuilder.activation(Activation.TANH)<br/>  listBuilder.layer(i, hiddenLayerBuilder.build)<br/>}</pre>
+<p>The activation function is <kbd>tanh</kbd> (hyperbolic tangent).</p>
+<p>We need then to define the <kbd>outputLayer</kbd> (choosing softmax as the activation function)<span>, as follows</span>:</p>
+<pre>val outputLayerBuilder: RnnOutputLayer.Builder = new RnnOutputLayer.Builder(LossFunction.MCXENT)<br/>outputLayerBuilder.activation(Activation.SOFTMAX)<br/>outputLayerBuilder.nIn(HIDDEN_LAYER_WIDTH)<br/>outputLayerBuilder.nOut(LEARNSTRING_CHARS.size)<br/>listBuilder.layer(HIDDEN_LAYER_CONT, outputLayerBuilder.build)</pre>
+<p>Before completing the configuration, we must specify that this model isn't pre-trained and that we use backpropagation<span>, as follows</span>:</p>
+<pre>listBuilder.pretrain(false)<br/>listBuilder.backprop(true)</pre>
+<p>The network (<kbd>MultiLayerNetwork</kbd>) can be created starting from the preceding configuration<span>, as follows</span>:</p>
+<pre>val conf = listBuilder.build<br/>val net = new MultiLayerNetwork(conf)<br/>net.init()<br/>net.setListeners(new ScoreIterationListener(1))</pre>
+<p>Some training data can be generated programmatically starting from the learning string character list<span>, as follows</span>:</p>
+<pre>val input = Nd4j.zeros(1, LEARNSTRING_CHARS_LIST.size, LEARNSTRING.length)<br/>val labels = Nd4j.zeros(1, LEARNSTRING_CHARS_LIST.size, LEARNSTRING.length)<br/>var samplePos = 0<br/>for (currentChar &lt;- LEARNSTRING) {<br/>  val nextChar = LEARNSTRING((samplePos + 1) % (LEARNSTRING.length))<br/>  input.putScalar(Array[Int](0, LEARNSTRING_CHARS_LIST.indexOf(currentChar), samplePos), 1)<br/>  labels.putScalar(Array[Int](0, LEARNSTRING_CHARS_LIST.indexOf(nextChar), samplePos), 1)<br/>  samplePos += 1<br/>}<br/>val trainingData: DataSet = new DataSet(input, labels)</pre>
+<p>The way the training for this RNN happens will be covered in the next chapter (and the code example will be completed there)—the focus in this section is to show how to configure and build an RNN network using the DL4J API.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">RNNs with DL4J and Spark</h1>
+                </header>
+            
+            <article>
+                
+<p>The example presented in this section is an LSTM that would be trained to generate text, one character at a time. The training is done using Spark.</p>
+<p>The dependencies for this example are the following:</p>
+<ul>
+<li>Scala 2.11.8</li>
+<li>DL4J NN 0.9.1</li>
+<li>ND4J Native 0.9.1 and the specific classifier for the OS of the machine where you would run it</li>
+<li>ND4J jblas 0.4-rc3.6</li>
+<li>Apache Spark Core 2.11, release 2.2.1</li>
+<li>DL4J Spark 2.11, release 0.9.1_spark_2</li>
+</ul>
+<p>We start configuring the network as usual through the <kbd>NeuralNetConfiguration.Builder</kbd> class<span>, as follows</span>:</p>
+<pre>val rng = new Random(12345)<br/>val lstmLayerSize: Int = 200<br/>val tbpttLength: Int = 50<br/>val nSamplesToGenerate: Int = 4<br/>val nCharactersToSample: Int = 300<br/>val generationInitialization: String = null<br/>val conf = new NeuralNetConfiguration.Builder()<br/>    .optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)<br/>    .iterations(1)<br/>    .learningRate(0.1)<br/>    .rmsDecay(0.95)<br/>    .seed(12345)<br/>    .regularization(true)<br/>    .l2(0.001)<br/>    .weightInit(WeightInit.XAVIER)<br/>    .updater(Updater.RMSPROP)<br/>    .list<br/>    .layer(0, new GravesLSTM.Builder().nIn(SparkLSTMCharacterExample.CHAR_TO_INT.size).nOut(lstmLayerSize).activation(Activation.TANH).build())<br/>    .layer(1, new GravesLSTM.Builder().nIn(lstmLayerSize).nOut(lstmLayerSize).activation(Activation.TANH).build())<br/>    .layer(2, new RnnOutputLayer.Builder(LossFunction.MCXENT).activation(Activation.SOFTMAX)<br/>      .nIn(lstmLayerSize).nOut(SparkLSTMCharacterExample.nOut).build) //MCXENT + softmax for classification<br/>    .backpropType(BackpropType.TruncatedBPTT).tBPTTForwardLength(tbpttLength).tBPTTBackwardLength(tbpttLength)<br/>    .pretrain(false).backprop(true)<br/>    .build</pre>
+<p>As for the example presented in the <em>RNNs with DL4J</em> section, the LSTM RNN implementation used here is that by Alex Graves. So the configuration, the hidden layers, and the output layer are pretty similar to those for the previous example.</p>
+<p>Now this is where Spark comes into play. Let's set up the Spark configuration and context<span>, as follows</span>:</p>
+<pre>val sparkConf = new SparkConf<br/>sparkConf.setMaster(master)<br/>sparkConf.setAppName("LSTM Character Example")<br/>val sc = new JavaSparkContext(sparkConf)</pre>
+<p>Assuming we got some training data and have created a <kbd>JavaRDD[DataSet]</kbd> named <kbd>trainingData</kbd> from them, we need to set up for data parallel training. In particular, we need to set up the <kbd>TrainingMaster</kbd> (<a href="https://deeplearning4j.org/doc/org/deeplearning4j/spark/api/TrainingMaster.html">https://deeplearning4j.org/doc/org/deeplearning4j/spark/api/TrainingMaster.html</a>).</p>
+<p>It is an abstraction that controls how learning is actually executed on Spark and allows for multiple different training implementations to be used with <kbd>SparkDl4jMultiLayer</kbd> (<a href="https://deeplearning4j.org/doc/org/deeplearning4j/spark/impl/multilayer/SparkDl4jMultiLayer.html">https://deeplearning4j.org/doc/org/deeplearning4j/spark/impl/multilayer/SparkDl4jMultiLayer.html</a>). Set up for data parallel training, as follows:</p>
+<pre>val averagingFrequency: Int = 5<br/>val batchSizePerWorker: Int = 8<br/>val examplesPerDataSetObject = 1<br/>val tm = new ParameterAveragingTrainingMaster.Builder(examplesPerDataSetObject)<br/>    .workerPrefetchNumBatches(2)<br/>    .averagingFrequency(averagingFrequency)<br/>    .batchSizePerWorker(batchSizePerWorker)<br/>    .build<br/>val sparkNetwork: SparkDl4jMultiLayer = new SparkDl4jMultiLayer(sc, conf, tm)<br/>sparkNetwork.setListeners(Collections.singletonList[IterationListener](new ScoreIterationListener(1)))</pre>
+<p>Currently, the DL4J framework has only one implementation of the <kbd>TrainingMaster</kbd>, the <kbd>ParameterAveragingTrainingMaster</kbd> (<a href="https://deeplearning4j.org/doc/org/deeplearning4j/spark/impl/paramavg/ParameterAveragingTrainingMaster.html">https://deeplearning4j.org/doc/org/deeplearning4j/spark/impl/paramavg/ParameterAveragingTrainingMaster.html</a>). The parameters that we have set for it in the current example are:</p>
+<ul>
+<li><kbd>workerPrefetchNumBatches</kbd>: The number of Spark workers capable of prefetching in an asynchronous way; a number of mini-batches (Dataset objects), in order to avoid waiting for the data to be loaded. Setting this parameter to <kbd>0</kbd> means disabling this prefetching. Setting it to <kbd>2</kbd> (such as in our example) is a good compromise (a sensible default with a non-excessive use of memory).</li>
+<li><kbd>batchSizePerWorker</kbd>: This is the number of examples used for each parameter update in each Spark worker.</li>
+<li><kbd>averagingFrequency</kbd>: To control how frequently the parameters are averaged and redistributed, in terms of a number of mini-batches of size <kbd>batchSizePerWorker</kbd>. Setting a low averaging period may be inefficient, because of the high network communication and initialization overhead, relative to computation, while setting a large averaging period may result in poor performance. So, a good compromise is to keep its value between <kbd>5</kbd> and <kbd>10</kbd>.</li>
+</ul>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p>The <kbd>SparkDl4jMultiLayer</kbd> requires as parameters the Spark context, the Spark configuration, and the <kbd>TrainingMaster</kbd>.</p>
+<p>The training through Spark can now start. The way it happens will be covered in the next chapter (and this code example will be completed there)—again, the focus in this section is to show how to configure and build an RNN network using the DL4J and Spark API.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Loading multiple CSVs for RNN data pipelines</h1>
+                </header>
+            
+            <article>
+                
+<p>Before wrapping up this chapter, here are a few notes about how we can load multiple CSV files, each containing one sequence, for RNN training and testing data. We are assuming to have a dataset made of multiple CSV files stored in a cluster (it could be HDFS or an object storage such as Amazon S3 or Minio), where each file represents a sequence, each row of one file contains the values for one time step only, the number of rows could be different across files, and the header row could be present or missing in all files.</p>
+<p>With reference to CSV files saved in an S3-based object storage (refer to <a href="44fab060-12c9-4eec-9e15-103da589a510.xhtml" target="_blank">Chapter 3</a>, <em>Extract, Transform, Load</em>, <em>Data Ingestion from S3,</em> for more details), the Spark context has been created as follows:</p>
+<pre>val conf = new SparkConf<br/>conf.setMaster(master)<br/>conf.setAppName("DataVec S3 Example")<br/>val sparkContext = new JavaSparkContext(conf)</pre>
+<p>The Spark job configuration has been set up to access the object storage (as explained in <a href="44fab060-12c9-4eec-9e15-103da589a510.xhtml" target="_blank">Chapter 3</a>, <em>Extract, Transform, Load</em>), and we can get the data as follows:</p>
+<pre>val origData = sparkContext.binaryFiles("s3a://dl4j-bucket")</pre>
+<p>(<kbd>dl4j-bucket</kbd> is the bucket containing the CSV files). Next we create a DataVec <kbd>CSVSequenceRecordReader</kbd> specifying if all the CSV files in the bucket have the header row or not (use the value <kbd>0</kbd> for no, <kbd>1</kbd> for yes) and the values separator, as follows:</p>
+<pre>val numHeaderLinesEachFile = 0<br/>val delimiter = ","<br/>val seqRR = new CSVSequenceRecordReader(numHeaderLinesEachFile, delimiter)</pre>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p>Finally we get the sequence by applying a <kbd>map</kbd> transformation to the original data in <kbd>seqRR</kbd>, as follows:</p>
+<pre>val sequencesRdd = origData.map(new SequenceRecordReaderFunction(seqRR))</pre>
+<p>It is very similar in the case of RNN training with non-sequence CSV files, by using the <kbd>DataVecDataSetFunction</kbd> class of <kbd>dl4j-spark</kbd> and specifying the index of the label column and the number of labels for classification, as follows:</p>
+<pre>val labelIndex = 1<br/>val numClasses = 4<br/>val dataSetRdd = sequencesRdd.map(new DataVecSequenceDataSetFunction(labelIndex, numClasses, false))</pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Summary</h1>
+                </header>
+            
+            <article>
+                
+<p>In this chapter, we first went deeper into the RNNs' main concepts, before understanding how many practical use cases these particular NNs have, and, finally, we started going hands-on, implementing some RNNs using DL4J and Spark.</p>
+<p>The next chapter will focus on training techniques for CNN and RNN models. Training techniques have just <span>been </span>mentioned, or skipped from <a href="44fab060-12c9-4eec-9e15-103da589a510.xhtml" target="_blank">Chapter 3</a>, <em>Extract, Transform, Load</em>, to this chapter because the main goal so far has been on understanding how training data can be retrieved and prepared and how models can be implemented through DL4J and Spark.</p>
+
+
+            </article>
+
+            
+        </section>
+    </body></html>

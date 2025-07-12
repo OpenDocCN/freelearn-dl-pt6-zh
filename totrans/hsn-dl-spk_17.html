@@ -1,0 +1,92 @@
+<html><head></head><body>
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Appendix B: Image Data Preparation for Spark</h1>
+                </header>
+            
+            <article>
+                
+<p class="mce-root">CNNs are among the main topics of this book. They are used in lots of practical applications of image classification and analysis. This Appendix explains how to create a <kbd>RDD&lt;DataSet&gt;</kbd> to train a CNN model for image classification.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Image preprocessing</h1>
+                </header>
+            
+            <article>
+                
+<p>The approach described in this section, image preprocessing into batches of files, relies on the ND4J <kbd>FileBatch</kbd> class (<a href="https://static.javadoc.io/org.nd4j/nd4j-common/1.0.0-beta3/org/nd4j/api/loader/FileBatch.html">https://static.javadoc.io/org.nd4j/nd4j-common/1.0.0-beta3/org/nd4j/api/loader/FileBatch.html</a>), which is available starting from the 1.0.0-beta3 release of that library. This class can store the raw content of multiple files in byte arrays (one per file), including their original paths. A <kbd>FileBatch</kbd> object can be stored to disk in ZIP format. This can reduce the number of disk reads that are required (because of fewer files) and network transfers when reading from remote storage (because of the ZIP compression). Typically, the original image files that are used to train a CNN make use of an efficient (in terms of space and network) compression format (such as JPEG or PNG). But when it comes to a cluster, there is the need to minimize disk reads due to latency issues with remote storage. Switching to one file read/transfer will be faster compared to <kbd>minibatchSize</kbd> remote file reads.</p>
+<p>Doing image preprocessing into batches comes with the following limitation in DL4J <span>– </span>the class labels need to be provided manually. Images should reside in directories whose names are their corresponding labels. Let's look at an example <span>– a</span>ssuming that we have three classes, that is, car, truck, and motorbike, the image directory structure should be as follows:</p>
+<pre>imageDir/car/image000.png<br/>imageDir/car/image001.png<br/>...<br/>imageDir/truck/image000.png<br/>imageDir/truck/image001.png<br/>...<br/>imageDir/motorbike/image000.png<br/>imageDir/motorbike/image001.png<br/>...</pre>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p class="mceNonEditable"/>
+<p class="mce-root">The names of the image files don't matter. All that matters is that the subdirectories of the root directory have the names of the classes.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Strategies</h1>
+                </header>
+            
+            <article>
+                
+<p>Two strategies are possible for preprocessing images before we starting training on a Spark cluster. The first strategy is about preprocessing the images locally by using the <kbd>SparkDataUtils</kbd> class of <kbd>dl4j-spark</kbd>. For example:</p>
+<pre>import org.datavec.image.loader.NativeImageLoader<br/>import org.deeplearning4j.spark.util.SparkDataUtils<br/>...<br/>val sourcePath = "/home/guglielmo/trainingImages"<br/>val sourceDir = new File(sourcePath)<br/>val destinationPath = "/home/guglielmo/preprocessedImages"<br/>val destDir = new File(destinationPath)<br/>val batchSize = 32<br/>SparkDataUtils.createFileBatchesLocal(sourceDir, NativeImageLoader.ALLOWED_FORMATS, true, destDir, batchSize)</pre>
+<p>In this example, <kbd>sourceDir</kbd> is the root directory of the local images, <kbd>destDir</kbd> is the local directory where the preprocessed images will be saved, and <kbd>batchSize</kbd> is the number of images to put into a single <kbd>FileBatch</kbd> object. The <kbd>createFileBatchesLocal</kbd> method is responsible for the import. Once all of the images have been preprocessed, the content of the destination, <kbd>dir</kbd>, can be copied/moved to a cluster for training purposes.</p>
+<p>The second strategy is about preprocessing the images using Spark. In those cases where the original images are stored in a distributed filesystem, such as HDFS, or a distributed object storage, such as S3, the <kbd>SparkDataUtils</kbd> class is still used, but a different method, <kbd>createFileBatchesLocal</kbd>, which expects a SparkContext among its arguments, has to be invoked. Here's an example:</p>
+<pre>val sourceDirectory = "hdfs:///guglielmo/trainingImages"; <br/>val destinationDirectory = "hdfs:///guglielmo/preprocessedImages";    <br/>val batchSize = 32<br/><br/>val conf = new SparkConf<br/>...<br/>val sparkContext = new JavaSparkContext(conf)<br/><br/>val filePaths = SparkUtils.listPaths(sparkContext, sourceDirectory, true, NativeImageLoader.ALLOWED_FORMATS)<br/>SparkDataUtils.createFileBatchesSpark(filePaths, destinationDirectory, batchSize, sparkContext)</pre>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p class="mceNonEditable"/>
+<p class="mce-root">In this case, the original images are stored in HDFS (the location is specified through <kbd>sourceDirectory</kbd>) and the preprocessed images are saved in HDFS as well (in a location specified through <kbd>destinationDirectory</kbd>). Before starting the preprocessing, the <kbd>SparkUtils</kbd> class of dl4j-spark has to be used to create a <kbd>JavaRDD&lt;String&gt;</kbd> (<kbd>filePaths</kbd>) of the source images paths. The <kbd>SparkDataUtils.createFileBatchesSpark</kbd> method takes <kbd>filePaths</kbd>, the destination HDFS path (<kbd>destinationDirectory</kbd>), the number of images (<kbd>batchSize</kbd>) to put into a single <kbd>FileBatch</kbd> object, and the SparkContext (<kbd>sparkContext</kbd>) as input. The training can start once all of the images have been preprocessed by Spark.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Training</h1>
+                </header>
+            
+            <article>
+                
+<p>Whatever preprocessing strategy (local or Spark) has been chosen, here is how training using Spark happens.</p>
+<p>First, you create the SparkContext, set up the <kbd>TrainingMaster</kbd><em>, </em>and build the neural network model using the following instances:</p>
+<pre>val conf = new SparkConf<br/>...<br/>val sparkContext = new JavaSparkContext(conf)<br/>val trainingMaster = ...<br/>val net:ComputationGraph = ...<br/>val sparkNet = new SparkComputationGraph(sparkContext, net, trainingMaster)<br/>sparkNet.setListeners(new PerformanceListener(10, true))</pre>
+<p>After this, a data loader needs to be created, as in the following example:</p>
+<pre>val imageHeightWidth = 64      <br/>val imageChannels = 3          <br/>val labelMaker = new ParentPathLabelGenerator<br/>val rr = new ImageRecordReader(imageHeightWidth, imageHeightWidth, imageChannels, labelMaker)<br/>rr.setLabels(new TinyImageNetDataSetIterator(1).getLabels())<br/>val numClasses = TinyImageNetFetcher.NUM_LABELS<br/>val loader = new RecordReaderFileBatchLoader(rr, minibatch, 1, numClasses)<br/>loader.setPreProcessor(new ImagePreProcessingScaler)</pre>
+<p>The input images have a resolution 64 x 64 pixels (<kbd>imageHeightWidth</kbd>) and three channels (RGB, <kbd>imageChannels</kbd>). 0-255 valued pixels are scaled by the loader through a range of 0-1 through the <kbd>ImagePreProcessingScaler</kbd> class (<a href="https://deeplearning4j.org/api/latest/org/nd4j/linalg/dataset/api/preprocessor/ImagePreProcessingScaler.html">https://deeplearning4j.org/api/latest/org/nd4j/linalg/dataset/api/preprocessor/ImagePreProcessingScaler.html</a>).</p>
+<p class="mce-root"/>
+<p>The training can then start, as in the following example:</p>
+<pre>val trainPath = "hdfs:///guglielmo/preprocessedImages"<br/>val pathsTrain = SparkUtils.listPaths(sc, trainPath)<br/>val numEpochs = 10<br/>for (i &lt;- 0 until numEpochs) {<br/>    println("--- Starting Training: Epoch {} of {} ---", (i + 1), numEpochs)<br/>    sparkNet.fitPaths(pathsTrain, loader)<br/>} </pre>
+
+
+            </article>
+
+            
+        </section>
+    </body></html>

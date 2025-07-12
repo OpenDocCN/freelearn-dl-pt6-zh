@@ -1,0 +1,196 @@
+<html><head></head><body>
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Monitoring and Debugging Neural Network Training</h1>
+                </header>
+            
+            <article>
+                
+<p>The previous chapter focused on training <strong>Multilayer Neural Networks</strong> (<strong>MNNs</strong>), and presenting code examples for CNNs and RNNs in particular. This chapter describes how monitoring a network can be done while training is in progress and how to use this monitoring information to tune a model. DL4J provides UI facilities for monitoring and tuning purposes, and will be the centerpiece of this chapter. These facilities also work in a training context with DL4J and Apache Spark. Examples for both situations (training using DL4J only and DL4J with Spark) will be presented. A list of potential baseline steps or tips for network training will also be discussed.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Monitoring and debugging neural networks during their training phases</h1>
+                </header>
+            
+            <article>
+                
+<p>Between <a href="fbec1d8a-a92f-4899-af0f-11f3d545e0eb.xhtml" target="_blank">Chapter 5</a>, <em>Convolutional Neural Networks</em>, and <a href="3b6f47c0-6e17-484b-ad30-b6f92eb0473c.xhtml" target="_blank">Chapter 7</a>, <em>Training Neural Networks with Spark</em>, a full example was presented regarding a CNN model's configuration and training. This was an example of image classification. The training data that was used came from the <kbd>MNIST</kbd> database. The training set contained 60,000 examples of handwritten digits, with each image labeled by an integer. Let's use the same example to show the visual facilities that are provided by DL4J for monitoring and debugging a network at training time.</p>
+<p>At the end of training, you can programmatically save the generated model as a ZIP archive and throw the <kbd>writeModel</kbd> method of the <kbd>ModelSerializer</kbd> class (<a href="https://static.javadoc.io/org.deeplearning4j/deeplearning4j-nn/0.9.1/org/deeplearning4j/util/ModelSerializer.html">https://static.javadoc.io/org.deeplearning4j/deeplearning4j-nn/0.9.1/org/deeplearning4j/util/ModelSerializer.html</a>):</p>
+<pre>ModelSerializer.writeModel(net, new File(System.getProperty("user.home") + "/minist-model.zip"), true)</pre>
+<p>The generated archive contains three files:</p>
+<ul>
+<li><kbd>configuration.json</kbd>: The model configuration in JSON format</li>
+<li><kbd>coefficients.bin</kbd>: The estimated coefficients</li>
+<li><kbd>updaterState.bin</kbd>: The historical states for updaters</li>
+</ul>
+<p>It is possible to implement a standalone UI using, for example, the JavaFX (<a href="https://en.wikipedia.org/wiki/JavaFX">https://en.wikipedia.org/wiki/JavaFX</a>) features of the JDK to test the model that is built after training a network. Check out the following screenshot:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/511f951b-e0af-43b9-b2b7-a91a2b157649.png" style="width:29.33em;height:18.08em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref">Figure 8.1: The test UI for the handwritten digit classification CNN example</div>
+<p>However, this is almost useless for monitoring purposes, where you would like to check in the current network status and the progress of its training in real time. The DL4J training UI, which we will go into the details of in the next two sections of this chapter, fulfills all of your monitoring needs. The implementation details of the test UI, as shown in the preceding screenshot, will be described in the next chapter, which discusses network evaluation <span>– </span>this implementation will make more sense after you've read this.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">8.1.1 The DL4J training UI</h1>
+                </header>
+            
+            <article>
+                
+<p>The DL4J framework provides a web user interface to visualize the current network status and progress of training in real time. It is used to understand how to tune a neural network. In this section, we are going to examine a use case with CNN training where only DL4J is involved. The next section will show the differences between when the training is done through both DL4J and Spark.</p>
+<p>The first thing we need to do is add the following dependency to the project:</p>
+<pre>groupId = org.deeplearning4j<br/> artifactId = deeplearning4j-ui_2.11<br/> version = 0.9.1</pre>
+<p>Then, we can start adding the necessary code.</p>
+<p>Let's initialize the backend for the UI:</p>
+<pre>val uiServer = UIServer.getInstance()</pre>
+<p>Configure the information that is generated for the network during its training:</p>
+<pre>val statsStorage:StatsStorage = new InMemoryStatsStorage()</pre>
+<p>In the preceding example, we have chosen to store the information in memory. It is also possible to store it on disk so that it can be loaded for later use:</p>
+<pre>val statsStorage:StatsStorage = new FileStatsStorage(file)</pre>
+<p>Add a listener (<a href="https://deeplearning4j.org/api/latest/org/deeplearning4j/ui/stats/StatsListener.html">https://deeplearning4j.org/api/latest/org/deeplearning4j/ui/stats/StatsListener.html</a>) so that you can collect information from the network while it is training:</p>
+<pre>val listenerFrequency = 1<br/>net.setListeners(new StatsListener(statsStorage, listenerFrequency))</pre>
+<p>Finally, to allow for visualization, attach the <kbd>StatsStorage</kbd> (<a href="https://deeplearning4j.org/api/latest/org/deeplearning4j/ui/storage/InMemoryStatsStorage.html">https://deeplearning4j.org/api/latest/org/deeplearning4j/ui/storage/InMemoryStatsStorage.html</a>) instance to the backend:</p>
+<pre>uiServer.attach(statsStorage)</pre>
+<p>By running the application as soon as the training starts (the <kbd>fit</kbd> method is executed), it is possible to access the UI through a web browser at the following URL:</p>
+<pre>http://localhost:&lt;ui_port&gt;/</pre>
+<p>The default listening port is <kbd>9000</kbd>. It is possible to choose a different port through the <kbd>org.deeplearning4j.ui.port</kbd> system property, for example:</p>
+<pre>-Dorg.deeplearning4j.ui.port=9999</pre>
+<p>The landing page of the UI is the <span class="packt_screen">Overview</span> page:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/e7faec0f-5f28-41db-9868-790981d5dff3.png"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref">Figure 8.2: The Overview page of the DL4J UI</div>
+<p>As we can see in the preceding screenshot, you can see four different sections. On the top left of the page there's the <span class="packt_screen">Score vs. Iteration</span> chart. It presents the loss function for the current minibatch. On the top right, there's information about the model and its training. On the bottom left, there is a chart presenting the ratio of parameters to update (by layer) for all networks in <span class="packt_screen">Weights vs. Iteration</span>. The values are displayed as logarithm base 10. On the bottom right, there is a chart presenting the standard deviations of updates, gradients, and activations. For this last chart, the values are displayed as logarithm base 10 too.</p>
+<p>Another page of the UI is the <span class="packt_screen">Model</span> page:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/710eef5e-3912-4676-8ba0-493957a80ec0.png" style="width:71.75em;height:33.67em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref">Figure 8.3: The Model page of the DL4J UI</div>
+<p class="mce-root"/>
+<p>It shows a graphical representation of the neural network. By clicking on a layer in the graph, detailed information about it is given:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1115 image-border" src="assets/ed5dd8ab-f2d5-4f8f-af8b-7c36e07ac4b8.png" style="width:55.58em;height:30.00em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref">Figure 8.4: Single layer details in the Model page of the DL4J UI</div>
+<p>On the right-hand side section of the page, we can find a table containing the details for the selected layer and a chart presenting the update to parameter ratio for this layer (as per the <span class="packt_screen">Overview</span> page). Scrolling down, we can also find in the same section, other charts presenting the layer activations over time, histograms of parameters, and updates for each parameter type and the learning <span class="packt_screen">Rate vs. Time</span>.</p>
+<p class="mce-root"/>
+<p>The third page of the UI is the <span class="packt_screen">System</span> page:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/d4b7e368-4574-4ff4-8813-0da2d6a5b5cd.png"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref">Figure 8.5: The System page of the DL4J UI</div>
+<p>It presents system information (JVM and off-heap memory utilization percentages, hardware, and software details) for each of the machines where the training is happening.</p>
+<p>The left menu of the UI presents a fourth item, <span class="packt_screen">Language</span>, which lists all of the supported language translations for this UI:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/20efa761-15e5-42cc-9a77-c2c0087e1b2d.png" style="width:12.33em;height:35.83em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref">Figure 8.6: The list of supported languages for the DL4J UI</div>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">8.1.2 The DL4J training UI and Spark</h1>
+                </header>
+            
+            <article>
+                
+<p>The DL4J UI can also be used when training and including Spark into the tech stack. The main difference with a case where only DL4J is involved is as follows: some conflicting dependencies require that UI and Spark are running on different JVMs. There are two possible alternatives:</p>
+<ol>
+<li>Collect and save the relevant training stats at runtime, and then visualize them offline later.</li>
+<li>Execute the DL4J UI and use the remote UI functionality in separate JVMs (servers). The data is then uploaded from the Spark master to the UI server.</li>
+</ol>
+<p>Let's take a look at how to implement an alternative to <em>Step 1</em>.</p>
+<p>Let's reference the CNN example we presented in <a href="fbec1d8a-a92f-4899-af0f-11f3d545e0eb.xhtml" target="_blank">Chapter 5</a>, <em>Convolutional Neural Networks</em>, in the <em>Hands-on CNN with Spark</em> section, once the Spark network has been created:</p>
+<pre>val sparkNet = new SparkDl4jMultiLayer(sc, conf, tm)</pre>
+<p>We need to create a <kbd>FileStatsStorage</kbd> object so that we can save the results to a file and set a listener for the Spark network:</p>
+<pre>val ss:StatsStorage = new FileStatsStorage(new File("NetworkTrainingStats.dl4j"))<br/> sparkNet.setListeners(ss, Collections.singletonList(new StatsListener(null)))</pre>
+<p>Later, we can load and display the saved data offline by implementing the following:</p>
+<pre>val statsStorage:StatsStorage = new FileStatsStorage("NetworkTrainingStats.dl4j")<br/> val uiServer = UIServer.getInstance()<br/> uiServer.attach(statsStorage)</pre>
+<p>Now, let's explore an alternative to <em>Step 2</em>.</p>
+<p>As we mentioned previously, the UI server needs to run on a separate JVM. From there, we need to start the UI server:</p>
+<pre>val uiServer = UIServer.getInstance()</pre>
+<p>Then, we need to enable the remote listener:</p>
+<pre>uiServer.enableRemoteListener()</pre>
+<p>The dependency that we need to set is the same one (DL4J UI) that we used for the example we presented in the <em>The DL4J training UI</em> section:</p>
+<pre>groupId = org.deeplearning4j<br/> artifactId = deeplearning4j-ui_2.11<br/> version = 0.9.1</pre>
+<p>In the Spark application (we are still referring to the CNN example we presented in <a href="fbec1d8a-a92f-4899-af0f-11f3d545e0eb.xhtml" target="_blank">Chapter 5</a>, <em>Convolutional Neural Networks</em>), after the Spark network has been created, we need to create an instance of <kbd>RemoteUIStatsStorageRouter</kbd> (<a href="https://static.javadoc.io/org.deeplearning4j/deeplearning4j-core/0.9.1/org/deeplearning4j/api/storage/impl/RemoteUIStatsStorageRouter.html">https://static.javadoc.io/org.deeplearning4j/deeplearning4j-core/0.9.1/org/deeplearning4j/api/storage/impl/RemoteUIStatsStorageRouter.html</a>), which asynchronously posts all updates to the remote UI and finally sets it as a listener for the Spark network:</p>
+<pre>val sparkNet = new SparkDl4jMultiLayer(sc, conf, tm)<br/> val remoteUIRouter:StatsStorageRouter = new RemoteUIStatsStorageRouter("http://UI_HOST_IP:UI_HOST_PORT")<br/> sparkNet.setListeners(remoteUIRouter, Collections.singletonList(new StatsListener(null)))</pre>
+<p><kbd>UI_HOST_IP</kbd> is the IP address of the machine where the UI server is running and <kbd>UI_HOST_PORT</kbd> is the listening port of the UI server.</p>
+<p>To avoid dependency conflicts with Spark, we need to add to the dependency list for this application, <span>and not the full DL4J UI model:</span></p>
+<pre>groupId = org.deeplearning4j<br/> artifactId = deeplearning4j-ui-model<br/> version = 0.9.1</pre>
+<p> Choosing the alternative to <em>Step 2</em>, the monitoring of the network happens in real-time during training and not offline after the training execution has completed.</p>
+<p>The DL4J UI pages and content are the same as those shown for the scenario of network training without Spark (<em>The DL4J training UI</em> section of this chapter).</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">8.1.3 Using visualization to tune a network</h1>
+                </header>
+            
+            <article>
+                
+<p>Now, let's look at how we can interpret the visual results presented in the DL4J UI and use them to tune a neural network. Let's start from the <span class="packt_screen">Overview</span> page. The <span class="packt_screen">Model</span> <span class="packt_screen">Score vs. Iteration</span> chart, which presents the loss function for the current minibatch, should go down over time (as shown in the example in <em>Figure 8.2</em>). Regardless of whether the observed score should increase consistently, the learning rate is likely set too high. In this case, it should be reduced until the scores become more stable. Observing increasing scores could also be indicative of other issues, such as incorrect data normalization. On the other hand, if the score is flat or decreases very slowly, this means that the learning rate may be too low or that optimization is difficult. In this second case, training should be tried again using a different updater.</p>
+<p>In the example presented in the <em>The DL4J training UI</em> section, the Nesterov's momentum updater was used (see <em>Figure 8.4</em>) and came up with good results (see <em>Figure 8.2</em>). You can change the updater through the <kbd>updater</kbd> method of the <kbd>NeuralNetConfiguration.Builder</kbd> class:</p>
+<pre>val conf = new NeuralNetConfiguration.Builder()<br/> ...<br/>     .updater(Updater.NESTEROVS)</pre>
+<p>Some noise in this line chart should be expected, but if the scores vary quite significantly between runs, this is a problem. The root cause could be one of the issues that we mentioned previously (learning rate, normalization) or data shuffling. Also, setting the minibatch size to a very small number of examples can also contribute in terms of noise for this chart <span>– </span>this might also lead to optimization difficulties.</p>
+<p>Other important information that's useful for understanding how to tune a neural network during training comes from combining some details from the <span class="packt_screen">Overview</span> and <span class="packt_screen">Model</span> pages. The mean magnitude for parameters (or updates) is the average of their absolute values at a given time step. At training runtime, the ratio of mean magnitudes is provided by the <span class="packt_screen">Overview</span> page (for the overall network) and the <span class="packt_screen">Model</span> page (for a given layer). We can use these ratio values when selecting a learning rate. The general rule, which applies to most part of the networks (not all of them, but it is always a good starting point) is that the ratio should be around 0.001 (1:1000), which in the <em>log<sub>10</sub></em> chart (like those in the <span class="packt_screen">Overview</span> and <span class="packt_screen">Model</span> pages) corresponds to -3. When the ratio diverges significantly from this value, it means that the network parameters may be too unstable or that they may change too slowly to learn useful features. By adjusting the learning rate for the overall network or one or more layers, it is possible to change the ratio of mean magnitudes.</p>
+<p>Now, let's explore other useful information from the <span class="packt_screen">Model</span> page that could help a lot during the tuning process.</p>
+<p>The <span class="packt_screen">Layer Activations</span> chart of the <span class="packt_screen">Model</span> page (see the following diagram) can be used to detect vanishing or exploding activations. This chart should ideally stabilize over time. A good standard deviation for activations is between 0.5 and 2.0.</p>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p>Values significantly outside of this range indicate that some problem in terms of lack of data normalization, high learning rate, or poor weight initialization is happening:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/f92605b4-e75e-4f27-9df9-9f87cdd7d38b.png" style="width:50.75em;height:22.00em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref">Figure 8.7: The Layer Activations chart of the Model page</div>
+<p>The <span class="packt_screen">Layer Parameters Histogram</span> chart for the weight and biases of the <span class="packt_screen">Model</span> page (see the following diagram), which is displayed for the most recent iteration only, provides other usual insights:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/a4514051-af05-4a15-8848-4d13083c5e7e.png" style="width:50.75em;height:20.50em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref">Figure 8.8: The Layer Parameters Histogram chart (weights)</div>
+<p>After some time, during the training process, these histograms for weights should assume an approximately Gaussian normal distribution, while for biases, they generally start at <span class="packt_screen">0</span> and then usually end up being approximately Gaussian. Parameters that are diverging toward +/- infinity may be a good sign of too high a learning rate or insufficient regularization on the network. Biases becoming very large means that the distribution of classes is very imbalanced.</p>
+<p>The <span class="packt_screen">Layer Updates Histogram</span> chart for weight and biases of the <span class="packt_screen">Model</span> page (see the following diagram), which is displayed for the most recent iteration only for the <span class="packt_screen">Layer Parameters Histogram</span>, provides other usual information too:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/0b11ae09-d3ef-4dc5-9f44-95f32b1ec88a.png" style="width:50.42em;height:20.33em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref">Figure 8.9: The Layer Updates Histogram chart (weights)</div>
+<p>This is the same as the parameter graphs <span>– </span>after some time, they should assume an approximately Gaussian normal distribution. Very large values indicate exploding gradients in the network. In those cases, the root cause could be in weight initialization, input or labels data normalization, or the learning rate.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Summary</h1>
+                </header>
+            
+            <article>
+                
+<p>In this chapter, we have learned about the details of the UI that DL4J provides for the monitoring and tuning purposes of a neural network at training time. We have also learned how to use the UI when training with DL4J and when Apache Spark is part of the game too. Finally, we understood what useful insights we could obtain from the charts that are presented in the DL4J UI pages to spot potential issues and some ways to remedy them. </p>
+<p>The next chapter focuses on how to evaluate a neural network so that we can understand the accuracy of a model. Different evaluation techniques will be presented before we dive into practical examples of implementation through the DL4J API and the Spark API.</p>
+
+
+            </article>
+
+            
+        </section>
+    </body></html>

@@ -1,0 +1,853 @@
+<html><head></head><body>
+        <section>
+
+                            <header>
+                    <h1 class="header-title">The Apache Spark Ecosystem</h1>
+                </header>
+            
+            <article>
+                
+<p class="mce-root">Apache Spark (<a href="http://spark.apache.org/">http://spark.apache.org/</a>) is an open source, fast cluster-computing platform. It was originally created by AMPLab at the University of California, Berkeley. Its source code was later donated to the Apache Software Foundation (<a href="https://www.apache.org/">https://www.apache.org/</a>). Spark comes with a very fast computation speed because data is loaded into distributed memory (RAM) across a cluster of machines. Not only can data be quickly transformed, but also cached on demand for a variety of use cases. Compared to Hadoop MapReduce, it runs programs up to 100 times faster when the data fits in memory, or 10 times faster on disk. Spark provides support for four programming languages: Java, Scala, Python, and R. This book covers the Spark APIs (and deep learning frameworks) for Scala (<a href="https://www.scala-lang.org/">https://www.scala-lang.org/</a>) and Python (<a href="https://www.python.org/">https://www.python.org/</a>) only.</p>
+<p class="mce-root"><span>This chapter will cover the following topics:</span></p>
+<ul>
+<li class="mce-root">Apache Spark fundamentals</li>
+<li>Getting Spark</li>
+<li><span><strong>Resilient Distributed Dataset</strong> (</span><strong>RDD</strong>) programming</li>
+<li>Spark SQL, Datasets, and DataFrames</li>
+<li>Spark Streaming</li>
+<li>Cluster mode using a different manager</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Apache Spark fundamentals</h1>
+                </header>
+            
+            <article>
+                
+<p>This section covers the Apache Spark fundamentals. It is important to become very familiar with the concepts that are presented here before moving on to the next chapters, where we'll be exploring the available APIs.</p>
+<p>As mentioned in the introduction to this chapter, the Spark engine processes data in distributed memory across the nodes of a cluster. The following diagram shows the logical structure of how a typical Spark job processes information:<br/></p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1099 image-border" src="assets/eeaba019-7780-4cff-b4ae-4826b460da54.png" style="width:85.33em;height:17.58em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref">Figure 1.1</div>
+<p>Spark executes a job in the following way:</p>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/443b4632-a826-4125-8f2e-f94068acc6c5.png" style="width:40.58em;height:29.08em;"/></div>
+<div class="CDPAlignCenter CDPAlign packt_figref">Figure 1.2</div>
+<p class="mce-root"/>
+<p>The <strong>Master</strong> controls how data is partitioned and takes advantage of data locality while keeping track of all the distributed data computation on the <strong>Slave</strong> machines. If a certain Slave machine becomes unavailable, the data on that machine is reconstructed on another available machine(s). In standalone mode, the Master is a single point of failure. This chapter's <em>Cluster mode using different managers</em> section covers the possible running modes and explains fault tolerance in Spark.</p>
+<p>Spark comes with five major components:</p>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/a81796d6-ff55-4a8f-9210-a8fd4335a2b6.png" style="width:24.08em;height:12.58em;"/></div>
+<div class="CDPAlignCenter CDPAlign packt_figref">Figure 1.3</div>
+<p>These components are as follows:</p>
+<ul>
+<li>The core engine.</li>
+<li><strong>Spark SQL</strong>: A module for structured data processing.</li>
+<li><strong>Spark Streaming</strong>: This extends the core Spark API. It allows live data stream processing. Its strengths include scalability, high throughput, and fault tolerance.</li>
+<li><strong>MLib</strong>: The Spark machine learning library.</li>
+<li><strong>GraphX</strong>: Graphs and graph-parallel computation algorithms.</li>
+</ul>
+<p>Spark can access data that's stored in different systems, such as HDFS, Cassandra, MongoDB, relational databases, and also cloud storage services such as Amazon S3 and Azure Data Lake Storage.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Getting Spark</h1>
+                </header>
+            
+            <article>
+                
+<p>Now, let's get hands-on with Spark so that we can go deeper into the core APIs and libraries. In all of the chapters of this book, I will be referring to the 2.2.1 release of Spark, however, several examples that are presented here should work with the 2.0 release or later. I will put a note when an example is specifically for 2.2+ releases only.</p>
+<p>First of all, you need to download Spark from its official website (<a href="https://spark.apache.org/downloads.html" target="_blank">https://spark.apache.org/downloads.html</a>). The download page should look like this:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1100 image-border" src="assets/f94983ad-59e1-4a1b-9846-824a1483a3b6.png" style="width:64.08em;height:18.08em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref">Figure 1.4</div>
+<p>You need to have JDK 1.8+ and Python 2.7+ or 3.4+ (only if you need to develop using this language). Spark 2.2.1 supports Scala 2.11. The JDK needs to be present on your user path system variable, though, alternatively, you could have your user <kbd>JAVA_HOME</kbd> environment variable pointing to a JDK installation.</p>
+<p>Extract the content of the downloaded archive to any local directory. Move to the <kbd>$SPARK_HOME/bin</kbd> directory. There, among the other executables, you will find the interactive Spark shells for Scala and Python. They are the best way to get familiar with this framework. In this chapter, I am going to present examples that you can run through these shells. </p>
+<p>You can run a Scala shell using the following command:</p>
+<pre><strong>$SPARK_HOME/bin/spark-shell.sh</strong></pre>
+<p>If you don't specify an argument, Spark assumes that you're running locally in standalone mode. Here's the expected output to the console:</p>
+<pre><strong>Spark context Web UI available at http://10.72.0.2:4040</strong><br/><strong>Spark context available as 'sc' (master = local[*], app id = local-1518131682342).</strong><br/><strong>Spark session available as 'spark'.</strong><br/><strong>Welcome to</strong><br/><strong>      ____              __</strong><br/><strong>     / __/__  ___ _____/ /__</strong><br/><strong>    _\ \/ _ \/ _ `/ __/  '_/</strong><br/><strong>   /___/ .__/\_,_/_/ /_/\_\   version 2.2.1</strong><br/><strong>      /_/</strong><br/> <br/><strong>Using Scala version 2.11.8 (Java HotSpot(TM) 64-Bit Server VM, Java 1.8.0_91)</strong><br/><strong>Type in expressions to have them evaluated.</strong><br/><strong>Type :help for more information.</strong><br/> <br/><strong>scala&gt;</strong></pre>
+<p>The web UI is available at the following URL: <kbd>http://&lt;host&gt;:4040</kbd>.</p>
+<p>It will give you the following output:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/8c9ffd02-bce0-4053-9993-0e7524190af5.png" style="width:49.42em;height:35.50em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref">Figure 1.5</div>
+<p>From there, you can check the status of your jobs and executors.</p>
+<p>From the output of the console startup, you will notice that two built-in variables, <kbd>sc</kbd> and <kbd>spark</kbd>, are available. <kbd>sc</kbd> represents the <kbd>SparkContext</kbd> (<a href="http://spark.apache.org/docs/latest/api/scala/index.html#org.apache.spark.SparkContext">http://spark.apache.org/docs/latest/api/scala/index.html#org.apache.spark.SparkContext</a>), which in Spark &lt; 2.0 was the entry point for each application. Through the Spark context (and its specializations), you can get input data from data sources, create and manipulate RDDs (<a href="http://spark.apache.org/docs/latest/api/scala/index.html#org.apache.spark.rdd.RDD">http://spark.apache.org/docs/latest/api/scala/index.html#org.apache.spark.rdd.RDD</a>), and attain the Spark primary abstraction before 2.0. The <em>RDD programming</em> section will cover this topic and other operations in more detail. Starting from release 2.0, a new entry point, <kbd>SparkSession</kbd> (<a href="http://spark.apache.org/docs/latest/api/scala/index.html#org.apache.spark.sql.SparkSession" target="_blank">http://spark.apache.org/docs/latest/api/scala/index.html#org.apache.spark.sql.SparkSession</a>), and a new main data abstraction, the Dataset (<a href="http://spark.apache.org/docs/latest/api/scala/index.html#org.apache.spark.sql.Dataset" target="_blank">http://spark.apache.org/docs/latest/api/scala/index.html#org.apache.spark.sql.Dataset</a>), were introduced. More details on them are presented in the following sections. The <kbd>SparkContext</kbd> is still part of the Spark API so that compatibility with existing frameworks not supporting Spark sessions is ensured, but the direction the project has taken is to move development to use the <kbd>SparkSession</kbd>.</p>
+<p>Here's an example of how to read and manipulate a text file and put it into a Dataset using the Spark shell (the file used in this example is part of the resources for the examples that are bundled with the Spark distribution):</p>
+<pre><strong>scala&gt; spark.read.textFile("/usr/spark-2.2.1/examples/src/main/resources/people.txt")</strong><br/><strong>res5: org.apache.spark.sql.Dataset[String] = [value: string]</strong></pre>
+<p>The result is a Dataset instance that contains the file lines. You can then make several operations on this Dataset, such as counting the number of lines:</p>
+<pre><strong>scala&gt; res5.count()</strong><br/><strong>res6: Long = 3</strong></pre>
+<p>You can also get the first line of the Dataset:</p>
+<pre><strong>scala&gt; res5.first()</strong><br/><strong>res7: String = Michael, 29</strong></pre>
+<p>In this example, we used a path on the local filesystem. In these cases, the file should be accessible from the same path by all of the workers, so you will need to copy the file across all workers or use a network-mounted shared filesystem.</p>
+<p>To close a shell, you can type the following:</p>
+<pre><strong>:quit</strong></pre>
+<p>To see the list of all of the available shell commands, type the following:</p>
+<pre class="mce-root"><strong>scala&gt; :help</strong></pre>
+<p class="mce-root">All commands can be abbreviated, for example, <kbd>:he</kbd> instead of <kbd>:help</kbd>. </p>
+<p>The following is the list of commands:</p>
+<table border="1" style="border-collapse: collapse;width: 100%">
+<tbody>
+<tr>
+<td><strong>Commands</strong></td>
+<td> <strong>Purpose</strong></td>
+</tr>
+<tr>
+<td><kbd>:edit &lt;id&gt;|&lt;line&gt;</kbd> </td>
+<td>Edit history</td>
+</tr>
+<tr>
+<td><kbd>:help [command]</kbd> </td>
+<td>Prints summary or command-specific help</td>
+</tr>
+<tr>
+<td><kbd>:history [num]</kbd>  </td>
+<td>Shows history (optional <kbd>num</kbd> is commands to show)</td>
+</tr>
+<tr>
+<td><kbd>:h? &lt;string&gt;</kbd>    </td>
+<td>Search history</td>
+</tr>
+<tr>
+<td><kbd>:imports [name name ...]</kbd> </td>
+<td>Show import history, identifying the sources of names</td>
+</tr>
+<tr>
+<td><kbd>:implicits [-v]</kbd>          </td>
+<td>Show the <kbd>implicits</kbd> in scope</td>
+</tr>
+<tr>
+<td><kbd>:javap &lt;path|class&gt;</kbd> </td>
+<td>Disassemble a file or class name</td>
+</tr>
+<tr>
+<td><kbd>:line &lt;id&gt;|&lt;line&gt;</kbd>  </td>
+<td>Place line(s) at the end of history</td>
+</tr>
+<tr>
+<td><kbd>:load &lt;path&gt;</kbd> </td>
+<td>Interpret lines in a file</td>
+</tr>
+<tr>
+<td><kbd>:paste [-raw] [path]</kbd>   </td>
+<td>Enter paste mode or paste a file</td>
+</tr>
+<tr>
+<td><kbd>:power</kbd>             </td>
+<td>Enable power user mode</td>
+</tr>
+<tr>
+<td><kbd>:quit</kbd>       </td>
+<td>Exit the interpreter</td>
+</tr>
+<tr>
+<td><kbd>:replay [options]</kbd>     </td>
+<td>Reset the <kbd>repl</kbd> and <kbd>replay</kbd> on all previous commands</td>
+</tr>
+<tr>
+<td><kbd>:require &lt;path&gt;</kbd>  </td>
+<td>Add a <kbd>jar</kbd> to the classpath</td>
+</tr>
+<tr>
+<td><kbd>:reset [options]</kbd>   </td>
+<td>Reset the <kbd>repl</kbd> to its initial state, forgetting all session entries</td>
+</tr>
+<tr>
+<td><kbd>:save &lt;path&gt;</kbd></td>
+<td>Save the replayable session to a file</td>
+</tr>
+<tr>
+<td><kbd>:sh &lt;command line&gt;</kbd>     </td>
+<td>Run a shell command (the result is <kbd>implicitly =&gt; List[String]</kbd>)</td>
+</tr>
+<tr>
+<td><kbd>:settings &lt;options&gt;</kbd> </td>
+<td>Update compiler options, if possible; see <kbd>reset</kbd></td>
+</tr>
+<tr>
+<td><kbd>:silent</kbd>          </td>
+<td>Disable or enable the automatic printing of results</td>
+</tr>
+<tr>
+<td><kbd>:type [-v] &lt;expr&gt;</kbd>    </td>
+<td>Display the type of expression without evaluating it</td>
+</tr>
+<tr>
+<td><kbd>:kind [-v] &lt;expr&gt;</kbd></td>
+<td>Display the kind of expression</td>
+</tr>
+<tr>
+<td><kbd>:warnings</kbd>      </td>
+<td>Show the suppressed warnings from the most recent line that had any</td>
+</tr>
+</tbody>
+</table>
+<p> </p>
+<p>Like Scala, an interactive shell is available for Python. You can run it using the following command:</p>
+<pre><strong>$SPARK_HOME/bin/pyspark.sh</strong></pre>
+<p class="mce-root"/>
+<p>A built-in variable named <kbd>spark</kbd> representing the <kbd>SparkSession</kbd> is available. You can do the same things as for the Scala shell:</p>
+<pre><strong>&gt;&gt;&gt; textFileDf = spark.read.text("/usr/spark-2.2.1/examples/src/main/resources/people.txt")</strong><br/><strong>&gt;&gt;&gt; textFileDf.count()</strong><br/><strong>3</strong><br/><strong>&gt;&gt;&gt; textFileDf.first()</strong><br/><strong>Row(value='Michael, 29')</strong></pre>
+<p>Unlike Java and Scala, Python is more dynamic and is not strongly typed. Therefore, a <kbd>DataSet</kbd> in Python is a <kbd>DataSet[Row]</kbd>, but you can call it a DataFrame so that it's consistent with the DataFrame concept of the Pandas framework (<a href="https://pandas.pydata.org/">https://pandas.pydata.org/</a>).</p>
+<p>To close a Python shell, you can type the following:</p>
+<pre><strong>quit()</strong></pre>
+<p>Interactive shells aren't the only choice for running code in Spark. It is also possible to implement self-contained applications. Here's an example of reading and manipulating a file in Scala:</p>
+<pre>import org.apache.spark.sql.SparkSession<br/> <br/>object SimpleApp {<br/>  def main(args: Array[String]) {<br/>    val logFile = "/usr/spark-2.2.1/examples/src/main/resources/people.txt"<br/>    val spark = SparkSession.builder.master("local").appName("Simple Application").getOrCreate()<br/>    val logData = spark.read.textFile(logFile).cache()<br/>    val numAs = logData.filter(line =&gt; line.contains("a")).count()<br/>    val numBs = logData.filter(line =&gt; line.contains("b")).count()<br/>    println(s"Lines with a: $numAs, Lines with b: $numBs")<br/>    spark.stop()<br/>  }<br/>}</pre>
+<p>Applications should define a <kbd>main()</kbd> method instead of extending <kbd>scala.App</kbd>. Note the code to create <kbd>SparkSession</kbd>:</p>
+<pre>val spark = SparkSession.builder.master("local").appName("Simple Application").getOrCreate()</pre>
+<p>It follows the builder factory design pattern.</p>
+<p class="mce-root"/>
+<p>Always explicitly close the session before ending the program execution:</p>
+<pre>spark.stop()</pre>
+<p>To build the application, you can use a build tool of your choice (<kbd>Maven</kbd>, <kbd>sbt</kbd>, or <kbd>Gradle</kbd>), adding the dependencies from Spark 2.2.1 and Scala 2.11. Once a JAR file has been generated, you can use the <kbd>$SPARK_HOME/bin/spark-submit</kbd> command to execute it, specifying the JAR filename, the Spark master URL, and a list of optional parameters, including the job name, the main class, the maximum memory to be used by each executor, and many others.</p>
+<p>The same self-contained application could have been implemented in Python as well:</p>
+<pre>from pyspark.sql import SparkSession<br/> <br/>logFile = "YOUR_SPARK_HOME/README.md"  # Should be some file on your system<br/>spark = SparkSession.builder().appName(appName).master(master).getOrCreate()<br/>logData = spark.read.text(logFile).cache()<br/> <br/>numAs = logData.filter(logData.value.contains('a')).count()<br/>numBs = logData.filter(logData.value.contains('b')).count()<br/> <br/>print("Lines with a: %i, lines with b: %i" % (numAs, numBs))<br/> <br/>spark.stop()</pre>
+<p>This can be saved in a <kbd>.py</kbd> file and submitted through the same <kbd>$SPARK_HOME/bin/spark-submit</kbd> command for execution.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">RDD programming</h1>
+                </header>
+            
+            <article>
+                
+<p>In general, every Spark application is a driver program that runs the logic that has been implemented for it and executes parallel operations on a cluster. In accordance with the previous definition, the main abstraction provided by the core Spark framework is the RDD. It is an immutable distributed collection of data that is partitioned across machines in a cluster. Operations on RDDs can happen in parallel.</p>
+<p>Two types of operations are available on an RDD:</p>
+<ul>
+<li>Transformations</li>
+<li>Actions</li>
+</ul>
+<p>A <strong>transformation</strong> is an operation on an RDD that produces another RDD, while an <strong>action</strong> is an operation that triggers some computation and then returns a value to the master or can be persisted to a storage system. Transformations are lazy—they aren't executed until an action is invoked. Here's the strength point of Spark—Spark masters and their drivers both remember the transformations that have been applied to an RDD, so if a partition is lost (for example, a slave goes down), it can be easily rebuilt on some other node of the cluster.</p>
+<p>The following table lists some of the common transformations supported by Spark:</p>
+<table border="1" style="border-collapse: collapse;width: 100%">
+<tbody>
+<tr>
+<td><strong>Transformation</strong></td>
+<td><strong>Purpose</strong></td>
+</tr>
+<tr>
+<td><kbd>map(func)</kbd></td>
+<td>Returns a new RDD by applying the <kbd>func</kbd> function on each data element of the source RDD.</td>
+</tr>
+<tr>
+<td><kbd>filter(func)</kbd></td>
+<td>Returns a new RDD by selecting those data elements for which the applied <kbd>func</kbd> function returns <kbd>true</kbd>.</td>
+</tr>
+<tr>
+<td><kbd>flatMap(func)</kbd></td>
+<td>This transformation is similar to <kbd>map</kbd>: the difference is that each input item can be mapped to zero or multiple output items (the applied <kbd>func</kbd> function should return a <kbd>Seq</kbd>).</td>
+</tr>
+<tr>
+<td><kbd>union(otherRdd)</kbd></td>
+<td>Returns a new RDD that contains the union of the elements in the source RDD and the <kbd>otherRdd</kbd> argument.</td>
+</tr>
+<tr>
+<td><kbd>distinct([numPartitions])</kbd></td>
+<td>Returns a new RDD that contains only the distinct elements of the source RDD.</td>
+</tr>
+<tr>
+<td><kbd>groupByKey([numPartiotions])</kbd></td>
+<td>When called on an RDD of (<em>K</em>, <em>V</em>) pairs, it returns an RDD of (<em>K</em>, <em>Iterable&lt;V&gt;</em>) pairs. By default, the level of parallelism in the output RDD depends on the number of partitions of the source RDD. You can pass an optional <kbd>numPartitions</kbd> argument to set a different number of partitions.</td>
+</tr>
+<tr>
+<td><kbd>reduceByKey(func, [numPartitions])</kbd></td>
+<td>
+<p class="mce-root">When called on an RDD of (<em>K</em>, <em>V</em>) pairs, it returns an RDD of (<em>K</em>, <em>V</em>) pairs, where the values for each key are aggregated using the given reduce <kbd>func</kbd> function, which must be of type <em>(V</em>,<em>V) =&gt; V</em>. The same as for the <kbd>groupByKey</kbd> transformation, the number of reduce partitions is configurable through an optional <kbd>numPartitions</kbd> second argument. </p>
+</td>
+</tr>
+<tr>
+<td><kbd>sortByKey([ascending], [numPartitions])</kbd></td>
+<td>When called on an RDD of (<em>K</em>, <em>V</em>) pairs, it returns an RDD of (<em>K</em>, <em>V</em>) pairs sorted by keys in ascending or descending order, as specified in the Boolean <kbd>ascending</kbd> argument. The number of partitions for the output RDD is configurable through an optional <kbd>numPartitions</kbd> second argument.</td>
+</tr>
+<tr>
+<td><kbd>join(otherRdd, [numPartitions])</kbd></td>
+<td>When called on RDDs of type (<em>K</em>, <em>V</em>) and (<em>K</em>, <em>W</em>), it returns an RDD of (<em>K</em>, (<em>V</em>, <em>W</em>)) pairs with all pairs of elements for each key. It supports left outer join, right outer join, and full outer join. The number of partitions for the output RDD is configurable through an optional <kbd>numPartitions</kbd> second argument.</td>
+</tr>
+</tbody>
+</table>
+<p> </p>
+<p>The following table lists some of the common actions supported by Spark:</p>
+<table border="1" style="border-collapse: collapse;width: 100%">
+<tbody>
+<tr>
+<td><strong>Action</strong></td>
+<td><strong>Purpose</strong></td>
+</tr>
+<tr>
+<td><kbd>reduce(func)</kbd></td>
+<td>Aggregates the elements of an RDD using a given function, <kbd>func</kbd> (this takes two arguments and returns one). To ensure the correct parallelism at compute time, the reduce function, <kbd>func</kbd>, has to be commutative and associative.</td>
+</tr>
+<tr>
+<td><kbd>collect()</kbd></td>
+<td>Returns all the elements of an RDD as an array to the driver.</td>
+</tr>
+<tr>
+<td><kbd>count()</kbd></td>
+<td>Returns the total number of elements in an RDD.</td>
+</tr>
+<tr>
+<td><kbd>first()</kbd></td>
+<td>Returns the first element of an RDD.</td>
+</tr>
+<tr>
+<td><kbd>take(n)</kbd></td>
+<td>Returns an array containing the first <em>n</em> elements of an RDD.</td>
+</tr>
+<tr>
+<td><kbd>foreach(func)</kbd></td>
+<td>Executes the <kbd>func</kbd> function on each element of an RDD.</td>
+</tr>
+<tr>
+<td><kbd>saveAsTextFile(path)</kbd></td>
+<td>Writes the elements of an RDD as a text file in a given directory (with the absolute location specified through the <kbd>path</kbd> argument) in the local filesystem, HDFS, or any other Hadoop-supported filesystem. This is available for Scala and Java only.</td>
+</tr>
+<tr>
+<td><kbd>countByKey()</kbd></td>
+<td>This action is only available on RDDs of type (<em>K</em>, <em>V</em>) <span>– </span>it returns a hashmap of (<em>K</em>, <em>Int</em>) pairs, where <em>K</em> is a key of the source RDD and its value is the count for that given key, <em>K</em>.</td>
+</tr>
+</tbody>
+</table>
+<p class="mce-root"/>
+<p>Now, let's understand the concepts of transformation and action through an example that could be executed in the Scala shell—this finds the <em>N</em> most commonly used words in an input text file. The following diagram depicts a potential implementation for this problem:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/d5572d5c-5e5e-42db-8f01-0c624d1dc699.png"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref">Figure 1.6</div>
+<p>Let's translate this into code.</p>
+<p class="mce-root"><span>First of all, let's load the content of a text file into an RDD of strings:</span></p>
+<pre><strong>scala&gt; val spiderman = sc.textFile("/usr/spark-2.2.1/tests/spiderman.txt")</strong><br/><strong>spiderman: org.apache.spark.rdd.RDD[String] = /usr/spark-2.2.1/tests/spiderman.txt MapPartitionsRDD[1] at textFile at &lt;console&gt;:24</strong></pre>
+<p>Then, we will apply the necessary transformations and actions:</p>
+<pre><strong>scala&gt; val topWordCount = spiderman.flatMap(str=&gt;str.split(" ")).filter(!_.isEmpty).map(word=&gt;(word,1)).reduceByKey(_+_).map{case(word, count) =&gt; (count, word)}.sortByKey(false)</strong><br/><strong>topWordCount: org.apache.spark.rdd.RDD[(Int, String)] = ShuffledRDD[9] at sortByKey at &lt;console&gt;:26</strong></pre>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p>Here, we have the following:</p>
+<ul>
+<li><kbd>flatMap(str=&gt;str.split(" "))</kbd>: Splits each line into single words</li>
+<li><kbd>filter(!_.isEmpty)</kbd>: Removes empty strings</li>
+<li><kbd>map(word=&gt;(word,1))</kbd>: Maps each word into a key-value pair</li>
+<li><kbd>reduceByKey(_+_)</kbd>: Aggregates the count</li>
+<li><kbd>map{case(word, count) =&gt; (count, word)}</kbd>: Reverses the <kbd>(word, count)</kbd> pairs to <kbd>(count, word)</kbd></li>
+<li><kbd>sortByKey(false)</kbd>: Sorts by descending order</li>
+</ul>
+<p>Finally, print the five most used words in the input content to the console:</p>
+<pre><strong>scala&gt; topWordCount.take(5).foreach(x=&gt;println(x))</strong><br/><strong>(34,the)</strong><br/><strong>(28,and)</strong><br/><strong>(19,of)</strong><br/><strong>(19,in)</strong><br/><strong>(16,Spider-Man)</strong></pre>
+<p>The same could be achieved in Python in the following way:</p>
+<pre>from operator import add<br/>spiderman = spark.read.text("/usr/spark-2.2.1/tests/spiderman.txt")<br/>lines = spiderman.rdd.map(lambda r: r[0])<br/>counts = lines.flatMap(lambda x: x.split(' ')) \<br/>                  .map(lambda x: (x, 1)) \<br/>                  .reduceByKey(add) \<br/>                  .map(lambda x: (x[1],x[0])) \<br/>                  .sortByKey(False)</pre>
+<p>The result, of course, is the same as for the Scala example:</p>
+<pre>&gt;&gt; counts.take(5)<br/>[(34, 'the'), (28, 'and'), (19, 'in'), (19, 'of'), (16, 'Spider-Man')]</pre>
+<p>Spark can persist RDDs (and Datasets as well) in memory while executing operations on them. Persisting and caching are synonyms in Spark. When persisting an RDD, each node of the cluster stores the RDD partitions that it needs to compute in memory and reuses them in further actions on the same RDD (or RDDs that have been derived from it through some transformations). This is the reason why future actions execute much faster. It is possible to mark an RDD to be persisted using its <kbd>persist()</kbd> method. The first time an action is executed on it, it will be kept in memory on the cluster's nodes. The Spark cache is fault-tolerant—this means that, if for any reason all of the partitions of an RDD are lost, it will be automatically recalculated using the transformations that created it. A persisted RDD can be stored using different storage levels. Levels can be set by passing a <kbd>StorageLevel</kbd> object to the <kbd>persist()</kbd> method of the RDD. The following table lists all of the available storage levels and their meanings:<br/></p>
+<table border="1" style="border-collapse: collapse;width: 100%">
+<tbody>
+<tr>
+<td><strong>Storage Level</strong></td>
+<td><strong>Purpose</strong></td>
+</tr>
+<tr>
+<td><kbd>MEMORY_ONLY</kbd></td>
+<td>This is the default storage level. It stores RDDs as deserialized Java objects in memory. In those cases where an RDD shouldn't fit in memory, some of its partitions won't be cached and will be recalculated on the fly when needed.</td>
+</tr>
+<tr>
+<td><kbd>MEMORY_AND_DISK</kbd></td>
+<td>It stores RDDs as deserialized Java objects in memory first, but, in those cases where an RDD shouldn't fit in memory, it stores some partitions on disk (this is the main difference between <kbd>MEMORY_ONLY</kbd>), and reads them from there when needed.</td>
+</tr>
+<tr>
+<td><kbd>MEMORY_ONLY_SER</kbd></td>
+<td>It stores RDDs as serialized Java objects. Compared to <kbd>MEMORY_ONLY</kbd>, this is more space-efficient, but more CPU-intensive in read operations. This is available for JVM languages only.</td>
+</tr>
+<tr>
+<td><kbd>MEMORY_AND_DISK_SER</kbd></td>
+<td>Is similar to <kbd>MEMORY_ONLY_SER</kbd> (it stores RDDs as serialized Java objects), with the main difference being that it stores partitions that don't fit in memory to disk. This is available only for JVM languages.</td>
+</tr>
+<tr>
+<td><kbd>DISK_ONLY</kbd></td>
+<td>It stores the RDD partitions on disk only.</td>
+</tr>
+<tr>
+<td><kbd>MEMORY_ONLY_2</kbd>, <kbd>MEMORY_AND_DISK_2</kbd>, and so on</td>
+<td>The same as the two preceding levels (<kbd>MEMORY_ONLY</kbd> and <kbd>MEMORY_AND_DISK</kbd>), but each partition is replicated on two cluster nodes.</td>
+</tr>
+<tr>
+<td><kbd>OFF_HEAP</kbd></td>
+<td>Similar to <kbd>MEMORY_ONLY_SER</kbd>, but it stores data in off-heap memory (assuming off-heap memory is enabled). Please be careful when using this storage level as it is still experimental.</td>
+</tr>
+</tbody>
+</table>
+<p> </p>
+<p>When a function is passed to a Spark operation, it is executed on a remote cluster node that will work on separate copies of all the variables that are used in the function. Once done, the variables will be copied to each machine. There will be no updates to the variables on the remote machine when propagated back to the driver program. It would be inefficient to support general, read-write shared variables across tasks.</p>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p>However, there are two limited types of shared variables that are available in Spark for two common usage patterns <span>– </span>broadcast variables and accumulators.</p>
+<p>One of the most common operations in Spark programming is to perform joins on RDDs to consolidate data by a given key. In these cases, it is quite possible to have large Datasets sent around to slave nodes that host the partitions to be joined. You can easily understand that this situation presents a huge performance bottleneck, as network I/O is 100 times slower than RAM access. To mitigate this issue, Spark provides broadcast variables, which are broadcast to slave nodes. RDD operations on the nodes can quickly access the broadcast variable value. Spark also attempts to distribute broadcast variables using efficient broadcast algorithms to reduce communication costs. Broadcast variables are created from a variable, <em>v</em>, by calling the <kbd>SparkContext.broadcast(v)</kbd> method. The broadcast variable is a wrapper around <em>v</em>, and its value can be obtained by calling the <kbd>value</kbd> method. Here's an example in Scala that you can run through the Spark shell:</p>
+<pre><strong>scala&gt; val broadcastVar = sc.broadcast(Array(1, 2, 3))</strong><br/><strong>broadcastVar: org.apache.spark.broadcast.Broadcast[Array[Int]] = Broadcast(0)</strong><br/> <br/><strong>scala&gt; broadcastVar.value</strong><br/><strong>res0: Array[Int] = Array(1, 2, 3)</strong></pre>
+<p>After its creation, the broadcast variable, <kbd>broadcastVar</kbd>, can be used in any function that's executed on the cluster, but not the initial value, <em>v,</em> as this prevents <em>v</em> being shipped to all the nodes more than once. To ensure that all the nodes get the same value of the broadcast variable, <em>v</em> must not be modified after <kbd>broadcastVar</kbd> has been broadcast.<br/></p>
+<p>Here's the code for the same example in Python:</p>
+<pre>&gt;&gt;&gt; broadcastVar = sc.broadcast([1, 2, 3])<br/> &lt;pyspark.broadcast.Broadcast object at 0x102789f10&gt;<br/> <br/> &gt;&gt;&gt; broadcastVar.value<br/> [1, 2, 3]</pre>
+<p>To aggregate information across executors in a Spark cluster, <kbd>accumulator</kbd> variables should be used. The fact that they are added through an associative and commutative operation ensures their efficient support in parallel computation. Spark natively provides support for the accumulators of numeric types—they can be created by calling <kbd>SparkContext.longAccumulator()</kbd> (to accumulate values of type <kbd>Long</kbd>) or <kbd>SparkContext.doubleAccumulator()</kbd> (to accumulate values of type <kbd>Double</kbd>) methods.</p>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p>However, it is possible to programmatically add support for other types. Any task running on a cluster can add to an accumulator using the <kbd>add</kbd> method, but they cannot read its value <span>– </span>this operation is only allowed for the driver program, which uses its <kbd>value</kbd> method. Here's a code example in Scala:</p>
+<pre><strong>scala&gt; val accum = sc.longAccumulator("First Long Accumulator")</strong><br/><strong>accum: org.apache.spark.util.LongAccumulator = LongAccumulator(id: 0, name: Some</strong><br/><strong>(First Long Accumulator), value: 0)</strong><br/> <br/><strong>scala&gt; sc.parallelize(Array(1, 2, 3, 4)).foreach(x =&gt; accum.add(x))</strong><br/><strong>[Stage 0:&gt;                                                          (0 + 0) / 8]</strong><br/> <br/> <br/><strong>scala&gt; accum.value</strong><br/><strong>res1: Long = 10</strong></pre>
+<p>In this case, an accumulator has been created, and has assigned a name to it. It is possible to create unnamed accumulators, but a named accumulator will display in the web UI for the stage that modifies that accumulator:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/54fa8bc2-1eb4-4f0a-bed6-8f5ce959ba84.png"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref">Figure 1.7</div>
+<p>This can be helpful for understanding the progress of running stages.</p>
+<p>The same example in Python is as follows:</p>
+<pre>&gt;&gt;&gt; accum = sc.accumulator(0)<br/>&gt;&gt;&gt; accum<br/>Accumulator&lt;id=0, value=0&gt;<br/> <br/>&gt;&gt;&gt; sc.parallelize([1, 2, 3, 4]).foreach(lambda x: accum.add(x))<br/>&gt;&gt;&gt; accum.value<br/>10</pre>
+<p class="mce-root"/>
+<p>Tracking accumulators in the web UI isn't supported for Python.</p>
+<p>Please be aware that Spark guarantees to update accumulators <em>inside actions only</em>. When restarting a task, the accumulators will be updated only once. The same isn't true for transformations.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Spark SQL, Datasets, and DataFrames</h1>
+                </header>
+            
+            <article>
+                
+<p><span>Spark SQL is the Spark module for structured data processing. The main difference between this API and the RDD API is that the provided Spark SQL interfaces give more information about the structure of both the data and the performed computation. This extra information is used by Spark internally to add extra optimizations through the Catalyst optimization engine, which is the same execution engine that's used regardless of whatever API or programming language is involved.</span><br/></p>
+<p>Spark SQL is commonly used to execute SQL queries (even if this isn't the only way to use it). Whatever programming language supported by Spark encapsulates the SQL code to be executed, the results of a query are returned as a <strong>Dataset</strong>. A Dataset is a distributed collection of data, and was added as an interface in Spark 1.6. It combines the benefits of RDDs (such as strong typing and the ability to apply useful lambda functions) with the benefits of Spark SQL's optimized execution engine (Catalyst, <a href="https://databricks.com/blog/2015/04/13/deep-dive-into-spark-sqls-catalyst-optimizer.html">https://databricks.com/blog/2015/04/13/deep-dive-into-spark-sqls-catalyst-optimizer.html</a>). You can construct a Dataset by starting with Java/Scala objects and then manipulating it through the usual functional transformations. The Dataset API is available in Scala and Java, while Python doesn't have support for it. However, due to the dynamic nature of this programming language, many of the benefits of the Dataset API are already available for it.<br/>
+Starting from Spark 2.0, the DataFrame and Dataset APIs have been merged into the Dataset API, so a <strong>DataFrame</strong> is just a Dataset that's been organized into named columns and is conceptually equivalent to a table in an RDBMS, but with better optimizations under the hood (being part of the Dataset API, the Catalyst optimization engine works behind the scenes for DataFrames, too). You can construct a DataFrame from diverse sources, such as structured data files, Hive tables, database tables, and RDDs, to name a few. Unlike the Dataset API, the DataFrame API is available in any of the programming languages that are supported by Spark.</p>
+<p><span>Let's start and get hands-on so that we can better understand the concepts behind Spark SQL. The first full example I am going to show is Scala-based. Start a Scala Spark shell to run the following code interactively.</span></p>
+<p>Let's use <kbd>people.json</kbd> as a data source. One of the files that's available as a resource for this example has been shipped along with the Spark distribution and can be used to create a DataFrame that's a Dataset of Rows (<a href="http://spark.apache.org/docs/latest/api/scala/index.html#org.apache.spark.sql.Row">http://spark.apache.org/docs/latest/api/scala/index.html#org.apache.spark.sql.Row</a>):</p>
+<pre>val df = spark.read.json("/opt/spark/spark-2.2.1-bin-hadoop2.7/examples/src/main/resources/people.json")</pre>
+<p>You can print the content of the DataFrame to the console to check that it is what you expected:</p>
+<pre><strong>scala&gt; df.show()</strong><br/><strong>+----+-------+</strong><br/><strong>| age| name|</strong><br/><strong>+----+-------+</strong><br/><strong>|null|Michael|</strong><br/><strong>| 30| Andy|</strong><br/><strong>| 19| Justin|</strong><br/><strong>+----+-------+</strong></pre>
+<p>Before you perform DataFrame operations, you need to import the implicit conversions (such as converting RDDs to DataFrames) and use the <kbd>$</kbd> notation:</p>
+<pre>import spark.implicits._</pre>
+<p>Now, you can print the DataFrame schema in a tree format:</p>
+<pre><strong>scala&gt; df.printSchema()</strong><br/><strong>root</strong><br/><strong> |-- age: long (nullable = true)</strong><br/><strong> |-- name: string (nullable = true)</strong></pre>
+<p>Select a single column (let's say <kbd>name</kbd>):</p>
+<pre><strong>scala&gt; df.select("name").show()</strong><br/><strong>+-------+</strong><br/><strong>|   name|</strong><br/><strong>+-------+</strong><br/><strong>|Michael|</strong><br/><strong>|   Andy|</strong><br/><strong>| Justin|</strong><br/><strong>+-------+</strong></pre>
+<p>Filter the data:</p>
+<pre><strong>scala&gt; df.filter($"age" &gt; 27).show()</strong><br/><strong>+---+----+</strong><br/><strong>|age|name|</strong><br/><strong>+---+----+</strong><br/><strong>| 30|Andy|</strong><br/><strong>+---+----+</strong></pre>
+<p>Then add a  <kbd>groupBy</kbd> clause:</p>
+<pre><strong>scala&gt; df.groupBy("age").count().show()</strong><br/><strong>+----+-----+</strong><br/><strong>| age|count|</strong><br/><strong>+----+-----+</strong><br/><strong>|  19|    1|</strong><br/><strong>|null|    1|</strong><br/><strong>|  30|    1|</strong><br/><strong>+----+-----+</strong></pre>
+<p>Select all rows and increment a numeric field:</p>
+<pre><strong>scala&gt; df.select($"name", $"age" + 1).show()</strong><br/><strong>+-------+---------+</strong><br/><strong>| name|(age + 1)|</strong><br/><strong>+-------+---------+</strong><br/><strong>|Michael| null|</strong><br/><strong>| Andy| 31|</strong><br/><strong>| Justin| 20|</strong><br/><strong>+-------+---------+</strong></pre>
+<p>It is possible to run SQL queries programmatically through the <kbd>sql</kbd> function of <kbd>SparkSession</kbd>. This function returns the results of the query in a DataFrame, which, for Scala, is a <kbd>Dataset[Row]</kbd>. Let's consider the same DataFrame as for the previous example:</p>
+<pre>val df = spark.read.json("/opt/spark/spark-2.2.1-bin-hadoop2.7/examples/src/main/resources/people.json")</pre>
+<p>You can register it as an SQL temporary view:</p>
+<pre>df.createOrReplaceTempView("people")</pre>
+<p>Then, you can execute an SQL query there:</p>
+<pre><strong>scala&gt; val sqlDF = spark.sql("SELECT * FROM people")</strong><br/><strong>sqlDF: org.apache.spark.sql.DataFrame = [age: bigint, name: string]</strong><br/> <br/><strong>scala&gt; sqlDF.show()</strong><br/><strong>+----+-------+</strong><br/><strong>| age|   name|</strong><br/><strong>+----+-------+</strong><br/><strong>|null|Michael|</strong><br/><strong>|  30|   Andy|</strong><br/><strong>|  19| Justin|</strong><br/><strong>+----+-------+</strong></pre>
+<p>The same things can be done in Python as well:</p>
+<pre>&gt;&gt;&gt; df = spark.read.json("/opt/spark/spark-2.2.1-bin-hadoop2.7/examples/src/main/resources/people.json")</pre>
+<p>Resulting in the following:</p>
+<pre>&gt;&gt; df.show()<br/>+----+-------+<br/>| age|   name|<br/>+----+-------+<br/>|null|Michael|<br/>|  30|   Andy|<br/>|  19| Justin|<br/>+----+-------+<br/> <br/>&gt;&gt;&gt; df.printSchema()<br/>root<br/> |-- age: long (nullable = true)<br/> |-- name: string (nullable = true)<br/> <br/>&gt;&gt;&gt; df.select("name").show()<br/>+-------+<br/>|   name|<br/>+-------+<br/>|Michael|<br/>|   Andy|<br/>| Justin|<br/>+-------+<br/> </pre>
+<pre>&gt;&gt;&gt; df.filter(df['age'] &gt; 21).show()<br/>+---+----+<br/>|age|name|<br/>+---+----+<br/>| 30|Andy|<br/>+---+----+<br/> <br/>&gt;&gt;&gt; df.groupBy("age").count().show()<br/>+----+-----+<br/>| age|count|<br/>+----+-----+<br/>|  19|    1|<br/>|null|    1|<br/>|  30|    1|<br/>+----+-----+<br/> <br/>&gt;&gt;&gt; df.select(df['name'], df['age'] + 1).show()<br/>+-------+---------+<br/>|   name|(age + 1)|<br/>+-------+---------+<br/>|Michael|     null|<br/>|   Andy|       31|<br/>| Justin|       20|<br/>+-------+---------+<br/> <br/>&gt;&gt;&gt; df.createOrReplaceTempView("people")<br/>&gt;&gt;&gt; sqlDF = spark.sql("SELECT * FROM people")<br/>&gt;&gt;&gt; sqlDF.show()<br/>+----+-------+<br/>| age|   name|<br/>+----+-------+<br/>|null|Michael|<br/>|  30|   Andy|<br/>|  19| Justin|<br/>+----+-------+</pre>
+<p>Other features of Spark SQL and Datasets (data sources, aggregations, self-contained applications, and so on) will be covered in <a href="44fab060-12c9-4eec-9e15-103da589a510.xhtml" target="_blank">Chapter 3</a>, <em>Extract, Transform, Load</em>.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Spark Streaming</h1>
+                </header>
+            
+            <article>
+                
+<p>Spark Streaming is another Spark module that extends the core Spark API and provides a scalable, fault-tolerant, and efficient way of processing live streaming data. By converting streaming data into <em>micro</em> batches, Spark's simple batch programming model can be applied in streaming use cases too. This unified programming model makes it easy to combine batch and interactive data processing with streaming. Diverse sources that ingest data are supported (Kafka, Kinesis, TCP sockets, S3, or HDFS, just to mention a few of the popular ones), as well as data coming from them, and can be processed using any of the high-level functions available in Spark. Finally, the processed data can be persisted to RDBMS, NoSQL databases, HDFS, object storage systems, and so on, or consumed through live dashboards. Nothing prevents other advanced Spark components, such as MLlib or GraphX, being applied to data streams:</p>
+<div class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-819 image-border" src="assets/7c308eea-7aa6-4d4c-a97a-8493b28bdaef.png" style="width:37.92em;height:25.50em;"/></div>
+<div class="mce-root CDPAlignCenter CDPAlign packt_figref">Figure 1.8</div>
+<p>The following diagram shows how Spark Streaming works internally—it receives live input data streams and divides them into batches; these are processed by the Spark engine to generate the final batches of results:</p>
+<div class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-820 image-border" src="assets/5bef871b-ee77-48d0-bb68-d403cd2acc13.png" style="width:14.08em;height:42.50em;"/></div>
+<div class="mce-root CDPAlignCenter CDPAlign packt_figref">Figure 1.9</div>
+<p>The higher-level abstraction of Spark Streaming is the <strong>DStream</strong> (short for <strong>Discretized Stream</strong>), which is a wrapper around a continuous flow of data. Internally, a DStream is represented as a sequence of RDDs. A DStream contains a list of other DStreams that it depends on, a function to convert its input RDDs into output ones, and a time interval at which to invoke the function. DStreams are created by either manipulating existing ones, for example, applying a map or filter function (which internally creates <kbd>MappedDStreams</kbd> and <kbd>FilteredDStreams</kbd>, respectively), or by reading from an external source (the base class in these cases is <kbd>InputDStream</kbd>).</p>
+<p>Let's implement a simple Scala example—a streaming word count self-contained application. The code used for this class can be found among the examples that are bundled with the Spark distribution. To compile and package it, you need to add the dependency to Spark Streaming to your <kbd>Maven</kbd>, <kbd>Gradle</kbd>, or <kbd>sbt</kbd> project descriptor, along with the dependencies from Spark Core and Scala.</p>
+<p>First, we have to create the <kbd>SparkConf</kbd> and a <kbd>StreamingContext</kbd> (which is the main entry point for any streaming functionality) from it:</p>
+<pre>import org.apache.spark.SparkConf<br/><span>import org.apache.spark.streaming.{Seconds, StreamingContext}<br/>val sparkConf = new SparkConf().setAppName("NetworkWordCount").setMaster("local[*]")<br/>  val ssc = new StreamingContext(sparkConf, Seconds(1))<br/><br/></span></pre>
+<p>The batch interval has been set to 1 second. A DStream representing streaming data from a TCP source can be created using the <kbd>ssc</kbd> streaming context; we need just to specify the source hostname and port, as well as the desired storage level:</p>
+<pre>val lines = ssc.socketTextStream(args(0), args(1).toInt, StorageLevel.MEMORY_AND_DISK_SER)</pre>
+<p>The returned <kbd>lines</kbd> DStream is the stream of data that is going to be received from the server. Each record will be a single line of text that we want to split into single words, thus specifying the space character as a separator:</p>
+<pre>val words = lines.flatMap(_.split(" "))</pre>
+<p>Then, we will count those words:</p>
+<pre>val words = lines.flatMap(_.split(" "))<br/> val wordCounts = words.map(x =&gt; (x, 1)).reduceByKey(_ + _)<br/>wordCounts.print()</pre>
+<p>The <kbd>words</kbd> DStream is mapped (a one-to-one transformation) to a DStream of (<em>word</em>, <em>1</em>) pairs, which is then reduced to get the frequency of words in each batch of data. The last command will print a few of the counts that are generated every second. Each RDD in a DStream contains data from a certain interval <span>– </span>any operation applied on a DStream translates to operations on the underlying RDDs:</p>
+<div class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-821 image-border" src="assets/284d70b8-6143-4b6d-bce0-41c7bea81814.png" style="width:42.17em;height:40.83em;"/></div>
+<div class="mce-root CDPAlignCenter CDPAlign packt_figref">Figure 1.10</div>
+<p>To start the processing after all the transformations have been set up, use the following code:</p>
+<pre>ssc.start()<br/> ssc.awaitTermination()</pre>
+<p>Before running this example, first you will need to run <kbd>netcat</kbd> (a small utility found in most Unix-like systems) as a data server:</p>
+<pre><strong>nc -lk 9999</strong></pre>
+<p>Then, in a different Terminal, you can start the example by passing the following as arguments:</p>
+<pre><strong>localhost 9999</strong></pre>
+<p>Any line that's typed into the Terminal and run with the <kbd>netcat</kbd> server will be counted and printed on the application screen every second.</p>
+<p>Regardless of whether <kbd>nc</kbd> shouldn't be available in the system where you run this example, you can implement your own data server in Scala:</p>
+<pre>import java.io.DataOutputStream<br/>import java.net.{ServerSocket, Socket}<br/>import java.util.Scanner<br/> <br/>object SocketWriter {<br/>  def main(args: Array[String]) {<br/>    val listener = new ServerSocket(9999)<br/>    val socket = listener.accept()<br/>    <br/>    val outputStream = new DataOutputStream(socket.getOutputStream())<br/>    System.out.println("Start writing data. Enter close when finish");<br/>    val sc = new Scanner(System.in)<br/>    var str = ""<br/>    /**<br/>     * Read content from scanner and write to socket.<br/>     */<br/>    while (!(str = sc.nextLine()).equals("close")) {<br/>        outputStream.writeUTF(str);<br/>    }<br/>    //close connection now.<br/>    outputStream.close()<br/>    listener.close()<br/>  }<br/>}</pre>
+<p>The same self-contained application in Python could be as follows:</p>
+<pre>from __future__ import print_function<br/> <br/>import sys<br/> <br/>from pyspark import SparkContext<br/>from pyspark.streaming import StreamingContext<br/> <br/>if __name__ == "__main__":<br/>    if len(sys.argv) != 3:<br/>        print("Usage: network_wordcount.py &lt;hostname&gt; &lt;port&gt;", file=sys.stderr)<br/>        exit(-1)<br/>    sc = SparkContext(appName="PythonStreamingNetworkWordCount")<br/>    ssc = StreamingContext(sc, 1)<br/> <br/>    lines = ssc.socketTextStream(sys.argv[1], int(sys.argv[2]))<br/>    counts = lines.flatMap(lambda line: line.split(" "))\<br/>                  .map(lambda word: (word, 1))\<br/>                  .reduceByKey(lambda a, b: a+b)<br/>    counts.pprint()<br/> <br/>    ssc.start()<br/>    ssc.awaitTermination()</pre>
+<p>DStreams support most parts of the transformations that are available for RDDs. This means that data from input DStreams can be modified in the same way as the data in RDDs. The following table lists some of the common transformations supported by Spark DStreams:</p>
+<table border="1" style="border-collapse: collapse;width: 100%">
+<tbody>
+<tr>
+<td><strong>Transformation</strong></td>
+<td><strong>Purpose</strong></td>
+</tr>
+<tr>
+<td><kbd>map(func)</kbd></td>
+<td>Returns a new DStream. The <kbd>func</kbd> map function is applied to each element of the source DStream.</td>
+</tr>
+<tr>
+<td><kbd>flatMap(func)</kbd></td>
+<td>The same as for <kbd>map</kbd>. The only difference is that each input item in the new DStream can be mapped to 0 or more output items.</td>
+</tr>
+<tr>
+<td><kbd>filter(func)</kbd></td>
+<td>Returns a new DStream containing only the elements of the source DStream for which the <kbd>func</kbd> filter function returned true.</td>
+</tr>
+<tr>
+<td><kbd>repartition(numPartitions)</kbd></td>
+<td>This is used to set the level of parallelism by creating a different number of partitions.</td>
+</tr>
+<tr>
+<td><kbd>union(otherStream)</kbd></td>
+<td>Returns a new DStream. It contains the union of the elements in the source DStream and the input <kbd>otherDStream</kbd> DStream.</td>
+</tr>
+<tr>
+<td><kbd>count()</kbd></td>
+<td>Returns a new DStream. It contains single element RDDs that are obtained by counting the number of elements contained in each RDD arriving from the source.</td>
+</tr>
+<tr>
+<td><kbd>reduce(func)</kbd></td>
+<td>Returns a new DStream. It contains single element RDDs that are obtained by aggregating those in each RDD of the source by applying the <kbd>func</kbd> function (which should be associative and commutative to allow for correct parallel computation).</td>
+</tr>
+<tr>
+<td><kbd>countByValue()</kbd></td>
+<td>Returns a new DStream of (<em>K</em>, <em>Long</em>) pairs, where <em>K</em> is the type of the elements of the source. The value of each key represents its frequency in each RDD of the source.</td>
+</tr>
+<tr>
+<td><kbd>reduceByKey(func, [numTasks])</kbd></td>
+<td>Returns a new DStream of (<em>K</em>, <em>V</em>) pairs (for a source DStream of (<em>K</em>, <em>V</em>) pairs). The values for each key are aggregated by applying the reduce <kbd>func</kbd> function. To do the grouping, this transformation uses Spark's default number of parallel tasks (which is two in local mode, while it is determined by the <kbd>config</kbd> property <kbd>spark.default.parallelism</kbd> in cluster mode), but this can be changed by passing an optional <kbd>numTasks</kbd> argument.</td>
+</tr>
+<tr>
+<td><kbd>join(otherStream, [numTasks])</kbd></td>
+<td>Returns a new DStream of (<em>K</em>, (<em>V</em>, <em>W</em>)) pairs when called on two DStreams of (<em>K</em>, <em>V</em>) and (<em>K</em>, <em>W</em>) pairs, respectively.</td>
+</tr>
+<tr>
+<td><kbd>cogroup(otherStream, [numTasks])</kbd></td>
+<td>Returns a new DStream of (<em>K</em>, <em>Seq[V]</em>, <em>Seq[W]</em>) tuples when called on two DStreams of (<em>K</em>, <em>V</em>) and (<em>K</em>, <em>W</em>) pairs, respectively.</td>
+</tr>
+<tr>
+<td><kbd>transform(func)</kbd></td>
+<td>Returns a new DStream. It applies an RDD-to-RDD <kbd>func</kbd> function to every RDD of the source.</td>
+</tr>
+<tr>
+<td><kbd>updateStateByKey(func)</kbd></td>
+<td>Returns a new state DStream. The state for each key in the new DStream is updated by applying the <kbd>func</kbd> input function to the previous state and the new values for the key.</td>
+</tr>
+</tbody>
+</table>
+<p> </p>
+<p>Windowed computations are provided by Spark Streaming. As shown in the following diagram, they allow you to apply transformations over sliding windows of data:</p>
+<div class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-822 image-border" src="assets/8ce148aa-91a4-4ed9-b146-ebcf9cc70cff.png" style="width:25.67em;height:42.33em;"/></div>
+<div class="mce-root CDPAlignCenter CDPAlign packt_figref">Figure 1.11</div>
+<p>When a window slides over a source DStream, all its RDDs that fall within that window are taken into account and transformed to produce the RDDs of the returned windowed DStream. Looking at the specific example that's shown in the preceding diagram, the window-based operation is applied over three time units of data and it slides by two. Two parameters need to be specified by any window operation that's used:</p>
+<ul>
+<li><strong>Window length</strong>: The duration of the window</li>
+<li><strong>Sliding interval</strong>: The interval at which the window operation is performed</li>
+</ul>
+<p>These two parameters must be multiples of the batch interval of the source DStream.</p>
+<p>Let's see how this could be applied to the application that was presented at the beginning of this section. Suppose you want to generate a word count every 10 seconds over the last 60 seconds of data. The <kbd>reduceByKey</kbd> operation needs to be applied on the (<em>word</em>, <em>1</em>) pairs of the DStream over the last 60 seconds of data. This can be achieved with the <kbd>reduceByKeyAndWindow</kbd> operation. When translated into Scala code, this is as follows:</p>
+<pre>val windowedWordCounts = pairs.reduceByKeyAndWindow((a:Int,b:Int) =&gt; (a + b), Seconds(60), Seconds(10))</pre>
+<p>For Python, it is as follows:</p>
+<pre>windowedWordCounts = pairs.reduceByKeyAndWindow(lambda x, y: x + y, lambda x, y: x - y, 60, 10)</pre>
+<p>The following table lists some of the common window operations supported by Spark for DStreams:</p>
+<table border="1" style="border-collapse: collapse;width: 100%">
+<tbody>
+<tr>
+<td><strong>Transformation</strong></td>
+<td><strong>Purpose</strong></td>
+</tr>
+<tr>
+<td><kbd>window(windowLength, slideInterval)</kbd></td>
+<td>Returns a new DStream. It is based on windowed batches of the source.</td>
+</tr>
+<tr>
+<td><kbd>countByWindow(windowLength, slideInterval)</kbd></td>
+<td>Returns a sliding window count (based on the <kbd>windowLength</kbd> and <kbd>slideInterval</kbd> parameters) of elements in the source DStream.</td>
+</tr>
+<tr>
+<td><kbd>reduceByWindow(func, windowLength, slideInterval)</kbd></td>
+<td>Returns a new single element DStream. It is created by aggregating elements in the source DStream over a sliding interval by applying the <kbd>func</kbd> reduce function (which, to allow for correct parallel computation, is associative and commutative).</td>
+</tr>
+<tr>
+<td><kbd>reduceByKeyAndWindow(func, windowLength, slideInterval, [numTasks])</kbd></td>
+<td>Returns a new DStream of (<em>K</em>, <em>V</em>) pairs (the same <em>K</em> and <em>V</em> as for the source DStream). The values for each key are aggregated using the <kbd>func</kbd> input function over batches (defined by the <kbd>windowLength</kbd> and <kbd>slideInterval</kbd> arguments) in a sliding window. The number of parallel tasks to do the grouping is two (default) in local mode, while in cluster mode this is given by the Spark configuration property <kbd>spark.default.parallelism. numTask</kbd>, which is an optional argument to specify a custom number of tasks.</td>
+</tr>
+<tr>
+<td><kbd>reduceByKeyAndWindow(func, invFunc, windowLength, slideInterval, [numTasks])</kbd></td>
+<td>This is a more efficient version of the <kbd>reduceByKeyAndWindow</kbd> transformation. This time, the reduce value of the current window is calculated incrementally using the reduce values of the previous one. This happens by reducing the new data that enters a window while inverse reducing the old data that leaves the same one. Please note that this mechanism only works if the <kbd>func</kbd> reduce function has a corresponding inverse reduce function, <kbd>invFunc</kbd>.</td>
+</tr>
+<tr>
+<td><kbd>countByValueAndWindow(windowLength, slideInterval, [numTasks])</kbd></td>
+<td>Returns a DStream of (<em>K</em>, <em>Long</em>) pairs (whatever (<em>K</em>, <em>V</em>) pairs the source DStream is made of). The value of each key in the returned DStream is its frequency within a given sliding window (defined by the <kbd>windowLength</kbd> and <kbd>slideInterval</kbd> arguments). <kbd>numTask</kbd> is an optional argument to specify a custom number of tasks.</td>
+</tr>
+</tbody>
+</table>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Cluster mode using different managers</h1>
+                </header>
+            
+            <article>
+                
+<p>The following diagram shows how Spark applications run on a cluster. They are independent sets of processes that are coordinated by the <kbd>SparkContext</kbd> object in the <strong>Driver Program</strong>. <kbd>SparkContext</kbd> connects to a <strong>Cluster Manager</strong>, which is responsible for allocating resources across applications. Once the <strong>SparkContext</strong> is connected, Spark gets executors across cluster nodes.</p>
+<p>Executors are processes that execute computations and store data for a given Spark application. <strong>SparkContext</strong> sends the application code (which could be a JAR file for Scala or .py files for Python) to the executors. Finally, it sends the tasks to run to the executors:</p>
+<div class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-823 image-border" src="assets/fb1e7d7d-9bfd-4eb2-88e2-c35d41606cb9.png" style="width:40.50em;height:20.92em;"/></div>
+<div class="mce-root CDPAlignCenter CDPAlign packt_figref">Figure 1.12</div>
+<p class="mce-root">To isolate applications from each other, every Spark application receives its own executor processes. They stay alive for the duration of the whole application and run tasks in multithreading mode. The downside to this is that it isn't possible to share data across different Spark applications <span>–</span> to share it, data needs to be persisted to an external storage system.</p>
+<p class="mce-root">Spark supports different cluster managers, but it is agnostic to the underlying type.</p>
+<p class="mce-root">The driver program, at execution time, must be network addressable from the worker nodes because it has to listen for and accept incoming connections from its executors. Because it schedules tasks on the cluster, it should be executed close to the worker nodes, on the same local area network (if possible).</p>
+<p>The following are the cluster managers that are currently supported in Spark:</p>
+<ul>
+<li><strong>Standalone</strong>: A simple cluster manager that makes it easy to set up a cluster. It is included with Spark.</li>
+<li><strong>Apache Mesos</strong>: An open source project that's used to manage computer clusters, and was developed at the University of California, Berkeley.</li>
+<li><strong>Hadoop YARN</strong>: The resource manager available in Hadoop starting from release 2.</li>
+<li><strong>Kubernetes</strong>: An open source platform for providing a container-centric infrastructure. Kubernetes support in Spark is still experimental, so it's probably not ready for production yet.</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Standalone mode</h1>
+                </header>
+            
+            <article>
+                
+<p>For standalone mode, you only need to place a compiled version of Spark on each node of the cluster. All the cluster nodes need to be able to resolve the hostnames of the other cluster members and are routable to one another. The Spark master URL can be configured in the <kbd>$SPARK_HOME/conf/spark-defaults.conf</kbd> file on all of the nodes:</p>
+<pre><strong>spark.master                     spark://&lt;master_hostname_or_IP&gt;:7077</strong></pre>
+<p>Then, the hostname or IP address of the Spark master node needs to be specified in the <kbd>$SPARK_HOME/conf/spark-env.sh</kbd> file on all of the nodes, as follows:</p>
+<pre><strong>SPARK_MASTER_HOST,               &lt;master_hostname_or_IP&gt;</strong></pre>
+<p>It is now possible to start a standalone master server by executing the following script:</p>
+<pre><strong>$SPARK_HOME/sbin/start-master.sh</strong></pre>
+<p>Once the master has completed, a web UI will be available at the <kbd>http://&lt;master_hostname_or_IP&gt;:8080</kbd> URL. From there, it is possible to obtain the master URL that's to be used when starting the workers. One or more workers can now be started by executing the following script:</p>
+<pre><strong>$SPARK_HOME/sbin/start-slave.sh &lt;master-spark-URL&gt;</strong></pre>
+<p>Each worker, after the start, comes with its own web UI, whose URL is <kbd>http://&lt;worker_hostname_or_IP&gt;:8081</kbd>.</p>
+<p>The list of workers, along with other information about their number of CPUs and memory, can be found in the master's web UI.</p>
+<p>The way to do this is to run a standalone cluster manually. It is also possible to use the provided launch scripts. A <kbd>$SPARK_HOME/conf/slaves</kbd> file needs to be created as a preliminary step. It must contain the hostnames <span>–</span> one per line <span>–</span> of all of the machines where the Spark workers should start. Passwordless <strong>SSH</strong> (short for <strong>Secure Shell</strong>) for the Spark master to the Spark slaves needs to be enabled to allow remote login for the slave daemon startup and shutdown actions. A cluster can then be launched or stopped using the following shell scripts, which are available in the <kbd>$SPARK_HOME/sbin</kbd> directory:</p>
+<ul>
+<li><kbd>start-master.sh</kbd>: Starts a master instance</li>
+<li><kbd>start-slaves.sh</kbd>: Starts a slave instance on each machine specified in the <kbd>conf/slaves</kbd> file</li>
+<li><kbd>start-slave.sh</kbd>: Starts a single slave instance</li>
+<li><kbd>start-all.sh</kbd>: Starts both a master and a number of slaves</li>
+<li><kbd>stop-master.sh</kbd>: Stops a master that has been started via the <kbd>sbin/start-master.sh</kbd> script</li>
+<li><kbd>stop-slaves.sh</kbd>: Stops all slave instances on the nodes specified in the <kbd>conf/slaves</kbd> file</li>
+<li><kbd>stop-all.sh</kbd>: Stops both a master and its slaves</li>
+</ul>
+<p>These scripts must be executed on the machine the Spark master will run on.</p>
+<p>It is possible to run an interactive Spark shell against a cluster in the following way:</p>
+<pre><strong>$SPARK_HOME/bin/spark-shell --master &lt;master-spark-URL&gt;</strong></pre>
+<p>The <kbd>$SPARK_HOME/bin/spark-submit</kbd> script can be used to submit a compiled Spark application to the cluster. Spark currently supports two deploy modes for standalone clusters: client and cluster. In client mode, the driver and the client that submits the application are launched in the same process, while in cluster mode, the driver is launched from one of the worker processes and the client process exits as soon as it completes submitting the application (it doesn't have to wait for the application to finish).<br/>
+When an application is launched through <kbd>spark-submit</kbd>, then its JAR file is automatically distributed to all the worker nodes. Any additional JAR that an application depends on should be specified through the <kbd>jars</kbd> flag using a comma as a delimiter (for example, <kbd>jars</kbd>, <kbd>jar1</kbd>, <kbd>jar2</kbd>).</p>
+<p>As mentioned in the <em>Apache Spark fundamentals</em> section, in standalone mode, the Spark master is a single point of failure. This means that if the Spark master node should go down, the Spark cluster would stop functioning and all currently submitted or running applications would fail, and it wouldn't be possible to submit new applications.</p>
+<p>High availability can be configured using Apache ZooKeeper (<a href="https://zookeeper.apache.org/">https://zookeeper.apache.org/</a>), an open source and highly reliable distributed coordination service, or can be deployed as a cluster through Mesos or YARN, which we will talk about in the following two sections.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Mesos cluster mode</h1>
+                </header>
+            
+            <article>
+                
+<p>Spark can run on clusters that are managed by Apache Mesos (<a href="http://mesos.apache.org/">http://mesos.apache.org/</a>). Mesos is a cross-platform, cloud provider-agnostic, centralized, and fault-tolerant cluster manager, designed for distributed computing environments. Among its main features, it provides resource management and isolation, and the scheduling of CPU and memory across the cluster. It can join multiple physical resources into a single virtual one, and in doing so is different from classic virtualization, where a single physical resource is split into multiple virtual resources. With Mesos, it is possible to build or schedule cluster frameworks such as Apache Spark (though it is not restricted to just this). The following diagram shows the Mesos architecture:</p>
+<div class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-824 image-border" src="assets/799fa1d4-15de-4229-abc1-907ef787edb9.png" style="width:40.83em;height:29.83em;"/></div>
+<div class="mce-root CDPAlignCenter CDPAlign packt_figref">Figure 1.13</div>
+<p>Mesos consists of a master daemon and frameworks. The master daemon manages agent daemons running on each cluster node, while the Mesos frameworks run tasks on the agents. The master empowers fine-grained sharing of resources (including CPU and RAM) across frameworks by making them resource offers. It decides how much of the available resources to offer to each framework, depending on given organizational policies. To support diverse sets of policies, the master uses a modular architecture that makes it easy to add new allocation modules through a plugin mechanism. A Mesos framework consists of two components <span>– </span>a scheduler, which registers itself with the master to be offered resources, and an executor, a process that is launched on agent nodes to execute the framework's tasks. While it is the master that determines how many resources are offered to each framework, the frameworks' schedulers are responsible for selecting which of the offered resources to use. The moment a framework accepts offered resources, it passes a description of the tasks it wants to execute on them to Mesos. Mesos, in turn, launches the tasks on the corresponding agents.</p>
+<p>The advantages of deploying a Spark cluster using Mesos to replace the Spark Master Manager include the following:</p>
+<ul>
+<li>Dynamic partitioning between Spark and other frameworks</li>
+<li>Scalable partitioning between multiple instances of Spark</li>
+</ul>
+<p>Spark 2.2.1 is designed to be used with Mesos 1.0.0+. In this section, I won't describe the steps to deploy a Mesos cluster <span>– </span>I am assuming that a Mesos cluster is already available and running. No particular procedure or patch is required in terms of Mesos installation to run Spark on it. To verify that the Mesos cluster is ready for Spark, navigate to the Mesos master web UI at port <kbd>5050</kbd>:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/b907d35e-657d-4d72-a920-01dbf429c2ca.png"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref">Figure 1.14</div>
+<p class="mce-root"/>
+<p class="mce-root"><span>Check that all of the expected machines are present in the</span> <span class="packt_screen">Agents</span> <span>tab.</span></p>
+<p>To use Mesos from Spark, a Spark binary package needs to be available in a place that's accessible by Mesos itself, and a Spark driver program needs to be configured to connect to Mesos. Alternatively, it is possible to install Spark in the same location across all the Mesos slaves and then configure the <kbd>spark.mesos.executor.home</kbd> property (the default value is <kbd>$SPARK_HOME</kbd>) to point to that location.</p>
+<p>The Mesos master URLs have the form <kbd>mesos://host:5050</kbd> for a single-master Mesos cluster, or <kbd>mesos://zk://host1:2181,host2:2181,host3:2181/mesos</kbd> for a multi-master Mesos cluster when using Zookeeper.</p>
+<p>The following is an example of how to start a Spark shell on a Mesos cluster:</p>
+<pre><strong>$SPARK_HOME/bin/spark-shell --master mesos://127.0.0.1:5050 -c spark.mesos.executor.home=`pwd`</strong></pre>
+<p>A Spark application can be submitted to a Mesos managed Spark cluster as follows:</p>
+<pre><strong>$SPARK_HOME/bin/spark-submit --master mesos://127.0.0.1:5050 --total-executor-cores 2 --executor-memory 3G  $SPARK_HOME/examples/src/main/python/pi.py 100</strong></pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">YARN cluster mode</h1>
+                </header>
+            
+            <article>
+                
+<p>YARN (<a href="http://hadoop.apache.org/docs/stable/hadoop-yarn/hadoop-yarn-site/YARN.html">http://hadoop.apache.org/docs/stable/hadoop-yarn/hadoop-yarn-site/YARN.html</a>), which was introduced in Apache Hadoop 2.0, brought significant improvements in terms of scalability, high availability, and support for different paradigms. In the Hadoop version 1 <strong>MapReduce</strong> framework, job execution was controlled by types of processes—a single master process called <kbd>JobTracker</kbd> coordinates all the jobs running on the cluster and assigns <kbd>map</kbd> and <kbd>reduce</kbd> tasks to run on the <kbd>TaskTrackers</kbd>, which are a number of subordinate processes running assigned tasks and periodically reporting the progress to the <kbd>JobTracker</kbd>. Having a single <kbd>JobTracker</kbd> was a scalability bottleneck. The maximum cluster size was a little more than 4,000 nodes, with the number of concurrent tasks limited to 40,000. Furthermore, the <kbd>JobTracker</kbd> was a single point of failure and the only available programming model was <strong>MapReduce</strong>. </p>
+<p>The fundamental idea of YARN is to split up the functionalities of resource management and job scheduling or monitoring into separate daemons. The idea is to have a global <strong>ResourceManager</strong> and per-application <strong>ApplicationMaster</strong> (<strong>App Mstr</strong>). An application is either a single job or a DAG of jobs. The following is a diagram of YARN's architecture:</p>
+<div class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1101 image-border" src="assets/43bba525-0732-49a6-a9fc-52110b582088.png" style="width:131.50em;height:96.08em;"/></div>
+<div class="mce-root CDPAlignCenter CDPAlign packt_figref">Figure 1.15</div>
+<p>The <strong>ResourceManager</strong> and the <strong>NodeManager</strong> form the YARN framework. The <strong>ResourceManager</strong> decides on resource usage across all the running applications, while the <strong>NodeManager</strong> is an agent running on any machine in the cluster and is responsible for the containers by monitoring their resource usage (including CPU and memory) and reporting to the <strong>ResourceManager</strong>. The <strong>ResourceManager</strong> consists of two components <span>– </span>the scheduler and the ApplicationsManager. The scheduler is the component that's responsible for allocating resources to the various applications running, and it doesn't perform any monitoring of applications' statuses, nor offer guarantees about restarting any failed tasks. It performs scheduling based on an application's resource requirements.</p>
+<p>The ApplicationsManager accepts job submissions and provides a service to restart the <strong>App Mstr</strong> container on any failure. The per-application <strong>App Mstr</strong> is responsible for negotiating the appropriate resource containers from the scheduler and monitoring their status and progress. YARN, by its nature, is a general scheduler, so support for non-MapReduce jobs (such as Spark jobs) is available for Hadoop clusters.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Submitting Spark applications on YARN</h1>
+                </header>
+            
+            <article>
+                
+<p>To launch Spark applications on YARN, the <kbd>HADOOP_CONF_DIR or YARN_CONF_DIR env</kbd> variable needs to be set and pointing to the directory that contains the client-side configuration files for the Hadoop cluster. These configurations are needed to connect to the YARN ResourceManager and to write to HDFS. This configuration is distributed to the YARN cluster so that all the containers used by the Spark application have the same configuration. To launch Spark applications on YARN, two deployment modes are available:</p>
+<ul>
+<li><strong> Cluster mode</strong>: In this case, the Spark driver runs inside an application master process that's managed by YARN on the cluster. The client can finish its execution after initiating the application.</li>
+<li><strong>Client mode</strong>: In this case, the driver runs and the client runs in the same process. The application master is used for the sole purpose of requesting resources from YARN.</li>
+</ul>
+<p>Unlike the other modes, in which the master's address is specified in the <kbd>master</kbd> parameter, in YARN mode, the ResourceManager's address is retrieved from the Hadoop configuration. Therefore, the <kbd>master</kbd> parameter value is always <kbd>yarn</kbd>.</p>
+<p>You can use the following command to launch a Spark application in cluster mode:</p>
+<pre><strong>$SPARK_HOME/bin/spark-submit --class path.to.your.Class --master yarn --deploy-mode cluster [options] &lt;app jar&gt; [app options]</strong></pre>
+<p>In cluster mode, since the driver runs on a different machine than the client, the <kbd>SparkContext.addJar</kbd> method doesn't work with the files that are local to the client. The only choice is to include them using the <kbd>jars</kbd> option in the <kbd>launch</kbd> command.</p>
+<p>Launching a Spark application in client mode happens the same way—the <kbd>deploy-mode</kbd> option value needs to change from cluster to client.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Kubernetes cluster mode</h1>
+                </header>
+            
+            <article>
+                
+<p><strong>Kubernetes</strong> (<a href="https://kubernetes.io/">https://kubernetes.io/</a>) is an open source system that's used automate the deployment, scaling, and management of containerized applications. It was originally implemented at Google and then open sourced in 2014. The following are the main concepts of Kubernetes:</p>
+<ul>
+<li><strong>Pod</strong>: This is the smallest deployable unit of computing that can be created and managed. A pod can be seen as a group of one or more containers that share network and storage space, which also contains a specification for how to run those containers.</li>
+<li><strong>Deployment</strong>: This is a layer of abstraction whose primary purpose is to declare how many replicas of a pod should be running at a time.</li>
+<li><strong>Ingress</strong>: This is an open channel for communication with a service running in a pod.</li>
+<li><strong>Node</strong>: This is a representation of a single machine in a cluster.</li>
+<li><strong>Persistent volume</strong>: This provides a filesystem that can be mounted to a cluster, not to be associated with any particular node. This is the way Kubernetes persists information (data, files, and so on).</li>
+</ul>
+<p>The following diagram (source: <a href="https://d33wubrfki0l68.cloudfront.net/518e18713c865fe67a5f23fc64260806d72b38f5/61d75/images/docs/post-ccm-arch.png">https://d33wubrfki0l68.cloudfront.net/518e18713c865fe67a5f23fc64260806d72b38f5/61d75/images/docs/post-ccm-arch.png</a>) shows the Kubernetes architecture:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1102 image-border" src="assets/8f5c0874-a4ff-436e-ab31-90d0af1728bd.png" style="width:44.08em;height:20.83em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref">Figure 1.16</div>
+<p class="mce-root"/>
+<p>The main components of the Kubernetes architecture are as follows:</p>
+<ul>
+<li><strong>Cloud controller manager</strong>: It runs the Kubernetes controllers</li>
+<li><strong>Controllers</strong>: There are four of them—node, route, service, and PersistenceVolumeLabels</li>
+<li><strong>Kubelets</strong>: The primary agents that run on nodes</li>
+</ul>
+<p>The submission of Spark jobs to a Kubernetes cluster can be done directly through <kbd>spark-submit</kbd>. Kubernetes requires that we supply Docker (<a href="https://www.docker.com/">https://www.docker.com/</a>) images that can be deployed into containers within pods. Starting from the 2.3 release, Spark provides a Dockerfile (<kbd>$SPARK_HOME/kubernetes/dockerfiles/Dockerfile</kbd>, which can also be customized to match specific applications' needs) and a script (<kbd>$SPARK_HOME/bin/docker-image-tool.sh</kbd>) that can be used to build and publish Docker images that are to be used within a Kubernetes backend. The following is the syntax that's used to build a Docker image through the provided script:</p>
+<pre><strong>$SPARK_HOME/bin/docker-image-tool.sh -r &lt;repo&gt; -t my-tag build</strong></pre>
+<p>This following is the syntax to push an image to a Docker repository while using the same script:</p>
+<pre><strong>$SPARK_HOME/bin/docker-image-tool.sh -r &lt;repo&gt; -t my-tag push</strong></pre>
+<p>A job can be submitted in the following way:</p>
+<pre><strong>$SPARK_HOME/bin/spark-submit \</strong><br/><strong>    --master k8s://https://&lt;k8s_hostname&gt;:&lt;k8s_port&gt; \</strong><br/><strong>    --deploy-mode cluster \</strong><br/><strong>    --name &lt;application-name&gt; \</strong><br/><strong>    --class &lt;package&gt;.&lt;ClassName&gt; \</strong><br/><strong>    --conf spark.executor.instances=&lt;instance_count&gt; \</strong><br/><strong>    --conf spark.kubernetes.container.image=&lt;spark-image&gt; \</strong><br/><strong>    local:///path/to/&lt;sparkjob&gt;.jar</strong></pre>
+<p>Kubernetes requires application names to contain only lowercase alphanumeric characters, hyphens, and dots, and to start and end with an alphanumeric character. </p>
+<p>The following diagram shows the way the submission mechanism works:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1103 image-border" src="assets/5b892e4b-7efe-4945-865d-479e6a496840.png" style="width:38.17em;height:28.58em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref">Figure 1.17</div>
+<p>Here's what happens:</p>
+<ul>
+<li>Spark creates a driver that's running within a Kubernetes pod</li>
+<li>The driver creates the executors, which also run within Kubernetes pods, and then connects to them and executes application code</li>
+<li>At the end of the execution, the executor pods terminate and are cleaned up, while the driver pod still persists logs and remains in a completed state (which means that it doesn't use cluster computation or memory resources) in the Kubernetes API (until it's eventually garbage collected or manually deleted)</li>
+</ul>
+<p class="mce-root"/>
+<p class="mce-root"/>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Summary</h1>
+                </header>
+            
+            <article>
+                
+<p>In this chapter, we became familiar with Apache Spark and most of its main modules. We started to use the available Spark shells and wrote our first self-contained application using the Scala and Python programming languages. Finally, we explored different ways of deploying and running Spark in cluster mode. Everything we have learned about so far is necessary for understanding the topics that are presented from <a href="44fab060-12c9-4eec-9e15-103da589a510.xhtml" target="_blank">Chapter 3</a>, <em>Extract, Transform, Load</em>, onward. If you have any doubts about any of the presented topics, I suggest that you go back and read this chapter again before moving on.</p>
+<p>In the next chapter, we are going to explore the basics of DL, with an emphasis on some particular implementations of multi-layer neural networks.</p>
+
+
+            </article>
+
+            
+        </section>
+    </body></html>

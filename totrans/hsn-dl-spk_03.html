@@ -1,0 +1,401 @@
+<html><head></head><body>
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Extract, Transform, Load</h1>
+                </header>
+            
+            <article>
+                
+<p class="mce-root">Training and testing DL models requires data. Data is usually hosted on different distributed and remote storage systems. You need them to connect to the data sources and perform data retrieval so that you can start the training phase and you would probably need to do some preparation before feeding your model. This chapter goes through the phases of the <strong>Extract</strong>, <strong>Transform</strong>, <strong>Load</strong> (<strong>ETL</strong>) process applied to DL. It covers several use cases for which the DeepLearning4j framework and Spark would be used. The use cases presented here are related to batch data ingestion. Data streaming will be covered in the next chapter.</p>
+<p>The following topics will be covered in this chapter:</p>
+<ul>
+<li>Training data ingestion through Spark</li>
+<li>Data ingestion from a relational database</li>
+<li>Data ingestion from a NoSQL database</li>
+<li>Data ingestion from S3</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Training data ingestion through Spark</h1>
+                </header>
+            
+            <article>
+                
+<p>The first section of this chapter introduces the DeepLearning4j framework and then presents some use cases of training data ingestion from files using this framework along with Apache Spark.</p>
+<p class="mce-root"/>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">The DeepLearning4j framework</h1>
+                </header>
+            
+            <article>
+                
+<p>Before jumping into the first example, let's quickly introduce the DeepLearning4j (<a href="https://deeplearning4j.org/">https://deeplearning4j.org/</a>) framework. It is an open source (released under the Apache license 2.0 (<a href="https://www.apache.org/licenses/LICENSE-2.0">https://www.apache.org/licenses/LICENSE-2.0</a>)), distributed deep learning framework written for the JVM. Being integrated since its earliest releases with Hadoop and Spark, it takes advantage of such distributed computing frameworks to speed up network training. It is written in Java, so is compatible with any other JVM language (including Scala of course), while the underlying computations are written in lower level languages, such as C, C++, and CUDA. The DL4J API gives flexibility when composing deep neural networks. So it is possible to combine different network implementations as needed in a distributed, production-grade infrastructure on top of distributed CPUs or GPUs. DL4J can import neural net models from most of the major ML or DL Python frameworks (including TensorFlow and Caffe) via Keras (<a href="https://keras.io/">https://keras.io/</a>), bridging the gap between the Python and the JVM ecosystems in terms of toolkits for data scientists in particular, but also for data engineers and DevOps. Keras represents the DL4J's Python API.</p>
+<p>DL4J is modular. These are the main libraries that comprise this framework:</p>
+<ul>
+<li><strong>Deeplearning4j</strong>: The neural network platform core</li>
+<li><strong>ND4J</strong>: The NumPy (<a href="http://www.numpy.org/">http://www.numpy.org/</a>) porting for the JVM</li>
+<li><strong>DataVec</strong>: A tool for ML ETL operations</li>
+<li><strong>Keras import</strong>: To import pre-trained Python models implemented in Keras</li>
+<li><strong>Arbiter</strong>: A dedicated library for multilayer neural networks hyperparameter optimization</li>
+<li><strong>RL4J</strong>: The implementation of deep reinforcement learning for the JVM</li>
+</ul>
+<p>We are going to explore almost all of the features of DL4J and its libraries, starting from this chapter and across the other chapters of this book.</p>
+<p>The reference release for DL4J in this book is version 0.9.1.</p>
+<p class="mce-root"/>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Data ingestion through DataVec and transformation through Spark</h1>
+                </header>
+            
+            <article>
+                
+<p>Data can come from many sources and in many types, for example:</p>
+<ul>
+<li>Log files</li>
+<li>Text documents</li>
+<li>Tabular data</li>
+<li>Images</li>
+<li>Videos</li>
+</ul>
+<p>When working with neural nets, the end goal is to convert each data type into a collection of numerical values in a multidimensional array. Data could also need to be pre-processed before it can be used to train or test a net. Therefore, an ETL process is needed in most cases, which is a sometimes underestimated challenge that data scientists have to face when doing ML or DL. That's when the DL4J DataVec library comes to the rescue. After data is transformed through this library API, it comes into a format (vectors) understandable by neural networks, so DataVec quickly produces open standard compliant vectorized data.</p>
+<p>DataVec supports out-of-the-box all the major types of input data (text, CSV, audio, video, image) with their specific input formats. It can be extended for specialized input formats not covered by the current release of its API. You can think about the DataVec input/output format system as the same way Hadoop MapReduce uses <kbd>InputFormat</kbd> implementations to determine the logical <em>InputSplits</em> and the <kbd>RecordReaders</kbd> implementation to use. It also provides <kbd>RecordReaders</kbd> to serialize data. This library also includes facilities for feature engineering, data cleanup, and normalization. They work with <span>both </span>static data and time series. All of the available functionalities can be executed on Apache Spark through the DataVec-Spark module.</p>
+<p>If you want to know more about the Hadoop MapReduce classes mentioned previously, you can have a look at the following official online Javadocs:</p>
+<table border="1" style="border-collapse: collapse;width: 100%">
+<tbody>
+<tr>
+<td><strong>Class name</strong></td>
+<td><strong>Link</strong></td>
+</tr>
+<tr>
+<td><kbd>InputFormat</kbd></td>
+<td><a href="https://hadoop.apache.org/docs/r2.7.2/api/org/apache/hadoop/mapred/InputFormat.html">https://hadoop.apache.org/docs/r2.7.2/api/org/apache/hadoop/mapred/InputFormat.html</a></td>
+</tr>
+<tr>
+<td><kbd>InputSplits</kbd></td>
+<td><a href="https://hadoop.apache.org/docs/r2.7.2/api/org/apache/hadoop/mapred/InputSplit.html">https://hadoop.apache.org/docs/r2.7.2/api/org/apache/hadoop/mapred/InputSplit.html</a></td>
+</tr>
+<tr>
+<td><kbd>RecordReaders</kbd></td>
+<td><a href="https://hadoop.apache.org/docs/r2.7.2/api/org/apache/hadoop/mapred/RecordReader.html">https://hadoop.apache.org/docs/r2.7.2/api/org/apache/hadoop/mapred/RecordReader.html</a></td>
+</tr>
+</tbody>
+</table>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p>Let's see a practical code example in Scala. We want to extract data from a CSV file that contains some e-shop transactions and have the following columns:</p>
+<ul>
+<li><kbd>DateTimeString</kbd></li>
+<li><kbd>CustomerID</kbd></li>
+<li><kbd>MerchantID</kbd></li>
+<li><kbd>NumItemsInTransaction</kbd></li>
+<li><kbd>MerchantCountryCode</kbd></li>
+<li><kbd>TransactionAmountUSD</kbd></li>
+<li><kbd>FraudLabel</kbd></li>
+</ul>
+<p>Then, we perform some transformation over them.</p>
+<p>We need to import the required dependencies (Scala, Spark, DataVec, and DataVec-Spark) first. Here is a complete list for a Maven POM file (but, of course, you can use SBT or Gradle):</p>
+<pre>&lt;properties&gt;<br/>      &lt;scala.version&gt;2.11.8&lt;/scala.version&gt;<br/>      &lt;spark.version&gt;2.2.1&lt;/spark.version&gt;<br/>      &lt;dl4j.version&gt;0.9.1&lt;/dl4j.version&gt;<br/>      &lt;datavec.spark.version&gt;0.9.1_spark_2&lt;/datavec.spark.version&gt;<br/>  &lt;/properties&gt;<br/>      <br/>  &lt;dependencies&gt;<br/>    &lt;dependency&gt;<br/>        &lt;groupId&gt;org.scala-lang&lt;/groupId&gt;<br/>        &lt;artifactId&gt;scala-library&lt;/artifactId&gt;<br/>       &lt;version&gt;${scala.version}&lt;/version&gt;<br/>    &lt;/dependency&gt;<br/>    <br/>    &lt;dependency&gt;<br/>        &lt;groupId&gt;org.apache.spark&lt;/groupId&gt;<br/>        &lt;artifactId&gt;spark-core_2.11&lt;/artifactId&gt;<br/>        &lt;version&gt;${spark.version}&lt;/version&gt;<br/>    &lt;/dependency&gt;<br/>    <br/>    &lt;dependency&gt;<br/>        &lt;groupId&gt;org.datavec&lt;/groupId&gt;<br/>        &lt;artifactId&gt;datavec-api&lt;/artifactId&gt;<br/>        &lt;version&gt;${dl4j.version}&lt;/version&gt;<br/>    &lt;/dependency&gt;<br/>    <br/>    &lt;dependency&gt;<br/>        &lt;groupId&gt;org.datavec&lt;/groupId&gt;<br/>        &lt;artifactId&gt;datavec-spark_2.11&lt;/artifactId&gt;<br/>        &lt;version&gt;${datavec.spark.version}&lt;/version&gt;<br/>    &lt;/dependency&gt;<br/>   &lt;/dependencies&gt;</pre>
+<p class="mce-root"/>
+<p>The first thing to do in the Scala application is to define the input data schema, as follows:</p>
+<pre>val inputDataSchema = new Schema.Builder()<br/>        .addColumnString("DateTimeString")<br/>        .addColumnsString("CustomerID", "MerchantID")<br/>        .addColumnInteger("NumItemsInTransaction")<br/>        .addColumnCategorical("MerchantCountryCode", List("USA", "CAN", "FR", "MX").asJava)<br/>         .addColumnDouble("TransactionAmountUSD", 0.0, null, false, false) //$0.0 or more, no maximum limit, no NaN and no Infinite values<br/>        .addColumnCategorical("FraudLabel", List("Fraud", "Legit").asJava)<br/>        .build</pre>
+<p>If input data is numeric and appropriately formatted then a <kbd>CSVRecordReader</kbd> (<a href="https://deeplearning4j.org/datavecdoc/org/datavec/api/records/reader/impl/csv/CSVRecordReader.html">https://deeplearning4j.org/datavecdoc/org/datavec/api/records/reader/impl/csv/CSVRecordReader.html</a>) may be satisfactory. If, however, the input data has non-numeric fields, then a schema transformation will be required. DataVec uses Apache Spark to perform transform operations. Once we have the input schema, we can define the transformation we want to apply to the input data. Just a couple of transformations are described in this example. We can remove some columns that are unnecessary for our net<span>, for example</span>:</p>
+<pre>val tp = new TransformProcess.Builder(inputDataSchema)<br/>        .removeColumns("CustomerID", "MerchantID")<br/>        .build </pre>
+<p>Filter the <kbd>MerchantCountryCode</kbd> column in order to get the records related to USA and Canada only, as follows:</p>
+<pre>.filter(new ConditionFilter(<br/>          new CategoricalColumnCondition("MerchantCountryCode", ConditionOp.NotInSet, new HashSet(Arrays.asList("USA","CAN")))))</pre>
+<p>At this stage, the transformations are only defined, but not applied yet (of course we need to get the data from the input file first). So far, we have used DataVec classes only. In order to read the data and apply the defined transformations, the Spark and DataVec-Spark API need to be used.</p>
+<p>Let's create the <kbd>SparkContext</kbd> first<span>, as follows</span>:</p>
+<pre>val conf = new SparkConf<br/>conf.setMaster(args[0])<br/>conf.setAppName("DataVec Example")<br/>      <br/>val sc = new JavaSparkContext(conf)</pre>
+<p>Now, we can read the CSV input file and parse the data using a <kbd>CSVRecordReader</kbd><span>, as follows:</span></p>
+<pre>val directory = new ClassPathResource("datavec-example-data.csv").getFile.getAbsolutePath<br/>val stringData = sc.textFile(directory)<br/>      <br/>val rr = new CSVRecordReader<br/>val parsedInputData = stringData.map(new StringToWritablesFunction(rr))</pre>
+<p>Then execute the transformation defined earlier<span>, as follows</span>:</p>
+<pre>val processedData = SparkTransformExecutor.execute(parsedInputData, tp)</pre>
+<p>Finally, let's collect the data locally<span>, as follows</span>:</p>
+<pre>val processedAsString = processedData.map(new WritablesToStringFunction(","))<br/>val processedCollected = processedAsString.collect<br/>val inputDataCollected = stringData.collect</pre>
+<p>The input data is as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1107 image-border" src="assets/7f7520ca-540e-4f55-b1dd-e0d37e062822.png" style="width:45.58em;height:10.92em;"/></p>
+<p>The processed data is as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1109 image-border" src="assets/1080235c-2b0a-4427-b254-894a85f593e6.png" style="width:34.75em;height:9.75em;"/></p>
+<p>The full code of this example is part of the source code included with the book.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Training data ingestion from a database with Spark</h1>
+                </header>
+            
+            <article>
+                
+<p>Sometimes data has been previously ingested and stored into a database by some other application, so you would need to connect to a database in order to use it for training or testing purposes. This section describes how to get data from a relational database and a NoSQL database. In both cases, Spark would be used.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Data ingestion from a relational database</h1>
+                </header>
+            
+            <article>
+                
+<p>Suppose the data is stored in a table called <kbd>sparkexample</kbd> in a MySQL (<a href="https://dev.mysql.com/">https://dev.mysql.com/</a>) schema with the name <kbd>sparkdb</kbd>. This is the structure of that table:</p>
+<pre>mysql&gt; DESCRIBE sparkexample;<br/>+-----------------------+-------------+------+-----+---------+-------+<br/>| Field                 | Type        | Null | Key | Default | Extra |<br/>+-----------------------+-------------+------+-----+---------+-------+<br/>| DateTimeString        | varchar(23) | YES  |     | NULL    |       |<br/>| CustomerID            | varchar(10) | YES  |     | NULL    |       |<br/>| MerchantID            | varchar(10) | YES  |     | NULL    |       |<br/>| NumItemsInTransaction | int(11)     | YES  |     | NULL    |       |<br/>| MerchantCountryCode   | varchar(3)  | YES  |     | NULL    |       |<br/>| TransactionAmountUSD  | float       | YES  |     | NULL    |       |<br/>| FraudLabel            | varchar(5)  | YES  |     | NULL    |       |<br/>+-----------------------+-------------+------+-----+---------+-------+<br/>7 rows in set (0.00 sec)</pre>
+<p>It contains the same data as, for the example, in <em>Training data ingestion through Spark</em><span>, as follows:</span></p>
+<pre>mysql&gt; select * from sparkexample;<br/>+-------------------------+------------+------------+-----------------------+---------------------+----------------------+------------+<br/>| DateTimeString          | CustomerID | MerchantID | NumItemsInTransaction | MerchantCountryCode | TransactionAmountUSD | FraudLabel |<br/>+-------------------------+------------+------------+-----------------------+---------------------+----------------------+------------+<br/>| 2016-01-01 17:00:00.000 | 830a7u3    | u323fy8902 |                     1 | USA                 |                  100 | Legit      |<br/>| 2016-01-01 18:03:01.256 | 830a7u3    | 9732498oeu |                     3 | FR                  |                 73.2 | Legit      |<br/>|...                      |            |            |                       |                     |                      |            |</pre>
+<p>The dependencies to add to the Scala Spark project are the following:</p>
+<ul>
+<li>Apache Spark 2.2.1</li>
+<li>Apache Spark SQL 2.2.1</li>
+<li>The specific JDBC driver for the MySQL database release used</li>
+</ul>
+<p>Let's now implement the Spark application in Scala. In order to connect to the database, we need to provide all of the needed parameters. Spark SQL also includes a data source that can read data from other databases using JDBC, so the required properties are the same as for a connection to a database through traditional JDBC; for example:</p>
+<pre>var jdbcUsername = "root"<br/>  var jdbcPassword = "secretpw"<br/>      <br/>  val jdbcHostname = "mysqlhost"<br/>  val jdbcPort = 3306<br/>  val jdbcDatabase ="sparkdb"<br/>  val jdbcUrl = s"jdbc:mysql://${jdbcHostname}:${jdbcPort}/${jdbcDatabase}"</pre>
+<p>We need to check that the JDBC driver for the MySQL database is available<span>, as follows</span>:</p>
+<pre>Class.forName("com.mysql.jdbc.Driver")</pre>
+<p>We can now create a <kbd>SparkSession</kbd><span>, as follows:</span></p>
+<pre>val spark = SparkSession<br/>        .builder()<br/>        .master("local[*]")<br/>        .appName("Spark MySQL basic example")<br/>        .getOrCreate()</pre>
+<p>Import the implicit conversions<span>, as follows</span>:</p>
+<pre>import spark.implicits._</pre>
+<p>You can finally connect to the database and load the data from the <kbd>sparkexample</kbd> table to a DataFrame<span>, as follows</span>:</p>
+<pre>val jdbcDF = spark.read<br/>        .format("jdbc")<br/>        .option("url", jdbcUrl)<br/>        .option("dbtable", s"${jdbcDatabase}.sparkexample")<br/>        .option("user", jdbcUsername)<br/>        .option("password", jdbcPassword)<br/>        .load()</pre>
+<p class="mce-root"/>
+<p>Spark automatically reads the schema from a database table and maps its types back to Spark SQL types. Execute the following method on the DataFrame:</p>
+<pre>jdbcDF.printSchema()</pre>
+<p>It returns the exact same schema as for the table <kbd>sparkexample</kbd>; for example:</p>
+<pre>root<br/> |-- DateTimeString: string (nullable = true)<br/> |-- CustomerID: string (nullable = true)<br/> |-- MerchantID: string (nullable = true)<br/> |-- NumItemsInTransaction: integer (nullable = true)<br/> |-- MerchantCountryCode: string (nullable = true)<br/> |-- TransactionAmountUSD: double (nullable = true)<br/> |-- FraudLabel: string (nullable = true)</pre>
+<p>Once the data is loaded into the DataFrame, it is possible to run SQL queries against it using the specific DSL as shown in the following example:</p>
+<pre>jdbcDF.select("MerchantCountryCode", "TransactionAmountUSD").groupBy("MerchantCountryCode").avg("TransactionAmountUSD")</pre>
+<p>It is possible to increase the parallelism of the reads through the JDBC interface. We need to provide split boundaries based on the DataFrame column values. There are four options available (<kbd>columnname</kbd>, <kbd>lowerBound</kbd>, <kbd>upperBound</kbd>, and <kbd>numPartitions</kbd>) to specify the parallelism on read. They are optional, but they must all be specified if any of them is provided; for example:</p>
+<pre>val jdbcDF = spark.read<br/>        .format("jdbc")<br/>        .option("url", jdbcUrl)<br/>        .option("dbtable", s"${jdbcDatabase}.employees")<br/>        .option("user", jdbcUsername)<br/>        .option("password", jdbcPassword)<br/>        .option("columnName", "employeeID")<br/>        .option("lowerBound", 1L)<br/>        .option("upperBound", 100000L)<br/>        .option("numPartitions", 100)<br/>        .load()</pre>
+<p>While the examples in this section refer to a MySQL database, they apply the same way to any commercial or open source RDBMS for which a JDBC driver is available.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Data ingestion from a NoSQL database</h1>
+                </header>
+            
+            <article>
+                
+<p>Data can also come from a NoSQL database. In this section, we are going to explore the code to implement in order to consume the data from a MongoDB (<a href="https://www.mongodb.com/">https://www.mongodb.com/</a>) database.</p>
+<p>The collection <kbd>sparkexample</kbd> of the <kbd>sparkmdb</kbd> database contains the same data as for the examples in <em>Data ingestion through DataVec and transformation through Spark</em> and <em>Data ingestion from a relational database</em> sections, but in the form of BSON documents; for example:</p>
+<pre>/* 1 */<br/>{<br/>    "_id" : ObjectId("5ae39eed144dfae14837c625"),<br/>    "DateTimeString" : "2016-01-01 17:00:00.000",<br/>    "CustomerID" : "830a7u3",<br/>    "MerchantID" : "u323fy8902",<br/>    "NumItemsInTransaction" : 1,<br/>    "MerchantCountryCode" : "USA",<br/>    "TransactionAmountUSD" : 100.0,<br/>    "FraudLabel" : "Legit"<br/>}<br/> <br/>/* 2 */<br/>{<br/>    "_id" : ObjectId("5ae3a15d144dfae14837c671"),<br/>    "DateTimeString" : "2016-01-01 18:03:01.256",<br/>    "CustomerID" : "830a7u3",<br/>    "MerchantID" : "9732498oeu",<br/>    "NumItemsInTransaction" : 3,<br/>    "MerchantCountryCode" : "FR",<br/>    "TransactionAmountUSD" : 73.0,<br/>    "FraudLabel" : "Legit"<br/>}<br/>...</pre>
+<p>The dependencies to add to the Scala Spark project are the following:</p>
+<ul>
+<li>Apache Spark 2.2.1</li>
+<li>Apache Spark SQL 2.2.1</li>
+<li>The MongoDB connector for Spark 2.2.0</li>
+</ul>
+<p>We need to create a Spark Session<span>, as follows</span>:</p>
+<pre>val sparkSession = SparkSession.builder()<br/>      .master("local")<br/>      .appName("MongoSparkConnectorIntro")<br/>      .config("spark.mongodb.input.uri", "mongodb://mdbhost:27017/sparkmdb.sparkexample")<br/>      .config("spark.mongodb.output.uri", "mongodb://mdbhost:27017/sparkmdb.sparkexample")<br/>      .getOrCreate()</pre>
+<p>Specify the connection to the database. After the session as been created, it is possible to use it to load data from the <kbd>sparkexample</kbd> collection through the <kbd>com.mongodb.spark.MongoSpark</kbd> class<span>, as follows</span>:</p>
+<pre>val df = MongoSpark.load(sparkSession)</pre>
+<p>The returned DataFrame has the same structure as for the <kbd>sparkexample</kbd> collection. Use the following instruction:</p>
+<pre>df.printSchema()</pre>
+<p>It prints the following output: </p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/ef9e643a-a52b-499d-950f-17dc5fe4aa7a.png" style="width:32.17em;height:11.58em;"/></p>
+<p>Of course, the retrieved data is that in the DB collection<span>, as follows</span>:</p>
+<pre>df.collect.foreach { println }</pre>
+<p>It returns the following:</p>
+<pre>[830a7u3,2016-01-01 17:00:00.000,Legit,USA,u323fy8902,1,100.0,[5ae39eed144dfae14837c625]]<br/>[830a7u3,2016-01-01 18:03:01.256,Legit,FR,9732498oeu,3,73.0,[5ae3a15d144dfae14837c671]]<br/>...</pre>
+<p>It is also possible to run SQL queries on the DataFrame. We need first to create a case class to define the schema for the DataFrame<span>, as follows</span>:</p>
+<pre>case class Transaction(CustomerID: String,<br/>                      MerchantID: String,<br/>                      MerchantCountryCode: String,<br/>                      DateTimeString: String,<br/>                      NumItemsInTransaction: Int,<br/>                      TransactionAmountUSD: Double,<br/>                      FraudLabel: String)</pre>
+<p>Then we load the data<span>, as follows</span>:</p>
+<pre>val transactions = MongoSpark.load[Transaction](sparkSession)</pre>
+<p>We must register a temporary view for the DataFrame<span>, as follows</span>:</p>
+<pre>transactions.createOrReplaceTempView("transactions")</pre>
+<p>Before we can execute an SQL statement, for example:</p>
+<pre>val filteredTransactions = sparkSession.sql("SELECT CustomerID, MerchantID FROM transactions WHERE TransactionAmountUSD = 100")</pre>
+<p>Use the following instruction:</p>
+<pre>filteredTransactions.show</pre>
+<p>It returns the following:</p>
+<pre>+----------+----------+<br/>|CustomerID|MerchantID|<br/>+----------+----------+<br/>|   830a7u3|u323fy8902|<br/>+----------+----------+</pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Data ingestion from S3</h1>
+                </header>
+            
+            <article>
+                
+<p>Nowadays, there's a big chance that the training and test data are hosted in some cloud storage system. In this section, we are going to learn how to ingest data through Apache Spark from an object storage such as Amazon S3 (<a href="https://aws.amazon.com/s3/">https://aws.amazon.com/s3/</a>) or S3-based (such as Minio, <a href="https://www.minio.io/">https://www.minio.io/</a>). The Amazon simple storage service (which is more popularly known as Amazon S3) is an object storage service part of the AWS cloud offering. While S3 is available in the public cloud, Minio is a high performance distributed object storage server compatible with the S3 protocol and standards that has been designed for large-scale private cloud infrastructures.</p>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p>We need to add to the Scala project the Spark core and Spark SQL dependencies, and also the following:</p>
+<pre>groupId: com.amazonaws<br/> artifactId: aws-java-sdk-core<br/> version1.11.234<br/> <br/> groupId: com.amazonaws<br/> artifactId: aws-java-sdk-s3<br/> version1.11.234<br/>     <br/> groupId: org.apache.hadoop<br/> artifactId: hadoop-aws<br/> version: 3.1.1</pre>
+<p>They are the AWS Java JDK core and S3 libraries, plus the Apache Hadoop module for AWS integration.</p>
+<p>For this example, we need to have already created one existing bucket on S3 or Minio. For the readers not familiar with the S3 object storage, a bucket is similar to a file system directory, where users can store objects (data and the metadata that describe it). Then we need to upload a file in that bucket that would need to be read by Spark. The file used for this example is one generally available for download at the MonitorWare website (<a href="http://www.monitorware.com/en/logsamples/apache.php">http://www.monitorware.com/en/logsamples/apache.php</a>). It contains HTTP requests log entries in ASCII format. For the purpose of this example, we are assuming that the name of the bucket is <kbd>dl4j-bucket</kbd> and the uploaded file name is <kbd>access_log</kbd>. The first thing to do in our Spark program is to create a <kbd>SparkSession</kbd><span>, as follows</span></p>
+<pre>val sparkSession = SparkSession<br/>    .builder<br/>    .master(master)<br/>    .appName("Spark Minio Example")<br/>    .getOrCreate</pre>
+<p>In order to reduce noise on the output, let's set the log level for Spark to <kbd>WARN</kbd><span>, as follows</span></p>
+<pre>sparkSession.sparkContext.setLogLevel("WARN")</pre>
+<p>Now that the <kbd>SparkSession</kbd> has been created, we need to set up the S3 or Minio endpoint and the credentials for Spark to access it, plus some other properties<span>, as follows</span>:</p>
+<pre>sparkSession.sparkContext.hadoopConfiguration.set("fs.s3a.endpoint", "http://&lt;host&gt;:&lt;port&gt;")<br/>sparkSession.sparkContext.hadoopConfiguration.set("fs.s3a.access.key", "access_key")<br/>sparkSession.sparkContext.hadoopConfiguration.set("fs.s3a.secret.key", "secret")<br/>sparkSession.sparkContext.hadoopConfiguration.set("fs.s3a.path.style.access", "true")<br/>sparkSession.sparkContext.hadoopConfiguration.set("fs.s3a.connection.ssl.enabled", "false")<br/>sparkSession.sparkContext.hadoopConfiguration.set("fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem")</pre>
+<p>This is the meaning of the properties that have been set for the minimal configuration:</p>
+<ul>
+<li><kbd>fs.s3a.endpoint</kbd>: The S3 or Minio endpoint.</li>
+<li><kbd>fs.s3a.access.key</kbd>: The AWS or Minio access key ID.</li>
+<li><kbd>fs.s3a.secret.key</kbd>: The AWS or Minio secret key.</li>
+<li><kbd>fs.s3a.path.style.access</kbd>: Enables S3 path style access while disabling the default virtual hosting behavior.</li>
+<li><kbd>fs.s3a.connection.ssl.enabled</kbd>: Specifies if SSL is enabled at the endpoint. Possible values are <kbd>true</kbd> and <kbd>false</kbd>.</li>
+<li><kbd>fs.s3a.impl</kbd>: The implementation class of the <kbd>S3AFileSystem</kbd> that is used.</li>
+</ul>
+<p>We are now ready to read the <kbd>access_log</kbd> file (or any other file) from a S3 or Minio bucket and load its content into a RDD, as follows:</p>
+<pre>val logDataRdd = sparkSession.sparkContext.textFile("s3a://dl4j-bucket/access_log")<br/>println("RDD size is " + logDataRdd.count)</pre>
+<p>It is also possible to convert the RDD into a DataFrame and show the content on the output<span>, as follows</span>:</p>
+<pre>import sparkSession.implicits._<br/>val logDataDf = logDataRdd.toDF<br/>logDataDf.show(10, false)</pre>
+<p>This will provide the following output:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/91d783d2-5436-41da-b551-c8a31b0b7cc0.png"/></p>
+<p class="mce-root"/>
+<p>Once data has been loaded from objects stored into S3 or Minio buckets, any operation available in Spark for RDDs and Datasets can be used.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Raw data transformation with Spark</h1>
+                </header>
+            
+            <article>
+                
+<p>Data coming from a source is often raw data. When we talk about raw data we mean data that is in a format that can't be used as is for the training or testing purposes of our models. So, before using, we need to make it tidy. The cleanup process is done through one or more transformations before giving the data as input for a given model.</p>
+<p>For data transformation purposes, the DL4J DataVec library and Spark provide several facilities. Some of the concepts described in this section have been explored in the <em>Data ingestion through DataVec and transformation through Spark</em> section, but now we are going to add a more complex use case.</p>
+<p>To understand how to use Datavec for transformation purposes, let's build a Spark application for web traffic log analysis. The dataset used is generally available for download at the MonitorWare website (<a href="http://www.monitorware.com/en/logsamples/apache.php">http://www.monitorware.com/en/logsamples/apache.php</a>). They are HTTP requests log entries in ASCII format. There is one line per request, with the following columns:</p>
+<ul>
+<li>The host making the request. A hostname or an internet address</li>
+<li>A timestamp in the format <em>DD/Mon/YYYY:HH:MM:SS</em>, where <em>DD</em> is the day of the month, <em>Mon</em> is the name of the month, <em>YYYY</em> is the year and <em>HH:MM:SS</em> is the time of day using a 24-hour clock. The timezone is -<em>0800</em></li>
+<li>The HTTP request given in quotes</li>
+<li>The HTTP reply code</li>
+<li>The total of bytes in the reply</li>
+</ul>
+<p>Here's a sample of the log content used:</p>
+<pre>64.242.88.10 - - [07/Mar/2004:16:05:49 -0800] "GET /twiki/bin/edit/Main/Double_bounce_sender?topicparent=Main.ConfigurationVariables HTTP/1.1" 401 12846<br/>64.242.88.10 - - [07/Mar/2004:16:06:51 -0800] "GET /twiki/bin/rdiff/TWiki/NewUserTemplate?rev1=1.3&amp;rev2=1.2 HTTP/1.1" 200 4523<br/>64.242.88.10 - - [07/Mar/2004:16:10:02 -0800] "GET /mailman/listinfo/hsdivision HTTP/1.1" 200 6291<br/>64.242.88.10 - - [07/Mar/2004:16:11:58 -0800] "GET /twiki/bin/view/TWiki/WikiSyntax HTTP/1.1" 200 7352</pre>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p>The first thing to do in our application is to define the schema of the input data<span>, as follows</span>:</p>
+<pre>val schema = new Schema.Builder()<br/>      .addColumnString("host")<br/>      .addColumnString("timestamp")<br/>      .addColumnString("request")<br/>      .addColumnInteger("httpReplyCode")<br/>      .addColumnInteger("replyBytes")<br/>      .build</pre>
+<p>Start a Spark context<span>, as follows</span>:</p>
+<pre>val conf = new SparkConf<br/> conf.setMaster("local[*]")<br/> conf.setAppName("DataVec Log Analysis Example")<br/> val sc = new JavaSparkContext(conf)</pre>
+<p>Load the file<span>, as follows</span>:</p>
+<pre>val directory = new ClassPathResource("access_log").getFile.getAbsolutePath</pre>
+<p>A web log file could contain some invalid lines that don't follow the preceding schema, so we need to include some logic to discard those lines that are useless for our analysis, for example:</p>
+<pre>var logLines = sc.textFile(directory)<br/>logLines = logLines.filter { (s: String) =&gt;<br/>    s.matches("(\\S+) - - \\[(\\S+ -\\d{4})\\] \"(.+)\" (\\d+) (\\d+|-)")<br/>}</pre>
+<p>We are applying a regular expression to filter the log lines that match the expected format. We can now start to parse the raw data using a DataVec <kbd>RegexLineRecordReader</kbd> (<a href="https://deeplearning4j.org/datavecdoc/org/datavec/api/records/reader/impl/regex/RegexLineRecordReader.html">https://deeplearning4j.org/datavecdoc/org/datavec/api/records/reader/impl/regex/RegexLineRecordReader.html</a>). We need to define a <kbd>regex</kbd> for formatting the lines<span>, as follows</span>:</p>
+<pre>val regex = "(\\S+) - - \\[(\\S+ -\\d{4})\\] \"(.+)\" (\\d+) (\\d+|-)"<br/>  val rr = new RegexLineRecordReader(regex, 0)<br/>  val parsed = logLines.map(new StringToWritablesFunction(rr))</pre>
+<p>Through the DataVec-Spark library, it is also possible to check the quality of the data before defining the transformations. We can use the <kbd>AnalyzeSpark</kbd> (<a href="https://deeplearning4j.org/datavecdoc/org/datavec/spark/transform/AnalyzeSpark.html">https://deeplearning4j.org/datavecdoc/org/datavec/spark/transform/AnalyzeSpark.html</a>) class for this purpose<span>, as follows</span>:</p>
+<pre>val dqa = AnalyzeSpark.analyzeQuality(schema, parsed)<br/>  println("----- Data Quality -----")<br/>  println(dqa)</pre>
+<p>The following is the output produced by the data quality analysis:</p>
+<pre>----- Data Quality -----<br/> idx   name                 type           quality   details<br/> 0     "host"               String         ok        StringQuality(countValid=1546, countInvalid=0, countMissing=0, countTotal=1546, countEmptyString=0, countAlphabetic=0, countNumerical=0, countWordCharacter=10, countWhitespace=0, countApproxUnique=170)<br/> 1     "timestamp"          String         ok        StringQuality(countValid=1546, countInvalid=0, countMissing=0, countTotal=1546, countEmptyString=0, countAlphabetic=0, countNumerical=0, countWordCharacter=0, countWhitespace=0, countApproxUnique=1057)<br/> 2     "request"            String         ok        StringQuality(countValid=1546, countInvalid=0, countMissing=0, countTotal=1546, countEmptyString=0, countAlphabetic=0, countNumerical=0, countWordCharacter=0, countWhitespace=0, countApproxUnique=700)<br/> 3     "httpReplyCode"      Integer        ok        IntegerQuality(countValid=1546, countInvalid=0, countMissing=0, countTotal=1546, countNonInteger=0)<br/> 4     "replyBytes"         Integer        FAIL      IntegerQuality(countValid=1407, countInvalid=139, countMissing=0, countTotal=1546, countNonInteger=139)</pre>
+<p>From this, we notice that on <kbd>139</kbd> lines (out of <kbd>1546</kbd>), the <kbd>replyBytes</kbd> field isn't an integer as expected. Here are a couple of those lines:</p>
+<pre>10.0.0.153 - - [12/Mar/2004:11:01:26 -0800] "GET / HTTP/1.1" 304 -<br/>10.0.0.153 - - [12/Mar/2004:12:23:11 -0800] "GET / HTTP/1.1" 304 -</pre>
+<p>So, the first transformation to do is to clean up the <kbd>replyBytes</kbd> field by replacing any non-integer entries with the value <kbd>0</kbd>. We use the <kbd>TransformProcess</kbd> class as for the example in the <em>Data ingestion through DataVec and transformation through Spark</em> section<span>, as follows</span>:</p>
+<pre>val tp: TransformProcess = new TransformProcess.Builder(schema)<br/>       .conditionalReplaceValueTransform("replyBytes", new IntWritable(0), new StringRegexColumnCondition("replyBytes", "\\D+"))</pre>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p>Then, we can apply any other transformation, for example, grouping by host and pulling out summary metrics (count the number of entries, count the number of unique requests and HTTP reply codes, total the values in the <kbd>replyBytes</kbd> field); for example:</p>
+<pre>.reduce(new Reducer.Builder(ReduceOp.CountUnique)<br/>         .keyColumns("host")                             <br/>         .countColumns("timestamp")                      <br/>         .countUniqueColumns("request", "httpReplyCode")<br/>         .sumColumns("replyBytes")                       <br/>         .build<br/>       )</pre>
+<p>Rename a number of columns<span>, as follows</span>:</p>
+<pre>.renameColumn("count", "numRequests")</pre>
+<p>Filter out all hosts that requested fewer than 1 million bytes in total<span>, as follows</span>:</p>
+<pre>.filter(new ConditionFilter(new LongColumnCondition("sum(replyBytes)", ConditionOp.LessThan, 1000000)))<br/>  .build</pre>
+<p>We can now execute the transformations<span>, as follows</span>:</p>
+<pre>val processed = SparkTransformExecutor.execute(parsed, tp)<br/>  processed.cache</pre>
+<p>We can also perform some analysis on the final data<span>, as follows</span>:</p>
+<pre class="mce-root">val finalDataSchema = tp.getFinalSchema<br/>  val finalDataCount = processed.count<br/>  val sample = processed.take(10)<br/>  val analysis = AnalyzeSpark.analyze(finalDataSchema, processed)</pre>
+<p>The final data schema is shown as follows:</p>
+<pre>idx   name                              type           meta data<br/> 0     "host"                            String         StringMetaData(name="host",)<br/> 1     "count(timestamp)"                Long           LongMetaData(name="count(timestamp)",minAllowed=0)<br/> 2     "countunique(request)"            Long           LongMetaData(name="countunique(request)",minAllowed=0)<br/> 3     "countunique(httpReplyCode)"      Long           LongMetaData(name="countunique(httpReplyCode)",minAllowed=0)<br/> 4     "sum(replyBytes)"                 Integer        IntegerMetaData(name="sum(replyBytes)",)</pre>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p class="mceNonEditable"/>
+<p class="mceNonEditable"/>
+<p>The following shows that the result count is two:</p>
+<pre>[10.0.0.153, 270, 43, 3, 1200145]<br/> [64.242.88.10, 452, 451, 2, 5745035]</pre>
+<p><span>The following code shows </span>the result of the analysis:</p>
+<pre>----- Analysis -----<br/> idx   name                              type           analysis<br/> 0     "host"                            String         StringAnalysis(minLen=10,maxLen=12,meanLen=11.0,sampleStDevLen=1.4142135623730951,sampleVarianceLen=2.0,count=2)<br/> 1     "count(timestamp)"                Long           LongAnalysis(min=270,max=452,mean=361.0,sampleStDev=128.69343417595164,sampleVariance=16562.0,countZero=0,countNegative=0,countPositive=2,countMinValue=1,countMaxValue=1,count=2)<br/> 2     "countunique(request)"            Long           LongAnalysis(min=43,max=451,mean=247.0,sampleStDev=288.4995667241114,sampleVariance=83232.0,countZero=0,countNegative=0,countPositive=2,countMinValue=1,countMaxValue=1,count=2)<br/> 3     "countunique(httpReplyCode)"      Long           LongAnalysis(min=2,max=3,mean=2.5,sampleStDev=0.7071067811865476,sampleVariance=0.5,countZero=0,countNegative=0,countPositive=2,countMinValue=1,countMaxValue=1,count=2)<br/> 4     "sum(replyBytes)"                 Integer        IntegerAnalysis(min=1200145,max=5745035,mean=3472590.0,sampleStDev=3213722.538746928,sampleVariance=1.032801255605E13,countZero=0,countNegative=0,countPositive=2,countMinValue=1,countMaxValue=1,count=2)</pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Summary</h1>
+                </header>
+            
+            <article>
+                
+<p>This chapter explored different ways of ingesting data from files, relational and NoSQL databases, and S3-based object storage systems using the DeepLearning4j DataVec library and the Apache Spark (core and Spark SQL modules) framework, and showed some examples of how to transform the raw data. All of the examples <span>presented </span>represent data ingestion and transformation in a batch fashion.</p>
+<p>The next chapter will focus on ingesting and transforming data to train or test your DL model in streaming mode.</p>
+
+
+            </article>
+
+            
+        </section>
+    </body></html>

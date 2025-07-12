@@ -1,0 +1,427 @@
+<html><head></head><body>
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Convolution</h1>
+                </header>
+            
+            <article>
+                
+<p class="mce-root">The previous two chapters have covered real use case implementation of NLP done through RNNs/LSTMs in Apache Spark. In this and the following chapter, we are going to do something similar for CNNs: we are going to explore how they can be used in image recognition and classification. This chapter in particular covers the following topics:</p>
+<ul>
+<li>A quick recap on what convolution is, from both the mathematical and DL perspectives</li>
+<li>The challenges and strategies for object recognition in real-world problems</li>
+<li>How convolution applies to image recognition and a walk-through of hands-on practical implementations of an image recognition use case through DL (CNNs) by adopting the same approach, but using the following two different open source frameworks and programming languages:
+<ul>
+<li>Keras (with a TensorFlow backend) in Python</li>
+<li>DL4J (and ND4J) in Scala</li>
+</ul>
+</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Convolution</h1>
+                </header>
+            
+            <article>
+                
+<p><a href="fbec1d8a-a92f-4899-af0f-11f3d545e0eb.xhtml" target="_blank">Chapter 5</a>, <em>Convolutional Neural Networks</em>, covered the theory behind CNNs, and convolution of course has been part of that presentation. Let's do a recap of this concept from a mathematical and practical perspective before moving on to object recognition. In mathematics, convolution is an operation on two functions that produces a third function, which is the result of the integral of the product between the first two, one of which is flipped:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="fm-editor-equation" src="assets/40f744d1-b124-4366-b7a9-e4e3b99513a4.png" style="width:17.33em;height:3.50em;"/></p>
+<p>Convolution is heavily used in 2D image processing and signal filtering.</p>
+<p>To better understand what happens behind the scenes, here's a simple Python code example of 1D convolution with NumPy (<a href="http://www.numpy.org/">http://www.numpy.org/</a>):</p>
+<pre>import numpy as np<br/><br/>x = np.array([1, 2, 3, 4, 5])<br/>y = np.array([1, -2, 2])<br/>result = np.convolve(x, y)<br/>print result</pre>
+<p>This produces the following result:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/5543edab-f7f9-41ec-ad54-c2ba7fd928ec.png" style="width:23.00em;height:9.08em;"/></p>
+<p>Let's see how the convolution between the <kbd>x</kbd> and <kbd>y</kbd> arrays produces that result. The first thing the <kbd>convolve</kbd> function does is to horizontally flip the <kbd>y</kbd> array:</p>
+<p><kbd>[1, -2, 2]</kbd> becomes <kbd>[2, -2, 1]</kbd></p>
+<p>Then, the flipped <kbd>y</kbd> array slides over the <kbd>x</kbd> array:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/28dfda6e-a187-41a7-a2c5-4d899b4dd754.png" style="width:36.58em;height:34.00em;"/></p>
+<p>That's how the <kbd>result</kbd> array <kbd>[ 1  0  1  2  3 -2 10]</kbd> is generated.</p>
+<p>2D convolution happens with a similar mechanism. Here's a simple Python code example with NumPy:</p>
+<pre>import numpy as np<br/>from scipy import signal<br/><br/>a = np.matrix('1 3 1; 0 -1 1; 2 2 -1')<br/>print(a)<br/>w = np.matrix('1 2; 0 -1')<br/>print(w)<br/><br/>f = signal.convolve2d(a, w)<br/>print(f)</pre>
+<p>This time, the SciPy (<a href="https://www.scipy.org/">https://www.scipy.org/</a>) <kbd>signal.convolve2d</kbd> function is used to do the convolution. The result of the preceding code is as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/e61da606-2f9b-4d33-840c-9658d42569af.png" style="width:23.50em;height:11.08em;"/></p>
+<p>When the flipped matrix is totally inside the input matrix, the results are called <kbd>valid</kbd> convolutions. It is possible to calculate the 2D convolution, getting only the valid results this way, as follows:</p>
+<pre>f = signal.convolve2d(a, w, 'valid')</pre>
+<p>This will give output as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/7e17957f-f56d-4d09-823e-9100dcc1239e.png" style="width:29.25em;height:7.58em;"/></p>
+<p>Here's how those results are calculated. First, the <kbd>w</kbd> array is flipped:</p>
+<p><img class="fm-editor-equation" src="assets/dcc92c16-742f-4472-8959-e64f4532b799.png" style="width:4.92em;height:3.08em;"/> becomes <img class="fm-editor-equation" src="assets/a8f37131-695b-44d2-822e-ae0ebdf2bc11.png" style="width:4.25em;height:2.67em;"/></p>
+<p>Then, the same as for the 1D convolution, each window of the <kbd>a</kbd> matrix is multiplied, element by element, with the flipped <kbd>w</kbd> matrix, and the results are finally summed<span> as follows</span>:</p>
+<p><img class="fm-editor-equation" src="assets/77311521-ca82-42ee-b893-4c1877dcedc5.png" style="width:4.17em;height:2.67em;"/>    <em>(1 x -1) + (0 x 3) + (0 x 2) + (-1 x 1) = <strong>-2</strong></em></p>
+<p><img class="fm-editor-equation" src="assets/e6c864b0-1bca-4d37-894d-f4c9471a8cad.png" style="width:4.25em;height:2.67em;"/>    <em>(3 x -1) + (1 x 0) + (-1 x 2) + (1 x 1) = <strong>-4</strong></em></p>
+<p>And so on.</p>
+<p class="mceNonEditable"/>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Object recognition strategies</h1>
+                </header>
+            
+            <article>
+                
+<p>This section presents different computational techniques used in implementing the automated recognition of objects in digital images. Let's start by giving a definition of object recognition. In a nutshell, it is the task of finding and labeling parts of a 2D image of a scene that correspond to objects inside that scene. The following screenshot shows an example of object recognition performed manually by a human using a pencil:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1123 image-border" src="assets/4cc4dd9a-cc15-443d-94b4-439444a02389.png" style="width:23.50em;height:13.25em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref">Figure 13.1: An example of manual object detection</div>
+<p>The image has been marked and labeled to show fruits recognizable as a banana and a pumpkin. This is exactly the same as what happens for calculated object recognition; it can be simply thought of as the process of drawing lines and outlining areas of an image, and finally attaching to each structure a label corresponding to the model that best represents it.</p>
+<p>A combination of factors, such as the semantics of a scene context or information present in the image, must be used in object recognition. Context is particularly important when interpreting images. Let's first have a look at the following screenshot:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1128 image-border" src="assets/1b8e0b43-cf2f-40f6-82eb-727ab48b7242.png" style="width:6.83em;height:14.17em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref">Figure 13.2: Object in isolation (no context)</div>
+<p>It is nearly impossible to identify in isolation the object in the center of that image. Let's have a look now at the following screenshot, where the same object appears in the position as it had in the original image:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1129 image-border" src="assets/93026019-5f1b-47e6-809e-65501ef207f1.png" style="width:21.08em;height:12.75em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref">Figure 13.3: The object from figure 13.2 in its original context</div>
+<p>Providing no further information, it is still difficult to identify that object, but not as difficult as for <em>Figure 13.2</em>. Given context information that the image in the preceding screenshot is a circuit board, the initial object is more easily recognized as a polarized capacitor. Cultural context plays a key role in enabling the proper interpretation of a scene.</p>
+<p>Let's now consider a second example (shown in the following screenshot), a consistent 3D image of a stairwell:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1130 image-border" src="assets/b09f73bd-f417-4f95-a7e1-11367ab01c0d.png" style="width:21.42em;height:14.25em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref">Figure 13.4: A consistent 3D image showing a stairwell</div>
+<p>By changing the light in that image, the final result could make it harder for the eye (and also a computer) to see a consistent 3D image (as shown in the following screenshot):</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1131 image-border" src="assets/c7131e66-53d6-46e4-b912-0c45380910f9.png" style="width:21.17em;height:14.08em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref">Figure 13.5: The result of applying a different light to the image in figure 13.4</div>
+<p>Compared with the original image (<em>Figure 13.3</em>) its brightness and contrast have been modified (<span>as shown in the </span>following screenshot):</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1132 image-border" src="assets/6bc78e8e-316f-4388-9c29-fcf3c04657eb.png" style="width:22.50em;height:15.00em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref">Figure 13.6: The image in figure 13.3 with changed brightness and contrast</div>
+<p>The eye can still recognize three-dimensional steps. However, using different brightness and contrast values to the original image looks as shown in following screenshot:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1133 image-border" src="assets/f85f93fe-1ea7-412c-b1e7-b0a55ab6495f.png" style="width:22.50em;height:14.92em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref">Figure 13.7: The image in figure 13.3 with different brightness and contrast</div>
+<p>It is almost impossible to recognize the same image. What we have learned is that although the retouched image in the previous screenshot retains a significant part of the important visual information in the original one (<em>Figure 13.3</em>), the images in <em>Figure 13.4</em> and the preceding screenshot became less interpretable because of the 3D details that have been removed by retouching them. The examples presented provide evidence that computers (like human eyes) need appropriate context models in order to successfully complete object recognition and scene interpretation.</p>
+<p>Computational strategies for object recognition can be classified based on their suitability for complex image data or for complex models. Data complexity in a digital image corresponds to its signal-to-noise ratio. An image with semantic ambiguity corresponds to complex (or noisy) data. Data consisting of perfect outlines of model instances throughout an image is called simple. Image data with poor resolution, noise, or other kinds of anomalies, or with easily confused false model instances, is referred to as complex. Model complexity is indicated by the level of detail in the data structures in an image, and in the techniques required to determine the form of the data. If a model is defined by a simple criterion (such as a single shape template or the optimization of a single function implicitly containing a shape model), then no other context may be needed to attach model labels to a given scene. But, in cases where many atomic model components must be assembled or some way hierarchically related to establish the existence of the desired model instance, complex data structures and non-trivial techniques are required.</p>
+<p>Based on the previous definitions, object recognition strategies can then be classified into four main categories, as follows:</p>
+<ul>
+<li><strong>Feature vector classification</strong>: This relies on a trivial model of an object's image characteristics. Typically, it is applied only to simple data.</li>
+<li><strong>Fitting model to photometry</strong>: This is applied when simple models are sufficient but the photometric data of an image is noisy and ambiguous.</li>
+<li><strong>Fitting model to symbolic structures</strong>: Applied when complex models are required, but reliable symbolic structures can be accurately inferred from simple data. These approaches look for instances of objects by matching data structures that represent relationships between globally object parts.</li>
+<li><strong>Combined strategies</strong>: Applied when both data and desired model instances are complex.</li>
+</ul>
+<p>The implementation of the available API to build and train CNNs for object recognition provided by the major open source frameworks detailed in this book have been done keeping these considerations and strategies in mind. While those APIs are very high-level, the same mindset should be taken when choosing the proper combination of hidden layers for a model.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Convolution applied to image recognition</h1>
+                </header>
+            
+            <article>
+                
+<p>In this section, we are now going hands-on by implementing an image recognition model, taking into account the considerations discussed in the first part of this chapter. We are going to implement the same use case using two different frameworks and programming languages.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Keras implementation</h1>
+                </header>
+            
+            <article>
+                
+<p>The first implementation of object recognition we are going to do is in Python and involves the Keras framework. To train and evaluate the model, we are going to use a public dataset called CIFAR-10 (<a href="http://www.cs.toronto.edu/~kriz/cifar.html">http://www.cs.toronto.edu/~kriz/cifar.html</a>). It consists of 60,000 (50,000 for training and 10,000 for testing) small (32 x 32 pixels) color images divided into 10 classes (airplane, automobile, bird, cat, deer, dog, frog, horse, ship, and truck). These 10 classes are mutually exclusive. The CIFAR-10 dataset (163 MB) is freely downloadable from <a href="http://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz">http://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz</a>.<a href="http://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz"/></p>
+<p>The prerequisites for this implementation are Python 2.7.x, Keras, TensorFlow (it is used as the Keras backend), NumPy, and <kbd>scikit-learn</kbd> (<a href="http://scikit-learn.org/stable/index.html">http://scikit-learn.org/stable/index.html</a>), an open source tool for ML. <a href="1066b0d4-c2f3-44f9-9cc4-d38469d72c3f.xhtml" target="_blank">Chapter 10</a>, <em>Deploying on a Distributed System</em>, covers the details to set up the Python environment for Keras and TensorFlow. <kbd>scikit-learn</kbd> can be installed as follows:</p>
+<pre><strong>sudo pip install scikit-learn</strong></pre>
+<p>First of all, we need to import all of the necessary NumPy, Keras, and <kbd>scikit-learn</kbd> namespaces and classes, a<span>s follows</span>:</p>
+<pre>import numpy as np<br/>from keras.models import Sequential<br/>from keras.layers import Dense<br/>from keras.layers import Dropout<br/>from keras.layers import Flatten<br/>from keras.constraints import maxnorm<br/>from keras.optimizers import SGD<br/>from keras.layers.convolutional import Conv2D<br/>from keras.layers.convolutional import MaxPooling2D<br/>from keras.utils import np_utils<br/>from keras.datasets import cifar10<br/>from keras import backend as K<br/>from sklearn.model_selection import train_test_split</pre>
+<p>Now, we need to load the CIFAR-10 dataset. No need to download it separately; Keras provides a facility to download it programmatically<span>, a</span><span>s follows</span>:</p>
+<pre>K.set_image_dim_ordering('th')<br/> (X_train, y_train), (X_test, y_test) = cifar10.load_data()</pre>
+<p>The <kbd>load_data</kbd> function downloads it the first time it is executed. Successive runs will use the dataset already downloaded locally.</p>
+<p>We initialize the <kbd>seed</kbd> with a constant value, in order to ensure that the results are then reproducible<span>, a</span><span>s follows</span>:</p>
+<pre>seed = 7<br/> np.random.seed(seed)</pre>
+<p>The pixel values for the input datasets are in the range 0 to 255 (for each of the RGB channels). We can normalize this data to a range from 0 to 1 by dividing the values by <kbd>255.0</kbd>, then doing the following:</p>
+<pre>X_train = X_train.astype('float32')<br/> X_test = X_test.astype('float32')<br/> <br/> X_train = X_train / 255.0<br/> X_test = X_test / 255.0</pre>
+<p>We can hot encode the output variables to transform them into a binary matrix (it could be a one-hot encoding, because they are defined as vectors of integers in the range between 0 and 1 for each of the 10 classes)<span>, a</span><span>s follows</span>:</p>
+<pre>y_train = np_utils.to_categorical(y_train)<br/> y_test = np_utils.to_categorical(y_test)<br/> num_classes = y_test.shape[1]</pre>
+<p>Let's start the model implementation. Let's start by implementing a simple CNN first, verify its accuracy level and, if the case, we will go to make the model more complex. The following is a possible first implementation:</p>
+<pre>model = Sequential()<br/>model.add(Conv2D(32,(3,3), input_shape = (3,32,32), padding = 'same', activation = 'relu'))<br/>model.add(Dropout(0.2))<br/>model.add(Conv2D(32,(3,3), padding = 'same', activation = 'relu'))<br/>model.add(MaxPooling2D(pool_size=(2,2)))<br/>model.add(Conv2D(64,(3,3), padding = 'same', activation = 'relu'))<br/>model.add(MaxPooling2D(pool_size=(2,2)))<br/>model.add(Flatten())<br/>model.add(Dropout(0.2))<br/>model.add(Dense(512,activation='relu',kernel_constraint=maxnorm(3)))<br/>model.add(Dropout(0.2))<br/>model.add(Dense(num_classes, activation='softmax'))</pre>
+<p>You can see the model layer details at runtime in the console output before the training starts (see the following screenshot):</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/0ec53bf4-5723-433c-bf95-a12a27ca5ffa.png" style="width:42.33em;height:36.58em;"/></p>
+<p>The model is a <kbd>Sequential</kbd> model. As we can see from the preceding output, the input layer is convolutional, with 32 feature maps of size 3 x 3 and a <strong>Rectified Linear Unit</strong> (<strong><span>ReLU</span></strong>) activation function. After applying a 20% dropout to the input to reduce overfitting, the following layer is a second convolutional layer with the same characteristics as the input layer. Then, we set a max pooling layer of size 2 x 2. After it, there is a third convolutional layer with 64 feature maps of size 3 x 3 and a ReLU activation function, and a second max pooling layer of size 2 x 2 is set. After this second max pooling, we put a flattened layer and apply a 20% dropout, before sending the output to the next layer, which is a fully connected layer with 512 units and a ReLU activation function. We apply another 20% dropout before the output layer, which is another fully-connected layer with 10 units and a softmax activation function.</p>
+<p>We can now define the following training properties (number of epochs, learning rate, weight decay, and optimizer, which for this specific case has been set as a <strong>Stochastic Gradient Descent</strong> (<strong><span>SGD</span></strong>):</p>
+<pre>epochs = 25<br/> lrate = 0.01<br/> decay = lrate/epochs<br/> sgd = SGD(lr=lrate, momentum=0.9, decay=decay, nesterov=False)</pre>
+<p>Configure the training process for the model, as follows:</p>
+<pre>model.compile(loss='categorical_crossentropy', optimizer=sgd, metrics=['accuracy'])</pre>
+<p>The training can be now started, using the CIFAR-10 training data<span>, as follows</span>:</p>
+<pre>model.fit(X_train, y_train, validation_data=(X_test, y_test), epochs=epochs, batch_size=32)</pre>
+<p>When it completes, the evaluation can be done using the CIFAR-10 test data<span>, as follows</span>:</p>
+<pre>scores = model.evaluate(X_test,y_test,verbose=0)<br/> print("Accuracy: %.2f%%" % (scores[1]*100))</pre>
+<p>The accuracy of this model is around <kbd>75%</kbd>, as can be seen in the following screenshot:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/ab1124af-18fb-4c99-9c6c-795166d338f6.png"/></p>
+<p>Not a great result then. We have executed the training on 25 epochs, which is a small number. So, the accuracy will improve when training for a greater number of epochs. But, let's see first whether things can be improved by making changes to the CNN model, making it deeper. Add two extra imports<span>, as follows</span>:</p>
+<pre>from keras.layers import Activation<br/> from keras.layers import BatchNormalization</pre>
+<p>The only change to the code implemented previously is for the network model. Here's the new one:</p>
+<pre>model = Sequential()<br/>model.add(Conv2D(32, (3,3), padding='same', input_shape=x_train.shape[1:]))<br/>model.add(Activation('elu'))<br/>model.add(BatchNormalization())<br/>model.add(Conv2D(32, (3,3), padding='same'))<br/>model.add(Activation('elu'))<br/>model.add(BatchNormalization())<br/>model.add(MaxPooling2D(pool_size=(2,2)))<br/>model.add(Dropout(0.2))<br/><br/>model.add(Conv2D(64, (3,3), padding='same'))<br/>model.add(Activation('elu'))<br/>model.add(BatchNormalization())<br/>model.add(Conv2D(64, (3,3), padding='same'))<br/>model.add(Activation('elu'))<br/>model.add(BatchNormalization())<br/>model.add(MaxPooling2D(pool_size=(2,2)))<br/>model.add(Dropout(0.3))<br/><br/>model.add(Conv2D(128, (3,3), padding='same'))<br/>model.add(Activation('elu'))<br/>model.add(BatchNormalization())<br/>model.add(Conv2D(128, (3,3), padding='same'))<br/>model.add(Activation('elu'))<br/>model.add(BatchNormalization())<br/>model.add(MaxPooling2D(pool_size=(2,2)))<br/>model.add(Dropout(0.4))<br/><br/>model.add(Flatten())<br/>model.add(Dense(num_classes, activation='softmax'))</pre>
+<p>Basically, what we have done is to repeat the same pattern, each one with a different number of feature maps (32, 64, and 128). The advantage of adding layers is that each of them will learn features at different levels of abstraction. In our case, training a CNN to recognize objects, we can check that the first layer trains itself to recognize basic things (for example, the edges of objects), the next one trains itself to recognize shapes (which can be considered as collections of edges), the following layer trains itself to recognize collections of shapes (with reference to the CIFAR-10 dataset, they could be legs, wings, tails, and so on), and the following layer learns higher-order features (objects). Multiple layers are better because they can learn all the intermediate features between the input (raw data) and the high-level classification:</p>
+<p> </p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/0f26b44d-ca4c-4fdf-917d-5911f867b7e9.png" style="width:31.75em;height:54.33em;"/></p>
+<p>Running the training again and doing the evaluation for this new model, the result, is <kbd>80.57%</kbd>:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/45d9b0f4-7b69-4730-83a1-2f9e53d2fb5c.png" style="width:10.33em;height:3.92em;"/></p>
+<p>This is a sensible improvement compared to the previous model, and considering that we are still running 25 epochs only. But, let's see now if we can improve more by doing image data augmentation. Looking at the training dataset, we can see that the objects in the images change their position. Typically, in a dataset, images have a variety of conditions (different brightness, orientation, and so on). We need to address these situations by training a neural network with additional modified data. Consider the following simple example, a training dataset of car images with two classes only, Volkswagen Beetle and Porsche Targa. Assume that all of the Volkswagen Beetle cars are aligned to the left, such as in the following screenshot:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1134 image-border" src="assets/6aa90be6-7d08-4d19-9a87-489635148c0e.png" style="width:17.25em;height:10.67em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref">Figure 13.8: Volkswagen Beetle training image</div>
+<p>However, all of the Porsche Targa cars are aligned to the right, such as in the following screenshot:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1135 image-border" src="assets/26cb8adb-cec1-41c0-bf25-d81bc5b345f5.png" style="width:15.42em;height:10.33em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref">Figure 13.9: Porsche Targa training image</div>
+<p>After completing the training and reaching a high accuracy (90 or 95%), feeding the model with an image such as the following screenshot:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1136 image-border" src="assets/804ed180-0143-44c5-8588-4590f5b151fe.png" style="width:14.17em;height:10.67em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref">Figure 13.10: Volkswagen Beetle input image</div>
+<p>There is a concrete risk that this car is classified as a Porsche Targa. In order to prevent situations such as this, we need to reduce the number of irrelevant features in the training dataset. With reference to this car example, one thing we can do is to horizontally flip the training dataset images, so that <span>they face the other way. After training the neural network again on this new dataset, the performance of the model is more likely to be what is expected. Data augmentation could happen offline (which is suitable for small datasets) or online (which is suitable for large datasets, because transformations apply on the mini-batches that feed the model). Let's try the programmatic online data augmentation of the training dataset for the latest implementation of a model for this section's example, using the</span> <kbd>ImageDataGenerator</kbd><span> class from Keras, as follows:</span></p>
+<pre>from keras.preprocessing.image import ImageDataGenerator<br/><br/>datagen = ImageDataGenerator(<br/>    rotation_range=15,<br/>    width_shift_range=0.1,<br/>    height_shift_range=0.1,<br/>    horizontal_flip=True,<br/>    )<br/>datagen.fit(X_train)</pre>
+<p>And the using it when fitting the model<span>, as follows</span>:</p>
+<pre>batch_size = 64<br/><br/>model.fit_generator(datagen.flow(X_train, y_train, batch_size=batch_size),\<br/>                 steps_per_epoch=X_train.shape[0] // batch_size,epochs=125,\<br/>                 verbose=1,validation_data=(X_test,y_test),callbacks=[LearningRateScheduler(lr_schedule)])</pre>
+<p>One more thing to do before starting the training is to apply a kernel regularizer (<a href="https://keras.io/regularizers/">https://keras.io/regularizers/</a>) to the convolutional layers of our model<span>, as follows</span>:</p>
+<pre>weight_decay = 1e-4<br/>model = Sequential()<br/>model.add(Conv2D(32, (3,3), padding='same', kernel_regularizer=regularizers.l2(weight_decay), input_shape=X_train.shape[1:]))<br/>model.add(Activation('elu'))<br/>model.add(BatchNormalization())<br/>model.add(Conv2D(32, (3,3), padding='same', kernel_regularizer=regularizers.l2(weight_decay)))<br/>model.add(Activation('elu'))<br/>model.add(BatchNormalization())<br/>model.add(MaxPooling2D(pool_size=(2,2)))<br/>model.add(Dropout(0.2))<br/><br/>model.add(Conv2D(64, (3,3), padding='same', kernel_regularizer=regularizers.l2(weight_decay)))<br/>model.add(Activation('elu'))<br/>model.add(BatchNormalization())<br/>model.add(Conv2D(64, (3,3), padding='same', kernel_regularizer=regularizers.l2(weight_decay)))<br/>model.add(Activation('elu'))<br/>model.add(BatchNormalization())<br/>model.add(MaxPooling2D(pool_size=(2,2)))<br/>model.add(Dropout(0.3))<br/><br/>model.add(Conv2D(128, (3,3), padding='same', kernel_regularizer=regularizers.l2(weight_decay)))<br/>model.add(Activation('elu'))<br/>model.add(BatchNormalization())<br/>model.add(Conv2D(128, (3,3), padding='same', kernel_regularizer=regularizers.l2(weight_decay)))<br/>model.add(Activation('elu'))<br/>model.add(BatchNormalization())<br/>model.add(MaxPooling2D(pool_size=(2,2)))<br/>model.add(Dropout(0.4))<br/><br/>model.add(Flatten())<br/>model.add(Dense(num_classes, activation='softmax'))</pre>
+<p>Regularizers allow us to apply penalties (which are incorporated into the loss function) on layer parameters during network optimization.</p>
+<p>After these code changes, train the model with a still relatively small number of epochs (64) and basic image data augmentation. The following screenshot shows that the accuracy improves to almost 84%:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/941edd1f-b724-4338-8b23-102e12c4aea4.png" style="width:28.58em;height:4.92em;"/></p>
+<p>By training for a greater number of epochs, the accuracy of the model could increase up to around 90 or 91%.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">DL4J implementation</h1>
+                </header>
+            
+            <article>
+                
+<p>The second implementation of object recognition we are going to do is in Scala and involves the DL4J framework. To train and evaluate the model, we are still going to use the CIFAR-10 dataset. The dependencies for this project are a DataVec data image, DL4J, NN, and ND4J, plus Guava 19.0 and Apache commons math 3.4.</p>
+<p>If you look at the CIFAR-10 dataset download page (see the following screenshot), you can see that there are specific archives available for the Python, MatLab, and C programming languages, but not for Scala or Java:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/9af22061-e703-445e-9694-c9380aee9369.png"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref">Figure 13.11: The CIFAR-10 dataset download page</div>
+<p>There's no need to separately download and then convert the dataset for our Scala application; the DL4J dataset library provides the <kbd>org.deeplearning4j.datasets.iterator.impl.CifarDataSetIterator</kbd> iterator to get the training and test datasets programmatically<span>, as follows</span>:</p>
+<pre>val trainDataSetIterator =<br/>                 new CifarDataSetIterator(2, 5000, true)<br/> val testDataSetIterator =<br/>                 new CifarDataSetIterator(2, 200, false)</pre>
+<p class="mce-root"/>
+<p>The <kbd>CifarDataSetIterator</kbd> constructor expects three arguments: the number of batches, the number of samples, and a Boolean to specify whether the dataset is for training (<kbd>true</kbd>) or test (<kbd>false</kbd>).</p>
+<p>We can now define the neural network. We implement a function to configure the model<span>, as follows</span>:</p>
+<pre>def defineModelConfiguration(): MultiLayerConfiguration =<br/>     new NeuralNetConfiguration.Builder()<br/>        .seed(seed)<br/>        .cacheMode(CacheMode.DEVICE)<br/>        .updater(new Adam(1e-2))<br/>        .biasUpdater(new Adam(1e-2*2))<br/>        .gradientNormalization(GradientNormalization.RenormalizeL2PerLayer)<br/>        .optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)<br/>        .l1(1e-4)<br/>        .l2(5 * 1e-4)<br/>        .list<br/>        .layer(0, new ConvolutionLayer.Builder(Array(4, 4), Array(1, 1), Array(0, 0)).name("cnn1").convolutionMode(ConvolutionMode.Same)<br/>            .nIn(3).nOut(64).weightInit(WeightInit.XAVIER_UNIFORM).activation(Activation.RELU)<br/>            .biasInit(1e-2).build)<br/>        .layer(1, new ConvolutionLayer.Builder(Array(4, 4), Array(1, 1), Array(0, 0)).name("cnn2").convolutionMode(ConvolutionMode.Same)<br/>            .nOut(64).weightInit(WeightInit.XAVIER_UNIFORM).activation(Activation.RELU)<br/>            .biasInit(1e-2).build)<br/>        .layer(2, new SubsamplingLayer.Builder(PoolingType.MAX, Array(2,2)).name("maxpool2").build())<br/><br/>        .layer(3, new ConvolutionLayer.Builder(Array(4, 4), Array(1, 1), Array(0, 0)).name("cnn3").convolutionMode(ConvolutionMode.Same)<br/>            .nOut(96).weightInit(WeightInit.XAVIER_UNIFORM).activation(Activation.RELU)<br/>            .biasInit(1e-2).build)<br/>        .layer(4, new ConvolutionLayer.Builder(Array(4, 4), Array(1, 1), Array(0, 0)).name("cnn4").convolutionMode(ConvolutionMode.Same)<br/>            .nOut(96).weightInit(WeightInit.XAVIER_UNIFORM).activation(Activation.RELU)<br/>            .biasInit(1e-2).build)<br/><br/>        .layer(5, new ConvolutionLayer.Builder(Array(3,3), Array(1, 1), Array(0, 0)).name("cnn5").convolutionMode(ConvolutionMode.Same)<br/>            .nOut(128).weightInit(WeightInit.XAVIER_UNIFORM).activation(Activation.RELU)<br/>            .biasInit(1e-2).build)<br/>        .layer(6, new ConvolutionLayer.Builder(Array(3,3), Array(1, 1), Array(0, 0)).name("cnn6").convolutionMode(ConvolutionMode.Same)<br/>            .nOut(128).weightInit(WeightInit.XAVIER_UNIFORM).activation(Activation.RELU)<br/>            .biasInit(1e-2).build)<br/><br/>        .layer(7, new ConvolutionLayer.Builder(Array(2,2), Array(1, 1), Array(0, 0)).name("cnn7").convolutionMode(ConvolutionMode.Same)<br/>            .nOut(256).weightInit(WeightInit.XAVIER_UNIFORM).activation(Activation.RELU)<br/>            .biasInit(1e-2).build)<br/>        .layer(8, new ConvolutionLayer.Builder(Array(2,2), Array(1, 1), Array(0, 0)).name("cnn8").convolutionMode(ConvolutionMode.Same)<br/>            .nOut(256).weightInit(WeightInit.XAVIER_UNIFORM).activation(Activation.RELU)<br/>            .biasInit(1e-2).build)<br/>        .layer(9, new SubsamplingLayer.Builder(PoolingType.MAX, Array(2,2)).name("maxpool8").build())<br/><br/>        .layer(10, new DenseLayer.Builder().name("ffn1").nOut(1024).updater(new Adam(1e-3)).biasInit(1e-3).biasUpdater(new Adam(1e-3*2)).build)<br/>        .layer(11,new DropoutLayer.Builder().name("dropout1").dropOut(0.2).build)<br/>        .layer(12, new DenseLayer.Builder().name("ffn2").nOut(1024).biasInit(1e-2).build)<br/>        .layer(13,new DropoutLayer.Builder().name("dropout2").dropOut(0.2).build)<br/>        .layer(14, new OutputLayer.Builder(LossFunctions.LossFunction.NEGATIVELOGLIKELIHOOD)<br/>            .name("output")<br/>            .nOut(numLabels)<br/>            .activation(Activation.SOFTMAX)<br/>            .build)<br/>        .backprop(true)<br/>        .pretrain(false)<br/>        .setInputType(InputType.convolutional(height, width, channels))<br/>        .build</pre>
+<p>All the exact same considerations as for the model implemented in the <em>Keras implementation</em> section apply here. So, we are skipping all the intermediate steps and directly implementing a complex model, as shown in following screenshot:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/e8ac8a7f-f58c-462c-b4d9-5b4caf1b7734.png" style="width:5.67em;height:47.75em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref">Figure 13.12: The graphical representation of the model for this section's example</div>
+<p>These are the details of the model:</p>
+<p> </p>
+<table border="1" style="border-collapse: collapse;width: 100%;border-color: #000000">
+<tbody>
+<tr style="height: 32px">
+<td style="height: 32px;width: 12%"><strong>Layer type</strong></td>
+<td style="height: 32px;width: 10%"><strong>Input size</strong></td>
+<td style="height: 32px;width: 10%"><strong>Layer size</strong></td>
+<td style="height: 32px;width: 14%"><strong>Parameter count</strong></td>
+<td style="height: 32px;width: 17%"><strong>Weight init</strong></td>
+<td style="height: 32px;width: 10%"><strong>Updater</strong></td>
+<td style="height: 32px;width: 21%"><strong>Activation function</strong></td>
+</tr>
+<tr style="height: 10px">
+<td style="height: 10px;width: 12%">Input Layer</td>
+<td style="height: 10px;width: 10%"/>
+<td style="height: 10px;width: 10%"/>
+<td style="height: 10px;width: 14%"/>
+<td style="height: 10px;width: 17%"/>
+<td style="height: 10px;width: 10%"/>
+<td style="height: 10px;width: 21%"/>
+</tr>
+<tr style="height: 3.81641px">
+<td style="height: 3.81641px;width: 12%">Convolution</td>
+<td style="height: 3.81641px;width: 10%">3</td>
+<td style="height: 3.81641px;width: 10%">64</td>
+<td style="height: 3.81641px;width: 14%">3,136</td>
+<td style="height: 3.81641px;width: 17%">XAVIER_UNIFORM</td>
+<td style="height: 3.81641px;width: 10%">Adam</td>
+<td style="height: 3.81641px;width: 21%">ReLU</td>
+</tr>
+<tr style="height: 10px">
+<td style="height: 10px;width: 12%">Convolution</td>
+<td style="height: 10px;width: 10%">64</td>
+<td style="height: 10px;width: 10%">64</td>
+<td style="height: 10px;width: 14%">65,600</td>
+<td style="height: 10px;width: 17%">XAVIER_UNIFORM</td>
+<td style="height: 10px;width: 10%">Adam</td>
+<td style="height: 10px;width: 21%">ReLU</td>
+</tr>
+<tr style="height: 10px">
+<td style="height: 10px;width: 12%">Subsampling (max pooling)</td>
+<td style="height: 10px;width: 10%"/>
+<td style="height: 10px;width: 10%"/>
+<td style="height: 10px;width: 14%"/>
+<td style="height: 10px;width: 17%"/>
+<td style="height: 10px;width: 10%"/>
+<td style="height: 10px;width: 21%"/>
+</tr>
+<tr style="height: 10px">
+<td style="height: 10px;width: 12%">Convolution</td>
+<td style="height: 10px;width: 10%">64</td>
+<td style="height: 10px;width: 10%">96</td>
+<td style="height: 10px;width: 14%">98,400</td>
+<td style="height: 10px;width: 17%">XAVIER_UNIFORM</td>
+<td style="height: 10px;width: 10%">Adam</td>
+<td style="height: 10px;width: 21%">ReLU</td>
+</tr>
+<tr style="height: 10px">
+<td style="height: 10px;width: 12%">Convolution</td>
+<td style="height: 10px;width: 10%">96</td>
+<td style="height: 10px;width: 10%">96</td>
+<td style="height: 10px;width: 14%">147,552</td>
+<td style="height: 10px;width: 17%">XAVIER_UNIFORM</td>
+<td style="height: 10px;width: 10%">Adam</td>
+<td style="height: 10px;width: 21%">ReLU</td>
+</tr>
+<tr style="height: 10px">
+<td style="height: 10px;width: 12%">Convolution</td>
+<td style="height: 10px;width: 10%">96</td>
+<td style="height: 10px;width: 10%">128</td>
+<td style="height: 10px;width: 14%">110,720</td>
+<td style="height: 10px;width: 17%">XAVIER_UNIFORM</td>
+<td style="height: 10px;width: 10%">Adam</td>
+<td style="height: 10px;width: 21%">ReLU</td>
+</tr>
+<tr style="height: 10px">
+<td style="height: 10px;width: 12%">Convolution</td>
+<td style="height: 10px;width: 10%">128</td>
+<td style="height: 10px;width: 10%">128</td>
+<td style="height: 10px;width: 14%">147,584</td>
+<td style="height: 10px;width: 17%">XAVIER_UNIFORM</td>
+<td style="height: 10px;width: 10%">Adam</td>
+<td style="height: 10px;width: 21%">ReLU</td>
+</tr>
+<tr style="height: 10px">
+<td style="height: 10px;width: 12%">Convolution</td>
+<td style="height: 10px;width: 10%">128</td>
+<td style="height: 10px;width: 10%">256</td>
+<td style="height: 10px;width: 14%">131,328</td>
+<td style="height: 10px;width: 17%">XAVIER_UNIFORM</td>
+<td style="height: 10px;width: 10%">Adam</td>
+<td style="height: 10px;width: 21%">ReLU</td>
+</tr>
+<tr style="height: 10px">
+<td style="height: 10px;width: 12%">Convolution</td>
+<td style="height: 10px;width: 10%">256</td>
+<td style="height: 10px;width: 10%">256</td>
+<td style="height: 10px;width: 14%">262,400</td>
+<td style="height: 10px;width: 17%">XAVIER_UNIFORM</td>
+<td style="height: 10px;width: 10%">Adam</td>
+<td style="height: 10px;width: 21%">ReLU</td>
+</tr>
+<tr style="height: 10px">
+<td style="height: 10px;width: 12%">Subsampling (max pooling)</td>
+<td style="height: 10px;width: 10%"/>
+<td style="height: 10px;width: 10%"/>
+<td style="height: 10px;width: 14%"/>
+<td style="height: 10px;width: 17%"/>
+<td style="height: 10px;width: 10%"/>
+<td style="height: 10px;width: 21%"/>
+</tr>
+<tr style="height: 10px">
+<td style="height: 10px;width: 12%">Dense</td>
+<td style="height: 10px;width: 10%">16,384</td>
+<td style="height: 10px;width: 10%">1,024</td>
+<td style="height: 10px;width: 14%">16,778,240</td>
+<td style="height: 10px;width: 17%">XAVIER</td>
+<td style="height: 10px;width: 10%">Adam</td>
+<td style="height: 10px;width: 21%">Sigmoid</td>
+</tr>
+<tr style="height: 10px">
+<td style="height: 10px;width: 12%">Dropout</td>
+<td style="height: 10px;width: 10%">0</td>
+<td style="height: 10px;width: 10%">0</td>
+<td style="height: 10px;width: 14%">0</td>
+<td style="height: 10px;width: 17%"/>
+<td style="height: 10px;width: 10%"/>
+<td style="height: 10px;width: 21%">Sigmoid</td>
+</tr>
+<tr style="height: 10px">
+<td style="height: 10px;width: 12%">Dense</td>
+<td style="height: 10px;width: 10%">1,024</td>
+<td style="height: 10px;width: 10%">1,024</td>
+<td style="height: 10px;width: 14%">1,049,600</td>
+<td style="height: 10px;width: 17%">XAVIER</td>
+<td style="height: 10px;width: 10%">Adam</td>
+<td style="height: 10px;width: 21%">Sigmoid</td>
+</tr>
+<tr style="height: 10px">
+<td style="height: 10px;width: 12%">Dropout</td>
+<td style="height: 10px;width: 10%">0</td>
+<td style="height: 10px;width: 10%">0</td>
+<td style="height: 10px;width: 14%">0</td>
+<td style="height: 10px;width: 17%"/>
+<td style="height: 10px;width: 10%"/>
+<td style="height: 10px;width: 21%">Sigmoid</td>
+</tr>
+<tr style="height: 10px">
+<td style="height: 10px;width: 12%">Output</td>
+<td style="height: 10px;width: 10%">1,024</td>
+<td style="height: 10px;width: 10%">10</td>
+<td style="height: 10px;width: 14%">10,250</td>
+<td style="height: 10px;width: 17%">XAVIER</td>
+<td style="height: 10px;width: 10%">Adam</td>
+<td style="height: 10px;width: 21%">Softmax</td>
+</tr>
+</tbody>
+</table>
+<p> </p>
+<p>Let's then initialize the model<span>, as follows</span>:</p>
+<pre>val conf = defineModelConfiguration<br/> val model = new MultiLayerNetwork(conf)<br/> model.init</pre>
+<p>Then, start the training<span>, as follows</span>:</p>
+<pre>val epochs = 10<br/> for(idx &lt;- 0 to epochs) {<br/>     model.fit(trainDataSetIterator)<br/> }</pre>
+<p>Finally, evaluate it<span>, as follows</span>:</p>
+<pre class="mce-root">val eval = new Evaluation(testDataSetIterator.getLabels)<br/> while(testDataSetIterator.hasNext) {<br/>     val testDS = testDataSetIterator.next(batchSize)<br/>     val output = model.output(testDS.getFeatures)<br/>     eval.eval(testDS.getLabels, output)<br/> }<br/> println(eval.stats)</pre>
+<p>The neural network we have implemented here has quite a large number of hidden layers, but, following the suggestions from the previous section (adding more layers, doing data augmentation, and training for a bigger number of epochs) would drastically improve the accuracy of the model.</p>
+<p>The training of course can be done with Spark. The changes needed to the preceding code are, as detailed in <a href="3b6f47c0-6e17-484b-ad30-b6f92eb0473c.xhtml" target="_blank">Chapter 7</a>, <em>Training Neural Networks with Spark</em>, related to Spark context initialization, training data parallelization, <kbd>TrainingMaster</kbd> creation, and training execution using a <kbd>SparkDl4jMultiLayer</kbd> instance<span>, as follows</span>:</p>
+<pre>// Init the Spark context<br/> val sparkConf = new SparkConf<br/> sparkConf.setMaster(master)<br/>   .setAppName("Object Recognition Example")<br/> val sc = new JavaSparkContext(sparkConf)<br/>  <br/> // Parallelize data<br/> val trainDataList = mutable.ArrayBuffer.empty[DataSet]<br/> while (trainDataSetIterator.hasNext) {<br/>   trainDataList += trainDataSetIterator.next<br/> }<br/> val paralleltrainData = sc.parallelize(trainDataList)<br/>  <br/> // Create the TrainingMaster<br/> var batchSizePerWorker: Int = 16<br/> val tm = new<br/>   ParameterAveragingTrainingMaster.Builder(batchSizePerWorker)<br/>   .averagingFrequency(5)<br/>   .workerPrefetchNumBatches(2)<br/>   .batchSizePerWorker(batchSizePerWorker)<br/>   .build<br/>  <br/> // Training<br/> val sparkNet = new SparkDl4jMultiLayer(sc, conf, tm)<br/> for (i &lt;- 0 until epochs) {<br/>   sparkNet.fit(paralleltrainData)<br/>   println("Completed Epoch {}", i)<br/> }</pre>
+<p class="mce-root"/>
+<p class="mce-root"/>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Summary</h1>
+                </header>
+            
+            <article>
+                
+<p>After a recap of the concept of convolution and the classification of object recognition strategies, in this chapter, we have been implementing and training CNNs for object recognition using different languages (Python and Scala) and different open source frameworks (Keras and TensorFlow in the first case, DL4J, ND4J, and Apache Spark in the second) in a <span>hands-on manner</span>.</p>
+<p>In the next chapter, we are going to implement a full image classification web application which, behind the scenes, uses a combination of Keras, TensorFlow, DL4J, ND4J, and Spark.</p>
+
+
+            </article>
+
+            
+        </section>
+    </body></html>

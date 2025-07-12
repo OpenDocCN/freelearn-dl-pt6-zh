@@ -1,0 +1,794 @@
+<html><head></head><body>
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Debugging/Testing a Game with DRL</h1>
+                </header>
+            
+            <article>
+                
+<p class="mce-root">While the ML-Agents framework provides powerful capabilities for building AI agents for your games, it also provides automation for debugging and testing. The development of any complex software needs to be tied to extensive product testing and review by talented quality assurance teams. Testing every aspect, every possible combination, and every level can be extremely time-consuming and expensive. Therefore, in this chapter, we will look at using ML-Agents as an automated way to test a simple game. As we change or modify the game, our automated testing system can inform us of any issues or possible changes that may have broken the test. We can also take this further with ML-Agents, for instance, to evaluate training performance.</p>
+<p>The following is a brief summary of what we will cover in this chapter:</p>
+<ul>
+<li>Introducing the game</li>
+<li>Setting up ML-Agents</li>
+<li>Overriding the Unity input system</li>
+<li>Testing through imitation</li>
+<li>Analyzing the testing process</li>
+</ul>
+<p>In this chapter, we will assume that you have sound knowledge of the ML-Agents toolkit and are somewhat familiar with the Unity game engine. You should also have a good grasp of reward functions and the use of imitation learning with ML-Agents.</p>
+<p>In the next section, we will start by downloading and importing the game; we will teach ML-Agents to play in the following section. This should be considered an advanced chapter, even for experienced users of Unity. Therefore, if you are relatively new to Unity and/or C#, just take your time and slowly work through the exercises. By the end of this chapter, if you have completed all the exercises, you should be on your way to being a Unity pro.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Introducing the game</h1>
+                </header>
+            
+            <article>
+                
+<p>The game that we are going to look at is a demo sample asset that is free and is an excellent example of a typical game. The game that we'll test will use discrete control mechanics and a first-person perspective, like the games that we have looked at in the past. The technique that we will show you here is how to map/hack into a game's controller so that it can be powered by ML-Agents. Using this technique should allow you to attach ML-Agents to any existing game, although different controllers, such as third-person or top-down, may require a slightly altered approach.</p>
+<div class="packt_tip">If you consider yourself an experienced Unity user and have your own project that uses an FPS system, then you should go ahead and try to adapt this sample to your own game or example.</div>
+<p>You will generally find a lack of good sample game projects for Unity, due to a somewhat questionable technique called <strong>asset flipping</strong>. Essentially, some developers will take a sample project and quickly skin it as their own game, and then resell it. This practice has primarily been frowned upon in the Unity community, since it generally casts this excellent game engine in a negative light. The quick games, meant only as samples, are often of very poor quality and are unsupported, not to mention that these developers only use the free license, which means that these poorly designed games are also shipped with <em>Made with Unity</em>.  </p>
+<p>We want to illustrate how ML-Agents can be incorporated into a working game for testing, debugging, and/or as an AI enhancement. <span>Let's start by importing the base project and setting up the game to run in the editor. Along the way, we may have to tweak a few things in order to get things working, but that is our intent. Open up the Unity editor and follow the exercises in the next section to set up the base game project:</span></p>
+<ol>
+<li>Create a new project called <kbd>HoDLG</kbd> (or another name of your preference). Wait for the empty project to load. Again, if you feel qualified, use your own project.</li>
+<li>From the menu, select <strong><span class="packt_screen">Window</span></strong> | <strong><span class="packt_screen">Asset Store</span></strong>.</li>
+</ol>
+<ol start="3">
+<li>In the search pane, type <kbd>ms vehicle system</kbd> and hit <em>Enter</em> or click on the <strong><span class="packt_screen">Search</span></strong> button. We are going to look at a free asset called <span class="packt_screen">MS Vehicle System</span>, which has a fun little environment that we can play with. It is often difficult to find free environments such as this (for the reasons mentioned earlier), but, generally, well-made commercial (not free) asset packages will provide good demo environments such as this one. Unity has a number of tutorial environments as well, but they tend to become dated quickly, and they may not always upgrade that easily.</li>
+<li>Click on the <strong><span class="packt_screen">MS Vehicle System</span></strong> card and wait for the asset page to load, as shown in the following screenshot:</li>
+</ol>
+<div class="CDPAlignCenter CDPAlign packt_figref"><img src="assets/aa902239-3d00-4e57-939c-641ab0ebc9d0.png"/></div>
+<div class="CDPAlignCenter CDPAlign packt_figref"><span>Selecting the asset package to download</span></div>
+<ol start="5">
+<li>Click on the <strong><span class="packt_screen">Download</span></strong> button to download the asset, and then click on<span class="packt_screen"> <strong>Import</strong> </span>to import the asset into the project. Follow the import dialogues to import all of the assets into the project.</li>
+<li>Locate the <strong><span class="packt_screen">MainScene</span></strong> scene in the <strong><span class="packt_screen">Assets</span></strong> | <strong><span class="packt_screen">MSVehicleSystem (FreeVersion)</span></strong> folder, and open it.</li>
+<li>Press <strong><span class="packt_screen">Play</span></strong> to run the scene in the editor, and use the controls to drive the vehicles around. Notice how you can switch vehicles and camera controls. When you are done testing (playing), stop the scene by pressing <span class="packt_screen">Play</span>.</li>
+<li>Type <kbd>canvas</kbd> in the <strong><span class="packt_screen">Hierarchy</span></strong> filter field and just select all of the <strong><span class="packt_screen">Canvas</span></strong> objects in the scene, as shown in the following screenshot:</li>
+</ol>
+<div class="CDPAlignCenter CDPAlign packt_figref"><img src="assets/6e52faec-5f44-4a39-bb26-713ad7259648.png"/></div>
+<div class="CDPAlignCenter CDPAlign packt_figref"><span>Disabling the Canvas UI in the scene</span></div>
+<ol start="9">
+<li>That will disable the UI in the scene; we won't need it for testing, and in this case, it isn't important. If this were a real game, there might have been more colorful visuals to denote scores, and you could always add those, of course. </li>
+<li>Click on the <span class="packt_screen"><strong>X</strong></span> beside the filter input to clear it and return the scene to normal.</li>
+<li>Play the scene again, and explore several areas. Look for an area that you think may make a suitable goal; remember, don't make it too difficult initially. The following is an example of a spot that might make an interesting goal; see whether you can find the location:</li>
+</ol>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/f8abf3a5-19a8-47f9-8264-d3f789676eb1.png" style="width:37.67em;height:26.92em;"/></p>
+<div class="packt_figref CDPAlignCenter CDPAlign"><span>Finding a good place for our goal</span></div>
+<p>Even if you can't find the specific spot, locate an area that is difficult to get to. That way, the agent will have to explore the level extensively in order to find the goal (or goals). In our case, we will drop random goal squares on to the level and encourage the agent to look for those. That way, we can also map out areas that get explored by how often it happens, and then determine how to cover other areas for testing. Before we get to that, we will add ML-Agents, in the next section.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Setting up ML-Agents</h1>
+                </header>
+            
+            <article>
+                
+<p>At the time of writing this book, ML-Agents is developed and shipped as a GitHub project. It is likely that as the product matures, it will be shipped as its own asset package, but currently, it is not.</p>
+<p class="mce-root"/>
+<p>Therefore, we first need to export ML-Agents as an asset package. Open up a new Unity Editor session to an ML-Agents or Unity SDK project, and follow these steps:</p>
+<ol>
+<li>Locate the <strong><span class="packt_screen">ML-Agents</span></strong> folder in the <strong><span class="packt_screen">Project</span></strong> window, and select it.</li>
+<li>From the menu, select <strong><span class="packt_screen">Assets</span></strong> | <strong><span class="packt_screen">Export Package</span></strong>.</li>
+<li>Be sure that all of the folder contents are highlighted, as shown in the following <strong><span class="packt_screen">Exporting package</span></strong> dialog excerpt:</li>
+</ol>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/b0e71209-a84b-4603-a5b9-cd22fc46c741.png" style="width:25.58em;height:36.33em;"/></p>
+<div class="packt_figref CDPAlignCenter CDPAlign">Exporting ML-Agents as an asset package</div>
+<ol start="4">
+<li>Be sure to uncheck the <strong><span class="packt_screen">Include dependencies</span></strong> checkbox, as shown in the preceding excerpt. As long as you have the proper root folder selected, all of the dependencies that we need should get packaged.</li>
+<li>Click on the <strong><span class="packt_screen">Export...</span></strong> button in the dialog, and then choose and save the asset file to a location that you will easily be able to find later.</li>
+<li>Open the Unity Editor to the project that we started in the last exercise.</li>
+<li>From the menu, select <strong><span class="packt_screen">Assets</span></strong> | <strong><span class="packt_screen">Import Package</span></strong> | <strong><span class="packt_screen">Custom Package</span></strong>. Locate the package that we just exported and import it into the new test project.</li>
+<li>Locate the project window and create a new folder called <kbd>HoDLG</kbd> in the <span class="packt_screen"><strong>Asset</strong>s</span> root, and, then, inside that new folder, create new folders called <kbd>Brains</kbd>, <kbd>Prefabs</kbd><strong>,</strong> and <kbd>Scripts</kbd>, as shown in the following screenshot:</li>
+</ol>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/7a2bb1e2-4fdc-41c6-9c95-d2172533ab80.png" style="width:36.17em;height:20.83em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref"><span>Creating new project folders</span></div>
+<ol start="9">
+<li>Creating these folders is the standard way of laying the foundation for a new asset, example, or project. You can now close the old ML-Agents Unity SDK project, as we no longer need it.</li>
+</ol>
+<p>Now that we have ML-Agents imported and the foundations laid for our test game, we can move on to adding the learning parts of ML-Agents for testing.</p>
+<p class="mce-root"/>
+<p class="mce-root"/>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Introducing rewards to the game</h1>
+                </header>
+            
+            <article>
+                
+<p>The scene currently has no well-defined goal. There are plenty of open worlds and exploration-style games where the goal is very loosely defined. For our purposes, however, we only really want the agent to test-play the whole game level, and hopefully identify any game flaws or perhaps strategies that we never foresaw. Of course, that doesn't mean that if the car-driving agents became good, we could also use them as game opponents. The bottom line is that our agent needs to learn, and it does that through rewards; therefore, we need to make some reward functions.</p>
+<p>Let's first define a reward function for our goal, as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="fm-editor-equation" src="assets/c2eb3510-7177-41b7-aa6d-4c6b6b0a0871.png" style="width:6.58em;height:1.50em;"/></p>
+<p>It's pretty simple; whenever the agent encounters a goal, they will score a <span>reward of </span>1 . Now, to avoid the agent taking too long, we will also introduce a standard step reward, as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="fm-editor-equation" src="assets/e34c7aa3-2241-40ba-bb05-ec2f0e823134.png" style="width:13.83em;height:1.58em;"/></p>
+<p>This means that we apply a step reward of -1 divided by the maximum number of steps, per agent action. This is quite standard (our <span class="packt_screen">Hallway</span> agent used it, for instance), so there is nothing new here. So, our reward functions will be quite simple, which is good.</p>
+<div class="packt_infobox">In many cases, your game may have well-defined goals that you can use to give rewards with. A driving game, for example, would have a clear goal that we could map for our agent. In this case, in our open-world game, it makes sense to add goals for the agent to locate. How you implement your reward structure does matter, of course, but use what makes sense for your situation.</div>
+<p>With the reward functions defined, it is time to introduce the concept of a goal into our game. We want to keep this system somewhat generic, so we will build a goal deployment system into a new object called <kbd>TestingAcademy</kbd>. That way, you can take this academy and drop it into any similar FPS or third-person controlled worlds, and it will work the same.</p>
+<div class="packt_infobox"><strong>First-person shooter</strong> (<strong>FPS</strong>) refers to a type of game, but also a type of control/camera system. We are interested in the latter, since it is the method by which we control our car.</div>
+<p>Open the editor to the new combined project, and follow the next exercise to build the <kbd>TestingAcademy</kbd> object:</p>
+<ol>
+<li>Click in the <strong><span class="packt_screen">Hierarchy</span></strong> window, and from the menu, select <strong><span class="packt_screen">GameObject</span></strong> | <strong><span class="packt_screen">Create Empty</span></strong>. Name the new object <kbd>TestingAcademy</kbd>.</li>
+<li>Locate and click inside the <span class="packt_screen">HoDLG <span><span>| </span></span></span><strong><span class="packt_screen">Scripts</span></strong> folder, and then open the <strong><span class="packt_screen">Create</span></strong> sub-menu in the <strong><span class="packt_screen">Project</span></strong> window. </li>
+<li>From the <strong><span class="packt_screen">Create</span></strong> menu, select <strong><span class="packt_screen">C# Script</span></strong>. Rename the script <kbd>TestingAcademy</kbd>.</li>
+<li>Open the new <strong><span class="packt_screen">TestingAcademy</span></strong> script and enter the following code:</li>
+</ol>
+<pre style="padding-left: 60px">using MLAgents;<br/>using UnityEngine;<br/><br/>namespace Packt.HoDLG<br/>{<br/>  public class TestingAcademy : Academy<br/>  {<br/>    public GameObject goal;<br/>    public int numGoals; <br/>    public Vector3 goalSize;<br/>    public Vector3 goalCenter;<br/>    public TestingAgent[] agents;<br/>    public GameObject[] goals;<br/>  }<br/>}</pre>
+<div class="packt_infobox"><span>All of the code for this chapter's exercise is included in the </span><kbd>Chapter_12_Code.assetpackage</kbd><span> included with the book's source code.</span></div>
+<ol start="5">
+<li>This code defines our class and imports by using the required namespaces. Then, we define our own namespace,<span> </span><kbd>Packt.HoDLG</kbd>,<strong> </strong>and the class is extended from<span> </span><kbd>Academy</kbd>, an ML-Agents base class. <span>Next comes the declaration of several variables for defining the goal deployment cube. </span>Think of this as a virtual cube in space that will spawn the goals. The idea is to let physics do the rest and let the goal just drop to the ground.</li>
+</ol>
+<div class="packt_tip"><strong>Namespaces</strong> are optional in Unity, but it is highly recommended to put your code within a namespace in order to avoid most naming issues, which can be a common problem if you are using many assets or if you find yourself modifying existing assets, as we are doing here.</div>
+<ol start="6">
+<li>Next, we will define the standard <kbd>Academy</kbd> class setup method, <kbd>InitializeAcademy</kbd>. This method is called automatically, and is shown as follows:</li>
+</ol>
+<pre style="padding-left: 60px">public override void InitializeAcademy()<br/>{<br/>  agents = FindObjectsOfType&lt;TestingAgent&gt;();<br/>  goals = new GameObject[numGoals];<br/>}</pre>
+<ol start="7">
+<li>This method is called as a part of the ML-Agents setup, and it essentially starts the whole SDK. By adding the <kbd>Academy</kbd> (<kbd>TestingAcademy</kbd>), we will effectively be enabling ML-Agents. Next, we will add the final method, called when the academy is reset at the end of all of the agent episodes, as follows:</li>
+</ol>
+<pre style="padding-left: 60px">public override void AcademyReset()<br/>{<br/>  if (goalSize.magnitude &gt; 0)<br/>  {<br/>    for(int i = 0; i &lt; numGoals; i++)<br/>    {<br/>    if(goals[i] != null &amp;&amp; goals[i].activeSelf)<br/>      Destroy(goals[i]);<br/>    }<br/>    for(int i = 0; i &lt; numGoals; i++)<br/>    {<br/>      var x = Random.Range(-goalSize.x / 2 + goalCenter.x, goalSize.x / 2 + goalCenter.x);<br/>      var y = Random.Range(-goalSize.y / 2 + goalCenter.y, goalSize.y / 2 + goalCenter.y);<br/>      var z = Random.Range(-goalSize.z / 2 + goalCenter.z, goalSize.z / 2 + goalCenter.z);<br/>     <strong>goals[i] = Instantiate(goal, new Vector3(x, y, z), Quaternion.identity, transform);</strong><br/>   }<br/>  }<br/>}</pre>
+<ol start="8">
+<li>This code just spawns the goals randomly within the virtual cube bounds. Before it does this, however, it first clears the old goals by using the <kbd>Destroy</kbd> method. <kbd>Destroy</kbd> removes an object from the game. Then, the code loops again and creates new goals at random locations within the virtual cube. The line that actually creates the goal in the game is highlighted and uses the <kbd>Instantiate</kbd> method. <kbd>Instantiate</kbd> creates an object in the game at the specified location and rotation.</li>
+<li>Save the file and return to the editor. Don't worry about any compiler errors at this time. If you are writing the code from scratch, you will be missing some types, which we will define later.</li>
+</ol>
+<p>With the new <kbd>TestingAcademy</kbd> script created, we can move on to adding the component to the game object and setting up the academy in the next section.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Setting up TestingAcademy</h1>
+                </header>
+            
+            <article>
+                
+<p>With the <kbd>TestingAcademy</kbd> script created, it is time to add it to the game object via the following steps:</p>
+<ol>
+<li>Drag the new <strong><span class="packt_screen">TestingAcademy</span></strong> script file from the <strong><span class="packt_screen">Scripts</span></strong> folder and drop it on to the <strong><span class="packt_screen">TestingAcademy</span></strong> object in the <strong><span class="packt_screen">Hierarchy</span></strong> window. This will add the component to the object. We want to create a few other components before we complete the academy.</li>
+<li>Click in the <strong><span class="packt_screen">Hierarchy</span></strong> window, and in the menu, select <strong><span class="packt_screen">Game Object | 3D Object | Cube</span></strong>. Rename the new object <kbd>goal</kbd>.</li>
+</ol>
+<ol start="3">
+<li>Select the object and change the <strong><span class="packt_screen">Tag</span></strong> to <kbd>goal</kbd>. Then, swap its material by clicking on the <strong><span class="packt_screen">Target</span></strong> icon and selecting the <strong><span class="packt_screen">v46</span></strong>, or another flashy material of your choice, as shown in the following screenshot:</li>
+</ol>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/2564018c-e40d-4aa1-b3de-98711659f027.png"/></p>
+<p class="mce-root"/>
+<div class="CDPAlignCenter CDPAlign packt_figref"><span>Swapping the goal object's materials</span></div>
+<ol start="4">
+<li>With the <strong><span class="packt_screen">goal</span></strong> object selected from the menu, select <strong><span class="packt_screen">Component | Physics | Rigidbody</span></strong>. This will add a physics system component called a <span class="packt_screen">Rigidbody</span>. By adding the <strong><span class="packt_screen">Rigidbody</span></strong> to the object, we allow it to be controlled by the physics system.</li>
+</ol>
+<ol start="5">
+<li>Drag and drop the <strong><span class="packt_screen">goal</span></strong> object into the <strong><span class="packt_screen">HoDLG | Prefabs</span></strong> folder in the <strong><span class="packt_screen">Project</span></strong> window. This will turn the goal object into a <strong><span class="packt_screen">Prefab</span></strong>. Prefabs are self-contained objects that contain their own hierarchies. A prefab can contain an entire scene, or just one object, as we have here.  </li>
+<li>Select and delete the <strong><span class="packt_screen">goal</span></strong> object from the <strong><span class="packt_screen">Hierarchy</span></strong> window. In the future, we will programmatically instantiate the <strong><span class="packt_screen">goal</span></strong> from the <span class="packt_screen">Academy</span> by using its <span class="packt_screen">Prefab</span>.</li>
+<li>Click inside the <strong><span class="packt_screen">HoDLG | Brains</span></strong> folder, and click to open the <strong><span class="packt_screen">Create</span></strong> menu. From the menu, select <strong><span class="packt_screen">ML-Agents | LearningBrain</span></strong>. Name the new brain <strong><span class="packt_screen"><kbd>TestingLearningBrain</kbd></span></strong>, and then create a new player brain called <kbd>TestingPlayerBrain</kbd>. Don't worry about configuring the brains just yet.</li>
+<li>Select the <strong><span class="packt_screen">TestingAcademy</span></strong> object in the <strong><span class="packt_screen">Hierarchy</span></strong> window, and then update the values of the <span class="packt_screen"><strong>Testing Academ</strong>y</span> component, as shown in the following screenshot:</li>
+</ol>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/dbe7dab4-44b7-4ff5-8719-59c79fa884d0.png" style="width:27.42em;height:34.75em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref"><span>Setting up TestingAcademy</span></div>
+<ol start="9">
+<li>Notice that we are setting up the following properties in the <strong><span class="packt_screen">TestingAcademy</span></strong> script:
+<ul>
+<li><strong><span class="packt_screen">Brains</span></strong>: <span class="packt_screen">TestingLearningBrain</span></li>
+<li><strong><span class="packt_screen">Max Steps</span></strong>: <span class="packt_screen">3000</span></li>
+<li><strong><span class="packt_screen">Goal</span></strong>: Goal set by dragging the prefab from the folder</li>
+<li><strong><span class="packt_screen">Num Goals</span></strong>: <span class="packt_screen">3</span> (number of goals dropped from the box)</li>
+<li><strong><span class="packt_screen">Goal Size</span></strong>: (<span class="packt_screen">50</span>, <span class="packt_screen">50</span>, <span class="packt_screen">50</span>) (determines maximum bounds of the goal box)</li>
+<li><strong><span class="packt_screen">Goal Center</span></strong>:  (<span class="packt_screen">85</span>, <span class="packt_screen">110</span>, <span class="packt_screen">-37</span>) (the center point of the goal box)</li>
+</ul>
+</li>
+</ol>
+<p>You may be tempted to run the project at this point; you can if you have just downloaded the code, but hold off until we define the <kbd>TestingAgent</kbd> in the next section.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Scripting the TestingAgent</h1>
+                </header>
+            
+            <article>
+                
+<p>Of course, our testing (or however far we want to take this simulation) won't do much without an agent to interact with the environment and learn. In the next exercise, we will define the script that describes the <kbd>TestingAgent</kbd> component:</p>
+<ol>
+<li>Click inside the <strong><span class="packt_screen">HoDLG | Scripts</span></strong> folder, and click on the <strong><span class="packt_screen">Create</span></strong> button to open the menu. </li>
+<li>From the menu, select <strong><span class="packt_screen">C# Script</span></strong> and name the script <kbd>TestingAgent</kbd>.</li>
+<li>Open the script in your editor and start to script it with the following code:</li>
+</ol>
+<pre style="padding-left: 60px">using MLAgents;<br/>using UnityEngine;<br/><br/>namespace Packt.HoDLG<br/>{<br/>  public class TestingAgent : Agent<br/>  {<br/>    public string[] axisAction; <br/>    protected Vector3 resetPos;<br/>    protected Quaternion resetRot;<br/>  }<br/>}</pre>
+<ol start="4">
+<li>This starts our class; this time, it's extended from <kbd>Agent</kbd>, another base class. Then, we define some base fields for setting variables and recording the agent's start position and rotation.</li>
+</ol>
+<ol start="5">
+<li>Next, we move on to define the <kbd>InitializeAgent</kbd> method. This method is called once, to set up the agent and make sure that the action lengths are the same; we will get to that shortly. We remember the position/rotation from which the agent started, so that we can restore it later. The code is as follows:</li>
+</ol>
+<pre style="padding-left: 60px">public override void InitializeAgent()<br/>{<br/>  base.InitializeAgent();<br/>  if (axisAction.Length != brain.brainParameters.vectorActionSize[0])<br/>    throw new MLAgents.UnityAgentsException("Axis actions must match agent actions");<br/><br/>  resetPos = transform.position;<br/>  resetRot = transform.rotation;<br/>}</pre>
+<ol start="6">
+<li>Next, we define an empty method called <kbd>CollectObservations</kbd>. This is typically where the agent observes the environment; since we plan to use visual observations, we can leave this empty. The code is as follows:</li>
+</ol>
+<pre style="padding-left: 60px">public override void CollectObservations(){  }</pre>
+<ol start="7">
+<li>Next, we define another required method: <kbd>AgentAction</kbd>. This is the method where we add the negative step reward and move the agent, as shown in the following code snippet:</li>
+</ol>
+<pre style="padding-left: 60px">public override void AgentAction(float[] vectorAction, string textAction)<br/>{<br/>  AddReward(-1f / agentParameters.maxStep);<br/>  MoveAgent(vectorAction);<br/>}<br/><br/>public void MoveAgent(float[] act)<br/>{<br/>  for(int i=0;i&lt;act.Length;i++)<br/>  {<br/>    var val = Mathf.Clamp(act[i], -1f, 1f);<br/>    TestingInput.Instance.setAxis(val,axisAction[i]);<br/>  } <br/>}</pre>
+<ol start="8">
+<li>The code here is what deciphers the actions from the brain and injects them back into a new class (which we will build shortly), called <kbd>TestingInput</kbd>. <kbd>TestingInput</kbd> is a helper class that we will use to override the input system of the game.</li>
+<li>Save the script, and, again, ignore any compiler errors. Again, we have a new dependency, <kbd>TestingInput</kbd>, that we will define shortly.</li>
+</ol>
+<p>With the new script in hand, we can begin to set up the <kbd>TestingAgent</kbd> component in the next section.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Setting up the TestingAgent</h1>
+                </header>
+            
+            <article>
+                
+<p>Now, the system that we are building here is fairly generic, and it's intended to be used in multiple environments. Keep that in mind as we set things up, especially if some concepts seem a bit abstract. Open up the editor, and let's add the <kbd>TestingAgent</kbd> script to an object:</p>
+<ol>
+<li>Select <strong><span class="packt_screen">Vehicle1</span></strong>, <strong><span class="packt_screen">Vehicle3</span></strong>, <strong><span class="packt_screen">Vehicle4</span>,</strong> and <strong><span class="packt_screen">Vehicle5</span></strong> in the scene, and disable them. We currently only want to give our agent the ability to drive, and not to switch vehicles; therefore, we only need the default <strong><span class="packt_screen">Vehicle2</span></strong>.</li>
+<li>Select the <strong><span class="packt_screen">TestingAgent</span></strong> script from the <strong><span class="packt_screen">HoDLG | Scripts</span></strong> folder and drag it on to the <strong><span class="packt_screen">Vehicle2</span></strong> object. This will add the <strong><span class="packt_screen">TestingAgent</span></strong> component to our <strong><span class="packt_screen">Vehicle2</span></strong>, and will make it an agent (well, almost).</li>
+<li>Open <strong><span class="packt_screen">Vehicle2 | Cameras</span></strong> in the <strong><span class="packt_screen">Hierarchy</span></strong> window and choose the view that you want the agent to use. We will select <strong><span class="packt_screen">Camera2</span></strong> for this exercise, but the options for each of the five cameras are shown in the following screenshot:</li>
+</ol>
+<div class="CDPAlignCenter CDPAlign packt_figref"><img src="assets/57b066fb-c719-4455-bab5-3f7d8ee20693.png" style="width:44.42em;height:28.00em;"/></div>
+<div class="CDPAlignCenter CDPAlign packt_figref"><span>Selecting the visual observation camera to use as an input to the agent</span></div>
+<ol start="4">
+<li>The best options are either <strong><span class="packt_screen">Camera1</span></strong> or <strong><span class="packt_screen">Camera5</span></strong>, as shown in the preceding screenshot. Note that the cameras are ordered in reverse, with <span class="packt_screen">1</span> starting at the far right, not the left. Of course, that leaves plenty of opportunity to play with other visual input in the future.</li>
+</ol>
+<ol start="5">
+<li>Select <strong><span class="packt_screen">Vehicle2</span></strong> and drag the selected <strong><span class="packt_screen">TestingPlayerBrain</span></strong> and <strong><span class="packt_screen">Camera1</span></strong> into the required slots, as shown in the following screenshot:</li>
+</ol>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/9cba63e4-8356-405a-abc5-bca34bf77309.png" style="width:30.75em;height:27.42em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref"><span>Setting up the TestingAgent component</span></div>
+<ol start="6">
+<li>You will also need to define additional properties, which are summarized as follows:
+<ul>
+<li><strong><span class="packt_screen">Brain</span></strong>: <span class="packt_screen">TestingPlayerBrain.</span></li>
+<li><strong><span class="packt_screen">Camera 1</span></strong>: Click on <strong><span class="packt_screen">Add Camera</span></strong> to add a new camera, and then select <strong><span class="packt_screen">Camera1</span></strong> from the <strong><span class="packt_screen">Vehicle2</span></strong> cameras.</li>
+<li><strong><span class="packt_screen">Decision Frequency</span></strong>: <kbd>10</kbd><span class="packt_screen"> </span>(this determines how often the agent makes decisions; <kbd>10</kbd> is a good starting point for this game. It will vary, and you will likely have to tune it to your needs)</li>
+<li><strong><span class="packt_screen">Axis Action</span>:</strong> <span class="packt_screen">2</span>:
+<ul>
+<li><strong><span class="packt_screen">Element 0</span></strong>: <span class="packt_screen">Vertical</span> (denotes the axis we will be overriding to allow the agent to control the game. We will get more into axis descriptions shortly)</li>
+<li><strong><span class="packt_screen">Element 1</span></strong>: <span class="packt_screen">Horizontal</span> (same as the preceding)</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>Save the project and the scene, and, again, ignore any compiler errors.</li>
+</ol>
+<p>That completes the set up of the <kbd>TestingAgent</kbd>; as you can see, there isn't a whole lot of configuration or code required to get this running. In the future, you will likely see more advanced ways of testing/debugging or building agents this way. For now, however, we need to complete our example by injecting into the Unity input system, which we will do in the next section.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Overriding the Unity input system</h1>
+                </header>
+            
+            <article>
+                
+<p>One of Unity's most compelling features is its ability to be cross-platform across any system, and with that comes several helpful layers of abstraction that we can use to inject our code into. However, the game in question needs to be following the Unity best practices in order to make this injection easy. That isn't to say that we couldn't do it by overriding the game's input system; it just wouldn't be as easy.  </p>
+<p>Before we get into describing how the injection works, let's take a step back and look at the best practices for using the Unity input system. Over the years, the Unity input system has evolved from a simple query that the device uses for inputs to the more cross-platform system that it uses now. However, many developers, including Unity itself, still use input methods that query a particular key code, for instance. The best practice is to define a set of axes (input channels) that define the input for the game.</p>
+<p>We can easily see how <span><span>it</span></span> is currently defined in the game by following this exercise:</p>
+<ol>
+<li>From the editor menu, select <strong><span class="packt_screen">Edit | Project Settings</span></strong>.</li>
+<li>Select the <span class="packt_screen">Input</span> tab and then expand <strong><span class="packt_screen">Axes | Horizontal</span></strong> and <span class="packt_screen"><strong>Axes | Vertica</strong>l</span>, as shown in the following screenshot:</li>
+</ol>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/17cdd21e-d1c3-4ddf-b67e-d9e1c386136a.png" style="width:41.00em;height:44.83em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref"><span>Inspecting the Input Axes settings</span></div>
+<ol start="3"/>
+<ol start="3"/>
+<ol start="3">
+<li>The <span class="packt_screen"><strong>Vertical</strong></span> and <span class="packt_screen"><strong>Horizontal</strong></span> axes define the input that will be used to control the game. By defining them in this tab, we can control the input across platforms by querying the axes. Notice that the axis input allows us to define both the button and joystick (touch) input. The output of a query to the input system with <kbd>getAxis</kbd> returns a value from <kbd>-1</kbd> to <kbd>+1</kbd>, or continuous output. This means that we can take any discrete form of input, such as a keystroke, and immediately convert it to a continuous value automatically. For example, if a user presses the <em>W</em> key, the input system coverts that to a positive 1 value on the <strong><span class="packt_screen">Vertical Axis</span></strong>, and conversely, a press on the <em>S</em> key generates a negative 1 value, again on the <strong><span class="packt_screen">Vertical Axis</span>. </strong>Likewise, the <em>A</em> and <em>D</em> keys control the <span class="packt_screen">Horizontal Axis</span>.</li>
+</ol>
+<div class="packt_tip">As you have seen in a few chapters in this book, using the .6 version of ML-Agents, the current discrete action solution is not nearly as good as the continuous action. Therefore, it will be our preference going forward.</div>
+<p>At this point, you may be wondering why we used discrete actions at all; that is a good question. It remains to be seen how Unity will handle this dichotomy in the future. In the next section, we will look at how to inject into the input system.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Building the TestingInput</h1>
+                </header>
+            
+            <article>
+                
+<p>We are going to use a pattern called a <strong>Singleton</strong> in order to implement a class that we can access from anywhere in our code, much like the input class from Unity that is currently used. Unity has the benefit of making the input completely static, but for our purposes, we will use the well-defined scripting version. Open the editor and follow the next exercise to build the <kbd>TestingInput</kbd> script and object:</p>
+<ol>
+<li>Select the <span class="packt_screen"><strong>HoDLG | Scripts</strong></span> folder and open the <strong><span class="packt_screen">Create</span></strong> menu.</li>
+<li>From the <strong><span class="packt_screen">Create</span></strong> menu, select <strong><span class="packt_screen">C# Script</span></strong>. Name the new script <kbd>Singleton</kbd>. This script is the standard pattern script from <a href="http://wiki.unity3d.com/index.php/Singleton">http://wiki.unity3d.com/index.php/Singleton</a>; the script is shown as follows:</li>
+</ol>
+<pre style="padding-left: 60px">using UnityEngine;<br/><br/>namespace Packt.HoDLG<br/>{<br/>  /// &lt;summary&gt;<br/>  /// Inherit from this base class to create a singleton.<br/>  /// e.g. public class MyClassName : Singleton&lt;MyClassName&gt; {}<br/>  /// &lt;/summary&gt;<br/>  public class Singleton&lt;T&gt; : MonoBehaviour where T : MonoBehaviour<br/>  {<br/>    // Check to see if we're about to be destroyed.<br/>    private static bool m_ShuttingDown = false;<br/>    private static object m_Lock = new object();<br/>    private static T m_Instance;<br/>    /// &lt;summary&gt;<br/>    /// Access singleton instance through this propriety.<br/>    /// &lt;/summary&gt;<br/>    public static T Instance<br/>    {<br/>      get<br/>      {<br/>        if (m_ShuttingDown)<br/>        {<br/>          Debug.LogWarning("[Singleton] Instance '" + typeof(T) +<br/>             "' already destroyed. Returning null.");<br/>          return null;<br/>        }<br/>        lock (m_Lock)<br/>        {<br/>          if (m_Instance == null)<br/>          {<br/>            // Search for existing instance.<br/>            m_Instance = (T)FindObjectOfType(typeof(T));<br/>            // Create new instance if one doesn't already exist.<br/>            if (m_Instance == null)<br/>            {<br/>              // Need to create a new GameObject to attach the singleton to.<br/>              var singletonObject = new GameObject();<br/>              m_Instance = singletonObject.AddComponent&lt;T&gt;();<br/>              singletonObject.name = typeof(T).ToString() + " (Singleton)";<br/>              // Make instance persistent.<br/>              DontDestroyOnLoad(singletonObject);<br/>            }<br/>          }<br/>          return m_Instance;<br/>        }<br/>      } <br/>    }<br/>    private void OnApplicationQuit()<br/>    {<br/>      m_ShuttingDown = true;<br/>    }<br/>    private void OnDestroy()<br/>    {<br/>      m_ShuttingDown = true;<br/>    }<br/>  }<br/>}</pre>
+<ol start="3">
+<li>Enter the preceding code, or just use the code downloaded from the book's source. A singleton allows us to define one thread-safe instance of a specific class that all of the objects can refer to. A typical static class will not be thread-safe, and may cause corruption or memory issues.</li>
+<li>Create a new script called <kbd>TestingInput</kbd> in the <strong><span class="packt_screen">HoDLG | Scripts</span></strong> folder and open it for editing. </li>
+<li>We will start the class with the following code:</li>
+</ol>
+<pre style="padding-left: 60px">using System.Collections.Generic;<br/>using System.Linq;<br/>using UnityEngine;<br/><br/>namespace Packt.HoDLG<br/>{<br/>  <strong>public class TestingInput : Singleton&lt;TestingInput&gt;</strong><br/>  {<br/>    public string[] axes;<br/>    public bool isPlayer;    <br/>  }<br/>}</pre>
+<ol start="6">
+<li>Notice the highlighted line, and how we declare the class to extend from the type <kbd>Singleton</kbd> that wraps the type <kbd>TestingInput</kbd>. This form of recursive typing, which uses generics, is perfect for the singleton. Don't worry if this is a little unclear; the only thing that you need to remember is that we can now access the instance of this class from anywhere in our code. Notice that we mentioned an instance and not a class, meaning that we can also persist the state within our <kbd>TestingInput</kbd> class. The variables that we declare here, <kbd>axes</kbd> and <kbd>isPlayer</kbd>, are either set in the editor or defined in the <kbd>Start</kbd> method, as follows:</li>
+</ol>
+<pre style="padding-left: 60px">void Start()<br/>{<br/>  axisValues = new Dictionary&lt;string, float&gt;();<br/>  //reset the axes to zero<br/>  foreach(var axis in axes)<br/>  {<br/>    axisValues.Add(axis, 0);<br/>  }<br/>}</pre>
+<ol start="7">
+<li>Inside the <kbd>Start</kbd> method, we define a <kbd>Dictionary</kbd> to hold the axis and values that we want this component to override. This allows us to control which input we want to override. Then, we build the collection of name/value pairs.</li>
+<li>Next, we will define a couple methods that will allow us to both mimic and set the axis values of our input system. Unity has no direct way to set the value of an axis. Currently, the <kbd>Input</kbd> system queries the hardware directly in order to read the input state, and provides no way to override this for testing. While this is a feature that has long been requested by the community, it remains to be seen whether it will ever be implemented.</li>
+<li>We then enter a <kbd>setAxis</kbd> and <kbd>getAxis</kbd> method, as follows:</li>
+</ol>
+<pre style="padding-left: 60px">public void setAxis(float value, string axisName)<br/>{<br/>  if (isPlayer == false &amp;&amp; axes.Contains(axisName)) //don't if player mode<br/>  {<br/>    axisValues[axisName] = value;<br/>  }<br/>}<br/>public float getAxis(string axisName)<br/>{<br/>  if (isPlayer)<br/>  {<br/>    return Input.GetAxis(axisName);<br/>  }<br/>  else if(axes.Contains(axisName))<br/>  {<br/>    return axisValues[axisName];<br/>  }<br/>  else<br/>  { return 0; }<br/>}</pre>
+<ol start="10">
+<li>That completes the script; if you have been adding the code as you go, save the file and return to Unity. At this point, you should see no compiler errors, as all of the required types should be present and accounted for.</li>
+</ol>
+<p>That sets up the <kbd>TestingInput</kbd> script; now, we need to move on to the next section to add it to the scene.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Adding TestingInput to the scene</h1>
+                </header>
+            
+            <article>
+                
+<p>Singletons can be called from anywhere and everywhere, and they actually don't need a game object in the scene. However, by adding the object to the scene, we become more self-aware of the required dependency, as it allows us to set required parameters for a particular scene. Open the Unity editor and follow the next exercise to add the <kbd>TestingInput</kbd> component to the scene:</p>
+<ol>
+<li>Click in the <strong><span class="packt_screen">Hierarchy</span></strong> window, and from the menu, select <strong><span class="packt_screen">Game Object | Create Empty</span></strong>.  Rename the object <kbd>TestingInput</kbd>.</li>
+<li>Drag the <strong><span class="packt_screen">TestingInput</span></strong> script from the <strong><span class="packt_screen">HoDLG | Scripts</span></strong> folder in the <strong><span class="packt_screen">Project</span></strong> window to the new <strong><span class="packt_screen">TestingInput</span></strong> object in the <strong><span class="packt_screen">Hierarchy</span></strong> window.</li>
+<li>Select the <strong><span class="packt_screen">TestingInput</span></strong> object, and then set the required <strong><span class="packt_screen">Axes</span></strong>, as shown in the following screenshot:</li>
+</ol>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/f0dd7e42-d971-4217-b1b1-031c898e42d1.png" style="width:31.83em;height:14.25em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref"><span>Setting the axes to override</span></div>
+<ol start="4">
+<li>We need to define two <span class="packt_screen">Axes</span> that we want to override. In this case, we are only overriding the <strong><span class="packt_screen">Vertical</span></strong> (<em>S</em> and <em>W</em>) and <span class="packt_screen"><strong>Horizontal</strong></span> (<em>A</em> and <em>D</em>) keys. You could, of course, override any axis that you wanted, but in this case, we are only overriding two.</li>
+<li>Save the project and the scene. </li>
+</ol>
+<p>At this point, you can't really run the project, since the actual input system isn't overriding anything just yet. We complete that final injection in the next section.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Overriding the game input</h1>
+                </header>
+            
+            <article>
+                
+<p>At this point, we have a complete testing system in place; we just need to complete the last parts of the injection. This bit of surgery can require a keen eye and a little digging through code. Fortunately, there are some good, clear indicators that you can use to spot places for injection. Open the editor and follow the next steps to complete the injection:</p>
+<ol>
+<li>Select the <strong><span class="packt_screen">Control</span></strong> object in the <strong><span class="packt_screen">Hierarchy</span></strong> window.</li>
+<li>Locate the <span class="packt_screen"><strong>MS Scene Controller Free</strong></span> component in the <strong><span class="packt_screen">Inspector</span></strong> window and use the <span class="packt_screen"><strong>Context</strong></span> menu to open the script in your code editor.</li>
+<li>Locate the following block of code, around line <strong><span class="packt_screen">286</span></strong> (about halfway in), as follows:</li>
+</ol>
+<pre style="padding-left: 60px">case ControlTypeFree.windows:<br/>  verticalInput = Input.GetAxis (_verticalInput);<br/>  horizontalInput = Input.GetAxis (_horizontalInput);<br/>  mouseXInput = Input.GetAxis (_mouseXInput);<br/>  mouseYInput = Input.GetAxis (_mouseYInput);<br/>  mouseScrollWheelInput = Input.GetAxis (_mouseScrollWheelInput);<br/>  break;<br/>}</pre>
+<ol start="4">
+<li>This is where the game is querying the <kbd>GetAxis</kbd> method, in order to return the values of the respective input axis. As we have discussed, we are only interested in the vertical and horizontal axes for this example. You can, of course, override other axes, as you see fit.</li>
+<li>Modify the lines where the <kbd>verticalInput</kbd> and <kbd>horizontalInput</kbd> are being set, as follows:</li>
+</ol>
+<pre style="padding-left: 60px">verticalInput = TestingInput.Instance.getAxis(_verticalInput);<br/>horizontalInput = TestingInput.Instance.getAxis(_horizontalInput);</pre>
+<ol start="6">
+<li>Notice that we call <kbd>TestingInput.Instance</kbd>, in order to access the singleton instance of our class. This allows us to query that class for the current input values. The <kbd>TestingInput</kbd> object can now be the source of truth (as far as this class is concerned), with respect to the input.</li>
+</ol>
+<ol start="7">
+<li>Previously, we quickly went over the agent code that sets the input, but here it is again for reference:</li>
+</ol>
+<pre style="padding-left: 60px">public void MoveAgent(float[] act)<br/>{<br/>  for(int i=0;i&lt;act.Length;i++)<br/>  {<br/>    var val = Mathf.Clamp(act[i], -1f, 1f);<br/>    <strong>TestingInput.Instance.setAxis(val,axisAction[i]);</strong><br/>  } <br/>}</pre>
+<p> </p>
+<ol start="8">
+<li>Notice the highlighted line in the <kbd>TestingAgent</kbd> <kbd>MoveAgent</kbd> method. This is where we override the input by the agent and inject the values back into the game.</li>
+<li>Save the code and return to the editor. Make sure to fix any compiler issues now.</li>
+</ol>
+<p>Unfortunately, we are still unable to run the scene, as we have one last configuration step to tend to. In the next section, we will complete the configuration by setting up the brains.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Configuring the required brains</h1>
+                </header>
+            
+            <article>
+                
+<p>The last piece of the puzzle is to configure the brains that we quickly built earlier. ML-Agents requires that the brains be configured with the required input and observation space, in order to work correctly. We will set up the <kbd>TestingPlayerBrain</kbd> and <kbd>TestingLearningBrain</kbd> in the next exercise:</p>
+<ol>
+<li>Open the Unity editor and select <strong><span class="packt_screen">TestingLearningBrain</span></strong> from the <strong><span class="packt_screen">HoDLG | Brains</span></strong> folder to open it in the <strong><span class="packt_screen">Inspector</span></strong>.</li>
+</ol>
+<ol start="2">
+<li>Set the <strong><span class="packt_screen">Brain</span></strong> parameters, as shown in the following screenshot:</li>
+</ol>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/9bbd5fff-4871-4cf5-8f8c-e4d6a90c86c5.png" style="width:31.25em;height:48.42em;"/></p>
+<div class="packt_figref CDPAlignCenter CDPAlign"><span>Setting the parameters for the TestingPlayerBrain</span></div>
+<ol start="3">
+<li>There are several parameters to set; they are summarized as follows:
+<ul>
+<li><strong><span class="packt_screen">Visual Observations</span></strong>: <kbd>84</kbd> x <kbd>84</kbd> and no grayscale</li>
+<li><span class="packt_screen"><strong>Vector Action</strong>:</span>
+<ul>
+<li><span class="packt_screen"><strong>Space Type</strong>: Continuous</span></li>
+<li><span class="packt_screen"><strong>Space Size</strong>:</span> <kbd>2</kbd></li>
+<li><strong><span class="packt_screen">Action Descriptions:</span></strong>
+<ul>
+<li><span class="packt_screen"><strong>Size</strong>:</span> <kbd>2</kbd></li>
+<li><span class="packt_screen"><strong>Element 0</strong>: Vertical</span></li>
+<li><span class="packt_screen"><strong>Elem</strong><strong>ent 1</strong>: Horizontal</span></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><span class="packt_screen"><strong>Axis Continuous Player Actions</strong>:</span>
+<ul>
+<li><span class="packt_screen"><strong>Size</strong>:</span> <kbd>2</kbd></li>
+<li><strong><span class="packt_screen">Vertical:</span></strong>
+<ul>
+<li><span class="packt_screen"><strong>Axis</strong>: Vertical</span></li>
+<li><span class="packt_screen"><strong>Index</strong>:</span> <kbd>0</kbd></li>
+<li><span class="packt_screen"><strong>Scale</strong>:</span> <kbd>1</kbd></li>
+</ul>
+</li>
+<li><strong><span class="packt_screen">Horizontal:</span></strong>
+<ul>
+<li><span class="packt_screen"><strong>Axis</strong>: Horizontal</span></li>
+<li><span class="packt_screen"><strong>Index</strong>:</span> <kbd>1</kbd></li>
+<li><span class="packt_screen"><strong>Scale</strong>:</span> <kbd>1</kbd></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ol>
+<ol start="4">
+<li>Select <strong><span class="packt_screen">TestingLearningBrain</span></strong> and configure it the same, but for learning, as shown in the following screenshot:</li>
+</ol>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/79c20b13-8e7e-4d7d-a10f-092cd9df7118.png" style="width:32.17em;height:25.75em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref"><span>Configuring the TestingLearningBrain</span></div>
+<ol start="5">
+<li>The configuration for the learning brain is much simpler, but it is also still required, even when running the sample in player mode (which, if you recall, it is set up to do).</li>
+<li>Save the scene and project. Finally, we have completed our required configuration.</li>
+<li>Press <span class="packt_screen">Play</span> to run the scene and play the game in player mode. We are controlling the game through the ML-Agents system. After a few seconds, you should see some goals drop nearby.  </li>
+</ol>
+<ol start="8">
+<li>Control the vehicle and drive into a goal, as shown in the following screenshot:</li>
+</ol>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/d7deecda-a6e9-4fa3-b19c-ae6c617db3b3.png" style="width:56.58em;height:40.67em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref"><span>Driving into the goals</span></div>
+<ol start="9">
+<li>When you are done playing, stop the game.</li>
+</ol>
+<p>Now that we are able to play the game through ML-Agents by using a configured player brain, we will switch to a learning brain and let an agent take control in the next section.</p>
+<p class="mce-root"/>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Time for training</h1>
+                </header>
+            
+            <article>
+                
+<p>However we decide to use this platform, whether for training or testing, we now need to do the last brain configuration step, in order to set any custom hyperparameters that we may decide to use for training. Open a Python/Anaconda console and prepare it for training, and then follow these steps:</p>
+<ol>
+<li>Open the <kbd>trainer_config.yaml</kbd> file located in the <kbd>ML-Agents/ml-agents/config</kbd> folder.</li>
+<li>We will add a new configuration section to the config file, modeled after one of the other visual environments. Add the new configuration, as follows:</li>
+</ol>
+<pre style="padding-left: 60px">TestingLearningBrain:<br/>    use_recurrent: true<br/>    sequence_length: 64<br/>    num_layers: 1<br/>    hidden_units: 128<br/>    memory_size: 256<br/>    beta: 1.0e-2<br/>    gamma: 0.99<br/>    num_epoch: 3<br/>    buffer_size: 1024<br/>    batch_size: 64<br/>    max_steps: 5.0e5<br/>    summary_freq: 1000<br/>    time_horizon: 64</pre>
+<ol start="3">
+<li>Notice that we added the word <kbd>brain</kbd>, in order to differentiate it from the other brains. This brain is modeled after the <kbd>VisualHallwayBrain</kbd> that we spent some time exploring previously. Keep in mind, however, that we are running a continuous action problem now, and this can affect some parameters.</li>
+<li>Save the file and return to the Unity editor.</li>
+<li>Locate the <kbd>TestingAcademy</kbd> object, swap its <kbd>Brains</kbd> for a <kbd>TestingLearningBrain</kbd>, and set it to <kbd>Control</kbd>, as you have done so many times before.</li>
+</ol>
+<ol start="6">
+<li>Save the scene and project and return to the Python/Anaconda console.</li>
+<li>Start a training/learning/testing session by running the following command:</li>
+</ol>
+<pre style="padding-left: 60px"><strong>mlagents-learn config/trainer_config.yaml --run-id=testing --train</strong></pre>
+<ol start="8">
+<li>Watch the training session and the agent play the game. The agent will run, and depending on how long you train, it may become good at finding the goals.</li>
+</ol>
+<p>At this point, you can let the agent go and just run through your level on its own, exploring. However, what we want to do is control or nudge the testing agent to the right path by using imitation learning, which we will discuss in the next section.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Testing through imitation</h1>
+                </header>
+            
+            <article>
+                
+<p>At this point in your learning, you have learned several strategies that we can apply to help our testing agent learn and find the goals. We can use curiosity or curriculum learning fairly easily, and we will leave that as an exercise for the reader. What we want is a way to control some of the testing process, and we don't really want our agent to randomly test everything (at least not at this stage). Sure, there are places where completely random testing works well. (By the way, this random form of testing is called <strong>monkey testing</strong>, because it resembles a monkey just mashing keys or input.) However, in a space such as our game, exploring every possible combination could take a very long time. Therefore, the best alternative is to capture player recordings and use them for our testing agent as a source for imitation learning.</p>
+<p>With everything set up and with our ability to now route the input events through ML-Agents, we can capture player input in the form that an agent needs to learn from. Let's open a backup Unity and set up the scene to capture player recordings, as follows:</p>
+<ol>
+<li>Select the <strong><span class="packt_screen">Vehicle2</span></strong> object in the <strong><span class="packt_screen">Hierarchy</span></strong> window. Recall that this is where the <span class="packt_screen"><strong>TestingAgent</strong></span> script is attached.</li>
+<li>Use the <strong><span class="packt_screen">Add Component</span></strong> button at the bottom of the <strong><span class="packt_screen">Inspector</span></strong> window to add a <strong><span class="packt_screen">Demonstration Recorder</span></strong> component to the agent.</li>
+</ol>
+<ol start="3">
+<li>Set the <span class="packt_screen"><strong>Demonstration Recorde</strong>r</span> to <strong><span class="packt_screen">Record</span></strong> and the <span class="packt_screen"><strong>Demonstration Nam</strong>e</span> to <strong><span class="packt_screen">Testing</span></strong>, and change the brain to <strong><span class="packt_screen">TestingPlayerBrain</span></strong>, as shown in the following screenshot:</li>
+</ol>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/b373980c-c6b3-4d82-b764-440aafaa5907.png" style="width:28.00em;height:30.00em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref"><span>Adding a Demonstration Recorder to the agent</span></div>
+<ol start="4">
+<li>Select the <span class="packt_screen"><strong>TestingAcademy</strong></span> object, and make sure to disable the <strong><span class="packt_screen">Control</span></strong> option on the <strong><span class="packt_screen">Brain</span></strong>. We want the player to control the agent when recording.</li>
+<li>Press <span class="packt_screen">Play</span> and run the game. Use the <em>WASD</em> controls keys on your keyboard to drive the vehicle over the goals. Play for a little while, in order to generate a decent recording. </li>
+<li>When you are done, check the <kbd>Assets</kbd> folder for a new folder called <kbd>Demonstrations</kbd> that contains your <kbd>Testing.demo</kbd> recording file.</li>
+</ol>
+<p>Now, with the player recording in play, we can set up and run the agent, using imitation learning to test the level.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Configuring the agent to use IL</h1>
+                </header>
+            
+            <article>
+                
+<p>We have already run through the process of setting up and running an offline <strong>imitation learning (IL)</strong> session, but let's review the process in the next exercise:</p>
+<ol>
+<li>Open the Unity editor to the same project and locate the <strong><span class="packt_screen">Vehicle2</span></strong> object containing the agent.</li>
+<li>Switch the agent's brain from <strong><span class="packt_screen">TestingPlayerBrain</span></strong> to <strong><span class="packt_screen">TestingLearningBrain</span></strong>.</li>
+<li>Select the <span class="packt_screen"><strong>TestingAcademy</strong></span> and enable the <span class="packt_screen"><strong>Control</strong></span> property on the <strong><span class="packt_screen">Testing Academy | Brains</span></strong> component property.</li>
+<li>Save the scene and project.</li>
+<li>Open the <kbd>config/offline_bc_config.yaml</kbd> file in a text or code editor.</li>
+<li>Add the following section (a modified copy of <kbd>HallwayLearning</kbd>):</li>
+</ol>
+<pre style="padding-left: 60px">TestingLearningBrain:<br/>    trainer: offline_bc<br/>    max_steps: 5.0e5<br/>    num_epoch: 5<br/>    batch_size: 64<br/>    batches_per_epoch: 5<br/>    num_layers: 2<br/>    hidden_units: 128<br/>    sequence_length: 16<br/>    use_recurrent: true<br/>    memory_size: 256<br/>    sequence_length: 32<br/>    demo_path: ./UnitySDK/Assets/Demonstrations/Testing.demo</pre>
+<ol start="7">
+<li>Save the file when you are done editing it.</li>
+<li>Open a Python/Anaconda console that is ready for training, and enter the following command:</li>
+</ol>
+<pre style="padding-left: 60px">mlagents-learn config/<strong>offline_bc_config.yaml</strong> --run-id=<strong>testing_il</strong> --train</pre>
+<ol start="9">
+<li>Note a couple of modifications, highlighted in bold. After the training starts, watch the agent drive the car in the same manner that you trained it (or at least, it will try to).</li>
+<li>Let the agent play the game, and watch how well it performs and/or gets into trouble. </li>
+</ol>
+<p class="mce-root"/>
+<p>This demo/game is quite stable and is not prone to any obvious issues, which makes testing it for obvious issues difficult. However, hopefully, you can appreciate that if this type of system is implemented very early in a game, even just for testing, it provides the ability to quickly find bugs and other issues. Of course, currently, our only method to identify any issues is to watch the agent play, which doesn't save us any time. What we need is a way to track agent activity and determine whether (and when) the agent finds itself in trouble. Fortunately, we can easily add this form of tracking by adding analytics, which we will cover in the next section.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Analyzing the testing process</h1>
+                </header>
+            
+            <article>
+                
+<p>One of the key features that ML-Agents is currently missing is extra training analytics (beyond what is provided by the console and TensorBoard). A key feature that could be crucial (and which is not difficult to add) is training analytics. This could be implemented with the Unity Analytics service that is free to try with all games. Since this isn't a current feature in ML-Agents, it is one that we will add in the next exercise, by adding our own training analytics system:</p>
+<ol>
+<li>Open the Unity editor, and from the menu, select <strong><span class="packt_screen">Window | General | Services</span></strong>. This will open a new window called <span class="packt_screen"><strong>Services</strong></span>, usually over the top of the <strong><span class="packt_screen">Inspector</span></strong> window.</li>
+<li>Click on the <span class="packt_screen"><strong>Analytics</strong></span> service in the newly opened <span class="packt_screen"><strong>Services</strong></span> window. You will need to progress through a couple of screens, asking for your preferences and acknowledgment, as shown in the following screenshot:</li>
+</ol>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/0795c6b9-6ccc-4b03-be81-671aea78d558.png"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref"><span>Setting up analytics for your project</span></div>
+<ol start="3">
+<li>Click on the button to enable <strong><span class="packt_screen">Google Analytics</span></strong>. Then, select the <strong><span class="packt_screen">Discover</span></strong> <span class="packt_screen">player insights</span> switch, and you will be prompted to press <span class="packt_screen"><strong>Play</strong></span> in your editor.  </li>
+<li>Press <span class="packt_screen"><strong>Play</strong></span> in the editor, and let the game run for only a few seconds.</li>
+</ol>
+<ol start="5">
+<li>Return to the <span class="packt_screen">Services</span> window and the <span class="packt_screen">Analytics</span> page, and at the top, you should see a button called <strong><span class="packt_screen">Go to Dashboard</span></strong>. Click on the button, as shown in the following screenshot:</li>
+</ol>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/bb50c421-7aaf-490f-b646-481a2653da5c.png"/></div>
+<div class="packt_figref CDPAlignCenter CDPAlign">Exploring your data using the dashboard</div>
+<ol start="6">
+<li>This will open your default web browser to your project analytics page, and you should see some events, such as <strong><span class="packt_screen">appStart</span></strong> and <strong><span class="packt_screen">appStop</span></strong>.</li>
+</ol>
+<p>That completes the setup of the analytics service, and, as you have seen, it is quite easy. However, as with everything, we need to customize some of the reporting data that we will send to the analytics service. You will learn how to send your own custom analytics in the next section.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Sending custom analytics</h1>
+                </header>
+            
+            <article>
+                
+<p>If you have used the analytics service previously, you may have your own best practices for how to track your game usage; if so, feel free to use that. The method that we will present here is intended as a start for how you can go about setting up and sending custom analytics for training, or even for tracking player usage.</p>
+<p class="mce-root"/>
+<p>Let's begin by opening the Unity editor and following the next exercise:</p>
+<ol>
+<li>Create a new C# script called <kbd>TestingAnalytics</kbd> in the <kbd>HoDLG</kbd> <kbd>Scripts</kbd> folder.</li>
+<li>Open and edit the <kbd>TestingAnalytics</kbd> script in your editor, and enter the following code:</li>
+</ol>
+<pre style="padding-left: 60px">using UnityEngine;<br/><br/>namespace Packt.HoDLG<br/>{<br/> public class TestingAnalytics : Singleton&lt;TestingAnalytics&gt;<br/> {<br/> private TestingAcademy academy;<br/> private TestingAgent[] agents;<br/> private void Start()<br/> {<br/> academy = FindObjectOfType&lt;TestingAcademy&gt;();<br/> agents = FindObjectsOfType&lt;TestingAgent&gt;();<br/> }<br/> public string CurrentGameState<br/> {<br/> get<br/> {<br/> var state = string.Empty;<br/> foreach (var agent in agents)<br/> {<br/> foreach (var goal in academy.goals)<br/> {<br/> var distance = Vector3.Distance(goal.transform.position, agent.transform.position);<br/> state += agent.name + " distance to goal " + distance + "/n";<br/> }<br/> }<br/> return state;<br/> }<br/> }<br/> }<br/>}</pre>
+<ol start="3">
+<li>All this code does is collect the current position of the goals and how close they are to the agents. That is what we care about currently. Also, notice that we made this a <strong>public property,</strong> so that it can be called like a method, and not just a field. This will be important later on.</li>
+<li>Save the file and return to the editor. Confirm that there are no compiler errors.</li>
+</ol>
+<ol start="5">
+<li>Create a new empty game object in the scene, and call it <kbd>TestingAnalytics</kbd>. Drag the new <kbd>TestingAnalytics</kbd> script on to the object to set it as a scene component. While the class is a singleton, we still want to add it as a dependency in the scene (essentially, as a reminder). However, there is another trick that we can also use to program prefabs.</li>
+<li>Drag the <strong><span class="packt_screen">TestingAnalytics</span></strong> object into the <strong><span class="packt_screen">HoDLG | Prefabs</span></strong> folder. This will make the object a prefab, which is now accessible by all of the other prefabs.</li>
+<li>Double-click on the <strong><span class="packt_screen">goal</span></strong> prefab located in the <strong><span class="packt_screen">HoDLG | Prefabs</span></strong> folder to open the object in its own mini editor.</li>
+<li>Use the <strong><span class="packt_screen">Add Component</span></strong> button to add an <strong><span class="packt_screen">Analytics Event Tracker</span></strong> component to the object and configure it, as shown in the following screenshot:</li>
+</ol>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/bd606824-cf59-4713-8e4a-ff3a3779be99.png" style="width:31.00em;height:29.58em;"/></p>
+<div class="CDPAlignCenter CDPAlign packt_figref"><span>Setting up the Analytics Event Tracker</span></div>
+<ol start="9">
+<li>Configure the component as follows:
+<ul>
+<li><span class="packt_screen"><strong>When</strong>: Lifecycle</span></li>
+<li><span class="packt_screen"><strong>Lifecycle Event</strong>: On Destroy</span></li>
+<li><strong><span class="packt_screen">Send Event:</span></strong>
+<ul>
+<li><span class="packt_screen"><strong>Name</strong>: Goal Destroyed Event</span></li>
+<li><strong><span class="packt_screen">Parameters: 1/10:</span></strong>
+<ul>
+<li><span class="packt_screen"><strong>Name</strong>: Status</span></li>
+<li><span class="packt_screen"><strong>Value</strong>: Dynamic</span></li>
+<li><span class="packt_screen">Object: TestingAnalytics (Prefab)</span></li>
+<li><span class="packt_screen"><strong>Method</strong>: CurrentGameState</span></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>Switch the scene back to the player mode by altering the <span class="packt_screen">Academy</span> and <span class="packt_screen">Agent</span> configuration.  </li>
+<li>Save the scene and the project.</li>
+<li>Run the scene by pressing <strong><span class="packt_screen">Play</span></strong>, and drive over a goal. As you hit the goal, check the <span class="packt_screen"><strong>Analytics</strong></span> dashboard and note how the event is tracked.</li>
+</ol>
+<p>At this stage, the analytics only report when a goal is destroyed, and they report how close each agent is to a goal. So, for one agent and three goals, they would report three distances when a goal was destroyed by driving over it or when the object was reset. By following these stats, you can generally view how each agent testing session is going overall, for better or for worse. Of course, you can add any manner of analytics that you want; it is easy to get carried away. Who knows; in the future, Unity may offer a self-testing platform driven by ML-Agents that provides testing analytics.</p>
+<p>We are coming to the end of another chapter, and, of course, we are approaching your favorite section, Exercises.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Exercises</h1>
+                </header>
+            
+            <article>
+                
+<p>The exercises in this chapter are a mix of working with ML-Agents and building your own testing analysis platform. As such, choose one or two exercises that make sense for you to complete on your own from the following list:</p>
+<ol>
+<li>Configure the <strong><span class="packt_screen">TestingAge</span><span class="packt_screen">nt</span></strong> to use a different camera for its visual observation input.</li>
+<li>Enable <strong><span class="packt_screen">Curiosity Learning</span></strong> on the agent's brain.</li>
+<li>Set up the <span class="packt_screen"><strong>TestingAgent</strong></span> to control a different vehicle.</li>
+</ol>
+<p class="mce-root"/>
+<ol start="4">
+<li>Set up the <strong><span class="packt_screen">TestingAgent</span></strong> to run on another vehicle and let ML-Agents control both of the agents simultaneously.</li>
+<li>Add additional tracking analytics custom events for the agents. Perhaps track the distance that the agent travels versus its lifetime. This will provide a speed factor that can also denote the agent's efficiency. An agent that hits a goal quicker will have a better speed factor.</li>
+<li>Enable online imitation learning by adding a second vehicle with a learning agent. If you need to, go back and review the setup of the tennis scene.</li>
+<li>Set up the <span class="packt_screen">Academy</span> to use curriculum learning. Perhaps allow the virtual goal deployment box to grow in size over training iterations (by 10%, or some other factor). This will allow the goals to disperse farther and make it more difficult for the agent to find.</li>
+<li>Modify the visual observation input that the brains are using to <kbd>184</kbd> x <kbd>184</kbd>, the new standard, and see what effect this has on agent training.</li>
+<li>Modify the visual observation convolutional encoding network, as we did in <a href="9b7b6ff8-8daa-42bd-a80f-a7379c37c011.xhtml">Chapter 7</a>, <em>Agents and the Environment</em>, to use more layers and/or different filtering.</li>
+<li>Apply this testing framework to your own game. Be sure to also add the analytics, so that you can track training and player usage.</li>
+</ol>
+<p>These exercises are more involved than those in the previous chapters, since this is a big and important chapter. In the next section, we will review what you learned and covered in this chapter.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Summary</h1>
+                </header>
+            
+            <article>
+                
+<p>Of all the chapters in this book, this may be the most useful if you are in the process of developing your own game. Game testing is one of those things that requires so much time and attention, it has to be up for some form of automation. While it makes sense for DRL to work well in this area for almost any game, it remains to be seen whether that is one of the niches for this new learning phenomena. One thing that's for sure, however, is that ML-Agents is more than capable of working as a testing harness, and we are sure that it will only get better over time.</p>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p>In this chapter, we looked at building a generic testing platform, powered by ML-Agents, that we can use to test any game automatically. We first looked at each of the components that we needed to adapt, the academy and the agent, and how they could be generalized for testing. Then, we looked at how we could inject into the Unity input system and use our <kbd>TestingAgent</kbd> to override the game's input and learn how to control it on its own. After that, we looked at how to better set up our testing by using offline IL and recording a demo file that we could use to train the agent later. Finally, in order to see how well our testing was doing, we added analytics and customized them to our needs.</p>
+<p>The next chapter will be our final chapter and our last discussion of deep learning for games; appropriately enough, we will look at what the future holds for ML-Agents and DRL.</p>
+
+
+            </article>
+
+            
+        </section>
+    </body></html>

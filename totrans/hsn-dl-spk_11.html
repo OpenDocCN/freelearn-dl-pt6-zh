@@ -1,0 +1,415 @@
+<html><head></head><body>
+        <section>
+
+                            <header>
+                    <h1 class="header-title">NLP Basics</h1>
+                </header>
+            
+            <article>
+                
+<p class="mce-root">In the previous chapter, several topics were covered concerning the undertaking of DL distributed training in a Spark cluster. The concepts presented there are common to any network model. Starting from this chapter, specific use cases for RNNs or LSTMs will be looked at first, and then CNNs will be covered. This chapter starts by introducing the following core concepts of <strong>Natural Language Processing</strong> (<strong>NLP</strong>):</p>
+<ul>
+<li class="mce-root">Tokenizers</li>
+<li class="mce-root">Sentence segmentation</li>
+<li class="mce-root">Part-of-speech tagging</li>
+<li class="mce-root">Named entity extraction</li>
+<li class="mce-root">Chunking</li>
+<li class="mce-root">Parsing</li>
+</ul>
+<p>The theory behind the concepts in the preceding list will be detailed before finally presenting two complete Scala examples of NLP, one using Apache Spark and the Stanford core NLP library, and the other using the Spark core and the <kbd>Spark-nlp</kbd> library (which is built on top of Apache Spark MLLib). The goal of the chapter is to make readers familiar with NLP, before moving to implementations based on DL (RNNs) through DL4J and/or Keras/Tensorflow in combination with Spark, which will be the core topic of the next chapter.</p>
+<p class="mce-root"/>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">NLP</h1>
+                </header>
+            
+            <article>
+                
+<p>NLP is the field of using computer science and AI to process and analyze natural language data and then make machines able to interpret it as humans do. During the 1980s, when this concept started to get hyped, language processing systems were designed by hand coding a set of rules. Later, following increases in calculation power, a different approach, mostly based on statistical models, replaced the original one. A later ML approach (supervised learning first, also semi-supervised or unsupervised at present time) brought advances in this field, such as voice recognition software and human language translation, and will probably lead to more complex scenarios, such as natural language understanding and generation.</p>
+<p>Here is how NLP works. The first task, called the speech-to-text process, is to understand the natural language received. A built-in model performs speech recognition, which does the conversion from natural to programming language. This happens by breaking down speech into very small units and then comparing them to previous units coming speech that has been input previously. The output determines the words and sentences that most probably have been said. The next task, called <strong>part-of-speech</strong> (<strong>POS</strong>) tagging (or word-category disambiguation in some literature), identifies words as their grammatical forms (nouns, adjectives, verbs, and so on) using a set of lexicon rules. At the end of these two phases, a machine should understand the meaning of the input speech. A possible third task of an NLP process is text-to-speech conversion: at the end, the programming language is converted into a textual or audible format understandable by humans. That's the ultimate goal of NLP: to build software that analyzes, understands, and can generate human languages in a natural way, making computers communicate as if they were humans.</p>
+<p>Given a piece of text, there are three things that need to be considered and understood when implementing NLP:</p>
+<ul>
+<li><strong>Semantic information</strong>: The specific meaning of a single word. Consider, for example, the word <em>pole</em>, which could have different meanings (one end of a magnet, a long stick, and others). In a sentence like <em>extreme right and extreme left are the two poles of the political system,</em> in order to understand the correct meaning, it is important to know the relevant definition of pole. A reader would easily infer which one it is, but a machine can't without ML or DL.</li>
+<li><strong>Syntax information</strong>: The phrase structure. Consider the sentence <em>William joined the football team already with long international experience</em>. Depending on how it is read, it has different meanings (it could be William or the football team that has long international experience).</li>
+<li><strong>Context information</strong>: The context where a word or a phrase appears. Consider, for example, the adjective <em>low</em>. It is often positive when part of a context of convenience (for example, <em>This mobile phone has a low price</em>), but it is almost always negative when talking about supplies (for example, <em>Supplies of drinkable water are running low</em>).</li>
+</ul>
+<p>The following subsections will explain the main concepts of NLP supervised learning.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Tokenizers</h1>
+                </header>
+            
+            <article>
+                
+<p>Tokenization means defining what a word is in NLP ML algorithms. Given a text, tokenization is the task of cutting it down into pieces, called <strong>tokens</strong>, while at the same time also removing particular characters (such as punctuation or delimiters). For example, given this input sentence in the English language:</p>
+<div><kbd>To be, or not to be, that is the question</kbd></div>
+<p>The result of tokenization would produce the following 11 tokens:</p>
+<p><kbd>To be or or not to be that is the question</kbd></p>
+<p>One big challenge with tokenization is about what the correct tokens to use are. In the previous example, it was easy to decide: we cut down on white spaces and removed all the punctuation characters. But what if the input text isn't in English? For some other languages, such as Chinese for example, where there are no white spaces, the preceding rules don't work. So, any ML/DL model training for NLP should consider the specific rules for a language.</p>
+<p>But even when limited to a single language, let's say English, there could be tricky cases. Consider the following example sentence:</p>
+<div><kbd>David Anthony O'Leary is an Irish football manager and former player</kbd></div>
+<p>How do you manage the apostrophe? There are five possible tokenizations in this case for <kbd>O'Leary</kbd>. These are as follows:</p>
+<ol>
+<li><kbd>leary</kbd></li>
+<li><kbd>oleary</kbd></li>
+<li><kbd>o'leary</kbd></li>
+<li><kbd>o' leary</kbd></li>
+<li><kbd>o leary</kbd></li>
+</ol>
+<p>But which one is the desired one? A simple strategy that comes quickly to mind could be to just split out all the non-alphanumeric characters in sentences. So, getting the <kbd>o</kbd> and <kbd>leary</kbd> tokens would be acceptable, because doing a Boolean query search with those tokens would match three cases out of five. But what about this following sentence?</p>
+<div><kbd>Michael O'Leary has slammed striking cabin crew at Aer Lingus saying “they aren't being treated like Siberian salt miners”.</kbd></div>
+<p>For <em>aren't, </em>there are four possible tokenizations, which are as follows:</p>
+<ol>
+<li><kbd>aren't</kbd></li>
+<li><kbd>arent</kbd></li>
+<li><kbd>are n't</kbd></li>
+<li><kbd>aren t</kbd></li>
+</ol>
+<p>Again, while the <kbd>o</kbd> and <kbd>leary</kbd> split looks fine, what about the <kbd>aren</kbd> and <kbd>t</kbd> split? This last one doesn't look good; a Boolean query search with those tokens would match two cases only out of four.</p>
+<p>Challenges and issues with tokenization are language-specific. A deep knowledge of the language of the input documents is required in this context.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Sentence segmentation</h1>
+                </header>
+            
+            <article>
+                
+<p>Sentence segmentation is the process of splitting up a text into sentences. From its definition, it seems a straightforward process, but several difficulties can occur with it, for example, the presence of punctuation marks that can be used to indicate different things:</p>
+<p><kbd>Streamsets Inc. has released the new Data Collector 3.5.0. One of the new features is the MongoDB lookup processor.</kbd></p>
+<p>Looking at the preceding text, you can see that the same punctuation mark (<kbd>.</kbd>) is used for three different things, not just as a sentence separator. Some languages, such as Chinese for example, come with unambiguous sentence-ending markers, while others don't. So a strategy needs to be set. The quickest and dirtiest approach to locate the end of a sentence in a case like that in the previous example is the following:</p>
+<ul>
+<li>If it is a full stop, then it ends a sentence</li>
+<li>If the token preceding a full stop is present in a hand-precompiled list of abbreviations, then the full stop doesn't end the sentence</li>
+<li>If the next token after a full stop is capitalized, then the full stop ends the sentence</li>
+</ul>
+<p>This gets more than 90% of sentences correct, but something smarter can be done, such as rule-based boundary disambiguation techniques (automatically learn a set of rules from input documents where the sentence breaks have been pre-marked), or better still, use a neural network (this can achieve more than 98% accuracy).</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">POS tagging</h1>
+                </header>
+            
+            <article>
+                
+<p>POS tagging in NLP is the process of marking a word, depending on its definition and context as well, inside a text as corresponding to a particular POS. Speech has nine main parts—nouns, verbs, adjectives, articles, pronouns, adverbs, conjunctions, prepositions, and interjections. Each of them is divided into sub-classes. This process is more complex than tokenization and sentence segmentation. POS tagging can't be generic because, depending on the context, the same word could have a different POS tag in sentences belonging to the same text, for example:</p>
+<div><kbd>Please lock the door and don't forget the key in the lock.</kbd></div>
+<p> </p>
+<p>Here, the word <kbd>lock</kbd> is used twice with two different meanings (as a verb and as a noun) in the same sentence. Differences across languages should be considered as well. So this is a process that can't be handled manually, but it should be machine-based. The algorithms used can be rule-based or stochastic. Rule-based algorithms, in order to assign tags to unknown (or at least ambiguous) words, make use of contextual information. Disambiguation is achieved by analyzing different linguistic features of a word, such as the preceding and following words. A rule-based model is trained from a starting set of rules and data, and attempts to infer execution instructions for POS tagging. Stochastic taggers relate to different approaches; basically, any model that includes probability or frequency can be labeled this way. A simple stochastic tagger can disambiguate words based only on the probability a word occurs with a particular tag. More complex stochastic taggers are more efficient, of course. One of the most popular is the hidden Markov model (<a href="https://en.wikipedia.org/wiki/Hidden_Markov_model">https://en.wikipedia.org/wiki/Hidden_Markov_model</a>), a statistical model in which the system being modeled is assumed to be a Markov process (<a href="https://en.wikipedia.org/wiki/Markov_chain">https://en.wikipedia.org/wiki/Markov_chain</a>) with hidden states.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Named entity extraction (NER)</h1>
+                </header>
+            
+            <article>
+                
+<p>NER is the sub-task of NLP, the goal of <span>which </span>is to locate and classify named entities in a text into predefined categories. Let's give an example. We have the following sentence:</p>
+<p><kbd>Guglielmo is writing a book for Packt Publishing in 2018.</kbd></p>
+<p>An NER process on it will produce the following annotated text:</p>
+<p><kbd>[Guglielmo]<sub>Person</sub> is writing a book for [Packt Publishing]<sub>Organization</sub> in [2018]<sub>Time</sub> .</kbd></p>
+<p>Three entities have been detected, a person, <kbd>Guglielmo</kbd>, a two-token organization, <kbd>Packt Publishing</kbd>, and a temporal expression, <kbd>2018</kbd>.</p>
+<p>Traditionally, NER has been applied to structured text, but lately the number of use cases for unstructured text has grown.</p>
+<p>Challenges with automating this process implementation have been case sensitivity (earlier algorithms often failed to recognize, for example, that Guglielmo Iozzia and GUGLIELMO IOZZIA are the same entity), different uses of punctuation marks, and missing separation characters. Implementations of NER systems use linguistic grammar-based techniques or statistical models and ML. Grammar-based systems can give better precision, but have a huge cost in terms of months of work by experienced linguists, plus they have low recall. ML-based systems have a high recall, but require a large amount of manually annotated data for their training. Unsupervised approaches are coming through order to drastically reduce the effort of data annotation.</p>
+<p>Another challenge for this process is the context domain—several studies have demonstrated that NER systems developed for one domain (reaching high performance on it) typically don't perform well the same way in other domains. An NER system that has been trained in a Twitter content, for example, can't be applied, expecting the same performance and accuracy, to medical records. This applies for both rule-based and statistical/ML systems; a considerable effort is needed when tuning NER systems in a new domain in order for them to reach the same level of performance they had in the original domain where they were successfully trained.</p>
+<p class="mce-root"/>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Chunking</h1>
+                </header>
+            
+            <article>
+                
+<p>Chunking in NLP is the process of extracting phrases from text. It is used because simple tokens may not represent the real meaning of the text under examination. As an example, consider the phrase <em>Great Britain</em>; while the two separate words make sense, it is more advisable to use <em>Great Britain</em> as a single word. Chunking works on top of POS tagging; typically POS tags are input, while chunks are the output from it. This process is very similar to the way the human brain chunks information together to make it easier to process and understand. Think about the way you memorize, for example, sequences of numbers (such as debit card pins, telephone numbers, and others); you don't tend to memorize them as individual numbers, but try to group them together in a way that makes them easier to remember.</p>
+<p>Chunking can be up or down. Chunking up tends more to abstraction; chunking down tends to look for more specific details. As an example, consider the following scenario in a call with a ticket sales and distribution company. The operator asks the question "<em>which kind of tickets would you like to purchase?</em>" The customer's answer, "<em>Concert tickets</em>", is chunking up, because it moves towards a higher level of abstraction. Then, the operator asks more questions, such as "<em>which genre</em>," "<em>which artist or group</em>," "<em>for which dates and locations</em>,", "<em>for how many people</em>,", "<em>which sector</em>,", and so on, in order to get more details and fulfill the customer's needs (this is chunking down). At the end, you can think about chunking as a hierarchy of sets. For a given context, there is always a higher-level set, which has subsets, and each subset can have other subsets. For example, consider a programming language as a higher-level subset; you can then have the following:</p>
+<p><kbd>Programming Language</kbd></p>
+<p><kbd>Scala (Subset of Programming Language)</kbd></p>
+<p><kbd>Scala 2.11 (Subset of Scala)</kbd></p>
+<p><kbd>Trait (a specific concept of Scala)</kbd></p>
+<p><kbd>Iterator (a core Scala trait)</kbd></p>
+<p class="mce-root"/>
+<p class="mce-root"/>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Parsing</h1>
+                </header>
+            
+            <article>
+                
+<p>Parsing in NLP is the process of determining the syntactic structure of a text. It works by analyzing the text constituent words and it bases itself on the underlying grammar of the specific language in which the text has been written. The outcome of parsing is a parse tree of each sentence part of the input text. A parse tree is an ordered, rooted tree that represents the syntactic structure of a sentence according to some context-free grammar (a set of rules that describe all the possible strings in a given formal language). Let's make an example. Consider the English language and the following example grammar:</p>
+<p><kbd>sentence -&gt; noun-phrase, verb-phrase</kbd></p>
+<p><kbd>noun-phrase -&gt; proper-noun</kbd></p>
+<p><kbd>noun-phrase -&gt; determiner, noun</kbd></p>
+<p><kbd>verb-phrase -&gt; verb, noun-phrase</kbd></p>
+<p>Consider the phrase <kbd>Guglielmo wrote a book</kbd> and apply the parsing process to it. The output would be a parse tree like this:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/22e7c67c-532a-4dd6-839b-9ffe6f8fb299.png" style="width:27.00em;height:21.42em;"/></p>
+<p>Currently, the approaches to automated machine-based parsing are statistical, probabilistic, or ML.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Hands-on NLP with Spark</h1>
+                </header>
+            
+            <article>
+                
+<p>In this section, some examples of the implementation of NLP (and its core concepts as described in the previous sections) with Apache Spark are going to be detailed. These examples don't include DL4J or other DL frameworks, as NLP with multilayer neural networks will be the main topic of the next chapter.</p>
+<p>While one of the core components of Spark, MLLib, is an ML library, it doesn't provide any facility for NLP. So, you need to use some other NLP library or framework on top of Spark.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Hands-on NLP with Spark and Stanford core NLP</h1>
+                </header>
+            
+            <article>
+                
+<p>The first example covered in this chapter involves a Scala Spark wrapper of the Stanford core NLP (<a href="https://github.com/stanfordnlp/CoreNLP">https://github.com/stanfordnlp/CoreNLP</a>) library, which is open source and released with the GNU general public licence v3 (<a href="https://www.gnu.org/licenses/gpl-3.0.en.html">https://www.gnu.org/licenses/gpl-3.0.en.html</a>). It is a Java library that provides a set of natural language analysis tools. Its basic distribution provides model files for the analysis of English, but the engine is compatible with models for other languages as well. It is stable and ready for production, and widely used across different areas of academic and industry. Spark CoreNLP (<a href="https://github.com/databricks/spark-corenlp">https://github.com/databricks/spark-corenlp</a>) is a wrapper of the Stanford Core NLP Java library for Apache Spark. It has been implemented in Scala. The Stanford Core NLP annotators have been wrapped as Spark DataFrames.</p>
+<p>The spark-corenlp library's current release contains a single Scala class function, which provides all of the high-level wrapper methods, as follows:</p>
+<ul>
+<li><kbd>cleanXml</kbd>: Takes as input an XML document and removes all the XML tags.</li>
+<li><kbd>tokenize</kbd>: Tokenizes the input sentence into words.</li>
+<li><kbd>ssplit</kbd>: Splits its input document into sentences.</li>
+<li><kbd>pos</kbd>: Generates the POS tags of its input sentence.</li>
+<li><kbd>lemma</kbd>: G<span class="pl-c">enerates the word lemmas of its input sentence.</span></li>
+<li><kbd>ner</kbd>: G<span class="pl-c">enerates the named entity tags of its input sentence.</span></li>
+<li><kbd>depparse</kbd>: G<span class="pl-c">enerates the semantic dependencies of its input sentence.</span></li>
+<li><kbd>coref</kbd>: G<span class="pl-c">enerates the <kbd>coref</kbd> chains of its input document</span>.</li>
+<li><kbd>natlog</kbd>: G<span class="pl-c">enerates the natural logic notion of polarity for each token in its input sentence. The possible returned valu</span>es are up, down, or flat.</li>
+<li><kbd>openie</kbd>: G<span class="pl-c">enerates a list of open IE triples as flat quadruples.</span></li>
+<li><kbd>sentiment</kbd>: M<span class="pl-c">easures the sentiment of its input sentence. The scale goes from zero (strongly negative) to four (strongly positive).</span></li>
+</ul>
+<p>The first thing to do is to set up the dependencies for this example. It has dependencies on Spark SQL and the Stanford core NLP 3.8.0 (the importing of the models needs to be explicitly specified through the <kbd>Models</kbd> classifier), as follows:</p>
+<pre>groupId: edu.stanford.nlp<br/>artifactId: stanford-corenlp<br/>version: 3.8.0<br/><br/>groupId: edu.stanford.nlp<br/>artifactId: stanford-corenlp<br/>version: 3.8.0<br/>classifier: models</pre>
+<p>When you need to work with a single language, let's say Spanish, you can also choose to import the models for that language only, through its specific classifier<span>, as follows</span>:</p>
+<pre>groupId: edu.stanford.nlp<br/> artifactId: stanford-corenlp<br/> version: 3.8.0<br/> classifier: models-spanish</pre>
+<p>No library is available for <kbd>spark-corenlp</kbd> on Maven central. So, you have to build its JAR file starting from the GitHub source code, and then add it to the classpath of your NLP application or, if your applications rely on an artifact repository, such as JFrog Artifactory (<a href="https://jfrog.com/artifactory/">https://jfrog.com/artifactory/</a>), Apache Archiva (<a href="https://archiva.apache.org/index.cgi">https://archiva.apache.org/index.cgi</a>), or Sonatype Nexus OSS (<a href="https://www.sonatype.com/nexus-repository-oss">https://www.sonatype.com/nexus-repository-oss</a>), store the JAR file there and then add the dependency to it in your project build file the same way as for any other dependency available in Maven central.</p>
+<p>I previously mentioned that <kbd>spark-corenlp</kbd> wraps Stanford core NLP annotators as DataFrames. So, the first thing to do in the source code is to create a <kbd>SparkSession</kbd><span>, as follows:</span></p>
+<pre>val sparkSession = SparkSession<br/>   .builder()<br/>   .appName("spark-corenlp example")<br/>   .master(master)<br/>   .getOrCreate()</pre>
+<p>Create now a <kbd>Sequence</kbd> (<a href="https://www.scala-lang.org/api/current/scala/collection/Seq.html">https://www.scala-lang.org/api/current/scala/collection/Seq.html</a>) for the input text content (in XML format) and then transform it into a DataFrame<span>, as follows</span>:</p>
+<pre>import sparkSession.implicits._<br/>     <br/> val input = Seq(<br/>   (1, "&lt;xml&gt;Packt is a publishing company based in Birmingham and Mumbai. It is a great publisher.&lt;/xml&gt;")<br/> ).toDF("id", "text")</pre>
+<p>Given this input, we could do different NLP operations using the <kbd>functions</kbd> available methods, such as cleaning from the tags the input XML included in the <kbd>text</kbd> field of the <kbd>input</kbd> DataFrame, splitting each sentence into single words, generating the named entity tags for each sentence, and measuring the sentiment of each sentence, for example:</p>
+<pre>val output = input<br/>     .select(cleanxml('text).as('doc))<br/>     .select(explode(ssplit('doc)).as('sen))<br/>     .select('sen, tokenize('sen).as('words), ner('sen).as('nerTags), sentiment('sen).as('sentiment))</pre>
+<p>At the end, we print the output of those operations (<kbd>output</kbd> itself is a DataFrame)<span>, as follows</span>:</p>
+<pre>output.show(truncate = false)</pre>
+<p>Finally, we need to stop and destroy the <kbd>SparkSession</kbd><span>, as follows:</span></p>
+<pre>sparkSession.stop()</pre>
+<p>Executing this example, the output is as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1117 image-border" src="assets/e3407710-8b0e-48b1-8834-ea8e69520571.png" style="width:134.17em;height:11.58em;"/></p>
+<p>The XML content has been cleared from the tags, the sentences have been split into their single words as expected, and for some words (<kbd>Birmingham</kbd>, <kbd>Mumbai</kbd>) a named entity tag (<kbd>LOCATION</kbd>) has been generated. And, the sentiment is positive (<kbd>3</kbd>) for both input sentences!</p>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p>This approach is a good way to start with NLP in Scala and Spark; the API provided by this library is simple and high level, and gives time to people to assimilate the core NLP concepts quickly, while leveraging the Spark DataFrames capabilities. But there are downsides with it. Where there is a need to implement more complex and custom NLP solutions, the available API is too simple to tackle them. Also a licensing problem could occur if your final system isn't for internal purposes only, but your company plan is to sell and distribute <span>your solution </span><span>to customers; the Stanford core NLP library and</span> <kbd>spark-corenlp</kbd> models <span>depend on, and are released under, the full GNU GPL v3 license, which forbids redistributing it as part of proprietary software. The next section presents a more viable alternative for Scala and Spark.</span></p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Hands-on NLP with Spark NLP</h1>
+                </header>
+            
+            <article>
+                
+<p>Another alternative library to integrate with Apache Spark in order to do NLP is <kbd>spark-nlp</kbd> (<a href="https://nlp.johnsnowlabs.com/">https://nlp.johnsnowlabs.com/</a>) by the John Snow labs (<a href="https://www.johnsnowlabs.com/">https://www.johnsnowlabs.com/</a>). It is open source and released under Apache License 2.0, so <span><span>is</span></span> different from <kbd>spark-corenlp</kbd> because its licensing model makes it possible to redistribute it as part of a commercial solution. It has been implemented in Scala on top of the Apache Spark ML module and it is available in Maven central. It provides NLP annotations for machine learning pipelines that at the same time are easy to understand and use, have great performance, and can scale easily in a distributed environment.</p>
+<p>The release I am referring to in this section is 1.6.3 (the latest at the time this book was written).</p>
+<p>The core concept of <kbd>spark-nlp</kbd> is the Spark ML pipeline (<a href="https://spark.apache.org/docs/2.2.1/api/java/org/apache/spark/ml/Pipeline.html">https://spark.apache.org/docs/2.2.1/api/java/org/apache/spark/ml/Pipeline.html</a>). A pipeline consists of a sequence of stages. Each stage could be a transformer (<a href="https://spark.apache.org/docs/2.2.1/api/java/org/apache/spark/ml/Transformer.html">https://spark.apache.org/docs/2.2.1/api/java/org/apache/spark/ml/Transformer.html</a>) or an estimator (<a href="https://spark.apache.org/docs/2.2.1/api/java/org/apache/spark/ml/Estimator.html">https://spark.apache.org/docs/2.2.1/api/java/org/apache/spark/ml/Estimator.html</a>). Transformers transform an input dataset into another, while estimators fit a model to data. When the fit method of a pipeline is invoked, its stages are then executed in order. Three types of pre-trained pipelines are available: the basic, advanced, and sentiment. The library provides also several pre-trained models for NLP and several annotators. But, let's start with a simple first example in order to clarify the details of the main concepts of <kbd>spark-nlp</kbd>. Let's try to implement a basic pipeline for ML-based named entity tag extraction.</p>
+<p>The following example depends on the Spark SQL and MLLib components and the <kbd>spark-nlp</kbd> library:</p>
+<pre>groupId: com.johnsnowlabs.nlp<br/> artifactId: spark-nlp_2.11<br/> version: 1.6.3</pre>
+<p>We need to start a <kbd>SparkSession</kbd> before anything else<span>, as follows</span>:</p>
+<pre>val sparkSession: SparkSession = SparkSession<br/>         .builder()<br/>         .appName("Ner DL Pipeline")<br/>         .master("local[*]")<br/>         .getOrCreate()</pre>
+<p>Before creating the pipeline, we need to implement its single stages. The first one is <kbd>com.johnsnowlabs.nlp.DocumentAssembler</kbd>, to specify the column of the application input to parse and the output column name (which will be the input column for the next stage)<span>, as follows</span>:</p>
+<pre>val document = new DocumentAssembler()<br/>     .setInputCol("text")<br/>     .setOutputCol("document")</pre>
+<p>The next stage is a <kbd>Tokenizer</kbd> (<kbd>com.johnsnowlabs.nlp.annotators.Tokenizer</kbd>)<span>, as follows</span>:</p>
+<pre>val token = new Tokenizer()<br/>     .setInputCols("document")<br/>     .setOutputCol("token")</pre>
+<p>After this stage, any input sentences should have been split into single words. We need to clean up those tokens, so the next stage is a <kbd>normalizer</kbd> (<kbd>com.johnsnowlabs.nlp.annotators.Normalizer</kbd>)<span>, as follows</span>:</p>
+<pre>val normalizer = new Normalizer()<br/>     .setInputCols("token")<br/>     .setOutputCol("normal")</pre>
+<p>We can now use one of the pre-trained models of the <kbd>spark-nlp</kbd> library to generate the named entity tags<span>, as follows</span>:</p>
+<pre>val ner = NerDLModel.pretrained()<br/>     .setInputCols("normal", "document")<br/>     .setOutputCol("ner")</pre>
+<p>Here we are using the <kbd>NerDLModel</kbd> class (<kbd>com.johnsnowlabs.nlp.annotators.ner.dl.NerDLModel</kbd>), which behind the scenes uses a TensorFlow pre-trained model. The named entity tags generated by that model are in IOB format (<a href="https://en.wikipedia.org/wiki/Inside%E2%80%93outside%E2%80%93beginning_(tagging)">https://en.wikipedia.org/wiki/Inside%E2%80%93outside%E2%80%93beginning_(tagging)</a>), so we need to make them in a more human readable format. We can achieve this using the <kbd>NerConverter</kbd> class (<kbd>com.johnsnowlabs.nlp.annotators.ner.NerConverter</kbd>)<span>, as follows</span>:</p>
+<pre>val nerConverter = new NerConverter()<br/>     .setInputCols("document", "normal", "ner")<br/>     .setOutputCol("ner_converter")</pre>
+<p>The last stage is to finalize the output of the pipeline<span>, as follows</span>:</p>
+<pre>val finisher = new Finisher()<br/>     .setInputCols("ner", "ner_converter")<br/>     .setIncludeMetadata(true)<br/>     .setOutputAsArray(false)<br/>     .setCleanAnnotations(false)<br/>     .setAnnotationSplitSymbol("@")<br/>     .setValueSplitSymbol("#")</pre>
+<p>For this, we use the <kbd>Finisher</kbd> transformer (<kbd>com.johnsnowlabs.nlp.Finisher</kbd>).</p>
+<p>We can now create the pipeline using the stages created so far<span>, as follows</span>:</p>
+<pre>val pipeline = new Pipeline().setStages(Array(document, token, normalizer, ner, nerConverter, finisher))</pre>
+<p>You have already probably noticed that each stage's output column is the input for the next stage's input column. That's because the stages for a pipeline are executed in the exact order they are listed in the input <kbd>Array</kbd> for the <kbd>setStages</kbd> method.</p>
+<p>Let's now feed the application with some sentences<span>, as follows</span>:</p>
+<pre>val testing = Seq(<br/>     (1, "Packt is a famous publishing company"),<br/>     (2, "Guglielmo is an author")<br/> ).toDS.toDF( "_id", "text")</pre>
+<p>The same as for the <kbd>spark-corenlp</kbd> example in the previous section, we have created a <kbd>Sequence</kbd> for the input text content and then transformed it into a Spark DataFrame.</p>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p>By invoking the <kbd>fit</kbd> method of the <kbd>pipeline</kbd>, we can execute all of its stages<span>, as follows</span>:</p>
+<pre>val result = pipeline.fit(Seq.empty[String].toDS.toDF("text")).transform(testing)</pre>
+<p>And, we get the resulting DataFrame output<span>, as follows</span>:</p>
+<pre>result.select("ner", "ner_converter").show(truncate=false)</pre>
+<p>This will give the following output:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/b167214a-e7d3-4fe5-9c23-5ea43298325b.png"/></p>
+<p>When we take a closer look it is seen as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/2a93289e-b733-44a7-af1d-657fb05d34e1.png" style="width:22.50em;height:6.42em;"/></p>
+<p>An <kbd>ORGANIZATION</kbd> named entity tag has been generated for the word <kbd>Packt</kbd> and a <kbd>PERSON</kbd> named entity tag has been generated for the word <kbd>Guglielmo</kbd>.</p>
+<p><kbd>spark-nlp</kbd> also provides a class, <kbd>com.johnsnowlabs.util.Benchmark</kbd>, to perform the benchmarking of pipeline execution, for example:</p>
+<pre>Benchmark.time("Time to convert and show") {result.select("ner", "ner_converter").show(truncate=false)}</pre>
+<p>Finally, we stop the <kbd>SparkSession</kbd> at the end of the pipeline execution<span>, as follows</span>:</p>
+<pre>sparkSession.stop</pre>
+<p>Let's <span>now</span><span> </span><span>do something more complex. The pipeline in this second example does tokenization with n-grams (</span><a href="https://en.wikipedia.org/wiki/N-gram">https://en.wikipedia.org/wiki/N-gram</a><span>), sequences of</span> <em><span class="MathJax"><span class="math"><span class="mrow"><span class="mi">n</span></span></span></span></em> <span>tokens (typically words)</span> <span class="MathJax"><span class="math"><span class="mrow"><span class="mi">from a given text or speech. The dependencies for this example are the same as for the previous one presented in this section—Spark SQL, Spark MLLib, and <kbd>spark-nlp</kbd>.</span></span></span></span></p>
+<p>Create a <kbd>SparkSession</kbd> and configure some Spark properties<span>, as follows</span>:</p>
+<pre>val sparkSession: SparkSession = SparkSession<br/>     .builder()<br/>     .appName("Tokenize with n-gram example")<br/>     .master("local[*]")<br/>     .config("spark.driver.memory", "1G")<br/>     .config("spark.kryoserializer.buffer.max","200M")<br/>     .config("spark.serializer","org.apache.spark.serializer.KryoSerializer")<br/>     .getOrCreate()</pre>
+<p>The first three stages for the pipeline are the same as for the previous example<span>, as follows</span>:</p>
+<pre>val document = new DocumentAssembler()<br/>  .setInputCol("text")<br/>  .setOutputCol("document")<br/><br/>val token = new Tokenizer()<br/>  .setInputCols("document")<br/>  .setOutputCol("token")<br/><br/>val normalizer = new Normalizer()<br/>  .setInputCols("token")<br/>  .setOutputCol("normal")</pre>
+<p>Put a <kbd>finisher</kbd> stage before using the n-gram stage<span>, as follows</span>:</p>
+<pre>val finisher = new Finisher()<br/>     .setInputCols("normal")</pre>
+<p>The n-gram stage uses the <kbd>NGram</kbd> class (<a href="https://spark.apache.org/docs/2.2.1/api/scala/index.html#org.apache.spark.ml.feature.NGram">https://spark.apache.org/docs/2.2.1/api/scala/index.html#org.apache.spark.ml.feature.NGram</a>) of Spark MLLib<span>, as follows</span>:</p>
+<pre>val ngram = new NGram()<br/>   .setN(3)<br/>   .setInputCol("finished_normal")<br/>   .setOutputCol("3-gram")</pre>
+<p><kbd>NGram</kbd> is a feature transformer that converts an input array of strings into an array of n-grams. The chosen value for <em>n</em> in this example is <kbd>3</kbd>. We need now a further <kbd>DocumentAssembler</kbd> stage for the n-gram results<span>, as follows</span>:</p>
+<pre>val gramAssembler = new DocumentAssembler()<br/>   .setInputCol("3-gram")<br/>   .setOutputCol("3-grams")</pre>
+<p>Let's implement the pipeline<span>, as follows</span>:</p>
+<pre>val pipeline = new Pipeline().setStages(Array(document, token, normalizer, finisher, ngram, gramAssembler))</pre>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p class="mceNonEditable"/>
+<p class="mceNonEditable"/>
+<p>Now feed the application with the same input sentences as for the previous example:</p>
+<pre>import sparkSession.implicits._<br/>val testing = Seq(<br/>  (1, "Packt is a famous publishing company"),<br/>  (2, "Guglielmo is an author")<br/>).toDS.toDF( "_id", "text")</pre>
+<p>And execute the stages of the pipeline<span>, as follows</span>:</p>
+<pre>val result = pipeline.fit(Seq.empty[String].toDS.toDF("text")).transform(testing)</pre>
+<p>Print the results to the screen:</p>
+<pre>result.show(truncate=false)</pre>
+<p>This produces the following output:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/0ab368f7-ea37-4f79-9492-4665a7b935c9.png"/></p>
+<p>Finally, we stop the <kbd>SparkSession</kbd><span>, as follows:</span></p>
+<pre>sparkSession.stop</pre>
+<p>The final example is an ML sentiment analysis using the Vivek Narayanan (<a href="https://github.com/vivekn">https://github.com/vivekn</a>) model. Sentiment analysis, which is a practical application of NLP, is the process of identifying and categorizing, through a computer, the opinion expressed in a text, in order to determine whether its writer's/speaker's attitude towards a product or topic is positive, negative, or neutral. In particular, for this example, we are going to train and validate the model on movie reviews. The dependencies for this example are the usual ones—Spark SQL, Spark MLLib, and <kbd>spark-nlp</kbd>.</p>
+<p>As usual, create a <kbd>SparkSession</kbd> (while also configuring some Spark properties)<span>, as follows</span>:</p>
+<pre>val spark: SparkSession = SparkSession<br/>     .builder<br/>     .appName("Train Vivek N Sentiment Analysis")<br/>     .master("local[*]")<br/>     .config("spark.driver.memory", "2G")<br/>     .config("spark.kryoserializer.buffer.max","200M")<br/>  .config("spark.serializer","org.apache.spark.serializer.KryoSerializer")<br/>     .getOrCreate</pre>
+<p>We then need two datasets, one for training and one for testing. For simplicity, we define the training dataset as a <kbd>Sequence</kbd> and then transform it into a DataFrame, where the columns are the review text and the associated sentiment<span>, as follows</span>:</p>
+<pre>import spark.implicits._<br/>    <br/>val training = Seq(<br/>  ("I really liked it!", "positive"),<br/>  ("The cast is horrible", "negative"),<br/>  ("Never going to watch this again or recommend it", "negative"),<br/>  ("It's a waste of time", "negative"),<br/>  ("I loved the main character", "positive"),<br/>  ("The soundtrack was really good", "positive")<br/>).toDS.toDF("train_text", "train_sentiment")<br/><br/>While the testing data set could be a simple Array:<br/><br/>val testing = Array(<br/>  "I don't recommend this movie, it's horrible",<br/>  "Dont waste your time!!!"<br/>)</pre>
+<p>We can now define the stages for the pipeline. The first three stages are exactly the same as for the previous example pipelines (<kbd>DocumentAssembler</kbd>, <kbd>Tokenizer</kbd>, and <kbd>Normalizer</kbd>)<span>, as follows</span>:</p>
+<pre>val document = new DocumentAssembler()<br/>  .setInputCol("train_text")<br/>  .setOutputCol("document")<br/><br/>val token = new Tokenizer()<br/>  .setInputCols("document")<br/>  .setOutputCol("token")<br/><br/>val normalizer = new Normalizer()<br/>  .setInputCols("token")<br/>  .setOutputCol("normal")</pre>
+<p>We can now use the <kbd>com.johnsnowlabs.nlp.annotators.sda.vivekn.ViveknSentimentApproach</kbd> annotator<span>, as follows</span>:</p>
+<pre>val vivekn = new ViveknSentimentApproach()<br/>  .setInputCols("document", "normal")<br/>  .setOutputCol("result_sentiment")<br/>  .setSentimentCol("train_sentiment")<br/><br/>And finally we use a Finisher transformer as last stage:<br/><br/>val finisher = new Finisher()<br/>  .setInputCols("result_sentiment")<br/>  .setOutputCols("final_sentiment")</pre>
+<p>Create the pipeline using the stages previously defined:</p>
+<pre>val pipeline = new Pipeline().setStages(Array(document, token, normalizer, vivekn, finisher))</pre>
+<p>And then start the training<span>, as follows</span>:</p>
+<pre>val sparkPipeline = pipeline.fit(training)</pre>
+<p>Once the training has completed, we can use the following testing dataset to test it:</p>
+<pre>val testingDS = testing.toSeq.toDS.toDF("testing_text")<br/> println("Updating DocumentAssembler input column")<br/> document.setInputCol("testing_text")<br/> sparkPipeline.transform(testingDS).show()</pre>
+<p>The output will be<span> as follows</span>:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/7332a1d8-0bb5-490a-b091-870b2c270648.png" style="width:23.92em;height:8.50em;"/></p>
+<p>Two sentences that are part of the testing dataset have been properly marked as negative.</p>
+<p>It is of course possible to do a benchmark for sentiment analysis, too, through the <kbd>spark-nlp</kbd> <kbd>Benchmark</kbd> class<span>, as follows</span>:</p>
+<pre>Benchmark.time("Spark pipeline benchmark") {<br/>   val testingDS = testing.toSeq.toDS.toDF("testing_text")<br/>   println("Updating DocumentAssembler input column")<br/>   document.setInputCol("testing_text")<br/>   sparkPipeline.transform(testingDS).show()<br/> }</pre>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p>At the end of this section, we can state that <kbd>spark-nlp</kbd> provides more features than <kbd>spark-corenlp</kbd><em>,</em> is well integrated with Spark MLLib, and, thanks to its licensing model, doesn't present the same issues concerning the distribution of the application/system in which it is used and integrated. It is a stable library and ready for production in Spark environments. Unfortunately, most of its documentation is missing and the existing documentation is minimal and not well maintained, despite project development being active.</p>
+<p>In order to understand how a single feature works and how to combine them together, you have to go through the source code in GitHub. The library also <span>uses</span><span> </span><span>existing ML models implemented through Python frameworks and provides a Scala class to represent them, hiding the underlying model implementation details from developers. This will work in several use case scenarios, but in order to build more robust and efficient models, you would probably have to move to implementing your own neural network model. Only DL4J will give you that level of freedom in development and training with Scala.</span></p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Summary</h1>
+                </header>
+            
+            <article>
+                
+<p>In this chapter, we became familiar with the main concepts of NLP and started to get hands-on with Spark, exploring two potentially useful libraries, <kbd>spark-corenlp</kbd> and <kbd>spark-nlp</kbd>.</p>
+<p>In the next chapter, we will see how it is possible to achieve the same or better results by implementing complex NLP scenarios in Spark though DL (mostly RNN-based). We will explore different implementations by using DL4J, TensorFlow, Keras, the TensorFlow backend, and DL4J + Keras model imports.</p>
+
+
+            </article>
+
+            
+        </section>
+    </body></html>
