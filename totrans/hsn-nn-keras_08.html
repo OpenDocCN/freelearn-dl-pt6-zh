@@ -1,0 +1,1330 @@
+<html><head></head><body><div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Long Short-Term Memory Networks</h1>
+                </header>
+            
+            <article>
+                
+<div class="packt_quote">"When I was young, I often pondered over what to do in my life. The most exciting thing, to me, seemed to be able to solve the riddles of the universe. That entailed becoming a physicist. However, I soon realized that there might be something even grander. What if I were to try build a machine, which becomes a much better physicist than I could ever hope to be. Perhaps, this is how I can multiply my tiny bit of creativity, into eternity."</div>
+<div style="padding-left: 60px" class="packt_quote">– Jeurgen Schmidthuber, co-inventor of the Long Short-Term Memory network</div>
+<p>In his diploma thesis in 1987, Schmidthuber theorized a mechanism of meta-learning that would be capable of inspecting its own learning algorithm and subsequently modifying it to effectively optimize the very mechanism of learning it employs. This idea entails opening up the learning space to the system itself so it can iteratively improve its learning as it sees new data: a system that would learn to learn, if you will. Schmidthuber even named this machine the Gödel machine, after the founder of the mathematical concept behind recursive self-improvement algorithms. Unfortunately, we are yet to build a self-learning universal problem-solver as described by Schmidthuber. However, that might not be as big a disappointment as you think it is. Some may argue that nature itself is yet to succeed in building such a system, given the current state of human affairs.</p>
+<p>On the other hand, Schmidthuber and his colleagues did succeed in developing something else that is quite novel. We speak, of course, of the <strong>Long Short-Term Memory</strong> (<strong>LSTM</strong>) network. Funnily enough, the LSTM is the older sibling of the <strong>Gated Recurrent Unit</strong> (<strong>GRU</strong>), seen previously, in many ways. Not only was the LSTM network conceived earlier (Hochreiter and Schmidthuber, 1997) than the GRU (Cho et al, 2014), but it is also computationally more intensive to run. This computational burden does come with a benefit, bringing a deluge of representational power for long-term dependency modeling when compared to the other <strong>recurrent neural network</strong> (<strong>RNN</strong>) counterparts we have seen so far.</p>
+<p>The LSTM network provides a more complex solution to the problems of exploding and vanishing gradients we reviewed earlier. You may think of the GRU as a simplified version of the LSTM.</p>
+<p>Following are the topics that we will be covering in this chapter:</p>
+<ul>
+<li>The LSTM network</li>
+<li>Dissecting the LSTM</li>
+<li>LSTM memory block</li>
+<li>Visualizing the flow of information</li>
+<li>Computing contender memory</li>
+<li>Variations of LSTM and performance</li>
+<li>Understanding peephole connections</li>
+<li>Importance of timing and counting</li>
+<li>Putting our knowledge to use</li>
+<li>On modeling stock market data</li>
+<li>Denoising the data</li>
+<li>Implementing exponential smoothing</li>
+<li>The problem with one-step ahead predictions</li>
+<li>Creating sequences of observation</li>
+<li>Building LSTMs</li>
+<li>Closing comments</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">On processing complex sequences</h1>
+                </header>
+            
+            <article>
+                
+<p><span>In the last chapter, we discussed how humans tend to process events in a sequential manner. We break down our daily tasks into a sequence of smaller actions, without giving it much thought. When you get up in the morning, you may choose to visit the bathroom before making yourself breakfast. </span><span>In the bathroom, you may choose to shower first before brushing your teeth. Some may choose to execute both tasks simultaneously. Often, these choices boil down to our individual preferences and time restrictions. From another perspective, a lot of how we go about doing the things we do has to do with how our brain has chosen to represent the importance of these relative tasks, governed by information it has saved about the near and distant past. For example, when you wake up in the morning, you may be inclined to shower first if you live in an apartment block with shared water supply.</span></p>
+<p><span>On the other hand, you may delay this task on some days if you know that your neighbors are on vacation. As it turns out, our own brains are very good at selecting, reducing, categorizing, and making available the information that is most advantageous to make predictions about the world around us.</span></p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Breaking down memory</h1>
+                </header>
+            
+            <article>
+                
+<p><span>We humans have layers of neurons aggregated in specific parts of our brain tasked with maintaining detailed and distinct representations of different types of important events that we may perceive. Take the temporal lobe, for instance, which consists of structures responsible for our declarative, or long-term, memory. This is what is widely believed to form the span of our conscious recollection of incidents. It reminds us of all general happenings going on in our mental model of the world, forming notions of both semantic facts about it (in semantic memory), and the occurrence of events (in episodic memory) within it. A semantic fact could be that the molecular compound of water represents one hydrogen and two oxygen atoms. Conversely, an episodic fact could be that a particular pool of water is tainted with chemicals, and hence is not potable. These distinctions in memory help us effectively navigate our information-abundant environment, as we make decisions to optimize our goals, whatever they may be. Moreover, some may even argue that making such distinctions to partition information is paramount to processing complex time-dependent sequences of data.</span></p>
+<p><span>Ultimately, we need to maintain relevance in our predictive models over long periods of time, be it for the creation of interactive chatbots, or to predict the movement of stock prices. Being relevant involves not only knowing what has recently occurred, but also how history has unfolded. After all, as the old saying goes, history tends to repeat itself. Therefore, it can be useful to maintain a representation of this so-called history in memory. As we will soon see, this is precisely what the LSTM has set out to achieve.</span></p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">The LSTM network</h1>
+                </header>
+            
+            <article>
+                
+<p><span>Behold, the LSTM architecture. This model, iconic in its use of complex information paths and gates, is capable of learning informative time dependent representations from the inputs it is shown.  Each line in the following diagram represents the propagation of an entire vector from one node to another in the direction denoted by the arrows. When these lines split, the value they carry is copied to each pathway. Memory from previous time steps are shown to enter from the top-left of the unit, while activations from previous timesteps enter from the bottom-left corner.</span></p>
+<p><span>The boxes represent the dot products of learned weight matrices and some inputs passed through an activation function. The circles represent point-wise operations, such as element-wise vector multiplication (*) or addition (+):</span></p>
+<div class="packt_figure CDPAlignCenter CDPAlign"><img src="Images/570d2652-759a-463b-8066-fc280d0015af.png" style="width:41.17em;height:33.83em;" width="654" height="538"/></div>
+<p><span>In the last chapter, we saw how RNNs may use a feedback connection through time to store representations of recent inputs through activations. These activations can essentially be thought of as the short-term memory of the unit, as it is mostly influenced by the activations from immediately preceding timesteps. Sadly, the vanishing gradients problem prohibited us from leveraging information that had occurred at very early timesteps (long-term memory) to inform later predictions. We saw that the weights comprising the hidden state have a propensity to decay or explode, as the errors are backpropagated through more and more timesteps. How can we solve this? How can we effectively allow information to flow through the timesteps, as it were, to inform predictions very late in the sequence? The answer, of course, came from Hochreiter and Schmidthuber, and consisted of using long-term memory</span> (<em>c<sup>(t-1)</sup></em>) <span>along with short-term memory</span> (<em>a<sup>(t-1)</sup></em>) <span>in RNNs.</span></p>
+<p><span>This approach allowed them to effectively overcome the problem of predicting relevantly over long sequences, by implementing an RNN design that is adept at conserving relevant memories of distant events. Practically speaking, this is done by employing a set of information gates that perform very well at conserving and passing forward the cell state, which encodes relevant representations from the distant past. This significant breakthrough has been shown to be applicable for various use cases, including speech processing, language modeling, non-Markovian control, and music generation.</span></p>
+<p>A source for further reading is given here:</p>
+<ul>
+<li><strong>Original LSTM Paper Hochreiter and Schmidthuber</strong>: <span><span class="MsoHyperlink"><a href="https://www.bioinf.jku.at/publications/older/2604.pdf" target="_blank">https://www.bioinf.jku.at/publications/older/2604.pdf</a></span></span></li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Dissecting the LSTM</h1>
+                </header>
+            
+            <article>
+                
+<p>As mentioned, the LSTM architecture relies on a series of gates that can independently influence the activation values (<em>a<sup>(<span class="MsoFootnoteReference">t-1)</span></sup></em>), as well as the memory (<em>c<sup>(</sup></em><span class="MsoFootnoteReference"><em><sup>t-1)</sup></em></span>), from previous timesteps as information flows through an LSTM unit. These values are transformed as the unit spits out the activations (<em>a<sup><span class="MsoFootnoteReference">t</span></sup></em>) and memory (<em>c<sup><span class="MsoFootnoteReference">t</span></sup></em>) vectors pertaining to the current timestep at each iteration. While their earlier counterparts enter the unit separately, they are allowed to interact with each other in two broad manners. In the following diagram, the gates (denoted with the capital Greek letter gama, or <span>Γ) </span>represent sigmoid activation functions applied to the dot product of their respectively initialized weight matrix, with previous activations and current input:</p>
+<div class="packt_figure CDPAlignCenter CDPAlign"><img src="Images/669d8d78-7f7b-4489-99d3-711e16221bfb.png" width="1254" height="523"/></div>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Comparing the closest known relative</h1>
+                </header>
+            
+            <article>
+                
+<p>Let's try to understand how an LSTM works by leveraging our pre-existing knowledge of the GRU architecture, which we saw in the last chapter. As we will soon discover, the LSTM is nothing but a more complex version of the GRU, albeit obeying similar principles that govern its operation.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">GRU memory</h1>
+                </header>
+            
+            <article>
+                
+<p>Recall that the GRU architecture computed its cell state (or memory) by leveraging two vectors through an update gate. These two vectors were activations from earlier timesteps (<strong>c</strong><strong>t-1</strong>), as well as a contender vector (<strong>c ̴</strong><strong>t</strong> ). The contender vector presents itself as a candidate for the current cell state, at each timestep. The activations, on the other hand, essentially represent the hidden state of the GRU from previous timesteps. The degree to which each of these two vectors influence the current cell state was determined by the update gate. This gate controlled the flow of information, allowing the memory cell to relevantly update itself with new representations to inform subsequent predictions. Using the update gate, we were able to calculate the new cell state at a given time step (<strong>c<sup>t</sup></strong>), as shown here:</p>
+<div class="packt_figure CDPAlignCenter CDPAlign"><img src="Images/dab24003-383f-4f6b-bc4c-1dfbab4104b8.png" style="width:33.50em;height:5.50em;" width="557" height="91"/></div>
+<p>As we observe, the GRU used the update gate (<strong>Γu</strong>) and its inverse (<strong>1- <span>Γ</span>u</strong><span>) to decide whether to update the memory cell with a new value (<strong>c ̴</strong></span><strong><sup><span class="MsoFootnoteReference">t</span></sup></strong> <span>) or conserve the old values from the previous timestep (<strong>c</strong></span><strong><sup><span class="MsoFootnoteReference">t-1</span></sup></strong><span>). More importantly, the GRU leveraged a single update gate, along with its inverse value, to control the memory value (<strong>c<sup>t</sup></strong>). The LSTM architecture presents a more complex mechanism, and at the core uses an equation similar to the GRU architecture to maintain relevant state. But how exactly does it do this?</span></p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">LSTM memory cell</h1>
+                </header>
+            
+            <article>
+                
+<p>In the following diagram, you will notice the straight line at the top of the LSTM unit that denotes its memory or cell state (<em>c<sup>t</sup></em>). More technically, the cell state here is defined by the <strong>Constant Error Carousel</strong> (<strong>CEC</strong>), which is essentially a recurrently self-connected linear unit. This implementation is a core component of the LSTM layer that allows the enforcement of a constant flow of error during backpropagation. Essentially, this allows the mitigation of the vanishing gradient problem suffered by other RNNs.</p>
+<p>The CEC prevents the error signals from decaying too quickly during backpropagation, allowing earlier representations to be well maintained and carried forward into future timesteps. It can be thought of as the information highway that lets this architecture learn to bridge time intervals in excess of 1,000 steps with relevant information. This has been shown to hold true in a variety of time series prediction tasks, effectively addressing problems faced by previous architectures, and dealing with noisy input data. While the exploding gradients issue can be addressed through gradient clipping (as we saw in the last chapter), the vanishing gradient problem is shown to be equally addressable by the CEC implementation.</p>
+<p>Now we have a high-level understanding of how the cell state is represented by the activation of the CEC. This activation (that is, <em>c<sup>t</sup></em>) is computed using inputs from several information gates. The use of different gates in the LSTM architecture permits it to control the error flow through the separate units, aiding in maintaining a relevant cell state (<strong>c</strong> for short):</p>
+<div class="packt_figure CDPAlignCenter CDPAlign"><img src="Images/1a78c040-8e81-4b70-9dc0-7b8436506d55.png" style="width:38.58em;height:29.08em;" width="452" height="341"/></div>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Treating activations and memory separately</h1>
+                </header>
+            
+            <article>
+                
+<p><span>Notice how both the short-term memory (<em>a</em></span><em><sup><span class="MsoFootnoteReference">t-1</span></sup></em><span>) and the long-term memory (<em>c</em></span><em><sup><span class="MsoFootnoteReference">t-1</span></sup></em><span>) are allowed to flow into the architecture separately. The memory from previous timesteps flows in through the top-left corner, while the activations from previous timesteps flows in from the bottom-left corner of the depicted illustration. This is the first key difference we may note from the GRU architecture that we are already familiar with. Doing so permits the LSTM to leverage both the short-term activations and the long-term memory (cell state) of our network, while computing the current memory (<em>c</em></span><em><sup><span class="MsoFootnoteReference">t</span></sup></em><span>) and activations (<em>a</em></span><em><sup><span class="MsoFootnoteReference">t</span></sup></em>). This dichotomous architecture aids in maintain a constant error flow through time, while letting relevant representations be carried forward to inform future predictions. An example of such predictions, in the case of <strong>natural language processing</strong> (<strong>NLP</strong>), could be identifying the presence of different genders or the fact that there are plural entities in a given sequence of words. Yet, what if we wanted to remember multiple things from a given sequence of words? What if we wanted to remember multiple facts about a subject in a given sequence over longer sets of sequences? Consider the case of machine question-answering, with the following two sentences:</p>
+<ul>
+<li>It had been several months since Napoleon was exiled to St. Helen. His spirit was already weak, his body feeble, yet it would be the arsenic, from the damp mold forming on the pale green wallpaper around his room, that would slowly lead to his demise.</li>
+<li>Where was Napoleon? How did Napoleon die?</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">LSTM memory block</h1>
+                </header>
+            
+            <article>
+                
+<p>To be able to answer these questions, our network must have several memory cells, where each can store quasi-dependent bits of information regarding the subject of our enquiry, the French emperor Napoleon Bonaparte. In practice, an LSTM unit can have multiple memory cells, each storing different representations from the input sequence. One may store the gender of the subject, another may store the fact that there are multiple subjects, and so on. For the purpose of having clear illustrations, we have taken the liberty of depicting only one memory cell per diagram in this chapter. We do this because understanding the principle behind the workings of one cell will suffice to extrapolate the functioning of a memory block with multiple memory cells. The part of the LSTM that contains all its memory cells is referred to as a memory block. The adaptive information gates of the architecture are shared by all cells in the memory block, and serve to control the flow of information between the short-term activations (<em>a<sup><span class="MsoFootnoteReference">t-1</span></sup></em><span>), current inputs (<em>X<sup>t</sup></em>), and the long-term state (<em>c</em></span><em><sup><span class="MsoFootnoteReference">t</span></sup></em>) of the LSTM.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Importance of the forget gate</h1>
+                </header>
+            
+            <article>
+                
+<p><span>As we noted, the equation defining the memory cell's state (<em>c</em></span><em><sup><span class="MsoFootnoteReference">t</span></sup></em>) of an LSTM is similar in spirit to the one of the GRU. A key difference, however, is that it leverages a new gate (Γf<span>), namely the forget gate, along with the update gate, to decide whether to forget the value stored at previous timestep</span>s (<span><em>c</em></span><em><sup><span class="MsoFootnoteReference">t-1</span></sup></em>) or include it in the computation of the new cell memory. The following formula depicts the CEC responsible for conserving the cell state of our LSTM. It is the very formula that makes LSTMs so effective at remembering long-term dependencies. As mentioned earlier, the CEC is a neuron specific to each memory cell in an LSTM that defines the cell state at any given time. We will start with how the LSTM unit computes the value (<strong>C<sup>t</sup></strong>) that refers to what is stored in its memory cell (<strong>C</strong>) at time (<strong>t</strong>):</p>
+<div class="packt_figure CDPAlignCenter CDPAlign"><img src="Images/4a1b073e-3a2a-46fc-80af-c981b0c76cfe.png" style="width:28.75em;height:7.17em;" width="461" height="115"/></div>
+<p><span>This lets us incorporate information from both the contender value (<em>c <sup>̴</sup></em></span><em><sup><span class="MsoFootnoteReference">t</span></sup></em>) and the memory at the previous timestep (<em>c<sup><span class="MsoFootnoteReference">t-1</span></sup></em>) to the current memory value. As we will soon see, this forget gate is nothing but a sigmoid applied to matrix-level dot products along with a bias term that helps us control the flow of information from previous timesteps.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Conceptualizing the difference</h1>
+                </header>
+            
+            <article>
+                
+<p>It is worth noting that the forget gate represents an important conceptual difference in maintaining the cell state when compared to the mechanism employed in the GRU architecture to achieve similar ends. One way to think about this gate is that it allows us to control how much of the previous cell state (or memory) should influence the current cell state. In the case of the GRU architecture, we simply exposed either the entire memory from previous timesteps, or just the new contender value, seldom making a compromise between the two.</p>
+<p class="packt_figure">GRU cell state calculation is as follows:</p>
+<div class="packt_figure CDPAlignCenter CDPAlign"><img src="Images/b8e8a603-503a-45e1-a0b8-ec11a26fc563.png" style="width:31.58em;height:5.17em;" width="557" height="91"/></div>
+<p>This binary trade-off between exposing the entire memory or a new contender value can actually be avoided, as is the case with the LSTM architecture. This is achieved by using two separate gates, each with its own learnable weight matrix, to control the cell state of our LSTM. LSTM cell state computation is as follows:</p>
+<div class="packt_figure CDPAlignCenter CDPAlign"><img src="Images/57675529-9aea-4c31-8d51-066a15df3631.png" style="width:22.67em;height:5.67em;" width="461" height="115"/></div>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Walking through the LSTM</h1>
+                </header>
+            
+            <article>
+                
+<p>So, let's have a closer look at the entire set of equations that describe the LSTM architecture. The first set of gates that we will examine are the forget gate and the update gate. Unlike the GRU, the LSTM uses both these gates to determine the memory values (<em>c<sup><span class="MsoFootnoteReference">t</span></sup></em>) at each timestep:</p>
+<div class="packt_figure CDPAlignCenter CDPAlign"><img src="Images/049a8aaa-21cf-4b1d-aeee-5650ef72f1a9.png" style="width:34.83em;height:28.58em;" width="654" height="538"/></div>
+<p><span>First, let's see how these gates themselves are computed. The following formulations reveal to us that these gates are simply the result of a sigmoid function being applied to the dot products of previous activations, and current inputs, with respective weight matrices (<em>Wf</em></span> <span>and <em>Wu</em> for the forget and output gates):</span></p>
+<ul>
+<li><em>Forget gate (ΓF) = sigmoid ( Wf [ at-1, <span><img src="Images/0e51b3c3-3c8a-4270-aa33-e3bd678717f4.png" width="8" height="20"/></span> t ] + bF)</em></li>
+<li><em>Update gate (ΓU) = sigmoid ( Wu [ at-1, <span><img src="Images/39ad1f6b-908f-4e4a-acf2-6257ced8f68e.png" width="8" height="20"/></span> <span>t ] + bu)</span></em></li>
+</ul>
+<div class="packt_figure CDPAlignCenter CDPAlign"><img src="Images/c7c64f11-8f75-4c4f-98ae-f5b2f0bbf27c.png" style="width:39.92em;height:29.83em;" width="453" height="339"/></div>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Visualizing the flow of information</h1>
+                </header>
+            
+            <article>
+                
+<p><span>The two vectors (<em>a</em></span><span class="MsoFootnoteReference"><em><sup>t-1</sup></em> </span>and <span><img src="Images/5c963b23-c24f-448e-ae07-1e67f1f82c77.png" style="width:0.58em;height:1.50em;" width="9" height="23"/></span> <span class="MsoFootnoteReference">t</span>, respectively) enter the LSTM unit from the bottom-left corner, and are copied to each gate (ΓF <span>and</span> ΓU) upon their arrival. Then, they are each multiplied with the weight matrix of the respective gate, before a sigmoid is applied to their dot products, and a bias term. As we know, the sigmoid is famous for compressing its input between the range of zero and one, so each gate holds a value between this range. Importantly, each weight matrix is unique to a given gate (<em>Wf</em> for the forget gate, or <em>Wu</em> for the update gate). The weight matrices (<em>Wf</em> and <em>Wu</em>) represent a subset of the learnable parameters within an LSTM unit, and are updated iteratively during the backpropagation procedure, just as we have been doing all along.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Computing cell state</h1>
+                </header>
+            
+            <article>
+                
+<p>Now that we know what both gates (update and forget) represent, and how they are computed, we can move on to understand how they influence our LSTM's memory (or state) at a given timestep. Please do take another moment to note the different information pathways flowing towards and away from the gates.  The inputs, entering from the left hand side of the cell, are transformed and propagated forward until they reach the end of the LSTM unit, on the right hand side of the illustration provided here: </p>
+<div class="packt_figure CDPAlignCenter CDPAlign"><img src="Images/52c932fa-8c88-435f-8e96-5f5a4d47b4d9.png" style="width:34.92em;height:25.67em;" width="456" height="336"/></div>
+<p><span>As we saw, the forget gate (<em><span class="ItalicsPACKT">ΓF</span></em>) is used to, quite literally, forget the memory values from previous timesteps. Similarly, the update gate (<em><span class="ItalicsPACKT">Γu </span></em>) is used to determine whether or not to allow the potential contender values of (</span><em>c <sup>̴<span class="MsoFootnoteReference">t</span></sup></em><span>) to be incorporated at the given timestep. Both these gates are, in conjunction, responsible for conserving the state of our LSTM memory (<em>c</em></span><em><sup><span class="MsoFootnoteReference">t</span></sup></em>) at a given timestep. Mathematically, this translates to the following:</p>
+<ul>
+<li><span class="ItalicsPACKT"><em>Current memory value</em> <em>(c<sup>t</sup></em></span><em><span class="ItalicsPACKT"><span><em> ) =</em> ( Γu * c <sup>̴t</sup> ) + (ΓF * c<sup>t-1</sup> )</span></span></em></li>
+</ul>
+<p>As we mentioned, each gate essentially represents a value between zero and one, since we squished our values through the non-linear sigmoid. We know that most values tend to be either very close to zero or to one given the operating range of the sigmoid, hence we can imagine the gates as binary values. This is useful, as we can visualize these gates as being open (one) for information to flow through, or closed (zero). Any value in between would let some information in, but not the entirety of it.</p>
+<p><span>So, now we understand how the values of these gates are computed, as well as how they are used to control the degree of influence that either the contender value (<em>c <sup>̴</sup></em></span><em><sup><span class="MsoFootnoteReference">t</span></sup></em><span>) or the previous memory state (<em>c</em></span><em><sup><span class="MsoFootnoteReference">t-1</span></sup></em><span>) should have on the computation of the current state (<em>c</em></span><em><sup><span class="MsoFootnoteReference">t</span></sup></em><span>). The state of an LSTM memory (<em>c</em></span><em><sup><span class="MsoFootnoteReference">t</span></sup></em>) is defined by the straight line at the top of the previously shown LSTM illustration. In practice, this straight line (that is, the constant error carousel)  is very good at conserving relevant information and carrying it forward to future timesteps, to assist with predictions.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Computing contender memory</h1>
+                </header>
+            
+            <article>
+                
+<p>We now know how the memory at time (<em>t</em>) is calculated, but how about the contender (<em>c <sup>̴<span class="MsoFootnoteReference">t</span></sup></em>) itself? After all, it is partially responsible for maintaining a relevant state of memory, characterized by possibly useful representations occurring at each timestep.</p>
+<p>This is the same idea that we saw in the GRU unit, where we allow the possibility for memory values to be updated using a contender value at each timestep. Earlier, with the GRU, we used a relevance gate that helped us compute it for the GRU. However, that is not necessary in the case of the LSTM, and we get a much simpler and arguably more elegant formulation as follows:</p>
+<ul>
+<li><em><span class="ItalicsPACKT">Contender memory value (c <sup>̴t</sup> ) = tanh ( Wc [ a<sup>t-1</sup>,</span> <span><img src="Images/07d7a599-b99a-4933-90bb-634bca4e98af.png" width="6" height="20"/></span> <span><span class="ItalicsPACKT">t ] + bc)</span></span></em></li>
+</ul>
+<p>Here, <em>Wc</em> is a weight matrix that is initialized at the beginning of a training session, and iteratively updated as the network trains. The dot product of this matrix, with the previous activations (<em>a<sup><span class="MsoFootnoteReference"><em>t</em>-1</span></sup></em>) and current inputs (<em>x<sup>t</sup></em>), along with a bias term (<em>bc</em><span>), are passed through a tanh activation function to arrive to the contender value (</span><span><em>c</em></span> <em><span><sup>̴</sup></span><sup><span class="MsoFootnoteReference">t</span></sup></em><span>).  This contender vector is then multiplied (element-wise) with the value of the update gate that we saw form a part of the memory state (<em>c</em></span><em><sup><span class="MsoFootnoteReference">t</span></sup></em>) at the current time. I<span>n the next diagram, we illustrate the computation of the contender memory vector, and show how the information is carried forward to influence the final state of the memory cell (<em>c</em><em>t</em>)</span>:</p>
+<div class="packt_figure CDPAlignCenter CDPAlign"><img src="Images/1c2024ce-67fd-4906-8a94-2f324c3efd1a.png" style="width:43.58em;height:33.08em;" width="448" height="342"/></div>
+<p><span>Do recall that the tanh activation function effectively compresses its outputs between -1 and 1, hence the values of the contender vector (</span><em>c <sup>̴<span class="MsoFootnoteReference">t</span></sup></em><span>) will always appear within this range. Now we understand how to compute an LSTMs cell state (or memory) at a given timestep. We also learned how the contender value is computed before it is regulated by the update gate and passed forward into the computation of the current memory, (<em>c</em></span><em><sup><span class="MsoFootnoteReference">t</span></sup></em>).</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Computing activations per timestep</h1>
+                </header>
+            
+            <article>
+                
+<p><span>As we previously pointed out in the LSTM architecture, it is fed the memory and activation values from the previous timestep separately. This is distinctly separate from the assumption we made with the GRU unit, where <em>a</em></span><em><span class="MsoFootnoteReference">t</span> = c<span class="MsoFootnoteReference">t</span></em>. This dual manner of data processing is what lets us conserve relevant representations in memory across very long sequences, potentially even 1,000 timesteps! The activations are, however, always functionally related to the memory (<em>c<sup><span class="MsoFootnoteReference">t</span></sup></em><span>) at each time step. So, we can compute the activations at a given timestep by first applying a tanh function to the memory (</span><em>c<sup><span class="MsoFootnoteReference">t</span></sup></em>), then performing an element-wise computation of the result with the output gate value (Γo<span>). Note that we do not initialize a weight matrix at this step, but simply apply tanh to each element in the (</span><em>c<sup><span class="MsoFootnoteReference">t</span></sup></em>) vector. This can be mathematically represented as follows:</p>
+<ul>
+<li><em><span class="ItalicsPACKT">Current activations (a<sup>t</sup> ) = Γo * tanh(c<sup>t</sup>)</span></em></li>
+</ul>
+<div class="packt_figure CDPAlignCenter CDPAlign"><img src="Images/f9dbdd70-4dcf-4421-9c98-f56cf1e2876b.png" style="width:45.17em;height:33.83em;" width="451" height="338"/></div>
+<p>Here, the output gate is nothing but another sigmoid, applied to a dot product of a learnable weight matrix, with the activations from previous timesteps and the input at the current time as follows:</p>
+<ul>
+<li><em><span class="ItalicsPACKT">Output gate (Γo) = sigmoid ( Wo [ a<sup>t-1</sup>,</span> <span><img src="Images/623ea13b-345c-4274-8caf-eba9d43163bc.png" width="8" height="20"/></span> <span><span class="ItalicsPACKT">t ] + bo)</span></span></em></li>
+</ul>
+<p>Each of the weight matrices (<em>Wf</em>, <em>Wu</em>, <em>Wc</em>, and <em>Wo</em>) that exist for each separate gate (forget, update, contender, and output, respectively) can be considered the learnable parameters of the LSTM unit, and are iteratively updated during the training process. In the diagram provided here, we can observe each of these weight matrices, as it moulds the inputs entering their respective gates, before passing the result along to other sections of the architecture:</p>
+<div class="packt_figure CDPAlignCenter CDPAlign"><img src="Images/bc1c2d48-1925-4cba-af50-f80f56351588.png" style="width:49.58em;height:36.92em;" width="452" height="337"/></div>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Variations of LSTM and performance</h1>
+                </header>
+            
+            <article>
+                
+<p><span>You already saw a variation of the LSTM, namely the GRU. We have, extensively discussed how these two architectures differ. There are other variations that also exist and are quite noteworthy. One of these is the LSTM variation, that includes something known as a <strong>peephole connections</strong>. These connections permit information to flow from the cell state all the way back to the information gates (forget, update, and output). This simply lets our LSTM gates peek at the memory values from previous timesteps while it computes the current gate values at the current time.</span></p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Understanding peephole connections</h1>
+                </header>
+            
+            <article>
+                
+<p><span>The point behind peephole connections is the need to capture the information of time lags. In other words, we wish to include the information conveyed by time intervals between sub-patterns of sequences in our modeling efforts. This is relevant not only for certain language processing tasks (such as <em>speech recognition</em>), but also for numerous other tasks ranging from machine motor control to maintaining elaborate rhythms in computer-generated music. Previous approaches to tasks such as speech recognition employed the use of <strong>Hidden Markov Models</strong> (<strong>HMMs</strong>). These are essentially statistical models that estimate the probability of a set of observations based on the sequence of hidden state transitions. In the case of speech processing, observations are defined as segments of digital signals corresponding to speech, while Markov hidden states are the sequences of phonemes that we are looking to recognize as words. As you will notice, nowhere in this model are we able to incorporate the delay between phonemes to see whether a given digital signal corresponds to a certain word. This information is typically discarded in HMMs, yet can be of paramount importance for us in determining whether we have heard sentence <em>I want to open my storage unit before...</em> or <em>I want to open my storage unit, B-4</em>. In these examples, the delay between the phonemes could well distinguish the detection of either <em>B-4</em></span>, <span>or <em>before</em>. While the HMM is beyond the scope of this chapter, it helps us understand the how the LSTM overcomes previous modeling limitations by leveraging delays between time sequences.</span></p>
+<p><span>You can see the p</span><span>eephole paper at: <span class="MsoHyperlink"><a href="ftp://ftp.idsia.ch/pub/juergen/TimeCount-IJCNN2000.pdf" target="_blank">ftp://ftp.idsia.ch/pub/juergen/TimeCount-IJCNN2000.pdf</a>:</span></span></p>
+<div class="packt_figure CDPAlignCenter CDPAlign"><img src="Images/55abc71a-14fc-4aa2-ba7e-629c00ee0ab2.png" style="width:46.00em;height:36.08em;" width="635" height="499"/></div>
+<div class="packt_tip">Do note that the peephole modification can be made to either gate. You may choose to implement this for all gates, or just a subset thereof.</div>
+<p>The following equations demonstrate the computations performed to obtain the respective gate values when a peephole connection is added to include the previous cell states: </p>
+<ul>
+<li><em><span class="ItalicsPACKT">Forget gate (ΓF) = sigmoid ( Wf [ c<sup>t-1</sup> , a<sup>t-1</sup>,</span> <span><img src="Images/8b9f0d7e-71a2-40b8-942d-5b72c2a49b42.png" width="8" height="20"/></span> <span><span class="ItalicsPACKT">t ] + bF)</span></span></em></li>
+<li><em>Update gate (ΓU) = sigmoid ( Wu [ c<sup>t-1</sup> , a<sup>t-1</sup>, <span><img src="Images/6594fc16-f906-42e3-b893-ef25808cb580.png" width="8" height="20"/></span> <span><span class="ItalicsPACKT">t ] + bu)</span></span></em></li>
+<li><em>Output gate (Γo) = sigmoid ( Wo [c<sup>t-1</sup> , a<sup>t-1</sup>, <span><img src="Images/70de5906-85ac-4d0d-9b26-9c8fae3b5457.png" width="8" height="20"/></span> <span><span class="ItalicsPACKT">t ] + bo)</span></span></em></li>
+</ul>
+<p>So, the peephole modification mathematically boils down to performing an additional matrix-level multiplication in the computation of a given gate value. In other words, the value of a gate now can accommodate the previous cell state by computing its dot product with the weight matrix of the given gate. Then, the resulting dot product is summed up along with the first two dot products and the bias term, before being all squished through a sigmoid function.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Importance of timing and counting</h1>
+                </header>
+            
+            <article>
+                
+<p>Let's solidify the idea of using time-interval, dependent information to inform sequential predictions with another conceptual example, where such information is considered crucial for accurate predictions. Consider how a human drummer, for example, must execute a precise sequence of motor commands corresponding to a precise flow of rhythm. They time their actions and count their progressions in a sequentially dependent order. Here, the information representing patterns of generated sequences is, at least partially, conveyed through the time delays between these respective events. Naturally, we would be interested in artificially replicating the sophisticated sequence modeling task occurring in such interactions. In theory, we could even use such an approach to sample novel rhyming schemes from computer-generated poetry, or create robot athletes capable of competing alongside humans at future iterations of the Olympic games (for whatever reasons we collectively decide that this would be a good idea). If you wish to further research the topic of how peephole connections may be used to augment predictions over complex time-delayed sequences, we encourage you to read the original LSTM peephole modification paper, given here:</p>
+<p><a href="http://www.jmlr.org/papers/volume3/gers02a/gers02a.pdf" target="_blank">http://www.jmlr.org/papers/volume3/gers02a/gers02a.pdf</a></p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Exploring other architectural variations</h1>
+                </header>
+            
+            <article>
+                
+<p>Many other variations of RNNs exist besides the ones addressed in this book (see <em>Depth Gated RNNs</em> by <em>Yao et al</em>, 2015; or <em>Clockwork RNNs</em> by <em>Koutnik et al.</em> 2014). Each of these can be suitable in an array of niche tasks—the general consensus is that LSTMs excel at most time series prediction tasks, and can be considerably modified to suit most common and more complex use cases. In fact, as further reading, we recommend an excellent article (<em>LSTM: A Search Space Odyssey</em>, 2017: <a href="https://arxiv.org/abs/1503.04069" target="_blank">https://arxiv.org/abs/1503.04069</a>) that compares the performance of different variations of LSTMs at various tasks, such as speech recognition and language modeling. Due to the fact that it used approximately 15 years of GPU time to conduct their experiments, this study is a one-of-a-kind exploratory resource for researchers wanting to better understand different LSTM architectural considerations and their effects when modeling sequential data.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Putting our knowledge to use</h1>
+                </header>
+            
+            <article>
+                
+<p>Now that we have achieved a good understanding of how an LSTM works and what kind of tasks they particularly tend to excel at, it is time to implement a real-world example. Of course, time series data can appear in a vast array of settings, ranging from sensor data from industrial machinery to spectrometric data representing light arriving from distant stars. Today, however, we will simulate a more common, yet notorious, use case. We will implement an LSTM to predict the movement of stock prices. For this purpose, we will employ the Standard &amp; Poor (S&amp;P) 500 dataset, and select a random stock to prepare for sequential modeling. The dataset can be found on Kaggle, and comprises historical stock prices (opening, high, low, and closing prices) for all current S&amp;P 500 large capital companies traded on the American stock market.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">On modeling stock market data</h1>
+                </header>
+            
+            <article>
+                
+<p>Before moving forward, we must remind ourselves about the inherent stochasticity that lies embedded in market trends. Perhaps you are more of an efficient market hypothesis type of a person than an irrational market type. Whatever may be your personal c<span>onvictions on the inner logic motivating stock movements, the reality of the matter is that there is a lot of randomness that often escapes even the most predictive of models. Investor behavior is hard to foresee, as investors tend to capitalize for various motives. Even general trends can be deceptive, as proven most recently by the Bitcoin asset bubble toward the end of 2017; many other examples exist (the 2008 global crisis, post-unrest inflation in Zimbabwe, the 1970s oil crisis, post-WWI Germany, the tulip mania during the Dutch golden age, and so forth, all the way back to antiquity).</span></p>
+<p>In fact, many economists have been quoted on the seemingly inherent randomness involved in stock market movements. Princeton University economist Burton Malkiel drove home this point almost half a century ago, in his book titled <em>A Random Walk Down Wall Street</em>. However, just because we can't get a perfect predictive score does not mean we cannot attempt to steer our guesses into the metaphorical ballpark. In other words, such sequence modeling efforts may still be of use in predicting the general trend of movements in the market for the near future. So, let's import our data and have a look at what we are dealing with here without much further ado. Please do feel free to follow along with your own market data, or with the same dataset as we use, which you can find at:<span> <span class="MsoHyperlink"><a href="https://www.kaggle.com/camnugent/sandp500" target="_blank">https://www.kaggle.com/camnugent/sandp500</a>.</span></span></p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Importing the data</h1>
+                </header>
+            
+            <article>
+                
+<p>The data is stored in <strong>Comma Separated Value</strong> (<strong>CSV</strong>) <span>files</span>, and can be imported by the pandas CSV reader. We will also import the standard NumPy and Matplotlib libraries, along with the <kbd>MinMaxScaler</kbd> library from sklearn, to be able to reshape and plot out and normalize our data when the time is right, as shown in the following code:</p>
+<pre>import numpy as np<br/>import pandas as pd<br/>import matplotlib.pyplot as plt<br/>from sklearn.preprocessing import MinMaxScaler<br/>df = pd.read_csv('D:/Advanced_Computing/Active_Experiments/LSTM/<br/>                  stock_market/all_stocks_5yr.csv')<br/><span class="n"><br/>df</span><span class="o">.</span><span class="n">head</span><span class="p">()</span></pre>
+<p>We get the output as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1210 image-border" src="Images/ba7364d1-4b01-48be-9ee8-a972145e560f.png" style="width:29.58em;height:11.25em;" width="469" height="179"/></p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Sorting and visualizing the trend</h1>
+                </header>
+            
+            <article>
+                
+<p>First, we will select a random stock out of the 505 different stocks in our dataset. You may choose any of them to repeat this experiment with. We will also sort our DataFrame by date, since we deal with a time series prediction problem where the order of the sequence is of paramount importance to the predictive value of our task. Then we may proceed to visually display our data by plotting out the high and low prices (on a given day) in sequential order of occurrence. This helps us visualize the general trend of stock prices for the American airlines group (ticker name: <kbd>AAL</kbd>), over the period of five years (2013-2017) as follows:</p>
+<pre><span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span> <span class="o">=</span> <span class="p">(</span><span class="mi">18</span><span class="p">,</span><span class="mi">9</span><span class="p">))</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">aal</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]),(</span><span class="n">aal</span><span class="p">[</span><span class="s1">'low'</span><span class="p">]),</span> <span class="n">color</span><span class="o">=</span><span class="s1">'r'</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">aal</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]),(</span><span class="n">aal</span><span class="p">[</span><span class="s1">'high'</span><span class="p">]),</span> <span class="n">color</span> <span class="o">=</span> <span class="s1">'b'</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">xticks</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="n">aal</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="mi">60</span><span class="p">),</span><span class="n">aal</span><span class="p">[</span><span class="s1">'date'</span><span class="p">]</span><span class="o">.</span><span class="n">loc</span><span class="p">[::</span><span class="mi">60</span><span class="p">],</span><span class="n">rotation</span><span class="o">=</span><span class="mi">60</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s1">'Date'</span><span class="p">,</span><span class="n">fontsize</span><span class="o">=</span><span class="mi">18</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s1">'Price'</span><span class="p">,</span><span class="n">fontsize</span><span class="o">=</span><span class="mi">18</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span></pre>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1211 image-border" src="Images/5866d5f8-356c-48c1-ab7b-5f06f5d40d8c.png" style="width:51.42em;height:27.58em;" width="837" height="449"/></p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">From DataFrame to tensor</h1>
+                </header>
+            
+            <article>
+                
+<p>We observe that, while slightly different from one another, the high and low prices both clearly follow the same pattern. Hence, it would be redundant to use both these variables for predictive modeling, as they are highly correlated. We could, of course, pick just one out of the two, but we could also take some sort of average between the two price indicators on any given market day. We will convert the columns containing the high and low prices of a given observation day into NumPy arrays. We do so by calling values on the respective columns, which returns a NumPy representation of each column. Then, we can use each of these newly defined columns to compute a third NumPy array that stores the mid-price values (calculated as <em>(high + low) /2)</em> of all the given observations as follows:</p>
+<pre><span class="n">high_prices</span> <span class="o">=</span> <span class="n">aal</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span><span class="s1">'high'</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+<span class="n">low_prices</span> <span class="o">=</span> <span class="n">aal</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span><span class="s1">'low'</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+<span class="n">mid_prices</span> <span class="o">=</span> <span class="p">(</span><span class="n">high_prices</span><span class="o">+</span><span class="n">low_prices</span><span class="p">)</span><span class="o">/</span><span class="mf">2.0<br/><br/></span><span class="n">mid_prices</span><span class="o">.</span><span class="n">shape<br/>----------------------------------------------------<br/>Output:<br/></span><strong>(1259,)<br/></strong>----------------------------------------------------<strong><br/></strong>mid_prices<br/>----------------------------------------------------<br/>Output:<br/><strong>array([14.875, 14.635, 14.305, ..., 51.07 , 50.145, 51.435])</strong></pre>
+<p>We note that there are <kbd>1259</kbd> total observations, each corresponding to the mid-price of our AAL stock on a given day. We will use this array to define our training and testing data, before we proceed to prepare them in batches of sequences for our LSTM to ingest.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Splitting up the data</h1>
+                </header>
+            
+            <article>
+                
+<p>Let's split our entire span of instances (that is, the <kbd>mid_prices</kbd> variable) into training and testing sets of instances. Later, we will use these sets to generate the training and testing sequences separately:</p>
+<pre><span class="n">train_data</span> <span class="o">=</span> <span class="n">mid_prices</span><span class="p">[:</span><span class="mi">1000</span><span class="p">]</span>
+<span class="n">test_data</span> <span class="o">=</span> <span class="n">mid_prices</span><span class="p">[</span><span class="mi">1000</span><span class="p">:</span><span class="mi">1251</span><span class="p">]<br/></span><span class="n">train_data</span> <span class="o">=</span> <span class="n">train_data</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">)</span>         <span class="c1">#scaler.fit_transform</span>
+<span class="n">test_data</span> <span class="o">=</span> <span class="n">test_data</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">)</span>           <span class="c1">#scaler.fit_transform<br/><br/></span><span class="nb">print</span><span class="p">(</span><span class="s1">'</span><span class="si">%d</span><span class="s1"> training and </span><span class="si">%d</span><span class="s1"> total testing instances'</span><span class="o">%</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">train_data</span><span class="p">),</span>    <br/><span class="nb">      len</span><span class="p">(</span><span class="n">test_data</span><span class="p">)))<br/><br/>-----------------------------------------------------------------<br/>Output:<br/></span><strong>1000 training and 251 total testing instances</strong><span class="p"> </span></pre>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Plotting out training and testing splits</h1>
+                </header>
+            
+            <article>
+                
+<p>In the following screenshot, we simply illustrate two sub-plots to visualize the unnormalized training and testing segments of the AAL stock data. You may note that the plots are not to scale, as the training data represents 1,000 observations, while the test data has only about a quarter of that. Similarly, the test data appears between the price range of 40 to 57 USD in the time frame of observations it represents, while training data appears in the range between 0 to 50+ USD in its respectively longer span of observation. Recall that the test data is simply the time series sequence following the first 1,000 observations from our preprocessed AAL mid-stock prices data:</p>
+<pre><span class="c1">#Subplot with training data</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">train_data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span><span class="n">train_data</span><span class="p">,</span><span class="n">color</span><span class="o">=</span><span class="s1">'r'</span><span class="p">,</span><span class="n">label</span><span class="o">=</span><span class="s1">'Training split'</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s1">'Train Data'</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s1">'time'</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s1">'Price'</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+
+<span class="c1">#Subplot with test data</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">test_data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span><span class="n">test_data</span><span class="p">,</span><span class="n">color</span><span class="o">=</span><span class="s1">'b'</span><span class="p">,</span><span class="n">label</span><span class="o">=</span><span class="s1">'Test Split'</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s1">'Test Data'</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s1">'time'</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s1">'Price'</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+
+<span class="c1">#adjust layout and plot all</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span></pre>
+<p>The preceding code block generates the following output:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1213 image-border" src="Images/2a4ece85-8d88-4874-b5b4-fe46784ea04b.png" style="width:27.83em;height:17.83em;" width="430" height="275"/></p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Windowed normalization</h1>
+                </header>
+            
+            <article>
+                
+<p>Before we can segment our data into smaller sequences for training, we must scale all data points between the intervals of zero and one as we have been doing thus far. Recall that this representation makes it easier for our network to capture relevant representations from the data it is shown, and is a common normalization practice within and outside of the deep learning community for various <strong>machine learning</strong> (<strong>ML</strong>) tasks.</p>
+<p>Unlike previous approaches, however, we must adjust our normalization strategy for this particular time series problem. To do this, we adopt a windowed normalization approach. Why? Well, this simply allows us to normalize our data in smaller batches, instead of normalizing the entire dataset at the same time. Earlier, when we visualized the entire time series of our stock data, we noticed something. It turns out that data from different years had different value ranges at drastically different times. So, an overall normalization procedure will cause values occurring early in the time series to be extremely close to zero. This will prohibit our model from distinguishing relevant trends as we want it to, and severely diminishes the representations that can be captured while training a network. You could, of course, choose a wider feature range—however, this would also detrimentally affect the learning process as <strong>artificial neural networks</strong> (<strong>ANNs</strong>) tend to work best when dealing with values between zero and one.</p>
+<p>So lets implement this windowed normalization scheme, as shown in the following code blocks:</p>
+<pre><span class="c1">#Window size to normalize data in chunks </span>
+<span class="n">normalization_window</span> <span class="o">=</span> <span class="mi">250</span>
+
+<span class="c1">#Feature range for normalization</span>
+<span class="n">scaler</span> <span class="o">=</span> <span class="n">MinMaxScaler</span><span class="p">(</span><span class="n">feature_range</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span><br/><br/><span class="c1"># Loop over the training data in windows of 250 instances at a time</span>
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">1000</span><span class="p">,</span><span class="n">normalization_window</span><span class="p">):</span>
+    
+    <span class="c1"># Fit the scaler object on the data in the current window</span>
+    <span class="n">scaler</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">train_data</span><span class="p">[</span><span class="n">i</span><span class="p">:</span><span class="n">i</span><span class="o">+</span><span class="n">normalization_window</span><span class="p">,:])</span>
+    
+    <span class="c1"># Transform the data in the current window into values between the chosen feature range (0 and 1)</span>
+    <span class="n">train_data</span><span class="p">[</span><span class="n">i</span><span class="p">:</span><span class="n">i</span><span class="o">+</span><span class="n">normalization_window</span><span class="p">,:]</span> <span class="o">=</span> <span class="n">scaler</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">train_data</span><span class="p">[</span><span class="n">i</span><span class="p">:</span><span class="n">i</span><span class="o">+</span><span class="n">normalization_window</span><span class="p">,:])<br/><br/></span><span class="c1"># normalize the the test data</span>
+<span class="n">test_data</span><span class="o">=</span><span class="n">scaler</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">test_data</span><span class="p">)</span></pre>
+<p class="mce-root"/>
+<p class="mceNonEditable"/>
+<p>One issue with the windowed normalization approach we just undertook is worth mentioning. Normalizing our data in batches can introduce a break in continuity at the end of each batch, since each batch is normalized independently. So, it is recommended to choose a reasonable window siz<span>e that</span><span> does not introduce too many breaks in our training data. In our case, we will choose a window size of 250 days, as this not only perfectly divides our training and test sets, but also only introduces only four potential breaks in continuity, while normalizing our entire dataset (that is, 1000 / 250 = 4). We deem this manageable for the demonstrative use case at hand.</span></p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Denoising the data</h1>
+                </header>
+            
+            <article>
+                
+<p>Next, we will denoise our stock price data to remove the somewhat irrelevant market fluctuations that are currently present. We can do this by weighting the data points in an exponentially decreasing manner (otherwise known as <strong>exponential smoothing</strong>). This allows us to let recent events have a higher influence on the current data point than events from the distant past so that each data point can be expressed (or smoothened) as a weighted recursive function of the current value and preceding values in the time series. This can be expressed mathematically as follows:</p>
+<div style="padding-left: 150px" class="packt_figure"><img src="Images/df08fb55-0a55-41d4-a7c1-1c160813228c.png" style="width:17.17em;height:1.58em;" width="282" height="26"/></div>
+<p class="mce-root"/>
+<p>The preceding equation denotes the smoothing transformation of a given data point (<em>x<sub>t</sub></em>) as a function of a weighted term, gamma. The result (<em>S<sub>t</sub></em>) is the smoothened value of a given data point, while the gamma term denotes a smoothing factor between zero and one. The decay term allows us to encode prior assumptions we may have on the presence of data variations occurring in specific time intervals (that is, seasonality) into our predictive modeling efforts. Consequently, we will be smoothing the curvature of the mid-stock prices plotted against time. This is a common signal preprocessing technique employed in time series modeling that helps in removing high-frequency noise from data.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Implementing exponential smoothing</h1>
+                </header>
+            
+            <article>
+                
+<p>So, we transform our training data by looping over each mid-price value, updating the smoothing coefficient, and then applying it to the current price value. Note that we update the smoothing coefficient using the previously shown formula, which allows us to weight each observation in the time series as a function weighting the current and previous observations:</p>
+<pre><span class="n">Smoothing</span> <span class="o">=</span> <span class="mf">0.0</span>     <span class="c1">#Initialize smoothing value as zero</span>
+
+<span class="n">gamma</span> <span class="o">=</span> <span class="mf">0.1</span>         <span class="c1">#Define decay</span>
+
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1000</span><span class="p">):</span>
+      
+    <span class="n">Smoothing</span> <span class="o">=</span> <span class="n">gamma</span><span class="o">*</span><span class="n">train_data</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="p">(</span><span class="mi">1</span><span class="o">-</span><span class="n">gamma</span><span class="p">)</span><span class="o">*</span><span class="n">Smoothing</span>   <span class="c1"># Update   <br/>                                                       smoothing value</span>
+    
+    <span class="n">train_data</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">Smoothing</span> <span class="c1"># Replace datapoint with smoothened value</span></pre>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Visualizing the curve</h1>
+                </header>
+            
+            <article>
+                
+<p>Using the following diagram, we can visualize the difference in curvature before and after smoothing our data points. As you can see, the purple graph displays a much smoother curve while maintaining the general movement of stock prices over time.</p>
+<p class="mce-root"/>
+<p>If we were to use the unsmoothed data points, we would very likely have a hard time training a predictive model using any type of ML technique:</p>
+<div class="packt_figure CDPAlignCenter CDPAlign"><img src="Images/ea4c43a3-f7f1-429a-a0f7-ed1f54abae42.png" width="822" height="467"/></div>
+<p>Representation is key, and there will always exist an optimal trade-off between accuracy and efficiency. On one hand, using reduced representations may allow machines to learn much faster from data. Yet, the very process of down sampling to a more manageable representation may cause the loss of valuable information that may no longer be captured by our statistical model. On the other hand, dealing with the full spectrum of information invites a deluge of computational complexity that is neither paralleled by the necessary resources to model, nor is often necessary to consider to solve the problem at hand.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Performing one-step-ahead predictions</h1>
+                </header>
+            
+            <article>
+                
+<p>Next, we will interpret some baseline models. This will help us better assess the effectiveness of the LSTM network. The smoothing process we performed will help us implement these baseline models, which will be used to benchmark the performance of our LSTM model. We will try to use some relatively simple algorithms. To do this, we will use two techniques, known as the simple moving average and the exponential moving average algorithms. Both methods essentially perform one-step-ahead predictions, predicting the next time series value in our training data as an average of previous sequence of values.</p>
+<p class="mce-root"/>
+<p>To evaluate the effectiveness of each method, we may use the <strong>mean squared error</strong> (<strong>MSE</strong>) function to assess the difference in predicted and actual values. Recall that this function, quite literally, squares the errors between predicted and actual outcomes at a given timestep. We will also visually verify our predictions by superimposing the predicted time series progression over the actual time series progression of our stock prices.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Simple moving average prediction</h1>
+                </header>
+            
+            <article>
+                
+<p>In the case of the simple moving average, we weight past observations equally in a given window when predicting the next value in the time series sequence. Here, we calculate the arithmetic average of the stock prices over a given interval of time. This simple algorithm can be mathematically expressed as follows:</p>
+<div style="padding-left: 210px" class="packt_figure CDPAlignLeft CDPAlign"><img src="Images/cb9f19b3-8518-4e73-a8fd-3c3055a981f7.png" style="width:10.75em;height:4.50em;" width="203" height="85"/></div>
+<p>Taking short-term averages (that is, over the course of months) will allow the model to respond quickly to price changes, while long-term averages (<span>that is,</span> over the course of years) tend to react slowly to the change in price. In Python, this operation translates to the following:</p>
+<pre><span class="n">window_size</span> <span class="o">=</span> <span class="mi">26</span>            <span class="c1"># Define window size</span>
+<span class="n">N</span> <span class="o">=</span> <span class="n">train_data</span><span class="o">.</span><span class="n">size</span>         <span class="c1"># and length of observations</span>
+
+<span class="n">std_avg_predictions</span> <span class="o">=</span> <span class="p">[]</span>    <span class="c1"># Empty list to catch std</span>
+<span class="n">mse_errors</span> <span class="o">=</span> <span class="p">[]</span>             <span class="c1"># and mse</span>
+
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">window_size</span><span class="p">,</span><span class="n">N</span><span class="p">):<br/></span><span class="c1">    # Append the standard mean per window<br/>    std_avg_predictions.append(np.mean(train_data[i-window_size:i]))                                                                                                         </span><span class="n"><br/></span> <br/><span class="c1">    # Compute mean squared error per batch</span> <br/>    <span class="n">mse_errors</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">std_avg_predictions</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">-</span><span class="n">train_data</span><span class="p">[</span><span class="n">i</span><span class="p">])</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <br/><br/><span class="nb">print</span><span class="p">(</span><span class="s1">'MSE error for standard averaging: </span><span class="si">%.5f</span><span class="s1">'  <br/></span><span class="p">      (</span><span class="mf">0.5</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">mse_errors</span><span class="p">)))<br/><br/><br/></span><strong>MSE error for standard averaging: 0.00444</strong></pre>
+<p>We collected the simple average predictions by, once again, looping through our training data using a predefined window size, and collecting the batch-wise mean as well as the MSE for each data point in our training set. As indicated by the MSE value, our simple averaging prediction model is not performing too badly. Next, we can plot out these predictions and superimpose it over the true time series progression of our stock prices, giving us a visual illustration of this method's performance:</p>
+<pre><span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span> <span class="o">=</span> <span class="p">(</span><span class="mi">19</span><span class="p">,</span><span class="mi">6</span><span class="p">))</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">train_data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span><span class="n">train_data</span><span class="p">,</span><span class="n">color</span><span class="o">=</span><span class="s1">'darkblue'</span><span class="p">,</span><span class="n">label</span><span class="o">=</span><span class="s1">'Actual'</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">window_size</span><span class="p">,</span><span class="n">N</span><span class="p">),</span><span class="n">std_avg_predictions</span><span class="p">,</span><span class="n">color</span><span class="o">=</span><span class="s1">'orange'</span><span class="p">,</span><span class="n">label</span><span class="o">=</span><span class="s1">'Predicted'</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">xticks</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="n">aal</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">-</span><span class="nb">len</span><span class="p">(</span><span class="n">test_data</span><span class="p">),</span><span class="mi">50</span><span class="p">),</span><span class="n">aal</span><span class="p">[</span><span class="s1">'date'</span><span class="p">]</span><span class="o">.</span><span class="n">loc</span><span class="p">[::</span><span class="mi">50</span><span class="p">],</span><span class="n">rotation</span><span class="o">=</span><span class="mi">45</span><span class="p">)</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s1">'Date'</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s1">'Mid Price'</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">fontsize</span><span class="o">=</span><span class="mi">18</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span></pre>
+<p>We get the following graph:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1214 image-border" src="Images/8dee4561-2e58-48fc-b755-477c6c970f24.png" style="width:70.25em;height:24.83em;" width="843" height="298"/></p>
+<p>In the simple average prediction graph, we note that our predictions do indeed catch the general trends of the stock prices, yet do not really provide an accurate and reliable prediction at all separate points of the time series. Some predictions may seem spot on, yet most are off their mark, and the rate at which they change relative to the true counterparts is too slow to make any profitable predictions. You may also print out separate values of the prediction array and compare them with the actual values from the training data if you wish to get a more numerical sense of how far off the predictions actually are. Next, we will move on to our second baseline.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Exponential moving average prediction</h1>
+                </header>
+            
+            <article>
+                
+<p>The exponential moving average is a bit trickier than its simple counterpart; however, we are already familiar with the formula we will be using. In essence, we will use the same equation as the one we employed to smooth our data. This time, however, we will use exponential averaging in order to predict the next data point in our time series, instead of rescaling the current data point:</p>
+<pre><span class="n">ema_avg_predictions</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="n">mse_errors</span> <span class="o">=</span> <span class="p">[]</span>
+
+<span class="n">EMA</span> <span class="o">=</span> <span class="mf">0.0</span>
+<span class="n">ema_avg_predictions</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">EMA</span><span class="p">)</span>
+
+<span class="n">gamma</span> <span class="o">=</span> <span class="mf">0.5</span>
+<span class="n">window_size</span> <span class="o">=</span> <span class="mi">100</span>
+<span class="n">N</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">train_data</span><span class="p">)</span>
+
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="n">N</span><span class="p">):</span>
+    <span class="n">EMA</span> <span class="o">=</span> <span class="n">EMA</span><span class="o">*</span><span class="n">gamma</span> <span class="o">+</span> <span class="p">(</span><span class="mf">1.0</span><span class="o">-</span><span class="n">gamma</span><span class="p">)</span><span class="o">*</span><span class="n">train_data</span><span class="p">[</span><span class="n">i</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">ema_avg_predictions</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">EMA</span><span class="p">)</span>
+    <span class="n">mse_errors</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">ema_avg_predictions</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">-</span><span class="n">train_data</span><span class="p">[</span><span class="n">i</span><span class="p">])</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s1">'MSE error for EMA averaging: </span><span class="si">%.5f</span><span class="s1">'</span><span class="o">%</span><span class="p">(</span><span class="mf">0.5</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">mse_errors</span><span class="p">)))<br/><br/><br/><strong>MSE error for EMA averaging: 0.00018</strong></span></pre>
+<p><span>As we can see, the simple moving average (<a href="https://en.wikipedia.org/wiki/Moving_average#Simple_moving_average" target="_blank">https://en.wikipedia.org/wiki/Moving_average#Simple_moving_average</a>) weighs the past observations equally. Contrarily, we use exponential functions to control the degree of influence held by previous data points when predicting future data points. In other words, we are able to assign exponentially decreasing weights to earlier data points over time. Such a technique allows the modeler to encode prior assumptions (such as seasonal demand) into the predictive algorithm, by modifying the decay rate (gamma). The MSE between the one-step-ahead exponential averages and the true price is considerably lower when compared to the one achieved from simple averaging. Let's plot out a graph to visually inspect our results:</span></p>
+<pre><span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span> <span class="o">=</span> <span class="p">(</span><span class="mi">19</span><span class="p">,</span><span class="mi">6</span><span class="p">))</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">train_data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span><span class="n">train_data</span><span class="p">,</span><span class="n">color</span><span class="o">=</span><span class="s1">'darkblue'</span><span class="p">,</span><span class="n">label</span><span class="o">=</span><span class="s1">'True'</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="n">N</span><span class="p">),</span><span class="n">ema_avg_predictions</span><span class="p">,</span><span class="n">color</span><span class="o">=</span><span class="s1">'orange'</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">'Prediction'</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">xticks</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="n">aal</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">-</span><span class="nb">len</span><span class="p">(</span><span class="n">test_data</span><span class="p">),</span><span class="mi">50</span><span class="p">),</span><span class="n">aal</span><span class="p">[</span><span class="s1">'date'</span><span class="p">]</span><span class="o">.</span><span class="n">loc</span><span class="p">[::</span><span class="mi">50</span><span class="p">],</span><span class="n">rotation</span><span class="o">=</span><span class="mi">45</span><span class="p">)</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s1">'Date'</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s1">'Mid Price'</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">fontsize</span><span class="o">=</span><span class="mi">18</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()<br/></span></pre>
+<p>We get the following graph:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1215 image-border" src="Images/efdfe4ce-e94c-4e7e-ba21-f67c9c527fe0.png" style="width:53.08em;height:19.33em;" width="829" height="302"/></p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">The problem with one-step-ahead predictions</h1>
+                </header>
+            
+            <article>
+                
+<p>Phenomenal! It appears that we are able to almost perfectly predict the stock price on the next day given a set of previous days. We didn't even have to train a fancy neural network! So, why bother to continue? Well, as it turns out, predicting the stock price one day in advance does not really make us millionaires. Moving averages are inherently lagging indicators. They are metrics that reflect significant changes in the market only after the stock price has started to follow a particular trend. Due to the short time span between our predictions and the actual occurrence of the event, the optimal point for market entry would have already passed by the time such a model would reflect a significant trend.</p>
+<p>On the other hand, using this method to try to predict multiple timesteps into the future will also not work. We can actually illustrate this concept mathematically. Let's say we have a data point, and we wanted to use the exponential moving average method to predict two steps in advance. In other words, we will not be using the true value of (X<sub>t + 1</sub>), but our predictions to compute the subsequent day's stock price. Recall that the equation defining a one-step-ahead prediction is defined as follows:</p>
+<div style="padding-left: 180px" class="packt_figure"><img src="Images/396dd755-ac1c-4402-92d6-19d4a6086e5e.png" style="width:14.92em;height:1.75em;" width="410" height="48"/></div>
+<p>Let's assume that the value of data point <em>X<sub>t</sub></em> is 0.6, the <em>EMA</em> at <em>X<sub>t-1</sub></em> is given as 0.2, and the decay rate we have chosen (gamma) is 0.3. Then, our prediction for <em><span>X</span><sub>t-1</sub></em> can be computed as follows:</p>
+<ul>
+<li>= 0.3 x 0.2 + (1 – 0.3) x 0.6</li>
+<li>= 0.06 + (0.7 x 0.6)</li>
+<li>= 0.06 + 0.42 = 0.48</li>
+</ul>
+<p>So, 0.48 is both our prediction for <em><span>X</span><sub>t-1</sub></em> and the <em>EMA</em> of the current timestep. If we are to use the same formulation to compute our prediction for the stock price at the following timestep (<span>X</span><sub>t-2</sub>), we run into some problems. The following equation illustrates this difficulty, <span>where</span><span class="ItalicsPACKT"> <em>EMA<sub>t</sub> = X<sub>t + 1</sub> = 0.48</em></span><span>:</span></p>
+<div style="padding-left: 180px" class="packt_figure CDPAlignLeft CDPAlign"><img src="Images/d195eaa5-f652-404b-b976-5f0541dbf653.png" style="width:13.17em;height:1.92em;" width="315" height="46"/></div>
+<p>Due to this, whatever gamma we choose to have, since both <em>EMA<sub>t</sub></em> and <em>X<sub>t + 1</sub></em> hold the same values, the prediction of <em>X<sub>t + 2</sub></em> will be the same as the prediction of <em>X<sub>t + 1</sub></em>. This holds true for any attempt at predicting <em>X<sub>t</sub></em> that exceeds one timestep. In practice, exponential moving averages are commonly employed by intraday traders as a sanity check, which they use to assess and validate significant market moves, often in potentially fast-moving markets. So, now that we have established a simple baseline using one-step-ahead moving average predictions, we may move to building more complex models that can see much further into the future.</p>
+<p>Soon, we will build a set of neural networks and evaluate their performance to see how LSTMs perform at the task of predicting the movement of stock prices. We will again establish a baseline with a simple feedforward neural network, and progressively build more complex LSTMs to compare their performances. Before we can proceed with this, however, we must prepare our data. We need to ensure that our network may ingest a sequence of training data before it can make a prediction on the following sequence value (the scaled mid-price of our stock).</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Creating sequences of observations</h1>
+                </header>
+            
+            <article>
+                
+<p><span>We use the following function to create the training and test sequences that we will use to train and test our networks. The function takes a set of time series stock prices, and organizes them into segments of <em>n</em> consecutive values in a given sequence. The key difference will be that the label for each training sequence will correspond to the stock price four timesteps into the future! This is quite different from what we did with the moving average methods, as they were only able to predict the stock price one timestep in advance. So, we generate our sequences of data so that our model is trained to foresee the stock price four time steps ahead.</span></p>
+<p>We define a <kbd>look_back</kbd> value, which refers to the number of stock prices we keep in a given observation. In our case, we are actually allowing the network to <kbd>look_back</kbd> at the past <kbd>7</kbd> price values, before we ask it to predict what happens to our stock price four timesteps later:</p>
+<pre><span class="k">def</span> <span class="nf">create_dataset</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="n">look_back</span><span class="o">=</span><span class="mi">7</span><span class="p">,</span> <span class="n">foresight</span><span class="o">=</span><span class="mi">3</span><span class="p">):</span>   
+    <span class="n">X</span><span class="p">,</span> <span class="n">Y</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">dataset</span><span class="p">)</span><span class="o">-</span><span class="n">look_back</span><span class="o">-</span><span class="n">foresight</span><span class="p">): <br/></span><span class="n">        obs</span> <span class="o">=</span> <span class="n">dataset</span><span class="p">[</span><span class="n">i</span><span class="p">:(</span><span class="n">i</span><span class="o">+</span><span class="n">look_back</span><span class="p">),</span> <span class="mi">0</span><span class="p">]</span> # Sequence of 7 stock prices  <br/>                                     as features forming an observation    <br/><span class="c1">       # Append sequence<br/>        X.append(obs)<br/></span><span class="c1">       # Append stock price value occurring 4 time-steps into future<br/>        Y.append(dataset[i + (look_back+foresight), 0]) <br/></span><span class="k">    return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">X</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">Y</span><span class="p">)</span></pre>
+<p>We employ the <kbd>create_dataset</kbd> function to generate a dataset of sequences and their corresponding labels. This function is called on our time series data (that is, the <kbd>train_data</kbd> variable) and takes two additional arguments. The first one (<kbd>look_back</kbd>) refers to the number of data points we want per observed sequence. In our case, we will create sequences with seven data points in each, referring to the past seven mid-price values at a given point in the time series. Similarly, the second (<kbd>foresight</kbd>) variable is the number of steps between the last data point in the observed sequence, and the data point we aim to predict. So, our labels will reflect a lag of four timesteps into the future for each training and test sequence. We repeat this methodology of creating training sequences and their labels, from the original training data, with a stride of one. So, we are left with a training data of 990 sequences of observations, each with a label corresponding to the stock price achieved four timesteps in the future. While our <kbd>look_back</kbd> and <kbd>foresight</kbd> values are somewhat arbitrary, we encourage you experiment with different values to assess how larger <kbd>look_back</kbd> and <kbd>foresight</kbd> values each affect the predictive prowess of your model. In practice, you will experience diminishing returns on either side for both values.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Reshaping the data</h1>
+                </header>
+            
+            <article>
+                
+<p>Next, we simply reshape our training and test sequences for our network. We prepare a 3D tensor of dimensions (timesteps, 1, features), which will be functionally useful for testing out different neural network models:</p>
+<pre><span class="n">x_train</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">x_train</span><span class="p">,</span> <span class="p">(</span><span class="n">x_train</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">1</span><span class="p">,</span>  <span class="n">x_train</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+<span class="n">x_test</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">x_test</span><span class="p">,</span> <span class="p">(</span><span class="n">x_test</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">1</span><span class="p">,</span>  <span class="n">x_test</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]))<br/></span><span class="n">x_train</span><span class="o">.</span><span class="n">shape<br/><br/></span><strong>(990, 1, 7)</strong></pre>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Making some imports</h1>
+                </header>
+            
+            <article>
+                
+<p>Now we are ready to finally build and test some neural network architectures and see how they hold up to the task of predicting stock trends. We will start by importing the relevant Keras layers, as well as some callbacks that let us interact with models in training to save them or cease the training session when we deem appropriate:</p>
+<pre><span class="kn">from</span> <span class="nn">keras.models</span> <span class="k">import</span> <span class="n">Sequential</span>
+<span class="kn">from</span> <span class="nn">keras.layers</span> <span class="k">import</span> <span class="n">LSTM</span><span class="p">,</span> <span class="n">GRU</span><span class="p">,</span> <span class="n">Dense</span>
+<span class="kn">from</span> <span class="nn">keras.layers</span> <span class="k">import</span> <span class="n">Dropout</span><span class="p">,</span> <span class="n">Flatten</span>
+
+<span class="kn">from</span> <span class="nn">keras.callbacks</span> <span class="k">import</span> <span class="n">ModelCheckpoint</span><span class="p">,</span> <span class="n">EarlyStopping</span></pre>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Baseline neural networks</h1>
+                </header>
+            
+            <article>
+                
+<p>As we mentioned earlier, it is always good to perform sanity checks by starting off with simpler models before progressing to more complex ones. Data modelers often tend to be attracted to so-called <strong>powerful models</strong>, yet many times they may just not be necessary for the task at hand. In these scenarios, it is better to employ less powerful (and often less computationally intensive) models to form a proper baseline to benchmark the value-added benefit of using anything more complex. In such spirits, we will construct two baseline models. Each baseline will indicate the performance of a particular type of network on the task at hand. We will use the simple feedforward network to establish the preliminary baseline for all neural networks. Then, we will use a basic GRU network to establish a recurrent network baseline.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Building a feedforward network</h1>
+                </header>
+            
+            <article>
+                
+<p>While the feedforward network is a network you are quite familiar with, this architecture carries with it a few modifications, allowing it to be suitable for the task at hand. The last layer, for instance, is a regressor layer with only one neuron. It also uses a linear activation function. As for the loss function, we choose the <strong>mean absolute error</strong> (<strong>MAE</strong>). We also choose the <kbd>adam</kbd> optimizer for this task. All future networks will have the same last layer, loss, and optimizer implemented. We will also nest the building and compiling of a model in a function, to allow us to easily test multiple networks, as we have been doing so far. The following code block shows how this can be achieved:</p>
+<pre><span class="k">def</span> <span class="nf">feed_forward</span><span class="p">():</span>
+    <span class="n">model</span> <span class="o">=</span> <span class="n">Sequential</span><span class="p">()</span>
+    <span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Flatten</span><span class="p">())</span>
+    <span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Dense</span><span class="p">(</span><span class="mi">128</span><span class="p">,</span> <span class="n">activation</span><span class="o">=</span><span class="s1">'relu'</span><span class="p">))</span>
+    <span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Dense</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">activation</span><span class="o">=</span><span class="s1">'linear'</span><span class="p">))</span>
+    <span class="n">model</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="n">loss</span><span class="o">=</span><span class="s1">'mae'</span><span class="p">,</span> <span class="n">optimizer</span><span class="o">=</span><span class="s1">'adam'</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">model</span></pre>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Recurrent baseline</h1>
+                </header>
+            
+            <article>
+                
+<p>Next, we will build a simple GRU network to establish a recurrent baseline. We specify the correct input shape, and add a small fraction of recurrent dropout. Recall that this applies the same dropout scheme to subsequent timesteps, better preserving temporal information than its simple dropout counterpart. We have also included a small fraction of neurons that randomly drop out. We encourage you to separately perform experiments save the one we are currently undertaking, to understand the difference in performance of RNNs under different dropout strategies:</p>
+<pre><span class="k">def</span> <span class="nf">simple_gru</span><span class="p">():</span>
+    <span class="n">model</span> <span class="o">=</span> <span class="n">Sequential</span><span class="p">()</span>
+    <span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">GRU</span><span class="p">(</span><span class="mi">32</span><span class="p">,</span>  <span class="n">input_shape</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">7</span><span class="p">),</span> <span class="n">dropout</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">recurrent_dropout</span><span class="o">=</span><span class="mf">0.1</span><span class="p">))</span>
+    
+    <span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Dense</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">activation</span><span class="o">=</span><span class="s1">'linear'</span><span class="p">))</span>
+    
+    <span class="n">model</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="n">loss</span><span class="o">=</span><span class="s1">'mae'</span><span class="p">,</span> <span class="n">optimizer</span><span class="o">=</span><span class="s1">'adam'</span><span class="p">,</span> <span class="n">metrics</span> <span class="o">=</span> <br/><span class="p">                  [</span><span class="s1">'mean_absolute_error'</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">model</span></pre>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Building LSTMs</h1>
+                </header>
+            
+            <article>
+                
+<p>Now that we have some baseline models in place, let's proceed by constructing what this chapter is all about: an LSTM. We will first start with a plain one-layer LSTM with no dropout strategy, equipping it with 32 neurons as follows:</p>
+<pre><span class="k">def</span> <span class="nf">simple_lstm</span><span class="p">():</span>
+    <span class="n">model</span> <span class="o">=</span> <span class="n">Sequential</span><span class="p">()</span>
+    <span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">LSTM</span><span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="n">input_shape</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">7</span><span class="p">)))</span>
+    
+    <span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Dense</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">activation</span><span class="o">=</span><span class="s1">'linear'</span><span class="p">))</span>
+    
+    <span class="n">model</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="n">loss</span><span class="o">=</span><span class="s1">'mae'</span><span class="p">,</span> <span class="n">optimizer</span><span class="o">=</span><span class="s1">'adam'</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">model</span></pre>
+<p>We connect the LSTM layer to our dense regressor layer, and continue to use the same loss and optimizer and loss functions.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Stacked LSTM</h1>
+                </header>
+            
+            <article>
+                
+<p>Next, we simply stack two LSTM layers on top of each other, just like we did with the GRUs in the previous chapter. We will see whether this helps the network remember more complex time-dependent signals in our stock data. We apply both dropout and recurrent dropout schemes to both LSTM layers as follows:</p>
+<pre><span class="k">def</span> <span class="nf">lstm_stacked</span><span class="p">():</span>
+    <span class="n">model</span> <span class="o">=</span> <span class="n">Sequential</span><span class="p">()</span>
+    <span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">LSTM</span><span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="n">input_shape</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">7</span><span class="p">),</span> <span class="n">dropout</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">recurrent_dropout</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span> <span class="n">return_sequences</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+    <span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">LSTM</span><span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="n">dropout</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">recurrent_dropout</span><span class="o">=</span><span class="mf">0.2</span><span class="p">))</span>
+    
+    <span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Dense</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">activation</span><span class="o">=</span><span class="s1">'linear'</span><span class="p">))</span>
+    
+    <span class="n">model</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="n">loss</span><span class="o">=</span><span class="s1">'mae'</span><span class="p">,</span> <span class="n">optimizer</span><span class="o">=</span><span class="s1">'adam'</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">model</span></pre>
+<p>Now we are ready to run our experiments and evaluate the results. We can evaluate them through the MSE metric, as well as visually interpret the model's predictions imposed over the actual predictions. We went ahead and constructed a few functions that help us visualize our results at the end of each training session.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Using helper functions</h1>
+                </header>
+            
+            <article>
+                
+<p>Before we begin training our networks, we can construct a few helper functions that may inform us upon the model's performance once they have been trained. The former <kbd>plot_losses</kbd> function simply plots the training loss and the validation loss, using the <kbd>history</kbd> object of our model. Recall that this is a default callback that provides access to a dictionary containing the training and validation losses computed in a session:</p>
+<pre><span class="k">def</span> <span class="nf">plot_losses</span><span class="p">(</span><span class="n">network</span><span class="p">):</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">network</span><span class="o">.</span><span class="n">history</span><span class="p">[</span><span class="s1">'loss'</span><span class="p">],</span> <span class="n">label</span><span class="o">=</span><span class="s1">'loss'</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">network</span><span class="o">.</span><span class="n">history</span><span class="p">[</span><span class="s1">'val_loss'</span><span class="p">],</span> <span class="n">label</span><span class="o">=</span><span class="s1">'val loss'</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span></pre>
+<p>Next, we will use the <kbd>plot_predictions</kbd> function to plot out the model's predictions on our secluded test set, and superimpose them over the actual labels of our test set. This is similar in spirit to what we did earlier with one-step-ahead predictions. The only difference now is that we will be visualizing a trend predicted three timesteps in advance by our network as follows:</p>
+<pre><span class="k">def</span> <span class="nf">plot_predictions</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">y_test</span><span class="o">=</span><span class="n">y_test</span><span class="p">):</span>
+    
+    <span class="n">preds</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">x_test</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span> <span class="o">=</span> <span class="p">(</span><span class="mi">12</span><span class="p">,</span><span class="mi">6</span><span class="p">))</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">scaler</span><span class="o">.</span><span class="n">inverse_transform</span><span class="p">(</span><span class="n">preds</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">)),</span> <br/><span class="n">             label</span><span class="o">=</span><span class="s1">'generated'</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">'orange'</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">scaler</span><span class="o">.</span><span class="n">inverse_transform</span><span class="p">(</span><span class="n">y_test</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">)),</span>   <br/><span class="n">             label</span><span class="o">=</span><span class="s1">'Actual'</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span></pre>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Training the model</h1>
+                </header>
+            
+            <article>
+                
+<p>Finally, we build a training function that will help us initiate the training session for each network, save their model weights at each epoch, and visualize the model performance when the training session has ceased.</p>
+<p>This function may take a list of models and execute the described steps on each model. So, get ready to take a brief/extensive stroll (depending on your hardware configuration) after running the following cells of code:</p>
+<pre><span class="k">def</span> <span class="nf">train_network</span><span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="n">x_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">,</span> <span class="n">epochs</span><span class="o">=</span><span class="mi">5</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">net</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">:</span>               
+        
+        <span class="n">network_name</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">net</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">' '</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">filepath</span> <span class="o">=</span> <span class="n">network_name</span> <span class="o">+</span> <span class="s2">"_epoch-</span><span class="si">{epoch:02d}</span><span class="s2">-loss-<br/></span><span class="si">                   {loss:.4f}</span><span class="s2">-.hdf5"</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">'Training:'</span><span class="p">,</span> <span class="n">network_name</span><span class="p">)</span>
+        
+        <span class="n">checkpoint</span> <span class="o">=</span> <span class="n">ModelCheckpoint</span><span class="p">(</span><span class="n">filepath</span><span class="p">,</span> <span class="n">monitor</span><span class="o">=</span><span class="s1">'loss'</span><span class="p">,</span> <br/><span class="n">                     verbose</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">save_best_only</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">'min'</span><span class="p">)</span>
+        <span class="n">callbacks_list</span> <span class="o">=</span> <span class="p">[</span><span class="n">checkpoint</span><span class="p">]</span> 
+        <span class="n">model</span> <span class="o">=</span> <span class="n">net</span><span class="p">()</span>                  
+        
+        <span class="n">network</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">x_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">,</span>
+                            <span class="n">validation_data</span><span class="o">=</span><span class="p">(</span><span class="n">x_test</span><span class="p">,</span> <span class="n">y_test</span><span class="p">),</span>
+                            <span class="n">epochs</span><span class="o">=</span><span class="n">epochs</span><span class="p">,</span>
+                            <span class="n">batch_size</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span>
+                            <span class="n">callbacks</span><span class="o">=</span><span class="n">callbacks_list</span><span class="p">)</span>
+        <span class="n">model</span><span class="o">.</span><span class="n">summary</span><span class="p">()</span>
+        <span class="n">plot_predictions</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">y_test</span><span class="p">)</span>
+        
+    <span class="k">return</span> <span class="n">network</span><span class="p">,</span> <span class="n">model<br/></span><span class="n"><br/>all_networks</span> <span class="o">=</span> <span class="p">[</span><span class="n">feed_forward</span><span class="p">,</span> <span class="n">simple_gru</span><span class="p">,</span> <span class="n">simple_lstm</span><span class="p">,</span> <span class="n">lstm_stacked</span><span class="p">]</span>
+<span class="n">train_network</span><span class="p">(</span><span class="n">all_networks</span><span class="p">,</span> <span class="n">x_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">,</span> <span class="n">epochs</span><span class="o">=</span><span class="mi">50</span><span class="p">)</span></pre>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Visualizing results</h1>
+                </header>
+            
+            <article>
+                
+<p>Finally, we will display the predictions of our model vis-à-vis the actual prices, as shown in the following diagram. Note that although the simple LSTM performs the best (with MAE of 0.0809), it is quite closely matched by the simple feedforward neural network that, by design, has fewer trainable parameters than the LSTM network.</p>
+<p>How so? you may wonder. Well, while LSTMs are extremely good at encoding complex time-dependent signals, those signals have to be present in our data in the first place:</p>
+<div class="packt_figure CDPAlignCenter CDPAlign"><img src="Images/9a5f02c4-8376-4e8e-b919-06aabdc980c1.png" style="width:46.58em;height:26.92em;" width="1026" height="593"/></div>
+<p>There can be only so much information conveyed through viewing the past seven mid-prices in predicting the future. In our case, it seems that the type of representations our LSTM could conjure for the predictive task was more or less matched by the representations conjured by the feedforward network. There might be a lot of complex signals that the LSTM could model in this context, but they don't seem to be present in our dataset. For instance, we are not, by design, incorporating any information about what happened to the market at time <em>t+1</em> or <em>t+2</em> when predicting the label of <em>x<sub>t + 3</sub></em>. Moreover, there may exist variables other than past mid-stock prices that would better correlate with the future movement of the stock market. Social media sentiment (on Twitter, read: <a href="https://arxiv.org/pdf/1010.3003.pdf" target="_blank">https://arxiv.org/pdf/1010.3003.pdf</a>), for instance, has been shown to correlate with the movement of stock prices up to seven days in advance! It turns out that the winning emotion was calmness, rather than happiness or neuroticism, which lined up best with market movements up to a week in advance. So, including features that represent other types and sources of information may help increase our LSTM's performance in comparison to the baseline models.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Closing comments</h1>
+                </header>
+            
+            <article>
+                
+<p>Note that this does not necessarily mean that the movement of all stocks, in all industries, can be better predicted through inclusion of social media data. However, it does illustrate our point that there is some room for heuristic-based feature generation that may allow additional signals to be leveraged for better predictive outcomes. To provide some closing comments on our experiments, we also notice that the simple GRU and the stacked LSTMs both have smoother predictive curves, and are less likely to be swayed by noisy input sequences. They perform remarkably well at conserving the general trend of the stock. The out-of-set accuracy of these models (assessed with the MAE between the predicted and actual value) tells us that they perform slightly worse than the feedforward network and the simple LSTM. However, we may prefer to employ the models with the smoother curve for decision making compared to the noisier predictors, depending on the specific use case.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Summary</h1>
+                </header>
+            
+            <article>
+                
+<p>In this chapter, we dived deep into the inner workings of the LSTM network. We explored both the concepts and mathematical implementation related to these networks, understanding how information is processed in an LSTM cell and using short-term and long-term memory of events. We also saw why the network gets its name, being adept at conserving relevant cell states over very distant timesteps. While we discussed some variants to the architecture, such as the peephole connection, it is seldom seen in most common LSTM candidate scenarios. Although we executed our demonstrations with a simple time series dataset, we highly encourage you to implement this architecture to tackle other problems that you may already be familiar with (such as the IMDB sentiment classification dataset), and compare results with our earlier efforts.</p>
+<p>LSTMs have really been shown to shine at <strong>natural language processing</strong> (<strong>NLP</strong>) tasks. You could try generating movie scripts with the Wikipedia movies dataset, or even try generating music using the music21 library and some MIDI files with training songs. </p>
+<p>Some further coding can be found here:</p>
+<ul>
+<li><span><strong>Peephole pseudocode</strong>:</span> <span class="MsoHyperlink"><span><a href="https://gist.github.com/EderSantana/f07fa7a0371d0e1c4ef1" target="_blank">https://gist.github.com/EderSantana/f07fa7a0371d0e1c4ef1</a></span></span></li>
+</ul>
+<p>The theoretical notion behind LSTMs remain quite eliciting—even more so in light of their excellent performance on a variety of sequential and non-sequential tasks. Are we then to crown LSTMs as the ultimate champions, as far as RNNs go? Well, not exactly. One of the next big ideas, bordering the realms of RNNs, comes from the area of attention models, where we, quite literally, try to steer the attention of our neural network while it processes a collection of information. This approach is quite useful in the case of image captioning, as we need to correlate important parts of an image in a given input with must-include words sequenced in a coherent output. We will explore the topic of attention models in further detail in the coming chapters. For interested readers, you may follow up on the task of machine image captioning by reading an excellent paper, titled <em>Image captioning with semantic attention</em>, by <em>Fang et al.</em> 2016.</p>
+<p>In the next chapter, however, we will focus our attention on another part of neural networks and deep learning: reinforcement learning. This is an extremely interesting area of machine learning that deals with how artificial agents must act in a designed environment for them to be able to cumulatively maximize some reward. This approach can be applied to a myriad of use cases, such as teaching machines to perform surgery, generate jokes, or play video games. Having machines capable of leveraging a level of physical or psychological dexterity comparable to (or beyond) that of humans can allow us to build very complex and intelligent systems. Such systems maintain internal states that are relevant to the environment in which the system operates, and are able to update their internal state by studying the consequences of their actions upon the environment while optimizing a specific goal. So, each combination of actions triggers different reward signals that the learning system may leverage for self-improvement.</p>
+<p>As we will soon see, designing systems that are allowed to be reinforced through reward signals can lead to very complex behavior, leading machines to perform highly intelligent actions even where humans tend to dominate. The tale of AlphaGo versus Lee Sedol (the once-revered world champion of the ancient Chinese board game Go) comes to mind. As the AlphaGo system beat its human contender five to one in 2016, the event itself was very different to the victory of IBM's Deep Blue over Gary Kasparov (1997). Many who watched the AlphaGo matches against Lee Sedol saw something special in the machine's modus operandi. Some even called it <strong>intuition</strong>.</p>
+<p>In the next chapter, we will see how such systems, operating on some fairly straightforward statistical properties of environments and possible actions, can produce beautifully complex outcomes, at times transcending our own expectations.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Exercises</h1>
+                </header>
+            
+            <article>
+                
+<ul>
+<li>Examine the time taken for models to converge. Is there a big difference between different models?</li>
+<li>Examine the training and validation losses between the models. What do you notice?</li>
+<li>Experiment with downscaling and upscaling the architecture, note how this affects learning.</li>
+<li>Experiment with different optimizers and loss metrics and note how this affects learning.</li>
+<li>Implement an LSTM on the IMBD dataset for sentiment classification.</li>
+<li>Implement an LSTM on the Wikimovies dataset to build a character/word-level language model and generate artificial movie plots.</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  </body></html>

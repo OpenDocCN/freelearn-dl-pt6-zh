@@ -1,0 +1,1277 @@
+<html><head></head><body><div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Autoencoders</h1>
+                </header>
+            
+            <article>
+                
+<p>In the preceding chapter, we familiarized ourselves with a novel area in <strong>machine learning</strong> (<strong>ML</strong>): the realm of reinforcement learning. We saw how reinforcement learning algorithms can be augmented using neural networks, and how we can learn approximate functions that can map game states to possible actions the agent may take. These actions are then compared to a moving target variable, which in turn was defined by what we called the <strong>Bellman equation</strong>. This, strictly speaking, is a self-supervised ML technique, as it is the Bellman equation that's used to compare our predictions, and not a set of labeled target variables, as would be the case for a supervised learning approach (for example, game screens labeled with optimal actions to take at each state). The latter, while possible, proves to be much more computationally intensive for the given use case. Now we will move on and discover yet another self-supervised ML technique as we dive into the world of <strong>neural autoencoders</strong>.</p>
+<p>In this chapter, we will explore the utility and advantages of making neural networks learn to encode the most representative features from a given dataset. In essence, this allows us to preserve, and later recreate, the key elements that define a class of observations. The observations themselves can be images, natural language data, or even time-series observations that may benefit from a reduction in dimensionality, weeding out bits of information representing less informative aspects of the given observations. Cui bono ? You ask.</p>
+<p>Following are the topics that will be covered in this chapter:</p>
+<ul>
+<li>Why autoencoders?</li>
+<li>Automatically encoding information</li>
+<li>Understanding the limitations of autoencoders</li>
+<li>Breaking down the autoencoder</li>
+<li>Training an autoencoder</li>
+<li>Overviewing autoencoder archetypes</li>
+<li>Network size and representational power</li>
+<li>Understanding regularization in autoencoders</li>
+<li>Regularization with sparse autoencoders</li>
+<li>Probing the data</li>
+<li>Building the verification model</li>
+<li>Designing a deep autoencoder</li>
+<li>Using functional API to design autoencoders</li>
+<li>Deep convolutional autoencoders</li>
+<li>Compiling and training the model</li>
+<li>Testing and visualising the results</li>
+<li>Denoising autoencoders</li>
+<li>Training the denoising network</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Why autoencoders?</h1>
+                </header>
+            
+            <article>
+                
+<p>While, in the past (circa 2012), autoencoders have briefly enjoyed some fame for their use in initializing layer weights for deep <strong>Convolutional Neural Networks</strong> (<strong>CNNs</strong>) (through an operation known as <strong>greedy layer-wise pretraining</strong>), researchers gradually lost interest in such pretraining techniques as better random weight initialization schemes came about, and more advantageous methods that allowed deeper neural networks to be trained (such as batch normalization, 2014, and later residual learning, 2015) surfaced to the general sphere.</p>
+<p>Today, a paramount utility of autoencoders is derived from their ability to discover low-dimensional representations of high-dimensional data, while still attempting to preserve the core attributes present therein. This permits us to perform tasks such as recovering damaged images (or image denoising). A similar area of active interest for autoencoders comes from their ability to perform principal component analysis, such as transformations on data, allowing for informative visualizations of the main factors of variance that are present. In fact, single-layer autoencoders with a linear activation function can be quite similar to the standard <strong>Principal Component Analysis</strong> (<strong>PCA</strong>) operation that's performed on datasets. Such an autoencoder simply learns the same dimensionally reduced subspace that would arise out of a PCA. Hence, autoencoders may be used in conjunction with the t-SNE algorithm (<a href="https://en.wikipedia.org/wiki/T-distributed_stochastic_neighbor_embedding" target="_blank" rel="noopener noreferrer">https://en.wikipedia.org/wiki/T-distributed_stochastic_neighbor_embedding</a>), which is famous for its ability to visualize information on a 2D plane, to first downsample a high-dimensional dataset, then visualize the main factors of variance that are observable.</p>
+<p>Moreover, the advantage of autoencoders for such use cases (that is, performing a dimensionality reduction) stems from the fact that they may have non-linear encoder and decoder functions, whereas the PCA algorithm is restricted to a linear map. This allows autoencoders to learn more powerful non-linear representations of the feature space compared to results from PCA analysis of the same data. In fact, autoencoders can prove to be a very powerful tool in your data science repertoire when you're dealing with very sparse and high-dimensional data.</p>
+<p>Besides these practical applications of autoencoders, more creative and artistic ones also exist. Sampling from the reduced representation that's produced by the encoder, for example, has been used to generate artistic images that were auctioned for around half a million dollars at one New York-based auction house (see <span class="MsoHyperlink"><a href="https://www.bloomberg.com/news/articles/2018-10-25/ai-generated-portrait-is-sold-for-432-500-in-an-auction-first" target="_blank" rel="noopener noreferrer">https://www.bloomberg.com/news/articles/2018-10-25/ai-generated-portrait-is-sold-for-432-500-in-an-auction-first</a></span>). We will review the fundamentals of such image generation techniques in the next chapter, when we cover the variational autoencoder architecture and <strong>Generative Adversarial Networks</strong> (<strong>GANs</strong>). But first, let's try to better understand the essence of an autoencoder neural network.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Automatically encoding information</h1>
+                </header>
+            
+            <article>
+                
+<p>Well then, what's so different about the idea of autoencoders? You have surely come across countless encoding algorithms, ranging from MP3 compression that's performed to store audio files, or JPEG compression to store image files. The reason autoencoding neural networks are interesting is they take a very different approach toward representing information compared to their previously stated quasi-counterparts. It is the kind of approach you have certainly come to expect after seven long chapters on the inner workings of neural networks.</p>
+<p>Unlike the MP3 or JPEG algorithms, which hold general assumptions about sound and pixels, a neural autoencoder is forced to learn representative features automatically from whatever input it is shown during a training session. It proceeds to recreate the given input by using the learned representations that were captured during the session. It is important to understand that the appeal of <span>autoencoder</span>s do not come from simply copying its input. When training an <span>autoencoder</span>, we are typically not interested in the decoded output it generates per say, but rather how the network transforms the dimensionality of the given inputs. Ideally, we are looking for representative encoding schemes by giving the networks incentives and constraints to reconstruct the original input as closely as possible. By doing so, we can use the encoder function on similar datasets as a feature detection algorithm, which provides us with a semantically rich representation of the given inputs.</p>
+<p>These representations can then be used to perform a classification of sorts, depending on the use case being tackled. It is thus the architectural mechanism of encoding that's employed, and which defines the novel approach of autoencoders compared to other standard encoding algorithms.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Understanding the limitations of autoencoders</h1>
+                </header>
+            
+            <article>
+                
+<p>As we saw previously, neural networks such as <span>autoencoders</span> are used to automatically learn representative features from data, without explicitly relying on human-engineered assumptions. While this approach may allow us to discover ideal encoding schemes that are specific to different types of data, this approach does present certain limitations. Firstly, <span>autoencoder</span>s are said to be <strong>data-specific</strong>, in the sense that their utility is restricted to data that is considerably similar to its training data. For example, an <span>autoencoder that's</span> trained to only regenerate cat pictures will have a very hard time generating dog pictures without explicitly being trained to do so. Naturally, this seems to reduce the scalability of such algorithms. It is also noteworthy that autoencoders, as of yet, do not perform noticeably better than the JPEG algorithm at encoding images. Another concern is that <span>autoencoder</span>s tend to produce a <strong>lossy output</strong>. This simply means that the compression and decompression operation degrades the output of the network, generating a less accurate representation compared to its input. This problem seems to be a recurrent one for most encoding use cases (including heuristic-based encoding schemes such as MP3 and JPEG).</p>
+<p>Thus, <span>autoencoder</span>s have unraveled some very promising practices to work with <em>unlabeled</em> real-world data. However, the vast majority of data that's available on the digital sphere today is in fact unstructured and unlabeled. It is also noteworthy that popular misconception assigns <span>autoencoder</span>s into the unsupervised learning category, yet, in reality, it is but another variation of self-supervised learning, as we will soon discover. So, how exactly do these networks work?</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Breaking down the autoencoder</h1>
+                </header>
+            
+            <article>
+                
+<p>Well, on a high level, an autoencoder can be thought of as a specific type of feed-forward network that learns to mimic its input to reconstruct a similar output. As we mentioned previously, it is composed of two separate parts: an encoder function and a decoder function. We can think of the entire <span>autoencoder</span> as layers of interconnected neurons, which propagate data by first encoding its input and then reconstructing the output using the generated code:</p>
+<div class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1075 image-border" src="Images/ebd6bfc2-9000-4ce4-b980-e55b2caf5cb1.png" style="width:21.58em;height:29.58em;" width="1081" height="1480"/></div>
+<div class="packt_figref CDPAlignCenter CDPAlign">Example of an undercomplete autoencoder</div>
+<p>The previous diagram illustrates a specific type of autoencoder network. Conceptually, the input layer of an autoencoder connects to a layer of neurons to funnel the data into a latent space, known as the <strong>encoder function</strong>. This function can be generically defined as <em>h = f(x)</em>, where <em>x</em> refers to the network inputs and <em>h</em> refers to the latent space that's generated by the encoder function. The latent space may embody a compressed representation of the input to our network, and is subsequently used by the decoder function (that is, the proceeding layer of neurons) to unravel the reduced representation, mapping it to a higher-dimensional feature space. Thus, the decoder function (formulized as <em>r = g(h)</em>) proceeds to transform the latent space that's generated by the encoder (<em>h</em>) into the <em>reconstructed</em> output of the network (<em>r</em>).</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Training an autoencoder</h1>
+                </header>
+            
+            <article>
+                
+<p>The interaction between the encoder and decoder functions is governed by yet another function, which operationalizes the distance between the inputs and outputs of the encoder. We have come to know this as the <kbd>loss</kbd> function in neural network parlance. Hence, to train an <span>autoencoder</span>, we simply differentiate our encoder and decoder functions with respect to the <kbd>loss</kbd> function (typically using mean squared error) and use the gradients to backpropagate the model's errors and update the layer weights of the entire network.</p>
+<p>Consequently, the learning mechanism of an <span>autoencoder</span> can be denoted as minimizing a <kbd>loss</kbd> function, and is as follows:</p>
+<p style="padding-left: 210px;"><em>min L(x, g ( f ( x ) ) )</em></p>
+<p>In the previous equation, <em>L</em> represents a <kbd>loss</kbd> function (such as MSE) that penalizes the output of the decoder function (<em>g(f( x ))</em>) for being divergent from the network's input, <em>(x)</em>. By iteratively minimizing the reconstructed loss in this manner, our model will eventually converge to encode ideal representations that are specific to the input data, which can then be used to decoded similar data with a minimal amount of information loss. Hence, autoencoders are almost always trained via mini-batch gradient decent, as is common with other cases of feed-forward neural networks.</p>
+<p>While <span>autoencoder</span>s may also be trained using a technique known as <strong>recirculation</strong> (Hinton and McClelland, 1988), we will refrain from visiting this subtopic in this chapter, as this method is rarely used in most machine learning use cases involving <span>autoencoders</span>. Suffice it to mention that recirculation works by comparing network activations on given inputs to network activations on the generated reconstruction, instead of backpropagating gradient-based errors that are derived from differentiating the <kbd>loss</kbd> function with respect to network weights. While conceptually distinct, this may be interesting to read upon from a theoretical perspective, since recirculation is considered to be a biologically plausible alternative to the backpropagation algorithm, hinting at how we ourselves may update our mental models of the world as new information comes about.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Overviewing autoencoder archetypes</h1>
+                </header>
+            
+            <article>
+                
+<p>What we described previously is actually an example of an <strong>undercomplete autoencoder</strong>, which essentially puts a constraint on the latent space dimension. It is designated undercomplete, since the encoding dimension (that is, the dimension of the latent space) is smaller than the input dimension, which forces the <span>autoencoder</span> to learn about the most salient features that are present in the data sample.</p>
+<p>Conversely, an <strong>overcomplete autoencoder</strong> has a larger encoding dimension relative to its input dimension. Such autoencoders are endowed with additional encoding capacity in relation to their input size, as can be seen in the following diagram:</p>
+<div class="packt_figure CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1003 image-border" src="Images/d520499e-889a-439b-a771-80a816642263.png" style="width:10.75em;height:45.58em;" width="304" height="1288"/></div>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Network size and representational power</h1>
+                </header>
+            
+            <article>
+                
+<p>In the previous diagram, we can see four types of basic autoencoding architectures. <strong>Shallow <span>autoencoder</span>s</strong> (an extension of shallow neural networks) are defined by having just one hidden layer of neurons, whereas deep <span>autoencoder</span>s can have many layers that perform the encoding and decoding operations. Recall from the previous chapters that deeper neural networks may benefit from additional representational power compared to their shallow counterparts. Since autoencoders qualify as a specific breed of feed-forward networks, this also holds true for them. Additionally, it has been noted that deeper autoencoders may exponentially reduce the computational resources that are required for the network to learn to represent its inputs. It may also greatly reduce the number of training samples that are required for the network to learn a rich compressed version of the inputs. While reading the last few lines may incentivize some of you to start training hundreds of layered autoencoders, you may want to hold your horses. Giving the encoder and decoder functions too much capacity comes with its own disadvantages.</p>
+<p>For example, an autoencoder with excess capacity may learn to perfectly recreate input images of Picasso paintings, without ever learning a single representative feature related to Picasso's painting style. In this case, all you have is an expensive copycat algorithm, which may be paralleled by Microsoft Paint's copy function. On the other hand, designing an autoencoder in accordance with the complexity and distribution of the data being modeled may well allow an AE to capture representative stylistic features, iconic to Picasso's <em>modus operandi</em>, from which aspiring artists and historians alike may learn. In practice, choosing the correct network depth and size may depend on a keen combination of theoretical familiarity with the learning process, experimentation, and domain knowledge in relation to the use case. Does this sound a bit time-consuming? Luckily, there may be a compromise ahead, which can be achieved through the use of regularized autoencoders.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Understanding regularization in autoencoders</h1>
+                </header>
+            
+            <article>
+                
+<p>On one extreme, you may always try to limit the network's learning capacity by sticking to shallow layers and having a very small latent space dimension. This approach may even provide an excellent baseline for benchmarking against more complex methods. However, other methods exist that may allow us to benefit from the representational power of deeper layers, without being penalized for issues of overcapacity up to a certain extent. Such methods include modifying the <kbd>loss</kbd> function that's used by an <span>autoencoder</span> so as to incentivize some representational criteria for the latent space being learned by the network.</p>
+<p class="mce-root"/>
+<p>For example, instead of simply copying the inputs, we may require our <kbd>loss</kbd> function to account for the sparsity of the latent space, favoring more rich representations over others. As we will see, we may even consider properties such as the magnitude of the derivatives of the latent space, or robustness to missing inputs, to ensure that our model really captures representative features from the inputs it is shown.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Regularization with sparse autoencoders</h1>
+                </header>
+            
+            <article>
+                
+<p>As we mentioned previously, one way of ensuring that our model encodes representative features from the inputs that are shown is by adding a sparsity constraint on the hidden layer representing the latent space (<em>h</em>). We denote this constraint with the Greek letter omega (Ω), which allows us to redefine the <kbd>loss</kbd> function of a sparse autoencoder, like so:</p>
+<ul>
+<li>Normal AE loss: <em>L ( x , g ( f ( x ) ) )</em></li>
+</ul>
+<ul>
+<li>Sparse AE loss: <em>L ( x , g ( f ( x ) ) ) + Ω(h)</em></li>
+</ul>
+<p>This sparsity constraint term, <em>Ω(h)</em>, can simply be thought of as a regularizer term that can be added to a feed-forward neural network, as we saw in previous chapters.</p>
+<div class="packt_infobox">A comprehensive review of different forms of sparsity constraint methods in autoencoders can be found in the following research paper, which we recommend to our interested audience: <em>Facial expression recognition via learning deep sparse autoencoders</em>: <span class="MsoHyperlink"><a href="https://www.sciencedirect.com/science/article/pii/S0925231217314649" target="_blank" rel="noopener noreferrer">https://www.sciencedirect.com/science/article/pii/S0925231217314649</a>.</span></div>
+<p>This frees up some space in our agenda so that we can give you brief overview of some other regularization methods that are used by <span>autoencoders</span> before we proceed to coding our very own models.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Regularization with denoising autoencoders</h1>
+                </header>
+            
+            <article>
+                
+<p>Unlike sparse <span>autoencoder</span>s, denoising <span>autoencoder</span>s take a different approach toward ensuring that our model captures useful representations in the capacity that it is endowed. Here, instead of adding a constraint to the <kbd>loss</kbd> function, we can actually modify the reconstruction error term in our <kbd>loss</kbd> function. In other words, we will simply tell our network to reconstruct its input by using a noisy version of that very input.</p>
+<p>In this case, noise may refer to missing pixels in a picture, absent words in a sentence, or a fragmented audio feed. Thus, we may reformulate our <kbd>loss</kbd> function for denoising autoencoders like so:</p>
+<ul>
+<li>Normal AE loss: <em>L ( x , g ( f ( x ) ) )</em></li>
+<li>Denoising AE loss: <em>L ( x , g ( f ( ~x) ) )</em></li>
+</ul>
+<p>Here, the term (<em>~x</em>) simply refers to a version of the input <em>x</em> that has been corrupted by some form of noise. Our denoising <span>autoencoder</span> must then proceed to uncorrupt the noisy input that's provided, instead of simply attempting to copy the original input. Adding noise to the training data may force the <span>autoencoder</span> to capture representative features that are the most relevant for properly reconstructing the corrupted versions of the training instances.</p>
+<div class="packt_infobox">Some interesting properties and use cases (such as speech enhancement) for denoising autoencoders have been explored in the following paper, and are noteworthy for interested readers: <em>Speech Enhancement Based on Deep Denoising Autoencoder</em>: <span class="MsoHyperlink"><a href="https://pdfs.semanticscholar.org/3674/37d5ee2ffbfee1076cf21c3852b2ec50d734.pdf" target="_blank" rel="noopener noreferrer">https://pdfs.semanticscholar.org/3674/37d5ee2ffbfee1076cf21c3852b2ec50d734.pdf</a>.</span></div>
+<p>This brings us to the last regularization strategy we will cover in this chapter, that is, the contractive autoencoder, before moving on to practical matters.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Regularization with contractive autoencoders</h1>
+                </header>
+            
+            <article>
+                
+<p>While we will not dive deep into the mathematics of this subspecies of <span>autoencoder</span> network, the <strong>contractive autoencoder</strong> (<strong>CAE</strong>) is noteworthy due to its conceptual similarity to the denoising autoencoder, as well as how it locally warps the input space. In the case of CAEs, we again add a constraint (Ω) to the <kbd>loss</kbd> function, but in a different manner:</p>
+<ul>
+<li><strong>Normal AE loss</strong>: <em>L ( x , g ( f ( x ) ) )</em></li>
+<li><strong>CAE loss</strong>: <em>L ( x , g ( f ( x) ) ) + Ω(h,x)</em></li>
+</ul>
+<p>Here, the term <em>Ω(h, x)</em> is represented differently, and can be formulated as follows:</p>
+<div style="padding-left: 180px;" class="packt_figure CDPAlignLeft CDPAlign"><img src="Images/6e3de284-e941-4e1e-a630-70b521476b6d.png" style="width:13.17em;height:3.75em;" width="230" height="66"/></div>
+<p>Here, the CAE makes use of the constraint on the <kbd>loss</kbd> function to encourage the derivates of the encoder to be as small as possible. For those of you who are more mathematically oriented, the constraint term Ω(h, x) is actually known as the <strong>squared Frobenius norm</strong> (that is, the sum of squared elements) of the Jacobian matrix that's populated with the partial derivatives of the encoder function.</p>
+<div class="packt_infobox">The following paper provides an excellent overview of the inner workings of CAEs and their use in feature extraction, for those who wish to expand their knowledge beyond the brief summary provided here: <em>Contractive Auto-Encoders: Explicit Invariance During Feature Extraction</em>: <span class="MsoHyperlink"><a href="http://www.iro.umontreal.ca/~lisa/pointeurs/ICML2011_explicit_invariance.pdf" target="_blank" rel="noopener noreferrer">http://www.iro.umontreal.ca/~lisa/pointeurs/ICML2011_explicit_invariance.pdf</a>.</span></div>
+<p>Practically speaking, all we need to understand here is that by defining the omega term as such, CAEs can learn to approximate a function that can map inputs to outputs, even if the input changes slightly. Since this penalty is applied only during the training process, the network learns to capture representative features from the inputs, and is able to perform well during testing, even if the inputs it is shown differs slightly from the inputs it was trained on.</p>
+<p>Now that we have covered the basic learning mechanism as well as some architectural variations that define various types of autoencoder networks, we can proceed to the implementation part of this chapter. Here, we will be designing a basic autoencoder in Keras and progressively updating the architecture to cover some practical considerations and use cases.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Implementing a shallow AE in Keras</h1>
+                </header>
+            
+            <article>
+                
+<p>Now, we will implement a shallow autoencoder in Keras. The use case we will tackle with this model will be simple: make an autoencoder generate different fashionable items of clothing by using the standard fashion MNIST dataset that's provided by Keras. Since we know that the quality of network output depends directly on the quality of the input data available, we must warn our audience to not expect to generate the next best-selling clothing item through this exercise. The pixelated 28 x 28 images that the dataset has will be used to clarify the programmatic concepts and implementational steps you must familiarize yourself with when attempting to design any type of AE network on Keras.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Making some imports</h1>
+                </header>
+            
+            <article>
+                
+<p>For this exercise, we will be using Keras's functional API, accessible through <kbd>keras.models</kbd>, which allows us to build acyclic graphs and multioutput models, as we did in <a href="" target="_blank" rel="noopener noreferrer">Chapter 4</a>, <em>Convolutional Neural Networks</em>, to dive deep into the intermediate layers of convolutional networks. While you may also replicate <span>autoencoder</span>s using the sequential API (<span>autoencoder</span>s are sequential models, after all), they are commonly implemented through the functional API, allowing us to gain a little more experience of using both of Keras's APIs:</p>
+<pre><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+
+<span class="kn">from</span> <span class="nn">keras.layers</span> <span class="k">import</span> <span class="n">Input</span><span class="p">,</span> <span class="n">Dense</span>
+<span class="kn">from</span> <span class="nn">keras.models</span> <span class="k">import</span> <span class="n">Model</span>
+<span class="kn">from</span> <span class="nn">keras.datasets</span> <span class="k">import</span> <span class="n">fashion_mnist</span></pre>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Probing the data</h1>
+                </header>
+            
+            <article>
+                
+<p>Next, we simply load the <kbd>fashion_mnist</kbd> dataset that's contained in Keras. Note that while we have loaded the labels for each image as well, this is not necessary for the task we are about to perform. All we need are the input images, which our shallow <span>autoencoder will</span> regenerate:</p>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="inner_cell">
+<div class="input_area">
+<div class=" highlight hl-ipython3">
+<pre><span class="p">(</span><span class="n">x_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">),</span> <span class="p">(</span><span class="n">x_test</span><span class="p">,</span> <span class="n">y_test</span><span class="p">)</span> <span class="o">=</span> <span class="n">fashion_mnist</span><span class="o">.</span><span class="n">load_data</span><span class="p">()<br/></span>x_train<span class="o">.</span><span class="n">shape</span><span class="p">,</span><span>  </span><span class="n">x_test</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span><span> </span><span class="nb">type</span><span class="p">(</span><span class="n">x_train</span><span class="p">)<br/></span>((60000, 28, 28), (10000, 28, 28), numpy.ndarray)<br/>plt.imshow(x_train[1], cmap='binary')</pre>
+<p>Following is the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1235 image-border" src="Images/178b3347-7902-4304-9658-e5186f7c8ea4.png" style="width:20.33em;height:16.00em;" width="350" height="276"/></p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<p>We can proceed by checking the dimensions and types of the input images, and then plot out a single example from the training data for our own visual satisfaction. The example appears to be a casual T-shirt with some undecipherable content written on it. Great <span>– now, we can </span>move on to defining our <span>autoencoder</span> model!</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Preprocessing the data</h1>
+                </header>
+            
+            <article>
+                
+<p>As we've done countless times before, we will now normalize the pixel data between the values of 0 and 1, which improves the learning capability of our network from the normalized data:</p>
+<div>
+<div class="input">
+<div class="inner_cell">
+<div class="input_area">
+<div class=" highlight hl-ipython3">
+<pre><span class="c1"># Normalize pixel values</span>
+<span class="n">x_train</span> <span class="o">=</span> <span class="n">x_train</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s1">'float32'</span><span class="p">)</span> <span class="o">/</span> <span class="mf">255.</span>
+<span class="n">x_test</span> <span class="o">=</span> <span class="n">x_test</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s1">'float32'</span><span class="p">)</span> <span class="o">/</span> <span class="mf">255.</span>
+
+<span class="c1"># Flatten images to 2D arrays</span>
+<span class="n">x_train</span> <span class="o">=</span> <span class="n">x_train</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">x_train</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="n">x_train</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:])))</span>
+<span class="n">x_test</span> <span class="o">=</span> <span class="n">x_test</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">x_test</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="n">x_test</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:])))</span>
+
+<span class="c1"># Print out the shape</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">x_train</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">x_test</span><span class="o">.</span><span class="n">shape</span><span class="p">)<br/>-----------------------------------------------------------------------<br/></span><strong>(60000, 784)</strong><br/><strong>(10000, 784)</strong></pre></div>
+</div>
+</div>
+</div>
+</div>
+<p>We will also flatten our 28 x 28 pixels into one vector of 784 pixels, just as we did in our previous MNIST examples while training a feed-forward network. Finally, we will print out the shapes of our training and test arrays to ensure that they are in the required format.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Building the model</h1>
+                </header>
+            
+            <article>
+                
+<p>Now we are ready to design our first <span>autoencoder</span> network in Keras, which we will do using the functional API. The basics governing the functional API are quite simple to get accustomed to, as we saw in previous examples. For our use case, we will define the encoding dimension of the latent space. Here, we chose 32. This means that each image of 784 pixels will go through a compressed dimension that stores only 32 pixels, from which the output will be reconstructed.</p>
+<p>This implies a compression factor of 24.5 (784/32), and was chosen somewhat arbitrarily, yet can be used as a rule of thumb for similar tasks:</p>
+<pre><span class="c1"># Size of encoded representation</span>
+<span class="c1"># 32 floats denotes a compression factor of 24.5 assuming input is 784 float</span>
+<span class="c1"># we have 32*32 or 1024 floats</span>
+<span class="n">encoding_dim</span> <span class="o">=</span> <span class="mi">32</span>
+<span class="c1">#Input placeholder</span>
+<span class="n">input_img</span> <span class="o">=</span> <span class="n">Input</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="mi">784</span><span class="p">,))</span>
+<span class="c1">#Encoded representation of input image</span>
+<span class="n">encoded</span> <span class="o">=</span> <span class="n">Dense</span><span class="p">(</span><span class="n">encoding_dim</span><span class="p">,</span> <span class="n">activation</span><span class="o">=</span><span class="s1">'relu'</span><span class="p">,</span>  <span class="n">activity_regularizer</span><span class="o">=</span><span class="n">regularizers</span><span class="o">.</span><span class="n">l1</span><span class="p">(</span><span class="mi">10</span><span class="n">e</span><span class="o">-</span><span class="mi">5</span><span class="p">))(</span><span class="n">input_img</span><span class="p">)</span>                               
+<span class="c1"># Decode is lossy reconstruction of input              </span>
+<span class="n">decoded</span> <span class="o">=</span> <span class="n">Dense</span><span class="p">(</span><span class="mi">784</span><span class="p">,</span> <span class="n">activation</span><span class="o">=</span><span class="s1">'sigmoid'</span><span class="p">)(</span><span class="n">encoded</span><span class="p">)</span>
+<span class="c1"># This autoencoder will map input to reconstructed output</span>
+<span class="n">autoencoder</span> <span class="o">=</span> <span class="n">Model</span><span class="p">(</span><span class="n">input_img</span><span class="p">,</span> <span class="n">decoded</span><span class="p">)</span></pre>
+<p>Then, we define the input layer using the input placeholder from <kbd>keras.layers</kbd> and specify the flattened image dimension that we expect. As we already know from our earlier MNIST experiments (and through some simple math), flattening images of 28 x 28 pixels returns an array of 784 pixels, which can then be fed through a feed-forward neural network.</p>
+<p>Next, we define the dimensions of the encoded latent space. This is done by defining a dense layer that's connected to the input layer, along with the number of neurons corresponding to our encoding dimension (earlier defined as 32), with a ReLU activation function. The connection between these layers are denoted by including the variable that defines the previous layer in brackets, after defining the parameters of the subsequent layer.</p>
+<p>Finally, we define the decoder function as a dense layer of equal dimension as the input (784 pixels), with a sigmoid activation function. This layer naturally connects to the encoded dimension representing the latent space, and regenerates the output that's drawing upon the neural activations in the encoded layer. Now we can initialize our autoencoder by using the model class from the functional API, and providing it with the input placeholder and the decoder layer as arguments.</p>
+<p class="mce-root"/>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Implementing a sparsity constraint</h1>
+                </header>
+            
+            <article>
+                
+<p>As we mentioned earlier in this chapter, there are many ways to perform regularization when designing autoencoders. The sparse autoencoder, for example, simply implements a sparsity constraint on the latent space to force the <span>autoencoder</span> to favor rich representations. Recall that neurons in a neural network may <em>fire</em> if their output value is close to 1, and refrain from being active if their output is close to 0. Adding a sparsity constraint can simply be thought of as constraining the neurons in the latent space to be inactive most of the time. As a result, a smaller number of neurons may fire at any given time, forcing those that <em>do</em> fire to propagate information as efficiently as possible, from the latent space to the output space. Thankfully, implementing this procedure in Keras is fairly straightforward. This can be achieved by defining the <kbd>activity_regularizer</kbd> argument, while defining the dense layer that represents the latent space. In the following code, we use the L1 regularizer from <kbd>keras.regularizers</kbd> with a sparsity parameter very close to zero (0.067, in our case). Now you know how to design a sparse autoencoder in Keras as well! While we will continue with the unsparse version, for the purpose of this exercise, you are welcome to compare the performance between these two shallow autoencoders to see the benefits of adding sparsity constraints to the latent space when designing such models first-hand.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Compiling and visualizing the model</h1>
+                </header>
+            
+            <article>
+                
+<p>We can visualize what we just did by simply compiling the model and calling <kbd>summary()</kbd> on the model object, like so. We will choose the Adadelta optimizer, which restricts the number of accumulated past gradients to a fixed window during backpropagation, instead of monotonically decreasing the learning rate by choosing something such as an Adagrad optimizer. In case you missed it earlier in this book, we encourage you to investigate the vast repertoire of available optimizers (<span class="MsoHyperlink"><a href="http://ruder.io/optimizing-gradient-descent/" target="_blank" rel="noopener noreferrer">http://ruder.io/optimizing-gradient-descent/</a></span>) and experiment with them to find a suitable one for your use case. Finally, we will define a binary cross entropy as a <kbd>loss</kbd> function, which in our case accounts for pixel-wise loss on the outputs that are generated:</p>
+<pre><span class="n">autoencoder</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="n">optimizer</span><span class="o">=</span><span class="s1">'adadelta'</span><span class="p">,</span> <span class="n">loss</span><span class="o">=</span><span class="s1">'binary_crossentropy'</span><span class="p">)</span>
+<span class="n">autoencoder</span><span class="o">.</span><span class="n">summary</span><span class="p">()</span></pre>
+<p>Following is the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1237 image-border" src="Images/4ca733ce-bd7d-4da1-8ee7-6239a723f6d2.png" style="width:31.25em;height:13.25em;" width="506" height="214"/></p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Building the verification model</h1>
+                </header>
+            
+            <article>
+                
+<p>Now we have almost all we need to initiate the training session of our shallow autoencoder. However, we are missing one crucial component. While this part is not, strictly speaking, required to train our autoencoder, we must implement it so that we can visually verify whether our <span>autoencoder</span> has truly learned salient features from the training data or not. To do this, we will actually define two additional networks. Don't worry <span>–</span> these two networks are essentially mirror images of the encoder and decoder functions that are present in the autoencoder network we just defined. Hence, all we will be doing is creating a separate encoder and decoder network, which will match the hyperparameters of the encoder and decoder functions from our <span>autoencoder</span>. These two separate networks will be used for prediction only after our <span>autoencoder</span> has been trained. Essentially, the encoder network will be used to predict the compressed representation of the input image, while the decoder network will simply proceed to predict the decoded version of the information that's stored in the latent space.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Defining a separate encoder network</h1>
+                </header>
+            
+            <article>
+                
+<p>In the following code, we can see that the encoder function is an exact replica of the top half of our autoencoder; it essentially maps input vectors of flattened pixel values to a compressed latent space:</p>
+<pre><span class="sd">''' The seperate encoder network '''</span>
+
+<span class="c1"># Define a model which maps input images to the latent space</span>
+<span class="n">encoder_network</span> <span class="o">=</span> <span class="n">Model</span><span class="p">(</span><span class="n">input_img</span><span class="p">,</span> <span class="n">encoded</span><span class="p">)</span>
+
+<span class="c1"># Visualize network</span>
+<span class="n">encoder_network</span><span class="o">.</span><span class="n">summary</span><span class="p">()<br/></span></pre>
+<p>Following is the summary:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1238 image-border" src="Images/b7ceb46e-178e-4af2-8cbc-71ce29fa66de.png" style="width:34.92em;height:13.17em;" width="506" height="192"/></p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Defining a separate decoder network</h1>
+                </header>
+            
+            <article>
+                
+<p>Similarly, in the following code, we can see that the decoder network is a perfect replica of the bottom half of our autoencoder neural network, mapping the compressed representations stored in the latent space to the output layer that reconstructs the input image:</p>
+<pre><span class="sd">''' The seperate decoder network '''</span> 
+
+<span class="c1"># Placeholder to recieve the encoded (32-dimensional) representation as input</span>
+<span class="n">encoded_input</span> <span class="o">=</span> <span class="n">Input</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">encoding_dim</span><span class="p">,))</span>
+
+<span class="c1"># Decoder layer, retrieved from the aucoencoder model</span>
+<span class="n">decoder_layer</span> <span class="o">=</span> <span class="n">autoencoder</span><span class="o">.</span><span class="n">layers</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+
+<span class="c1"># Define the decoder model, mapping the latent space to the output layer</span>
+<span class="n">decoder_network</span> <span class="o">=</span> <span class="n">Model</span><span class="p">(</span><span class="n">encoded_input</span><span class="p">,</span> <span class="n">decoder_layer</span><span class="p">(</span><span class="n">encoded_input</span><span class="p">))</span>
+
+<span class="c1"># Visualize network</span>
+<span class="n">decoder_network</span><span class="o">.</span><span class="n">summary</span><span class="p">()</span></pre>
+<p>Here is the summary:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1239 image-border" src="Images/478b5a2d-43f4-4be4-ad0d-1d6f8c5b9feb.png" style="width:33.50em;height:12.08em;" width="512" height="185"/></p>
+<p>Note that to define the decoder network, we must first construct an input layer with a shape that corresponds to our encoding dimension (that is, 32). Then, we simply duplicate the decoder layer from our earlier autoencoder model by referring to the index corresponding to the last layer of that model. Now we have all the components in place to initiate the training of our autoencoder network!</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Training the autoencoder</h1>
+                </header>
+            
+            <article>
+                
+<p>Next, we simply fit our autoencoder network, just as we've done with other networks countless times before. We chose this model to be trained for 50 epochs, in batches of 256 images, before weight updates to our network nodes are performed. We also shuffle our data during training. As we already know, doing so ensures some variance reduction among batches, thereby improving the generalizability for our model:</p>
+<div class="packt_figure CDPAlignCenter CDPAlign"><img src="Images/943b863c-df58-4b94-b5e3-7895aef23c5a.png" width="678" height="250"/></div>
+<p class="mce-root"/>
+<p>Finally, we also defined the validation data using our test set, just to be able to compare how well our model does on unseen examples, at the end of each epoch. Do remember that in normal machine learning workflows, it is common practice to have both validation and development splits of your data so that you can tune your model on one split and test it on the latter. While this is not a prerequisite for our demonstrative use case, such double-holdout strategies can always be beneficial to implement for the sake of achieving generalizable results.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Visualizing the results</h1>
+                </header>
+            
+            <article>
+                
+<p>Now comes the time to bear the fruits of our labor. Let's have a look at what kind of images our autoencoder is able to recreate by using our secluded test set. In other words, we will provide our network with images that are similar (but not the same) to the training sets, to see how well our model performs on unseen data. To do this, we will employ our encoder network to make predictions on the test set. The encoder will predict how to map the input image to a compressed representation. Then, we will simply use the decoder network to predict how to decode the compressed representation that's generated by the encoder network. These steps are shown in the following code:</p>
+<div>
+<pre><span class="c1"># Time to encode some images</span>
+<span class="n">encoded_imgs</span> <span class="o">=</span> <span class="n">encoder_network</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">x_test</span><span class="p">)</span>
+<span class="c1"># Then decode them </span>
+<span class="n">decoded_imgs</span> <span class="o">=</span> <span class="n">decoder_network</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">encoded_imgs</span><span class="p">)</span></pre></div>
+<p>Next, we reconstruct a few images and compare them to the input that prompted the reconstruction to see whether our autoencoder captures the essence of what items of clothing are supposed to look like. To do this, we will simply use Matplotlib and plot nine images with their reconstructions under them, as shown here:</p>
+<pre><span class="c1"># use Matplotlib (don't ask)</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">22</span><span class="p">,</span> <span class="mi">6</span><span class="p">))</span>
+<span class="n">num_imgs</span> <span class="o">=</span> <span class="mi">9</span>
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>                        
+    <span class="c1"># display original</span>
+    <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">num_imgs</span><span class="p">,</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">true_img</span> <span class="o">=</span> <span class="n">x_test</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">28</span><span class="p">,</span> <span class="mi">28</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">true_img</span><span class="p">)</span>
+
+    <span class="c1"># display reconstruction</span>
+    <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">num_imgs</span><span class="p">,</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">+</span> <span class="n">num_imgs</span><span class="p">)</span>
+    <span class="n">reconstructed_img</span> <span class="o">=</span> <span class="n">decoded_imgs</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">28</span><span class="p">,</span><span class="mi">28</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">reconstructed_img</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.s</span><span class="n">how</span><span class="p">()<br/></span></pre>
+<p>Following is the output generated:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1240 image-border" src="Images/680df065-9ab9-4127-8b1b-08312a5b008e.png" style="width:67.83em;height:19.75em;" width="814" height="237"/></p>
+<p>As you can see, while our shallow autoencoder doesn't recreate brand labels (such as the <strong>Lee</strong> tag that's present in the second image), it certainly does get the general idea of human items of clothing, despite having a considerable meager learning capacity. But is this enough? Well, not enough for any practical use case, such as computer-aided clothing design. Far too many details are missing, partially due to the learning capacity of our network and partially due to the lossy compression output. Naturally, this makes you wonder, what can be achieved by deeper models? Well, as the old adage goes, <em>nullius in verba</em> (or to paraphrase in more contemporary terms, let's see for ourselves!).</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Designing a deep autoencoder</h1>
+                </header>
+            
+            <article>
+                
+<p>Next, we will investigate how much better reconstructions from <span>autoencoder</span>s can get, and whether they can generate images a bit better than the blurry representations that we just saw. For this, we will design a deep feed-forward autoencoder. As you know, this simply means that we will be adding additional hidden layers between the input and the output layer of our autoencoder. To keep things interesting, we will also use a different dataset of images. You are welcome to reimplement this method on the <kbd>fashion_mnist</kbd> dataset if you're curious to further explore the sense of fashion that's attainable by <span>autoencoder</span>s.</p>
+<p>For the next exercise, we will use the 10 Monkey species dataset, available at Kaggle. We will try to reconstruct pictures of our playful and mischievous cousins from the jungle, and see how well our <span>autoencoder</span> performs at a more complex reconstruction task. This also gives us the opportunity to venture out to use cases far from the comforts of preprocessed datasets that are available in Keras, as we will learn to deal with images of different sizes and higher resolution compared to the monotonous MNIST examples: <span class="MsoHyperlink"><a href="https://www.kaggle.com/slothkong/10-monkey-species">https://www.kaggle.com/slothkong/10-monkey-species</a>.<br/></span></p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Making some imports</h1>
+                </header>
+            
+            <article>
+                
+<p>We will start by importing the necessary libraries, as is tradition. You will notice the usual suspects such as NumPy, pandas, Matplotlib, and some Keras model and layer objects:</p>
+<div>
+<pre><span class="kn">import</span> <span class="nn">cv2</span>
+<span class="kn">import</span> <span class="nn">datetime</span> <span class="k">as</span> <span class="nn">dt</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pylab</span> <span class="k">as</span> <span class="nn">plt</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">from</span> <span class="nn">keras</span> <span class="k">import</span> <span class="n">models</span><span class="p">,</span> <span class="n">layers</span><span class="p">,</span> <span class="n">optimizers</span>
+<span class="kn">from</span> <span class="nn">keras.layers</span> <span class="k">import</span> <span class="n">Input</span><span class="p">,</span> <span class="n">Dense</span>
+<span class="kn">from</span> <span class="nn">keras.models</span> <span class="k">import</span> <span class="n">Model</span>
+<span class="kn">from</span> <span class="nn">pathlib</span> <span class="k">import</span> <span class="n">Path</span>
+<span class="kn">from</span> <span class="nn">vis.utils</span> <span class="k">import</span> <span class="n">utils</span></pre></div>
+<p>Notice that we import a utility module from the Keras <kbd>vis</kbd> library. While this module contains many other nifty features for image manipulation, we will use it to resize our training images to a uniform dimension, since this is not the case for this particular dataset.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Understanding the data</h1>
+                </header>
+            
+            <article>
+                
+<p>We chose this dataset for our use case for a specific reason. Unlike 28 x 28 pixelated images of clothing items, these images represent rich and complex features, such as variation in body morphology, and, of course, color! We can plot out the composition of our dataset to see what the class distributions look like, purely for our own curiosity:</p>
+<div class="packt_figure CDPAlignCenter CDPAlign"><img src="Images/acf036fe-7edd-4de7-bf8f-31136a0a7df4.png" width="663" height="300"/></div>
+<p>You will notice that each of the 10 different monkey species has significantly different characteristics, ranging from different body sizes, color of fur, and facial composition, making this a much more challenging task for an autoencoder. The following depiction with sample images from eight different monkey species is provided to better illustrate these variations among species. As you can see, each of them looks unique:</p>
+<div class="packt_figure CDPAlignCenter CDPAlign"><img src="Images/3fc1fefb-421c-44a3-87d0-4abc240896b2.png" style="width:24.75em;height:10.75em;" width="754" height="327"/></div>
+<p>Since we know that <span>autoencoder</span>s are data-specific, it also stands to reason that training an <span>autoencoder</span> to reconstruct a class of images with high variance may result in dubious results. Nevertheless, we hope that this will make an informative use case so that you can better understand the potentials and limits you will face when using these models. So, let's get started!</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Importing the data</h1>
+                </header>
+            
+            <article>
+                
+<p>We will start by importing the images of different monkey species from the Kaggle repository. As we did before, we will simply download the data to our filesystem, then access the training data folder using the operating system interface that's built into Python (using the <kbd>os</kbd> module):</p>
+<pre><span class="kn">import</span> <span class="nn">os</span>
+<span class="n">all_monkeys</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="k">for</span> <span class="n">image</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">train_dir</span><span class="p">):</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">monkey</span> <span class="o">=</span> <span class="n">utils</span><span class="o">.</span><span class="n">load_img</span><span class="p">((</span><span class="s1">'C:/Users/npurk/Desktop/VAE/training/'</span> <span class="o">+</span> <span class="n">image</span><span class="p">),</span> <span class="n">target_size</span><span class="o">=</span><span class="p">(</span><span class="mi">64</span><span class="p">,</span><span class="mi">64</span><span class="p">))</span>
+        <span class="n">all_monkeys</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">monkey</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">pass</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">'Recovered data format:'</span><span class="p">,</span> <span class="nb">type</span><span class="p">(</span><span class="n">all_monkeys</span><span class="p">))</span>    
+<span class="nb">print</span><span class="p">(</span><span class="s1">'Number of monkey images:'</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">all_monkeys</span><span class="p">))<br/>-----------------------------------------------------------------------<br/><strong><span>Recovered data format: &lt;class 'list'&gt; <br/>Number of monkey images: 1094</span></strong><br/></span></pre>
+<p>You will notice that we nest the image variable in a <kbd>try</kbd>/<kbd>except</kbd> loop. This is simply an implementational consideration, as we found that some of the images in our dataset were corrupt. Hence, if we aren't able to load an image using the <kbd>load_img()</kbd> function from the <kbd>utils</kbd> module, then we will ignore the image file altogether. This (somewhat arbitrary) selection strategy leaves us with 1,094 images being recovered from the training folder out of a total of 1,097.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Preprocessing the data</h1>
+                </header>
+            
+            <article>
+                
+<p>Next, we will convert our list of pixel values into NumPy arrays. We can print out the shape of the array to confirm whether we indeed have 1,094 colored images of 64 x 64 pixels. After doing so, we simply normalize the pixel values between the range of 0 – 1 by dividing each pixel value by the maximum possible value for any given pixel (that is, 255):</p>
+<div class="input">
+<div class="inner_cell">
+<div class="input_area">
+<div class=" highlight hl-ipython3">
+<pre><span class="c1"># Make into array</span>
+<span class="n">all_monkeys</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">all_monkeys</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s1">'Shape of array:'</span><span class="p">,</span> <span class="n">all_monkeys</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+
+<span class="c1"># Normalize pixel values</span>
+<span class="n">all_monkeys</span> <span class="o">=</span> <span class="n">all_monkeys</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s1">'float32'</span><span class="p">)</span> <span class="o">/</span> <span class="mf">255.</span>
+
+<span class="c1"># Flatten array</span>
+<span class="n">all_monkeys</span> <span class="o">=</span> <span class="n">all_monkeys</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">all_monkeys</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="n">all_monkeys</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:])))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s1">'Shape after flattened:'</span><span class="p">,</span> <span class="n">all_monkeys</span><span class="o">.</span><span class="n">shape</span><span class="p">)<br/><br/></span><strong>Shape of array: (1094, 64, 64, 3)</strong><br/><strong>Shape after flattened: (1094, 12288)</strong></pre></div>
+</div>
+</div>
+</div>
+<p>Finally, we flatten the four-dimensional array into a two-dimensional array, since our deep autoencoder is composed of a feed-forward neural networks that propagates 2D vectors through its layers. Similar in spirit to what we did in <a href="46e25614-bb5a-4cca-ac3e-b6dfbe29eea5.xhtml" target="_blank" rel="noopener noreferrer">Chapter 3</a>, <em>Signal Processing <span>–</span> Data Analysis with Neural Networks</em>, we essentially convert each three-dimensional image (64 x 64 x 3) into a 2D vector of dimensions (1, 12,288).</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Partitioning the data</h1>
+                </header>
+            
+            <article>
+                
+<p>Now that our data has been preprocessed and exists as a 2D tensor of normalized pixel values, we can finally split it into training and test segments. Doing so is important, as we wish to eventually use our model on images that it has never seen, and be able to recreate them using its own understanding of what a monkey should look like. Do note that while we don't use the labels that are provided with the dataset for our use case, the network itself will receive a label for each image it sees. The label in this case will simply be the image itself, as we are dealing with an image reconstruction task, and not classification. So, in the case of autoencoders, the input variables are the same as the target variables. As we can see in the following screenshot, the <kbd>train_test_split</kbd> function from sklearn's model selection module is used to generate our training and testing data (with an 80/20 split ratio). You will notice that both the <kbd>x</kbd> and <kbd>y</kbd> variables are defined by the same data structure due to the nature of our task:</p>
+<div class="packt_figure CDPAlignCenter CDPAlign"><img src="Images/10711ab1-5e6a-4187-81d1-2705f44a7e2e.png" width="762" height="381"/></div>
+<p>Now we are left with <strong>875</strong> training examples and 219 test examples to train and test our deep autoencoder. Do note that the Kaggle dataset comes with an explicit test set directory since the original purpose of this dataset was to attempt to classify different monkey species using machine learning models. In our use case, however, we do not rigidly ensure balanced classes for the time being, and are simply interested in how deep <span>a</span><span>utoencoder</span>s perform at reconstructing images when trained on a high variance dataset. We do encourage further experimentation by comparing the performance of deep <span>a</span><span>utoencoder</span>s that are trained on a particular species of monkey. Logic would dictate that these models would perform better at reconstructing their input images due to the latter between training observations.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Using functional API to design autoencoders</h1>
+                </header>
+            
+            <article>
+                
+<p>Just as we did in the previous example, we will refer to the functional API to construct our deep <span>a</span><span>utoencoder</span>. We will import the input and dense layers, as well as the model object that we will later use to initialize the network. We will also define the input dimension for our images (64 x 64 x 3 = 12,288), and an encoding dimension of 256, leaving us with a compression ratio of 48. This simply means that each image will be compressed by a factor of 48, before our network attempts to reconstruct it from the latent space:</p>
+<pre>from keras.layers import Input, Dense<br/>from keras.models import Model<br/><br/>##Input dimension<br/>input_dim=12288<br/><br/>##Encoding dimension for the latent space<br/>encoding_dim=256</pre>
+<p>The compression factor can be a very important parameter to consider, as mapping the input to a very low dimensional space will result in too much information loss, leading to poor reconstructions. There may simply not be enough space to store the key essentials of the image. On the other hand, we are already aware of how providing our model with too much learning capacity may cause it to overfit, which is why choosing a compression factor by hand can be quite tricky. When in doubt, it can never hurt to experiment with different compression factors as well as regularization methods (provided you have the time).</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Building the model</h1>
+                </header>
+            
+            <article>
+                
+<p>To build our deep <span>a</span><span>utoencoder, </span>we will begin by defining the input layer, which accepts the dimensions corresponding to our 2D vectors of monkey images. Then, we simply start defining the encoder part of our network using dense layers, with a decreasing number of neurons for subsequent layers, until we reach the latent space. Note that we simply choose the number of neurons in layers leading to the latent space to decrease by a factor of 2, with respect to the encoding dimension chosen. Thus, the first layer has (256 x 4) 1024 neurons, the second layer has (256 x 2) 512 neurons, and the third layer, representing the latent space itself, has 256 neurons. While you are not obliged to strictly stick to this convention, it is common practice to reduce the number of neurons per layer when approaching the latent space, and increase the number of neurons for layers occurring after, in the case of undercomplete autoencoders:</p>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="inner_cell">
+<div class="input_area">
+<div class=" highlight hl-ipython3">
+<pre><span class="c1"># Input layer placeholder</span>
+<span class="n">input_layer</span> <span class="o">=</span> <span class="n">Input</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">input_dim</span><span class="p">,))</span>
+
+<span class="c1"># Encoding layers funnel the images into lower dimensional representations</span>
+<span class="n">encoded</span> <span class="o">=</span> <span class="n">Dense</span><span class="p">(</span><span class="n">encoding_dim</span> <span class="o">*</span> <span class="mi">4</span><span class="p">,</span> <span class="n">activation</span><span class="o">=</span><span class="s1">'relu'</span><span class="p">)(</span><span class="n">input_layer</span><span class="p">)</span>
+<span class="n">encoded</span> <span class="o">=</span> <span class="n">Dense</span><span class="p">(</span><span class="n">encoding_dim</span> <span class="o">*</span> <span class="mi">2</span><span class="p">,</span> <span class="n">activation</span><span class="o">=</span><span class="s1">'relu'</span><span class="p">)(</span><span class="n">encoded</span><span class="p">)</span>
+
+<span class="c1"># Latent space</span>
+<span class="n">encoded</span> <span class="o">=</span> <span class="n">Dense</span><span class="p">(</span><span class="n">encoding_dim</span><span class="p">,</span> <span class="n">activation</span><span class="o">=</span><span class="s1">'relu'</span><span class="p">)(</span><span class="n">encoded</span><span class="p">)</span>
+
+<span class="c1"># "decoded" is the lossy reconstruction of the input</span>
+<span class="n">decoded</span> <span class="o">=</span> <span class="n">Dense</span><span class="p">(</span><span class="n">encoding_dim</span> <span class="o">*</span> <span class="mi">2</span><span class="p">,</span> <span class="n">activation</span><span class="o">=</span><span class="s1">'relu'</span><span class="p">)(</span><span class="n">encoded</span><span class="p">)</span>
+<span class="n">decoded</span> <span class="o">=</span> <span class="n">Dense</span><span class="p">(</span><span class="n">encoding_dim</span> <span class="o">*</span> <span class="mi">4</span><span class="p">,</span> <span class="n">activation</span><span class="o">=</span><span class="s1">'relu'</span><span class="p">)(</span><span class="n">decoded</span><span class="p">)</span>
+<span class="n">decoded</span> <span class="o">=</span> <span class="n">Dense</span><span class="p">(</span><span class="n">input_dim</span><span class="p">,</span> <span class="n">activation</span><span class="o">=</span><span class="s1">'sigmoid'</span><span class="p">)(</span><span class="n">decoded</span><span class="p">)</span>
+
+<span class="c1"># this model maps an input to its reconstruction</span>
+<span class="n">autoencoder</span> <span class="o">=</span> <span class="n">Model</span><span class="p">(</span><span class="n">input_layer</span><span class="p">,</span> <span class="n">decoded</span><span class="p">)<br/><br/></span>autoencoder<span class="o">.</span><span class="n">summary</span><span class="p">()<br/></span><strong>_______________________________________________________________</strong><br/><strong>Layer (type)                 Output Shape              Param #   =================================================================</strong><br/><strong>input_1 (InputLayer)         (None, 12288)             0         _______________________________________________________________</strong><br/><strong>dense_1 (Dense)              (None, 1024)              12583936  _______________________________________________________________</strong><br/><strong>dense_2 (Dense)              (None, 512)               524800    _______________________________________________________________</strong><br/><strong>dense_3 (Dense)              (None, 256)               131328    _______________________________________________________________</strong><br/><strong>dense_4 (Dense)              (None, 512)               131584    _______________________________________________________________</strong><br/><strong>dense_5 (Dense)              (None, 1024)              525312    _______________________________________________________________</strong><br/><strong>dense_6 (Dense)              (None, 12288)             12595200  =================================================================</strong><br/><strong>Total params: 26,492,160</strong><br/><strong>Trainable params: 26,492,160</strong><br/><strong>Non-trainable params: 0</strong><br/><strong>_________________________________________________________________</strong></pre></div>
+</div>
+</div>
+</div>
+</div>
+<p>Finally, we initialize the autoencoder by providing the input and decoder layer to the model object as arguments. Then, we can visually summarize what we just built.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Training the model</h1>
+                </header>
+            
+            <article>
+                
+<p>Finally, we can initiate the training session! This time, we will compile the model with an <kbd>adam</kbd> optimizer and operationalize the <kbd>loss</kbd> function with mean-squared errors. Then, we simply start the training by calling <kbd>.fit()</kbd> on the model object and providing the appropriate arguments:</p>
+<div class="input">
+<div class="inner_cell">
+<div class="input_area">
+<div class=" highlight hl-ipython3">
+<pre><span class="n">autoencoder</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="n">optimizer</span><span class="o">=</span><span class="s1">'adam'</span><span class="p">,</span> <span class="n">loss</span><span class="o">=</span><span class="s1">'mse'</span><span class="p">)</span>
+
+<span class="n">autoencoder</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">x_train</span><span class="p">,</span> <span class="n">x_train</span><span class="p">,</span> <span class="n">epochs</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="mi">1</span><span class="p">)<br/></span><br/><strong>Epoch 1/100</strong><br/><strong>875/875 [==============================] - 15s 17ms/step - loss: 0.0061</strong><br/><strong>Epoch 2/100</strong><br/><strong>875/875 [==============================] - 13s 15ms/step - loss: 0.0030</strong><br/><strong>Epoch 3/100</strong><br/><strong>875/875 [==============================] - 13s 15ms/step - loss: 0.0025</strong><br/><strong>Epoch 4/100</strong><br/><strong>875/875 [==============================] - 14s 16ms/step - loss: 0.0024</strong><br/><strong>Epoch 5/100</strong><br/><strong>875/875 [==============================] - 13s 15ms/step - loss: 0.0024</strong></pre></div>
+</div>
+</div>
+</div>
+<p>This model ends with a loss of (0.0046) at the end of the 100th epoch. Do note that since different <kbd>loss</kbd> functions have been chosen previously for the shallow model, the loss metrics of each model are not directly comparable to one another. In reality, the manner in which the <kbd>loss</kbd> function is defined characterizes what the model seeks to minimize. If you wish to benchmark and compare the performance of two different neural network architectures (such as a feed-forward network and a CNN, for example) it is always advised to use the same optimizer and <kbd>loss</kbd> function at first, before venturing to other ones.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Visualizing the results</h1>
+                </header>
+            
+            <article>
+                
+<p>Now, let's have a look at the reconstructions our deep <span>a</span><span>utoencoder</span> is capable of making by testing its performance on our secluded test set. To do that, we will simply use our separate encoder network to make a prediction on how to compress those images to the latent space from where the decoder network will take up the call of decoding and reconstructing the original image from the latent space that's predicted by the encoder:</p>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="inner_cell">
+<div class="input_area">
+<div class=" highlight hl-ipython3">
+<pre><span class="kn"><span>decoded_imgs = autoencoder.predict(x_test)</span><br/><span># use Matplotlib (don't ask)</span><br/>import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+
+<span class="n">n</span> <span class="o">=</span> <span class="mi">6</span>  <span class="c1"># how many digits we will display</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">22</span><span class="p">,</span> <span class="mi">6</span><span class="p">))</span>
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+    <span class="c1"># display original</span>
+    <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">x_test</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>    <span class="c1">#x_test</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">gray</span><span class="p">()</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">get_xaxis</span><span class="p">()</span><span class="o">.</span><span class="n">set_visible</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">get_yaxis</span><span class="p">()</span><span class="o">.</span><span class="n">set_visible</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="c1"># display reconstruction</span>
+    <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">+</span> <span class="n">n</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">decoded_imgs</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">gray</span><span class="p">()</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">get_xaxis</span><span class="p">()</span><span class="o">.</span><span class="n">set_visible</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">get_yaxis</span><span class="p">()</span><span class="o">.</span><span class="n">set_visible</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span></pre>
+<p>We will get the following ouput:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1250 image-border" src="Images/1d68f54c-29f6-4a03-9aa8-f38ef58fc0dc.png" style="width:68.25em;height:19.25em;" width="819" height="231"/></p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<p>While the images themselves are arguably even aesthetically pleasing, it seems that the essence of what represents a monkey largely eludes our model. Most of the reconstructions resemble starry skies, rather that the features of a monkey. We do notice that the network had started learning the general humanoid morphology at a very basic level, but this is nothing to write home about. So, how can we improve this? At the end of the day, we would like to close this chapter with at least a few realistic looking reconstructions of monkeys. To do so, we will employ the use of a specific type of network, which is adept at dealing with image data. We are speaking of the <strong>Convolutional Neural Network</strong> (<strong>CNN</strong>) architecture, which we will repurpose so that we can design a deep convolutional autoencoder in the next part of this exercise.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Deep convolutional autoencoder</h1>
+                </header>
+            
+            <article>
+                
+<p>Luckily, all we have to do is define a convolutional network and reshape our training arrays to the appropriate dimensions to test out how it performs with respect to the task at hand. Thus, we will import some convolutional, MaxPooling, and UpSampling layers, and start building the network. We define the input layer and provide it with the shape of our 64 x 64 colored images. Then, we simply alternate the convolutional and pooling layers until we reach the latent space, which is represented by the second <kbd>MaxPooling2D</kbd> layer. The layers leading away from the latent space, on the other hand, must be alternating between convolutional layers and UpSampling layers. The UpSampling layer, as the name suggests, simply increases the representational dimension by repeating the rows and columns of the data from the previous layer:</p>
+<div class="input">
+<div class="inner_cell">
+<div class="input_area">
+<div class=" highlight hl-ipython3">
+<pre><span class="kn">from</span> <span class="nn">keras.layers</span> <span class="k">import</span> <span class="n">Conv2D</span><span class="p">,</span> <span class="n">MaxPooling2D</span><span class="p">,</span> <span class="n">UpSampling2D</span>
+
+<span class="c1"># Input Placeholder</span>
+<span class="n">input_img</span> <span class="o">=</span> <span class="n">Input</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>  <span class="c1"># adapt this if using `channels_first` image data format</span>
+
+<span class="c1"># Encoder part</span>
+<span class="n">l1</span> <span class="o">=</span> <span class="n">Conv2D</span><span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">activation</span><span class="o">=</span><span class="s1">'relu'</span><span class="p">,</span> <span class="n">padding</span><span class="o">=</span><span class="s1">'same'</span><span class="p">)(</span><span class="n">input_img</span><span class="p">)</span>
+<span class="n">l2</span> <span class="o">=</span> <span class="n">MaxPooling2D</span><span class="p">((</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">padding</span><span class="o">=</span><span class="s1">'same'</span><span class="p">)(</span><span class="n">l1</span><span class="p">)</span>
+<span class="n">l3</span> <span class="o">=</span> <span class="n">Conv2D</span><span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">activation</span><span class="o">=</span><span class="s1">'relu'</span><span class="p">,</span> <span class="n">padding</span><span class="o">=</span><span class="s1">'same'</span><span class="p">)(</span><span class="n">l2</span><span class="p">)</span>
+
+<span class="c1"># Latent Space, with dimension (None, 32, 32, 16)</span>
+<span class="n">encoded</span> <span class="o">=</span> <span class="n">MaxPooling2D</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">),</span> <span class="n">padding</span><span class="o">=</span><span class="s1">'same'</span><span class="p">)(</span><span class="n">l3</span><span class="p">)</span> 
+
+
+<span class="c1"># Decoder Part</span>
+<span class="n">l8</span> <span class="o">=</span> <span class="n">Conv2D</span><span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">activation</span><span class="o">=</span><span class="s1">'relu'</span><span class="p">,</span> <span class="n">padding</span><span class="o">=</span><span class="s1">'same'</span><span class="p">)(</span><span class="n">encoded</span><span class="p">)</span>
+<span class="n">l9</span> <span class="o">=</span> <span class="n">UpSampling2D</span><span class="p">((</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">))(</span><span class="n">l8</span><span class="p">)</span>
+<span class="n">decoded</span> <span class="o">=</span> <span class="n">Conv2D</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">activation</span><span class="o">=</span><span class="s1">'sigmoid'</span><span class="p">,</span> <span class="n">padding</span><span class="o">=</span><span class="s1">'same'</span><span class="p">)(</span><span class="n">l9</span><span class="p">)</span>
+
+<span class="n">autoencoder</span> <span class="o">=</span> <span class="n">Model</span><span class="p">(</span><span class="n">input_img</span><span class="p">,</span> <span class="n">decoded</span><span class="p">)</span>
+
+<span class="n">autoencoder</span><span class="o">.</span><span class="n">summary</span><span class="p">()<br/></span><strong>_______________________________________________________________</strong><br/><strong>Layer (type)                 Output Shape              Param #   =================================================================</strong><br/><strong>input_2 (InputLayer)         (None, 64, 64, 3)         0         _______________________________________________________________</strong><br/><strong>conv2d_5 (Conv2D)            (None, 64, 64, 32)        896       _______________________________________________________________</strong><br/><strong>max_pooling2d_3 (MaxPooling2 (None, 32, 32, 32)        0         _______________________________________________________________</strong><br/><strong>conv2d_6 (Conv2D)            (None, 32, 32, 16)        4624      _______________________________________________________________</strong><br/><strong>max_pooling2d_4 (MaxPooling2 (None, 32, 32, 16)        0         _______________________________________________________________</strong><br/><strong>conv2d_7 (Conv2D)            (None, 32, 32, 16)        2320      _______________________________________________________________</strong><br/><strong>up_sampling2d_2 (UpSampling2 (None, 64, 64, 16)        0         _______________________________________________________________</strong><br/><strong>conv2d_8 (Conv2D)            (None, 64, 64, 3)         435       =================================================================</strong><br/><strong>Total params: 8,275</strong><br/><strong>Trainable params: 8,275</strong><br/><strong>Non-trainable params: _________________________________________________________________</strong></pre></div>
+</div>
+</div>
+</div>
+<p class="CDPAlignLeft CDPAlign">As we can see, this convolutional autoencoder has eight layers. The information enters the input layer, from which convolutional layers generate 32 feature maps. These maps are downsampled using the max pooling layer, in turn generating 32 feature maps, each being 32 x 32 pixels in size. These maps are then passed on to the latent layer, which stores 16 different representations of the input image, each with dimensions of 32 x 32 pixels. These representations are passed to the subsequent layers, as the inputs are exposed to convolution and UpSampling operations, until the decoded layer is reached. Just like the input layer, our decoded layer matches the dimensions of our 64 x 64 colored images. You may always check the dimension of a specific convolutional layer (instead of visualizing the entire model) by using the <kbd>int_shape()</kbd> function from Keras's backend module, as shown here:</p>
+<pre><span class="c1"># Check shape of a layer</span>
+<span class="kn">import</span> <span class="nn">keras</span>
+<span class="n">keras</span><span class="o">.</span><span class="n">backend</span><span class="o">.</span><span class="n">int_shape</span><span class="p">(</span><span class="n">encoded</span><span class="p">)<br/><br/><strong>(None, 32, 32, 16)</strong><br/></span></pre>
+<p class="mce-root"/>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Compiling and training the model</h1>
+                </header>
+            
+            <article>
+                
+<p>Next, we simply compile our network with the same optimizer and <kbd>loss</kbd> function that we chose for the deep feed-forward network and initiate the training session by calling <kbd>.fit()</kbd> on the model object. Do note that we only train this model for 50 epochs and perform weight updates in batches of 128 images at a time. This approach turns out to be computationally faster, allowing us to train the model for a fraction of the time that was taken to train the feed-forward model. Let's see whether the chosen trade-off between training time and accuracy works out in our favor for this specific use case:</p>
+<pre><span class="n">autoencoder</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="n">optimizer</span><span class="o">=</span><span class="s1">'adam'</span><span class="p">,</span> <span class="n">loss</span><span class="o">=</span><span class="s1">'mse'</span><span class="p">)<br/>autoencoder.fit(x_train, x_train, epochs=50, batch_size=20,<br/>                shuffle=True, verbose=1)<br/><strong>Epoch 1/50</strong><br/><strong>875/875 [==============================] - 7s 8ms/step - loss: 0.0462</strong><br/><strong>Epoch 2/50</strong><br/><strong>875/875 [==============================] - 6s 7ms/step - loss: 0.0173</strong><br/><strong>Epoch 3/50</strong><br/><strong>875/875 [==============================] - 7s 9ms/step - loss: 0.0133</strong><br/><strong>Epoch 4/50</strong><br/><strong>875/875 [==============================] - 8s 9ms/step - loss: 0.0116</strong></span></pre>
+<p>The model reaches a loss of (0.0044), by the end of the 50<sup>th</sup> epoch. This turns out to be lower than the earlier feed-forward model, when it was trained for half the epochs using a much larger batch size. Let's visually judge for ourselves how the model performs at reconstructing images it has never seen before.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Testing and visualizing the results</h1>
+                </header>
+            
+            <article>
+                
+<p>It's time to see whether the CNN really does hold up to our image reconstruction task at hand. We simply define a helper function that allows us to plot out a number of sampled examples that are generated from the test set and compare them to the original test inputs. Then, in the code cell that follows, we define a variable to hold the results of our model's inferences on the test set by using the <kbd>.predict()</kbd> method on our model object. This will generate a NumPy ndarray containing all of the decoded images for the inputs from the test set. Finally, we call the <kbd>compare_outputs()</kbd> function, using the test set and the decoded predictions thereof as arguments to visualize the results:</p>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="inner_cell">
+<div class="input_area">
+<div class=" highlight hl-ipython3">
+<pre><span class="k">def</span> <span class="nf">compare_outputs</span><span class="p">(</span><span class="n">x_test</span><span class="p">,</span> <span class="n">decoded_imgs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="mi">10</span><span class="p">):</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">22</span><span class="p">,</span> <span class="mi">5</span><span class="p">))</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+        <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">x_test</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">64</span><span class="p">,</span><span class="mi">64</span><span class="p">,</span><span class="mi">3</span><span class="p">))</span>
+
+        <span class="n">ax</span><span class="o">.</span><span class="n">get_xaxis</span><span class="p">()</span><span class="o">.</span><span class="n">set_visible</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">get_yaxis</span><span class="p">()</span><span class="o">.</span><span class="n">set_visible</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">decoded_imgs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">i</span><span class="o">+</span> <span class="mi">1</span> <span class="o">+</span><span class="n">n</span><span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">decoded_imgs</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">64</span><span class="p">,</span><span class="mi">64</span><span class="p">,</span><span class="mi">3</span><span class="p">))</span>
+
+            <span class="n">ax</span><span class="o">.</span><span class="n">get_xaxis</span><span class="p">()</span><span class="o">.</span><span class="n">set_visible</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">get_yaxis</span><span class="p">()</span><span class="o">.</span><span class="n">set_visible</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()<br/></span><br/>decoded_imgs<span> </span><span class="o">=</span><span> </span><span class="n">autoencoder</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">x_test</span><span class="p">)<br/></span>print<span class="p">(</span><span class="s1">'Upper row: Input image provided </span><span class="se">\n</span><span class="s1">Bottom row: Decoded output <br/>       generated'</span><span class="p">)<br/></span>compare_outputs<span class="p">(</span><span class="n">x_test</span><span class="p">,</span><span> </span><span class="n">decoded_imgs</span><span class="p">)<br/></span>Upper row: Input image provided <br/>Bottom row: Decoded output generated</pre>
+<p>Following is the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1251 image-border" src="Images/607d47f4-a2b2-4218-ba43-059b0e334d9f.png" style="width:68.08em;height:14.42em;" width="817" height="173"/></p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<p>As we can see, the deep convolutional autoencoder actually does a remarkable job of reconstructing the images from the test set. Not only does it learn body morphology and correct color schemes, it even recreates aspects such as red-eye from a camera flash (as seen on monkey 4 and its artificial doppelganger). Great! So, we were able to reconstruct some ape images. As the excitement soon fades off (if it was even present in the first place), we will want to use autoencoders for more useful and real-world tasks <span>– p</span>erhaps tasks such as image denoising, where we commission a network to regenerate an image in its entirety from a corrupted input.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Denoising autoencoders</h1>
+                </header>
+            
+            <article>
+                
+<p>Again, we will continue with the monkey species dataset and modify the training images to introduce a noise factor. This noise factor essentially changes the pixel values on the original image to remove pieces of information that constitute the original image, making the task a little more challenging than a simple recreation of the original input. Do note that this means that our input variables will be noisy images, and the target variable that's shown to the network during training will be the uncorrupted version of the noisy input image. To generate the noisy version of the training and test images, all we do is apply a Gaussian noise matrix to the image pixels and then clip their values between 0 and 1:</p>
+<pre><span class="n">noise_factor</span> <span class="o">=</span> <span class="mf">0.35</span>
+
+<span class="c1"># Define noisy versions</span>
+<span class="n">x_train_noisy</span> <span class="o">=</span> <span class="n">x_train</span> <span class="o">+</span> <span class="n">noise_factor</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">loc</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">x_train</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> 
+<span class="n">x_test_noisy</span> <span class="o">=</span> <span class="n">x_test</span> <span class="o">+</span> <span class="n">noise_factor</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">loc</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">x_test</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> 
+
+<span class="c1"># CLip values between 0 and 1</span>
+<span class="n">x_train_noisy</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">x_train_noisy</span><span class="p">,</span> <span class="mf">0.</span><span class="p">,</span> <span class="mf">1.</span><span class="p">)</span>
+<span class="n">x_test_noisy</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">x_test_noisy</span><span class="p">,</span> <span class="mf">0.</span><span class="p">,</span> <span class="mf">1.</span><span class="p">)</span></pre>
+<p>We can see how our arbitrarily chosen noise factor of <kbd>0.35</kbd> actually affects the images by plotting a random example from our data, as shown in the following code. The noisy image is barely understandable to the human eye at this resolution, and looks just a little more than a bunch of random pixels congregated together:</p>
+<pre><span class="c1"># Effect of adding noise factor</span>
+<span class="n">f</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">()</span>
+<span class="n">f</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">x_test</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+
+<span class="n">f</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">x_test_noisy</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">(</span><span class="n">block</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></pre>
+<p>This is the output that you will get:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1252 image-border" src="Images/e9f19dd7-c11d-456f-9f5e-a8ba356ffdb6.png" style="width:29.83em;height:15.17em;" width="358" height="182"/></p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Training the denoising network</h1>
+                </header>
+            
+            <article>
+                
+<p>We will use the same convolutional autoencoder architecture for this task. However, we will reinitialize the model and train it from scratch once again, this time with the noisy input variables:</p>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="inner_cell">
+<div class="input_area">
+<div class=" highlight hl-ipython3">
+<pre><span class="n">autoencoder</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="n">optimizer</span><span class="o">=</span><span class="s1">'adam'</span><span class="p">,</span> <span class="n">loss</span><span class="o">=</span><span class="s1">'mse'</span><span class="p">)<br/></span>autoencoder<span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">x_train_noisy</span><span class="p">,</span><span> </span><span class="n">x_train</span><span class="p">,</span><span> </span><span class="n">epochs</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span><span> </span><span class="n">batch_size</span><span class="o">=</span><span class="mi">20</span><span class="p">,<br/></span>                s<span class="n">huffle</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span><span> </span><span class="n">verbose</span><span class="o">=</span><span class="mi">1</span><span class="p">)<br/></span><br/><strong>Epoch 1/50875/875 [==============================] - 7s 8ms/step - loss: 0.0449</strong><br/><strong>Epoch 2/50</strong><br/><strong>875/875 [==============================] - 6s 7ms/step - loss: 0.0212</strong><br/><strong>Epoch 3/50</strong><br/><strong>875/875 [==============================] - 6s 7ms/step - loss: 0.0185</strong><br/><strong>Epoch 4/50</strong><br/><strong>875/875 [==============================] - 6s 7ms/step - loss: 0.0169</strong></pre></div>
+</div>
+</div>
+</div>
+</div>
+<p class="mce-root"><span>As we can see, the loss converges much more reluctantly in the case of the denoising autoencoder than for our previous experiments. This is naturally the case, as a lot of information has now been removed from the inputs, making it harder for the network to learn an appropriate latent space to generate the uncorrupted outputs. Hence, the network is forced to get a little bit</span> <em>creative</em><span> during the compression and reconstruction operations. The training session for this network ends after 50 epochs, with a loss of 0.0126. Now we can make some predictions on the test set and visualize some reconstructions.</span></p>
+<p class="mce-root"/>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Visualizing the results</h1>
+                </header>
+            
+            <article>
+                
+<p class="mce-root">Finally, we can test how well the model actually performs once we give it a more challenging task such as image denoising. We will use the same helper function to compare our network's outputs with a sample from the test set, as shown here:</p>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="inner_cell">
+<div class="input_area">
+<div class=" highlight hl-ipython3">
+<pre><span class="k">def</span> <span class="nf">compare_outputs</span><span class="p">(</span><span class="n">x_test</span><span class="p">,</span> <span class="n">decoded_imgs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="mi">10</span><span class="p">):</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">22</span><span class="p">,</span> <span class="mi">5</span><span class="p">))</span>
+    
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+        <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">x_test_noisy</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">64</span><span class="p">,</span><span class="mi">64</span><span class="p">,</span><span class="mi">3</span><span class="p">))</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">gray</span><span class="p">()</span>
+
+        <span class="n">ax</span><span class="o">.</span><span class="n">get_xaxis</span><span class="p">()</span><span class="o">.</span><span class="n">set_visible</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">get_yaxis</span><span class="p">()</span><span class="o">.</span><span class="n">set_visible</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">decoded_imgs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">i</span><span class="o">+</span> <span class="mi">1</span> <span class="o">+</span><span class="n">n</span><span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">decoded_imgs</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">64</span><span class="p">,</span><span class="mi">64</span><span class="p">,</span><span class="mi">3</span><span class="p">))</span>
+
+            <span class="n">ax</span><span class="o">.</span><span class="n">get_xaxis</span><span class="p">()</span><span class="o">.</span><span class="n">set_visible</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">get_yaxis</span><span class="p">()</span><span class="o">.</span><span class="n">set_visible</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+            
+    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()<br/></span>decoded_imgs<span> </span><span class="o">=</span><span> </span><span class="n">autoencoder</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">x_test_noisy</span><span class="p">)<br/></span>print<span class="p">(</span><span class="s1">'Upper row: Input image provided </span><span class="se">\n</span><span class="s1">Bottom row: Decoded output generated'</span><span class="p">)<br/></span>compare_outputs<span class="p">(</span><span class="n">x_test</span><span class="p">,</span><span> </span><span class="n">decoded_imgs</span><span class="p">)<br/></span>Upper row: Input image provided <br/>Bottom row: Decoded output generated</pre>
+<p>Following is the output:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1253 image-border" src="Images/190fe966-22f8-4b4c-acc1-1483cc693b62.png" style="width:67.83em;height:14.50em;" width="814" height="174"/></p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<p>As we can see, the network does a decent job at recreating the images, despite the added noise factor! Many of those images are very hard to distinguish for the human eye, and so the fact that the network is able to recreate the general structure and composition of elements that are present therein is indeed noteworthy, especially given the meager learning capacity and training time allocated to the network.</p>
+<p>We encourage you to experiment with more complex architectures by changing the number of layers, filters, and the encoding dimension of the latent space. In fact, now may be the perfect time to practice with some exercises, which are provided at the end of this chapter.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Summary</h1>
+                </header>
+            
+            <article>
+                
+<p>In this chapter, we explored the fundamental theory behind autoencoders at a high level, and conceptualized the underlying mathematics that permits these models to learn. We saw several variations of the autoencoder architecture, including shallow, deep, undercomplete, and overcomplete models. This allowed us to overview considerations related to the representational power of each type of model and their propensity to overfit given too much capacity. We also explored some regularization techniques that let us compensate for the overfitting problem, such as the sparse and contractive autoencoders. Finally, we trained several different types of autoencoder networks, including shallow, deep, and convolutional networks, for the tasks of image reconstruction and denoising. We saw that with very little learning capacity and training time, convolutional autoencoders outperformed all of the other models in reconstructing images. Furthermore, it was able to generate denoised images from corrupted inputs, maintaining the general format of the input data it was shown.</p>
+<p class="mce-root">While we did not explore other use cases, such as dimensionality reduction to visualize main factors of variance, autoencoders have found a lot of applicability in different spheres, ranging from collaborative filtering in recommender systems, to even predicting future patients for healthcare, see <em>Deep Patient</em>: <a href="https://www.nature.com/articles/srep26094" target="_blank" rel="noopener noreferrer">https://www.nature.com/articles/srep26094</a>. There is one specific type of autoencoder that we purposefully didn't cover in this chapter: the <strong>Variational</strong> <strong>Autoencoder</strong> (<strong>VAE</strong>). This type of autoencoder includes a special constraint on the latent space that's being learned by the model. It actually forces the model to learn a probability distribution representing your input data, from which it samples its output. This is quite a different approach than the one we were perusing so far, which at best allowed our network to learn a somewhat arbitrary function. The reason we choose not <span>to </span>include this interesting subtopic in this chapter is because VAEs are, in technical parlance, an instance of generative models, which is the topic of our next chapter!</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Exercise</h1>
+                </header>
+            
+            <article>
+                
+<ul>
+<li>Make a deep AE with the fashion MNIST dataset and monitor when the loss plateaus. Then, compare it with shallow AE.</li>
+<li>Implement AEs on another dataset of your choice and experiment with different encoding dimensions, optimizers, and <kbd>loss</kbd> functions to see how the model performs.</li>
+<li>Compare when loss converges for different models (CNN, FF) and how stable or erratic the decrease in loss values are. What do you notice?</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  </body></html>
