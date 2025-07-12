@@ -1,0 +1,1359 @@
+- en: '*Chapter 6*'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Gated Recurrent Units (GRUs)
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Learning Objectives
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'By the end of this chapter, you will be able to:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Assess the drawback of simple Recurrent Neural Networks (RNNs)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Describe the architecture of Gated Recurrent Units (GRUs)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Perform sentiment analysis using GRUs
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Apply GRUs for text generation
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The chapter aims to provide a solution to the existing drawbacks of the current
+    architecture of RNNs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Introduction
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: In previous chapters, we studied text processing techniques such as word embedding,
+    tokenization, and Term Frequency Inverse Document Frequency (TFIDF). We also learned
+    about a specific network architecture called a Recurrent Neural Network (RNN)
+    that has the drawback of vanishing gradients.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this chapter, we are going to study a mechanism that deals with vanishing
+    gradients by using a methodical approach of adding memory to the network. Essentially,
+    the gates that are used in GRUs are vectors that decide what information should
+    be passed onto the next stage of the network. This, in turn, helps the network
+    to generate output accordingly.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'A basic RNN generally consists of an input layer, output layer, and several
+    interconnected hidden layers. The following diagram displays the basic architecture
+    of an RNN:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 6.1: A basic RNN'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/C13783_06_01.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Figure 6.1: A basic RNN'
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: RNNs, in their simplest form, suffer from a drawback, that is, their inability
+    to retain long-term relationships in the sequence. To rectify this flaw, a special
+    layer called Gated Recurrent Unit (GRU) needs to be added to the simple RNN network.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this chapter, we will first explore the reason behind the inability of Simple
+    RNNs to retain long term dependencies, followed by the introduction of the GRU
+    layer and how it attempts to solve this specific issue. We will then go on to
+    build a network with the GRU layer included.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The Drawback of Simple RNNs
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Let's take a look at a simple example in order to revisit the concept of vanishing
+    gradients.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Essentially, you wish to generate an English poem using an RNN. Here, you set
+    up a simple RNN to do your bidding and it ends up producing the following sentence:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '"The flowers, despite it being autumn, blooms like a star".'
+  prefs: []
+  type: TYPE_NORMAL
+- en: One can easily spot the grammatical error here. The word 'blooms' should be
+    'bloom' since at the beginning of the sentence, the word 'flowers' indicates that
+    you should be using the plural form of the word 'bloom' to bring about the subject-verb
+    agreement in the sentence. A simple RNN fails at this job because it is incapable
+    of retaining any information about a dependency between the word 'flowers' that
+    occurs early in the sentence and the word 'blooms,' which occurs much later (theoretically,
+    it should be able to!).
+  prefs: []
+  type: TYPE_NORMAL
+- en: A **GRU** helps to solve this issue by eliminating the 'vanishing gradient'
+    problem that hinders the learning ability of the network where long-term relationships
+    within the text are not preserved by the network. In the following sections, we'll
+    focus our attention on understanding the vanishing gradient problem and discuss
+    how a GRU resolves the issue in more detail
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s now recall how a neural network learns. In the training phase, the inputs
+    get propagated, layer by layer, up to the output layer. Since we know the exact
+    value that the output should be producing for a given input during training, we
+    calculate the error between the expected output and the output obtained. This
+    error is then fed into a cost function (which varies depending on the problem
+    and the creativity of the network developer). Now, the next step is to calculate
+    the gradient of this cost function with respect to every parameter of the network,
+    starting from the layer nearest to the output layer right down to the bottom layer
+    where the input layer is present:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 6.2: A simple neural network'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/C13783_06_02.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Figure 6.2: A simple neural network'
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Consider a very simple neural network with only four layers and only one connection
+    between each layer and one single output, as shown in the preceding diagram. Note
+    that you will never use such a network in practice; it is presented here only
+    for demonstrating the concept of vanishing gradients.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now, to calculate the gradient of the cost function with respect to the bias
+    term of the first hidden layer (b[1]), the following calculation needs to be carried
+    out:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 6.3: Gradient calculation using chain rule'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/C13783_06_03.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Figure 6.3: Gradient calculation using chain rule'
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: 'Here, each element can be explained as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: grad(x, y) = the gradient of x with respect to y
+  prefs: []
+  type: TYPE_NORMAL
+- en: d(var) = the derivative of 'sigmoid' of the 'var' variable
+  prefs: []
+  type: TYPE_NORMAL
+- en: w[i] = the weight of the 'i' layer
+  prefs: []
+  type: TYPE_NORMAL
+- en: b[i] = the bias term in the 'i' layer
+  prefs: []
+  type: TYPE_NORMAL
+- en: a[i] = the activation function of the 'i' layer
+  prefs: []
+  type: TYPE_NORMAL
+- en: z[j] = w[j]*a[j-1] + b[j]
+  prefs: []
+  type: TYPE_NORMAL
+- en: The preceding expression can be attributed to the chain rule of differentiation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The preceding equation involves the multiplication of several terms. If the
+    values of most of these terms are a fraction between -1 and 1, the multiplication
+    of such fractions will yield a term with a very small value at the end. In the
+    preceding example, the value of grad(C,b[1]) will a very small fraction. The problem
+    here is, this gradient is the term that will be used to update the value of b[1]
+    for the next iteration:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 6.4: Updating value of b[1] using the gradient'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/C13783_06_04.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Figure 6.4: Updating value of b[1] using the gradient'
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: There could be several ways of performing an update using different optimizers,
+    but the concept remains essentially the same.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The consequence of this action is that the value of b[1] hardly changes from
+    the last iteration, which leads to a very slow learning progress. In a real-world
+    network, which might be several layers deep, this update will be still smaller.
+    Hence, the deeper the network, the more severe the problem with gradients. Another
+    observation made here is that the layers that are closer to the output layer learn
+    quicker than those that are closer to the input layer since there are fewer multiplication
+    terms. This also leads to an asymmetry in learning, leading to the instability
+    of the gradients.
+  prefs: []
+  type: TYPE_NORMAL
+- en: So, what bearing does this issue have on simple RNNs? Recall the structure of
+    RNNs;. it is essentially an unfolding of layers in time with as many layers as
+    there are words (for a modelling problem). The learning proceeds through Backpropagation
+    Through Time (BPTT), which is exactly the same as the regime that was described
+    previously. The only difference is that the same parameters are updated in every
+    layer. The later layers correspond to the words that appear later in the sentence,
+    while the earlier layers are those that correspond to the words appearing earlier
+    in the sentence. With vanishing gradients, the earlier layers do not change much
+    from their initial values and, hence, they fail to have much effect on the later
+    layers. The more far-back-in-time a layer is from a given layer at time, 't',
+    the less influential it is for determining the output of the layer at 't'. Hence,
+    in our example sentence, the network struggles to learn that the word 'flowers'
+    is plural, which results in the wrong form of the word 'bloom' being used.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The Exploding Gradient Problem
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: As it turns out, gradients not only vanish but they can explode as well – that
+    is, early layers can learn too quickly with a large deviation in values from one
+    training iteration to the next, while the gradients of the later layers don't
+    change very quickly. How can this happen? Well, revisiting our equation, if the
+    value of individual terms is much larger than the magnitude of 1, a multiplicative
+    effect results in the gradients becoming huge. This leads to a destabilization
+    of the gradients and causes issues with learning.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Ultimately, the problem is one of unstable gradients. In practice, the vanishing
+    gradients problem is much more common and harder to solve than the exploding gradients
+    problem.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Fortunately, the exploding gradient problem has a robust solution: clipping.
+    Clipping simply refers to stopping the value of gradients from growing beyond
+    a predefined value. If the value is not clipped, you will begin seeing NaNs (Not
+    a Number) for the gradients and weights of the network due to the representational
+    overflow of computers. Providing a ceiling for the value will help to avoid this
+    issue. Note that clipping only curbs the magnitude of the gradient, but not its
+    direction. So, the learning still proceeds in the correct direction. A simple
+    visualization of the effect of gradient clipping can be seen in the following
+    diagram:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 6.5: Clipping gradients to combat the explosion of gradients'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/C13783_06_05.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Figure 6.5: Clipping gradients to combat the explosion of gradients'
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Gated Recurrent Units (GRUs)
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: GRUs help the network to remember long-term dependencies in an explicit manner.
+    This is achieved by introducing more variables in the structure of a simple RNN.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'So, what will help us to get rid of the vanishing gradients problem? Intuitively
+    speaking, if we allow the network to transfer most of the knowledge from the activation
+    function of the previous timesteps, then an error can be backpropagated more faithfully
+    than a simple RNN case. If you are familiar with residual networks for image classification,
+    then you will recognize this function as being similar to that of a skip connection.
+    Allowing the gradient to backpropagate without vanishing enables the network to
+    learn more uniformly across layers and, hence, eliminates the issue of gradient
+    instability:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 6.6: The full GRU structure'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/C13783_06_06.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Figure 6.6: The full GRU structure'
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: 'The different signs in the preceding diagram are as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 6.7: The meanings of the different signs in the GRU diagram'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/C13783_06_07.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Figure 6.7: The meanings of the different signs in the GRU diagram'
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: The Hadamard product operation is an elementwise matrix multiplication.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The preceding diagram has all its components exploited by a GRU. You can observe
+    the activation functions, h, represented at different timesteps (**h[t]**, **h[t-1]**).
+    The **r[t]** term refers to the reset gate and **z[t]** term refers to the update
+    gate. The **h'[t]** term refers to a candidate function, which we'll represent
+    using the **h_candidate[t]** variable in the equation for the purpose of being
+    explicit. The GRU layer uses the update gate to decide on the amount of previous
+    information that can be passed onto the next activation, while it uses the reset
+    gate to determine the amount of previous information to forget. In this section,
+    we shall examine each of these terms in detail and explore how they help the network
+    to remember long-term relations in the text structure.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The expression for the activation function (hidden layer) for the next layer
+    is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 6.8: The expression for the activation function for the next layer
+    in terms of the candidate activation function](img/C13783_06_08.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 6.8: The expression for the activation function for the next layer in
+    terms of the candidate activation function'
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: The activation function is, therefore, a weighing of the activation from the
+    previous timestep and a candidate activation function for this timestep. The **z[t]**
+    function is a sigmoid function and, hence, it takes a value between 0 and 1\.
+    In most practical cases, the value is closer to 0 or 1\. Before going into the
+    preceding expression in more depth, let's take a moment to observe the effect
+    of the introduction of a weighted summing scheme for updating the activation function.
+    If the value of **z[t]** remains 1 for several timesteps, then that means the
+    value of the activation function at a very early timestep can still be propagated
+    to a much later timestep. This, in turn, provides the network with a memory.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Additionally, observe how this is different to a simple RNN, where the value
+    of the activation function is overwritten at every timestep without an explicit
+    weighing of the previous timestep activation (the contribution of the previous
+    activation in a simple RNN is present within the nonlinearity and, hence, is implicit).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Types of Gates
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Let's now expand on the previous equation for the activation update in the following
+    sections.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The Update Gate
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'The update gate is represented by the following diagram. As you can see from
+    the full GRU diagram, only the relevant parts are highlighted. The purpose of
+    the update gate is to determine the amount of information that needs to be passed
+    on from the previous timesteps to the next step activation. To understand the
+    diagram and the function of the update gate, consider the following expression
+    for calculating the update gate:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 6.9: The expression for calculating the update gate'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/C13783_06_09.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Figure 6.9: The expression for calculating the update gate'
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: 'The following figure shows a graphical representation of the update gate:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 6.10: The update gate in a full GRU diagram'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/C13783_06_10.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Figure 6.10: The update gate in a full GRU diagram'
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: The number of hidden states is **n_h** (the dimensionality of **h**), while
+    the number of input dimensions is n_x. The input at timestep t (**x[t]**), is
+    multiplied by a new set of weights, **W_z**, using the dimensions (**n_h, n_x**).
+    The activation function from the previous timestep, (**h[t-1]**), is multiplied
+    by another new set of weights, **U_z**, using the dimensions (**n_h, n_h**).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Note that the multiplications here are matrix multiplications. These two terms
+    are then added together and passed through a sigmoid function to squish the output,
+    **z[t]**, within a range of [0,1]. The **z[t]** output has the same dimensions
+    as the activation function, that is, (**n_h, 1**). The **W_z** and **U_z** parameters
+    also need to be learned using BPTT. Let''s write a simple Python snippet to aid
+    in our understanding of the update gate:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![](img/C13783_06_11.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 6.11: A screenshot displaying the weights and activation functions'
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: 'Following is the code snippet for update gate expression:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the previous code snippet, we initialised the random values for **x[t]**,
+    **W_z**, **U_z**, and **h_prev** in order to demonstrate the calculation of **z[t]**
+    . In a real network, these variables will have more relevant values.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The Reset Gate
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'The reset gate is represented by the following diagram. As you can see from
+    the full GRU diagram, only the relevant parts are highlighted. The purpose of
+    the reset gate is to determine the amount of information from the previous timestep
+    that should be forgotten in order to calculate the next step activation. In order
+    to understand the diagram and the function of the reset gate, consider the following
+    expression for calculating the reset gate:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 6.12: The expression for calculating the reset gate'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/C13783_06_12.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Figure 6.12: The expression for calculating the reset gate'
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: 'The following figure shows a graphical representation of the reset gate:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 6.13: The reset gate'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/C13783_06_13.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Figure 6.13: The reset gate'
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: The input at timestep, **t**, is multiplied by the weights, **W_r**, using the
+    dimensions (**n_h, n_x**). The activation function from the previous timestep,
+    (**h[t-1]**), is then multiplied by another new set of weights, **U_r**, using
+    the dimensions (**n_h, n_h**). Note that the multiplications here are matrix multiplications.
+    These two terms are then added together and passed through a sigmoid function
+    to squish the r[t] output within a range of **[0,1]**. The **r[t]** output has
+    the same dimensions as the activation function, that is, (**n_h, 1**).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The **W_r** and **U_r** parameters also need to be learned using BPTT. Let''s
+    take a look at how to calculate the reset gate expression in Python:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In the preceding snippet, the values of the **x_t**, **h_prev**, **n_h**, and
+    **n_x** variables have been used from the update gate code snippet. Note that
+    the values of **r_t** may not be particularly close to either 0 or 1 since it
+    is an example. In a well-trained network, the values are expected to be close
+    to 0 or 1:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 6.14: A screenshot displaying the values of the weights'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/C13783_06_14.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Figure 6.14: A screenshot displaying the values of the weights'
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: '![Figure 6.15: A screenshot displaying the r_t output'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/C13783_06_15.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Figure 6.15: A screenshot displaying the r_t output'
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: The Candidate Activation Function
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'A candidate activation function for replacing the previous timestep activation
+    function is also calculated at every timestep. As the name suggests, the candidate
+    activation function represents an alternative value that the next timestep activation
+    function should take. Take a look at the expression for calculating the candidate
+    activation function, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 6.16: The expression for calculating the candidate activation function'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/C13783_06_16.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Figure 6.16: The expression for calculating the candidate activation function'
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: 'The following figure shows a graphical representation of the candidate activation
+    function:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 6.17: The candidate activation function'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/C13783_06_17.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Figure 6.17: The candidate activation function'
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: 'The input at timestep, t, is multiplied by the weights, W, using the dimensions
+    (**n_h**, **n_x**). The W matrix serves the same purpose as the matrix that is
+    used in a simple RNN. Then, an element-wise multiplication is carried out between
+    the reset gate and the activation function from the previous timestep, (**h[t-1]**).
+    This operation is referred to as ''hadamard multiplication''. The result of this
+    multiplication is matrix-multiplied by U using the dimensions (**n_h, n_h**).
+    The U matrix is the same matrix that is used with a simple RNN. These two terms
+    are then added together and passed through a hyperbolic tan function to squish
+    the output **h_candidate[t]** within a range of [-1,1]. The **h_candidate[t]**
+    output has the same dimensions as the activation function, that is, (**n_h, 1**):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Again, the same values for the variables have been used as in the calculation
+    of the update and reset gate. Note that the Hadamard matrix multiplication has
+    been implemented using the NumPy function, ''multiply'':'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 6.18: A screenshot displaying how the W and U weights are defined'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/C13783_06_18.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Figure 6.18: A screenshot displaying how the W and U weights are defined'
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: 'The following figure shows a graphical representation of the **h_candidate**
+    function:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 6.19: A screenshot displaying the value of h_candidate'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/C13783_06_19.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Figure 6.19: A screenshot displaying the value of h_candidate'
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: 'Now, since the values of the update gate, the reset gate, and the candidate
+    activation function have been calculated, we can code up the expression for the
+    current activation function that will be passed onto the next layer:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![Figure 6.20: A screenshot displaying the value of the current activation
+    function'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/C13783_06_20.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Figure 6.20: A screenshot displaying the value of the current activation function'
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: 'Mathematically speaking, the update gate serves the purpose of selecting a
+    weighting between the previous activation function and the candidate activation
+    function. Hence, it is responsible for the final update of the activation function
+    for the current timestep and in determining how much of the previous activation
+    function and candidate activation function will pass onto the next layer. The
+    reset gate acts as a way to select or unselect the parts of the previous activation
+    function. This is why an element-wise multiplication is carried out between the
+    previous activation function and the reset gate vector. Consider our previous
+    example of the poem generation sentence:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '"The flowers, despite it being autumn, blooms like a star."'
+  prefs: []
+  type: TYPE_NORMAL
+- en: A reset gate will serve to remember that the word 'flowers' affect the plurality
+    of the word 'bloom,' which occurs toward the end of the sentence. Hence, the particular
+    value in the reset gate vector that is responsible for remembering the plurality
+    or singularity of the word will hold a value that is closer to the values of 0
+    or 1\. If a 0 value denotes that the word is singular, then, in our case, the
+    reset gate will hold the value of 1 in order to remember that the word 'bloom'
+    should now hold the plural form. Different values in the reset gate vector will
+    remember different relations within the complex structure of the sentence.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'As another example, consider the following sentence:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '"The food from France was delicious, but French people were also very accommodating."'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Examining the structure of the sentence, we can see that there are several
+    complex relations that need to be kept in mind:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The word 'food' corresponds with the word 'delicious' (here, 'delicious' can
+    only be used in the context of 'food').
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The word 'France' corresponds with 'French' people.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The word 'people' and 'were' are related to each other; that is, the use of
+    the word 'people' dictates that the correct form of 'was' is used.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: In a well-trained network, the reset gate will have an entry in its vector for
+    all such relations. The value of these entries will be suitably turned 'off' or
+    'on' depending on which relationship needs to be remembered from the previous
+    activations and which needs to be forgotten. In practice, it is difficult to ascribe
+    an entry of the reset gate or hidden state to a particular function. The interpretability
+    of deep learning networks is, hence, a hot research topic.
+  prefs: []
+  type: TYPE_NORMAL
+- en: GRU Variations
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: The form of GRU just described form of a GRU is the full GRU. Several independent
+    researchers have utilized different forms of GRU, such as by removing the reset
+    gate entirely or by using activation functions. The full GRU is, however, still
+    the most used approach.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Sentiment Analysis with GRU
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Sentiment analysis is a popular use case for applying natural language processing
+    techniques. The aim of sentiment analysis is to determine whether a given piece
+    of text can be considered as conveying a ''positive'' sentiment or a ''negative''
+    sentiment. For example, consider the following text reviewing a book:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '"The book had its moments of glory, but seemed to be missing the point quite
+    frequently. An author of such calibre certainly had more in him than what was
+    delivered through this particular work."'
+  prefs: []
+  type: TYPE_NORMAL
+- en: To a human reader, it is perfectly clear that the mentioned book review conveys
+    a negative sentiment. So, how would you go about building a machine learning model
+    for the classification of sentiments? As always, for using a supervised learning
+    approach, a text corpus containing several samples is needed. Each piece of text
+    in this corpus should have a label indicating whether the text can be mapped to
+    a positive or a negative sentiment. The next step will be to build a machine learning
+    model using this data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Observing the example sentence, you can already see that such a task could
+    be challenging for a machine learning model to solve. If a simple tokenization
+    or TFIDF approach is used, the words such as ''glory'' and ''calibre'' would be
+    easily misunderstood by the classifier as conveying a positive sentiment. To make
+    matters worse, there is no word in the text that can be directly interpreted as
+    negative. This observation also brings about the need to connect different parts
+    of the text structure in order to derive a meaning out of the sentence. For instance,
+    the first sentence can be broken into two parts:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '"The book had its moments of glory"'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '",but seemed to be missing the point quite frequently."'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Looking at just the first part of the sentence can lead you to conclude that
+    the remark is a positive one. It is only when the second sentence is taken into
+    consideration that the meaning of the sentence can be truly understood as depicting
+    negative feelings. Hence, there is a need to retain long term dependency here.
+    A simple RNN is, therefore, not good enough for the task. Let's now apply a GRU
+    to a sentiment classification task and see how it performs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Exercise 25: Calculating the Model Validation Accuracy and Loss for Sentiment
+    Classification'
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'In this exercise, will we code up a simple sentiment classification system
+    using the imdb dataset. The imdb dataset consists of 25,000 train text sequences
+    and 25,000 test text sequences – each containing a review for a movie. The output
+    variable is a binary variable having a value of 0 if the review is negative, and
+    a value of 1 if the review is positive:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: All exercises and activities should be run in a Jupyter notebook. The requirements.txt
+    file for creating the Python environment for running this notebook is as h5py==2.9.0,
+    keras==2.2.4, numpy==1.16.1, tensorflow==1.12.0.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Solution:**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We begin by loading the dataset, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Let''s also define the maximum number of topmost frequent words to consider
+    when generating the sequence for training as 10,000\. We will also restrict the
+    sequence length to 500:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Let''s now load the data as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '![Figure 6.21: A screenshot showing the train and test sequences'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '](img/C13783_06_21.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Figure 6.21: A screenshot showing the train and test sequences'
+  prefs:
+  - PREF_IND
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: 'There could be sequences having a length that is shorter than 500; therefore,
+    we need to pad them out to have a length of exactly 500\. We can use a Keras function
+    for this purpose:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Let''s examine the shapes of the train and test data, as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Verify that the shape of both the arrays is (25,000, 500).
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Let''s now build an RNN with a GRU unit. First, we need to import the necessary
+    packages, as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Since we'll use the sequential API of Keras to build the model, we need to import
+    the sequential model API from the Keras model. The embedding layer essentially
+    turns input vectors into a fixed size, which can then be fed to the next layer
+    of the network. If used, it must be added as the first layer to the network. We
+    also import a Dense layer, since it is this layer that ultimately gives a distribution
+    over the target variable (0 or 1).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Finally, we import the GRU unit; let''s initialize the sequential model API
+    and add the embedding layer, as follows:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: The embedding layer takes max_features as input, which is defined by us to be
+    10,000\. The 32 value is set here as the next GRU layer expects 32 inputs from
+    the embedding layer.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Next, we''ll add the GRU and the dense layer, as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: The 32 value is arbitrarily chosen and can function as one of the hyperparameters
+    to tune when designing the network. It represents the dimensionality of the activation
+    functions. The dense layer only gives out the 1 value, which is a probability
+    of the review (that is, our target variable) to be 1\. We choose sigmoid as the
+    activation function here.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Next, we compile the model with the binary cross-entropy loss and the rmsprop
+    optimizer:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We choose to track the accuracy (train and validation) as the metric. Next,
+    we fit the model on our sequence data. Note that we also assign 20% of the sample
+    from the training data as the validation dataset. We also set the number of epochs
+    to be 10 and the batch_size to be 128 – that is, in a single forward-backward
+    pass, we choose to pass 128 sequences in a single batch:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '![Figure 6.22: A screenshot displaying the variable history output of the training
+    model'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '](img/C13783_06_22.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Figure 6.22: A screenshot displaying the variable history output of the training
+    model'
+  prefs:
+  - PREF_IND
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: The variable history can be used to keep track of the training progress. The
+    previous function will trigger a training session, which, on a local CPU, should
+    take a couple of minutes to train.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Next, let''s take a look at how exactly the training progressed by plotting
+    the losses and accuracy. For this, we''ll define a plotting function as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Let''s call our function on the history variable that us obtained as an output
+    of the ''fit'' function:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'When run by author, the output of the preceding code looks like the following
+    diagram:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '**Expected Output:**'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '![Figure 6.23: The training and validation accuracy for the sentiment classification
+    task'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/C13783_06_23.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Figure 6.23: The training and validation accuracy for the sentiment classification
+    task'
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: 'The following diagram demonstrates the training and validation loss:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 6.24: The training and validation loss for the sentiment classification
+    task'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/C13783_06_24.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Figure 6.24: The training and validation loss for the sentiment classification
+    task'
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: The validation accuracy is pretty high in the best epoch (~87%).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Activity 7: Developing a Sentiment Classification Model Using a Simple RNN'
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: In this activity, we aim to generate a model for sentiment classification using
+    a simple RNN. This is done to judge the effectiveness of GRUs over simple RNNs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Load the dataset.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Pad the sequences out so that each sequence has the same number of characters.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Define and compile the model using a simple RNN with 32 hidden units.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Plot the validation and training accuracy and losses.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_IND
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: The solution for the activity can be found on page 317.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Text Generation with GRUs
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: The problem of text generation requires an algorithm in order to come up with
+    new text based on a training corpus. For example, if you feed the poems of Shakespeare
+    into a learning algorithm, then the algorithm should be able to generate new text
+    (character by character or word by word) in the style of Shakespeare. We will
+    now see how to approach this problem with what we have learned in this chapter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Exercise 26: Generating Text Using GRUs'
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'So, let''s revisit the problem that we introduced in the previous section of
+    this chapter. That is, you wish to use a deep learning method to generate a poem.
+    Let''s go about solving this problem using a GRU. We will be using The Sonnets
+    written by Shakespeare to train our model so that our output poem is in the style
+    of Shakespeare:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s begin by importing the required Python packages, as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: The use of each package will become clear in the code snippets that follow.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Next, we define a function that reads from the file that contains the Shakespearean
+    sonnets and prints out the first 200 characters:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '![Figure 6.25: A screenshot of THE SONNETS](img/C13783_06_25.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_IMG
+- en: 'Figure 6.25: A screenshot of THE SONNETS'
+  prefs:
+  - PREF_IND
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: 'Next, we''ll perform certain data preparation steps. First, we will get a list
+    of the distinct characters from the file that was read in. We will then make a
+    dictionary that maps each character to an integer index. Finally, we will create
+    another dictionary that maps an integer index to the characters:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Now, we will generate the sequences for the training data from the text. We
+    will feed a fixed length of 40 characters per sequence for the model. The sequences
+    will be made such that there is a sliding window of three steps with each sequence.
+    Consider the following part of the poem:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '"From fairest creatures we desire increase,'
+  prefs: []
+  type: TYPE_NORMAL
+- en: That thereby beauty's rose might never die,"
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We aim to achieve the following result from the preceding snippet of text:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 6.26: A screenshot of the training sequences'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '](img/C13783_06_26.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Figure 6.26: A screenshot of the training sequences'
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: These are sequences with a length of 40 characters each. Each subsequent string
+    is shifted by three steps to the right of the previous string. This arrangement
+    is so that we end up with enough sequences (but not too many, which would be the
+    case with a step of 1). In general, we could have more sequences, but since this
+    example is a demonstration and, hence, will run on a local CPU, feeding in too
+    many sequences will make the training process much longer than desired.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Additionally, for each of these sequences, we need to have one output character
+    that is the next character in the text. Essentially, we are teaching the model
+    to observe 40 characters and then learn what the next most likely character will
+    be. To understand what the output character might be, consider the following sequence:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: That thereby beauty's rose might never d
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The output character for this sequence will be the i character. This is because
+    in the text, i is the next character. The following code snippet achieves the
+    same:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We now have the sequences that we wish to train on and the corresponding character
+    output for the same. We will now need to obtain a training matrix for the samples
+    and another matrix for the output characters, which can be fed to the model to
+    train:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: Here, x is the matrix that holds our input training samples. The shape of the
+    x array is the number of sequences, the maximum number of characters, and the
+    number of distinct characters. Therefore, x is a three-dimensional matrix. So,
+    for each sequence, that is, for every timestep (= maximum number of characters),
+    we have a one-hot-coded vector with the same length as the number of distinct
+    characters in the text. This vector has a value of 1, where the character at the
+    given step is present, and all the other entries are 0\. y is a two-dimensional
+    matrix with the shape of the number of sequences and the number of distinct characters).
+    Thus, for every sequence, we have a one-hot-coded vector with the same length
+    as the number of distinct characters. This vector has all the entries as 0 except
+    for the one that corresponds to the current output character. The one-hot-encoding
+    is accomplished using the dictionary mappings that we created in the earlier step.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We are now ready to define our model, as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: We make use of the sequential API, add a GRU layer with 128 hidden parameters,
+    and then add a dense layer.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_IND
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: The dense layer has the same number of outputs as the number of distinct characters.
+    This is because we're essentially learning a distribution of the possible characters
+    in our vocabulary. In this sense, this is essentially a multiclass classification
+    problem, which also explains our choice of categorical cross-entropy for the cost
+    function.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'We will now go ahead and fit our model to the data, as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Here, we have selected a batch size of 128 sequences and training for 10 epochs.
+    We will also save the model in hdf5 format file for later use:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '![Figure 6.27: A screenshot displaying epochs'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '](img/C13783_06_27.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Figure 6.27: A screenshot displaying epochs'
+  prefs:
+  - PREF_IND
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_IND
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: You should increase the number of the GRUs and epochs. The higher the value
+    for these, the more time it will take to train the model and better results can
+    be expected.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Next, we need to be able to use the model to actually generate some text, as
+    follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We also define a sampling function that selects a candidate character given
+    a probability distribution over the number of characters:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE25]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We are sampling using a multinomial distribution; the temperature parameter
+    helps to add bias to the probability distribution such that the less likely words
+    can have more or less representation. You can also simply try to return an argument
+    argmax over the preds variable, but this will likely result in a repetition of
+    words:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE26]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We pass the loaded model and the number of characters that we wish to generate.
+    We then pass a seed text for the model to use as the input (remember, we taught
+    the model to predict the next character given a sequence length of 40 characters).
+    This is being done before the for loop kicks in. In the first pass of the loop,
+    we pass our seed text to the model, generate the output character, and append
+    the output character in the ''generated'' variable. In the next pass, we shift
+    our newly updated sequence (with 41 characters after first pass) to the right
+    by one character, so that the model can now take this 40 character input with
+    the last character being the new character that we just generated. The function
+    can now be called as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE27]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'And voila! You have a poem written in Shakespearean style. An example output
+    is shown as follows:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '![](img/C13783_06_28.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 6.28: A screenshot displaying the output of the generated poem sequence'
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: 'You will immediately notice that the poem does not really make sense. This
+    can be attributed to two reasons:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The preceding output was generated with a very small amount of data or sequences.
+    Therefore, the model was unable to learn much. In practice, you would use a much
+    larger dataset, make many more sequences out if it, and train the model using
+    GPUs for a practical training time (we will learn about training on the cloud
+    GPU in the last chapter 9- 'A practical flow NLP project workflow in an organization').
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Even if trained with a massive amount of data, there will always be some errors
+    since a model can only learn so much.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: We can still, however, see that even with this basic setup there are words that
+    make sense despite our model being a character generation model. There are phrases
+    such as 'I have liking' that are valid as standalone phrases.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: White space, newline characters, and more are also being learned by the model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Activity 8: Train Your Own Character Generation Model Using a Dataset of Your
+    Choice'
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: We just used some of Shakespeare's work to generate our own poem. You don't
+    need to restrict yourself to poem generation but you can use any piece of text
+    to start generating your own piece of writing. The basic steps and setup remains
+    same as discussed in the previous example.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: Create a conda environment using the requirements file and activate it. Then,
+    run the code in a Jupyter notebook. Don't forget to input a text file containing
+    the text from an author in whose style you wish to generate new text.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Load the text file.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Create dictionaries mapping the characters to indices and vice versa.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Create sequences from the text.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Make input and output arrays to feed to the model.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Build and train the model using GRU.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Save the model.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Define the sampling and generation functions.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Generate the text.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_IND
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: The solution for the activity can be found on page 320.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: A GRU is an extension of a simple RNN, which helps to combat the vanishing gradient
+    problem by allowing the model to learn long-term dependencies in the text structure.
+    A variety of use cases can benefit from this architectural unit. We discussed
+    a sentiment classification problem and learned how GRUs perform better than simple
+    RNNs. We then saw how text can be generated using GRUs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the next chapter, we talk about another advancement over a simple RNN – Long
+    Short-Term Memory (LSTM) networks, and explore what advantages they bring with
+    their new architecture.
+  prefs: []
+  type: TYPE_NORMAL

@@ -1,0 +1,1050 @@
+- en: Benchmarking and Neural Network Optimization
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Benchmarking is a standard against which we compare solutions to find out whether
+    they are good or not. In the context of deep learning, we might set benchmarks
+    for an existing model that is performing pretty well. We might test our model
+    against factors such as accuracy, the amount of data handled, memory consumption,
+    and JVM garbage collection tuning. In this chapter, we briefly talk about the
+    benchmarking possibilities with your DL4J applications. We will start with general
+    guidelines and then move on to more DL4J-specific benchmarking settings. At the
+    end of the chapter, we will look at a hyperparameter tuning example that shows
+    how to find the best neural network parameters in order to yield the best results.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this chapter, we will cover the following recipes:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: DL4J/ND4J specific configuration
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Setting up heap spaces and garbage collection
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Using asynchronous ETL
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Using arbiter to monitor neural network behavior
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Performing hyperparameter tuning
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Technical requirements
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The code for this chapter is located at [https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/tree/master/12_Benchmarking_and_Neural_Network_Optimization/sourceCode/cookbookapp/src/main/java](https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/tree/master/12_Benchmarking_and_Neural_Network_Optimization/sourceCode/cookbookapp/src/main/java).
+  prefs: []
+  type: TYPE_NORMAL
+- en: After cloning our GitHub repository, navigate to the `Java-Deep-Learning-Cookbook/12_Benchmarking_and_Neural_Network_Optimization/sourceCode`
+    directory. Then import the `cookbookapp` project as a Maven project by importing `pom.xml`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The following are links to two examples:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Hyperparameter tuning example: [https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/blob/master/12_Benchmarking_and_Neural_Network_Optimization/sourceCode/cookbookapp/src/main/java/HyperParameterTuning.java](https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/blob/master/12_Benchmarking_and_Neural_Network_Optimization/sourceCode/cookbookapp/src/main/java/HyperParameterTuning.java)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Arbiter UI example: [https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/blob/master/12_Benchmarking_and_Neural_Network_Optimization/sourceCode/cookbookapp/src/main/java/HyperParameterTuningArbiterUiExample.java](https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/blob/master/12_Benchmarking_and_Neural_Network_Optimization/sourceCode/cookbookapp/src/main/java/HyperParameterTuningArbiterUiExample.java)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: This chapter's examples are based on a customer churn dataset ([https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/tree/master/03_Building_Deep_Neural_Networks_for_Binary_classification/sourceCode/cookbookapp/src/main/resources](https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/tree/master/03_Building_Deep_Neural_Networks_for_Binary_classification/sourceCode/cookbookapp/src/main/resources)).
+    This dataset is included in the project directory.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Although we are explaining DL4J/ND4J-specific benchmarks in this chapter, it
+    is recommended you follow general benchmarking guidelines. The following some important
+    generic benchmarks that are common for any neural network:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Perform warm-up iterations before the actual benchmark task**: Warm-up iterations
+    refer to a set of iterations performed on benchmark tasks before commencing the
+    actual ETL operation or network training. Warm up iterations are important because
+    the execution of the first few iterations will be slow. This can add to the total
+    duration of the benchmark tasks and we could end up with wrong/inconsistent conclusions.
+    The slow execution of the first few iterations may be because of the compilation
+    time taken by JVM, the lazy-loading approach of DL4J/ND4J libraries, or the learning
+    phase of DL4J/ND4J libraries. This learning phase refers to the time taken to
+    learn the memory requirements for execution.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Perform benchmark tasks multiple times**: To make sure that benchmark results
+    are reliable, we need to run benchmark tasks multiple times. The host system may
+    have multiple apps/processes running in parallel apart from the benchmark instance.
+    So, the runtime performance will vary over time. In order to assess this situation,
+    we need to run benchmark tasks multiple times.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Understand where you set the benchmarks and why**: We need to assess whether
+    we are setting the right benchmarking. If we target operation a, then make sure
+    that only operation a is being timed for benchmark. Also, we have to make sure
+    that we are using the right libraries for the right situation. The latest versions
+    of libraries are always preferred. It is also important to assess DL4J/ND4J configurations
+    used in our code. The default configurations may suffice in regular scenarios,
+    but manual configuration may be required for optimal performance. The following
+    some of the default configuration options for reference:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Memory configurations (heap space setup).
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Garbage collection and workspace configuration (changing the frequency at which
+    the garbage collector is called).
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Add cuDNN support (utilizing a CUDA-powered GPU machine with better performance).
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Enable DL4J cache mode (to bring in cache memory for the training instance).
+    This will be a DL4J-specific change.
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: We discussed cuDNN in [Chapter 1](f88b350b-16e2-425b-8425-4631187c7803.xhtml), *Introduction
+    to Deep Learning in Java*, while we talked about DL4J in GPU environments. These
+    configuration options will be discussed further in upcoming recipes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Run the benchmark on a range of sizes**: It is important to run the benchmark
+    on multiple different input sizes/shapes to get a complete picture of its performance.
+    Mathematical computations such as matrix multiplications vary over different dimensions.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Understand the hardware**: The training instance with the smallest minibatch
+    size will perform better on a CPU than on a GPU system. When we use a large minibatch
+    size, the observation will be exactly the opposite. The training instance will
+    now be able to utilize GPU resources. In the same way, a large layer size can
+    better utilize GPU resources. Writing network configurations without understanding
+    the underlying hardware will not allow us to exploit its full capabilities.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Reproduce the benchmarks and understand their limits**: In order to troubleshoot
+    performance bottlenecks against a set benchmark, we always need to reproduce them.
+    It is helpful to assess the circumstance under which poor performance occurs. On
+    top of that, we also need to understand the limitations put on certain benchmarks.
+    Certain benchmarks set on a specific layer won''t tell you anything about the
+    performance factor of other layers.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Avoid common benchmark mistakes**:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Consider using the latest version of DL4J/ND4J. To apply the latest performance
+    improvements, try snapshot versions.
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Pay attention to the types of native libraries used (such as cuDNN).
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Run enough iterations and with a reasonable minibatch size to yield consistent
+    results.
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Do not compare results across hardware without accounting for the differences.
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: In order to benefit from the latest fixes for performance issues, you need to
+    have latest version in your local. If you want to run the source on the latest
+    fix and if the new version hasn't been released, then you can make use of snapshot
+    versions. To find out more about working with snapshot versions, go to [https://deeplearning4j.org/docs/latest/deeplearning4j-config-snapshots](https://deeplearning4j.org/docs/latest/deeplearning4j-config-snapshots).
+  prefs: []
+  type: TYPE_NORMAL
+- en: DL4J/ND4J-specific configuration
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Apart from general benchmarking guidelines, we need to follow additional benchmarking
+    configurations that are DL4J/ND4J-specific. These are important benchmarking configurations
+    that target the hardware and mathematical computations.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Because ND4J is the JVM computation library for DL4J, benchmarks mostly target
+    mathematical computations. Any benchmarks discussed with regard to ND4J can then
+    also be applied to DL4J. Let's discuss DL4J/ND4J-specific benchmarks.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Make sure you have downloaded cudNN from the following link: [https://developer.nvidia.com/cudnn](https://developer.nvidia.com/cudnn). Install
+    it before attempting to configure it with DL4J. Note that cuDNN doesn't come as
+    a bundle with CUDA. So, adding the CUDA dependency alone will not be enough.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Detach the `INDArray` data to use it across workspaces:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Remove all workspaces that were created during training/evaluation in case
+    they are running short of RAM:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Leverage an array instance from another workspace in the current workspace
+    by calling `leverageTo()`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Track the time spent on every iteration during training using `PerformanceListener`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Add the following Maven dependency for cuDNN support:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Configure DL4J/cuDNN to favor performance over memory:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Configure `ParallelWrapper` to support multi-GPU training/inferences:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Configure `ParallelInference` as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: How it works...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: A workspace is a memory management model that enables the reuse of memory for
+    cyclic workloads without having to introduce a JVM garbage collector. `INDArray` memory
+    content is invalidated once in every workspace loop. Workspaces can be integrated
+    for training or inference.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In step 1, we start with workspace benchmarking. The `detach()` method will
+    detach the specific INDArray from the workspace and will return a copy. So, how
+    do we enable workspace modes for our training instance?  Well, if you're using
+    the latest DL4J version (from 1.0.0-alpha onwards), then this feature is enabled
+    by default. We target version 1.0.0-beta 3 in this book.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In step 2, we removed workspaces from the memory, as shown here:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: This will destroy workspaces from the current running thread only. We can release
+    memory from workspaces in this way by running this piece of code in the thread
+    in question.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'DL4J also lets you implement your own workspace manager for layers. For example,
+    activation results from one layer during training can be placed in one workspace,
+    and the results of the inference can be placed in another workspace. This is possible
+    using DL4J''s  `LayerWorkspaceMgr`, as mentioned in step 3\. Make sure that the
+    returned array (`myArray` in step 3) is defined as `ArrayType.ACTIVATIONS`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: It is fine to use different workspace modes for training/inference. But it is
+    recommended you use `SEPARATE` mode for training and `SINGLE` mode for inference
+    because inference only involves a forward pass and doesn't involve backpropagation. However,
+    for training instances with high resource consumption/memory, it might be better
+    to go for `SEPARATE` workspace mode because it consumes less memory. Note that
+    `SEPARATE` is the default workspace mode in DL4J.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In step 4, two attributes are used while creating `PerformanceListener`: `reportScore`
+    and `frequency`. `reportScore` is a Boolean variable and `frequency` is the iteration
+    count by which time needs to be tracked. If `reportScore` is `true`, then it will
+    report the score (just like in `ScoreIterationListener`) along with information
+    on the time spent on each iteration.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: In step 7, we used `ParallelWrapper` or `ParallelInference` for multi-GPU devices. Once
+    we have created a neural network model, we can create a parallel wrapper using
+    it. We specify the count of devices, a training mode, and the number of workers
+    for the parallel wrapper.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We need to make sure that our training instance is cost-effective. It is not
+    feasible to spend a lot adding multiple GPUs and then utilizing one GPU in training.
+    Ideally, we want to utilize all GPU hardware to speed up the training/inference
+    process and get better results. `ParallelWrapper` and `ParallelInference` serve
+    this purpose.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The following some configurations supported by `ParallelWrapper` and `ParallelInference`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`prefetchBuffer(deviceCount)`: This parallel wrapper method specifies dataset
+    prefetch options. We mention the number of devices here.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`trainingMode(mode)`: This parallel wrapper method specifies the distributed
+    training method. `SHARED_GRADIENTS` refers to the gradient sharing method for
+    distributed training.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`workers(Nd4j.getAffinityManager().getNumberOfDevices())`: This parallel wrapper
+    method specifies the number of workers. We set the number of workers to the number
+    of available systems.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`inferenceMode(mode)`: This parallel inference method specifies the distributed
+    inference method. `BATCHED` mode is an optimization. If a large number of requests
+    come in, it will process them in batches. If there is a small number of requests,
+    then they will be processed as usual without batching. As you might have guessed,
+    this is the perfect option if you''re in production.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`batchLimit(batchSize)`: This parallel inference method specifies the batch
+    size limit and is only applicable if you use `BATCHED` mode in `inferenceMode()`.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: There's more...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The performance of ND4J operations can also vary upon input array ordering. ND4J
+    enforces the ordering of arrays. Performance in mathematical operations (including
+    general ND4J operations) depends on the input and result array orders. For example,
+    performance in operations such as simple addition, such as *z = x + y*, will vary in
+    line with the input array orders. It happens due to memory striding: it is easier
+    to read the memory sequence if they''re close/adjacent to each other than when
+    they''re spread far apart. ND4J is faster on computations with larger matrices.
+    By default, ND4J arrays are C-ordered. IC ordering refers to row-major ordering
+    and the memory allocation resembles that of an array in C:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/fd7db9f6-a996-485b-87e1-3f535f59a786.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '(Image courtesy: Eclipse Deeplearning4j Development Team. Deeplearning4j: Open-source
+    distributed deep learning for the JVM, Apache Software Foundation License 2.0. http://deeplearning4j.org)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: ND4J supplies the `gemm()` method for advanced matrix multiplication between
+    two INDArrays depending on whether we require multiplication after transposing it.
+    This method returns the result in F-order, which means the memory allocation resembles
+    that of an array in Fortran. F-ordering refers to column-major ordering. Let's
+    say we have passed a C-ordered array to collect the results from the `gemm()` method;
+    ND4J automatically detects it, creates an F-ordered array, and then passes the
+    result to a C-ordered array.
+  prefs: []
+  type: TYPE_NORMAL
+- en: To learn more about array ordering and how ND4J handles array ordering, go to [https://deeplearning4j.org/docs/latest/nd4j-overview](https://deeplearning4j.org/docs/latest/nd4j-overview).
+  prefs: []
+  type: TYPE_NORMAL
+- en: It is also critical to assess the minibatch size used for training. We need
+    to experiment with different minibatch sizes while performing multiple training
+    sessions by acknowledging the hardware specs, data, and evaluation metrics. For
+    a CUDA-enabled GPU environment, the minibatch size will have a big role to play
+    with regard to benchmarks if you use a large enough value. When we talk about
+    a large minibatch size, we are referring to a minibatch size that can be justified
+    against the entire dataset. For very small minibatch sizes, we won't observe any
+    noticeable performance difference with the CPU/GPU after the benchmarks. At the
+    same time, we need to watch out for changes in model accuracy as well. An ideal
+    minibatch size is when we utilize the hardware to its full ability without affecting
+    model accuracy. In fact, we aim for better results with better performance (shorter
+    training time).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Setting up heap spaces and garbage collection
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Memory heap spaces and garbage collection are frequently discussed yet are often
+    the most frequently ignored benchmarks. With DL4J/ND4J, you can configure two
+    types of memory limit: on-heap memory and off-heap memory. Whenever an INDArray is
+    collected by the JVM garbage collector, the off-heap memory will be de-allocated,
+    assuming that it is not being used anywhere else. In this recipe, we will set
+    up heap spaces and garbage collection for benchmarking.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Add the required VM arguments to the Eclipse/IntelliJ IDE, as shown in the
+    following example:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'For example, in IntelliJ IDE, we can add VM arguments to the runtime configuration:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/7aef487e-7668-429d-9bce-b73c51d3c941.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Run the following command after changing the memory limits to suit your hardware
+    (for command-line executions):'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Configure a server-style generational garbage collector for JVM:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Reduce the frequency of garbage collector calls using ND4J:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Disable garbage collector calls instead of step 4:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Allocate memory chunks in memory-mapped files instead of RAM:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: How it works...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'In step 1, we performed on-heap/off-heap memory configurations. On-heap memory
+    simply means the memory that is managed by the JVM heap (garbage collector). Off-heap
+    memory refers to memory that is not managed directly, such as that used with INDArrays. Both
+    off-heap and on-heap memory limits can be controlled using the following VM options
+    in Java command-line arguments:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`-Xms`: This defines how much memory will be consumed by the JVM heap at application
+    startup.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`-Xmx`: This defines the maximum memory that can be consumed by the JVM heap
+    at any point in runtime. This involves allotting memory only up to this point
+    when it is required.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`-Dorg.bytedeco.javacpp.maxbytes`: This specifies the off-heap memory limit.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`-Dorg.bytedeco.javacpp.maxphysicalbytes`: This specifies the maximum number
+    of bytes that can be allotted to the application at any given time. Usually, this
+    takes a larger value than `-Xmx` and `maxbytes` combined.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Suppose we want to configure 1 GB initially on-heap, 6 GB max on-heap, 16 GB
+    off-heap, and 20 GB maximum for processes; the VM arguments will look as follows,
+    and as shown in step 1:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: Note that you will need to adjust this in line with the memory available in
+    your hardware.
+  prefs: []
+  type: TYPE_NORMAL
+- en: It is also possible to set up these VM options as an environment variable. We
+    can create an environment variable named `MAVEN_OPTS` and put VM options there.
+    You can choose either step 1 or step 2, or set them up with an environment variable.
+    Once this is done, you can skip to step 3.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In steps 3, 4, and 5, we discussed memory automatically using some tweaks in
+    garbage collection. The garbage collector manages memory management and consumes on-heap
+    memory. DL4J is tightly coupled with the garbage collector. If we talk about ETL,
+    every `DataSetIterator` object takes 8 bytes of memory. The garbage collector
+    can induce further latency in the system. To that end, we configure **G1GC** (short
+    for **Garbage First Garbage Collector**) tuning in step 3.
+  prefs: []
+  type: TYPE_NORMAL
+- en: If we pass 0 ms (milliseconds) as an attribute to the `setAutoGcWindow()` method,
+    as in step 4, it will just disable this particular option. `getMemoryManager()` will
+    return a backend-specific implementation of `MemoryManager` for lower-level memory
+    management.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In step 6, we discussed configuring memory-mapped files to allocate more memory
+    for INDArrays. We have created a 1 GB memory map file in step 4. Note that memory-mapped
+    files can be created and supported only when using the `nd4j-native` library.
+    Memory mapped files are slower than memory allocation in RAM. Step 4 can be applied
+    if the minibatch size memory requirement is higher than the amount of RAM available.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There's more...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: DL4J has a dependency with JavaCPP that acts as a bridge between Java and C++: [https://github.com/bytedeco/javacpp](https://github.com/bytedeco/javacpp).
+  prefs: []
+  type: TYPE_NORMAL
+- en: JavaCPP works on the basis of the `-Xmx` value set on the heap space (off-heap
+    memory) and the overall memory consumption will not exceed this value. DL4J seeks
+    help from the garbage collector and JavaCPP to deallocate memory.
+  prefs: []
+  type: TYPE_NORMAL
+- en: For training sessions with large amounts of data involved, it is important to
+    have more RAM for the off-heap memory space than for on-heap memory (JVM). Why?
+    Because our datasets and computations are involved with INDArrays and are stored
+    in the off-heap memory space.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'It is important to identify the memory limits of running applications. The
+    following some instances where the memory limit needs to be properly configured:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: For GPU systems, `maxbytes` and `maxphysicalbytes` are the important memory
+    limit settings. We are dealing with off-heap memory here. Allocating reasonable
+    memory to these settings allows us to consume more GPU resources.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: For `RunTimeException` that refer to memory allocation issues, one possible
+    reason may be the unavailability of off-heap memory spaces. If we don't use the
+    memory limit (off-heap space) settings discussed in the *Setting up heap space
+    and garbage collection* recipe, the off-heap memory space can be reclaimed by
+    the JVM garbage collector. This can then cause memory allocation issues.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: If you have limited-memory environments, then it is not recommended to use large
+    values for the `-Xmx` and `-Xms` options. For instance, if we use `-Xms6G` for
+    an 8 GB RAM system, we leave only 2 GB for the off-heap memory space, the OS,
+    and for other processes.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: See also
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: If you're interested in knowing more about G1GC garbage collector tuning, you
+    can read about it here: [https://www.oracle.com/technetwork/articles/java/g1gc-1984535.html](https://www.oracle.com/technetwork/articles/java/g1gc-1984535.html)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Using asynchronous ETL
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: We use synchronous ETL for demonstration purposes. But for production, asynchronous
+    ETL is preferable. In production, the existence of a single low-performance ETA
+    component can cause a performance bottleneck. In DL4J, we load data to the disk
+    using `DataSetIterator`. It can load the data from disk or, memory, or simply
+    load data asynchronously. Asynchronous ETL uses an asynchronous loader in the
+    background. Using multithreading, it loads data into the GPU/CPU and other threads
+    take care of compute tasks. In the following recipe, we will perform asynchronous
+    ETL operations in DL4J.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Create asynchronous iterators with asynchronous prefetch:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Create asynchronous iterators with synchronous prefetch:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: How it works...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In step 1, we created an iterator using `AsyncMultiDataSetIterator`. We can
+    use  `AsyncMultiDataSetIterator` or `AsyncDataSetIterator` to create asynchronous
+    iterators. There are multiple ways in which you can configure an `AsyncMultiDataSetIterator`.
+    There are multiple ways to create `AsyncMultiDataSetIterator` by passing further
+    attributes such as `queSize` (the number of mini-batches that can be prefetched
+    at once) and `useWorkSpace` (a Boolean type indicating whether workspace configuration
+    should be used). While using `AsyncDataSetIterator`, we use the current dataset
+    before calling `next()` to get the next dataset. Also note that we should not
+    store datasets without the `detach()` call. If you do, then the memory used by
+    INDArray data inside the dataset will eventually be overwritten within  `AsyncDataSetIterator`. For
+    custom iterator implementations, make sure you don't initialize something huge
+    using the `next()` call during training/evaluation. Instead, keep all such initialization
+    inside the constructor to avoid undesired workspace memory consumption.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In step 2, we created an iterator using `AsyncShieldDataSetIterator`. To opt
+    out of asynchronous prefetch, we can use `AsyncShieldMultiDataSetIterator` or
+    `AsyncShieldDataSetIterator`. These wrappers will prevent asynchronous prefetch
+    in data-intensive operations such as training, and can be used for debugging purposes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'If the training instance performs ETL every time it runs, we are basically
+    recreating the data every time it runs. Eventually, the whole process (training
+    and evaluation) will get slower. We can handle this better using a pre-saved dataset.
+    We discussed pre-save using `ExistingMiniBatchDataSetIterator` in the previous
+    chapter, when we pre-saved feature data and then later loaded it using `ExistingMiniBatchDataSetIterator`.
+    We can convert it to an asynchronous iterator (as in step 1 or step 2) and kill
+    two birds with one stone: pre-saved data with asynchronous loading. This is essentially a
+    performance benchmark that further optimizes the ETL process.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: There's more...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Let's say our minibatch has 100 samples and we specify `queSize` as `10`; 1,000
+    samples will be prefetched every time. The memory requirement of the workspace
+    depends on the size of the dataset, which arises from the underlying iterator.
+    The workspace will be adjusted for varying memory requirements (for example, time
+    series with varying lengths). Note that asynchronous iterators are internally
+    supported by `LinkedBlockingQueue`. This queue data structure orders elements
+    in **First In First Out** (**FIFO**) mode. Linked queues generally have more throughput
+    than array-based queues in concurrent environments.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using arbiter to monitor neural network behavior
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Hyperparameter optimization/tuning is the process of finding the optimal values
+    for hyperparameters in the learning process. Hyperparameter optimization partially
+    automates the process of finding optimal hyperparameters using certain search
+    strategies. Arbiter is part of the DL4J deep learning library and is used for
+    hyperparameter optimization. Arbiter can be used to find high-performing models
+    by tuning the hyperparameters of the neural network. Arbiter has a UI that visualizes
+    the results of the hyperparameter tuning process.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this recipe, we will set up arbiter and visualize the training instance to
+    take a look at neural network behavior.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Add the arbiter Maven dependency in `pom.xml`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Configure the search space using `ContinuousParameterSpace`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Configure the search space using `IntegerParameterSpace`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Use `OptimizationConfiguration` to combine all components required to execute
+    the hyperparameter tuning process:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs: []
+  type: TYPE_PRE
+- en: How it works...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'In step 2, we created  `ContinuousParameterSpace` to configure the search space
+    for hyperparameter optimization:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the preceding case, the hyperparameter tuning process will select continuous
+    values in the range (0.0001, 0.01) for the learning rate. Note that arbiter doesn't
+    really automate the hyperparameter tuning process. We still need to specify the
+    range of values or a list of options by which the hyperparameter tuning process
+    takes place. In other words, we need to specify a search space with all the valid
+    values for the tuning process to pick the best combination that can produce the
+    best results. We have also mentioned `IntegerParameterSpace`, where the search
+    space is an ordered space of integers between a maximum/minimum value.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Since there are multiple training instances with different configurations, it
+    takes a while  to finish the hyperparameter optimization-tuning process. At the
+    end, the best configuration will be returned.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In step 2, once we have defined our search space using `ParameterSpace` or `OptimizationConfiguration`,
+    we need to add it to `MultiLayerSpace` or `ComputationGraphSpace`. These are the
+    arbiter counterparts of DL4J's `MultiLayerConfiguration` and `ComputationGraphConfiguration`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Then we added `candidateGenerator` using the `candidateGenerator()` builder
+    method. `candidateGenerator` chooses candidates (various combinations of hyperparameters)
+    for hyperparameter tuning. It can use different approaches, such as random search
+    and grid search, to pick the next configuration for hyperparameter tuning.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`scoreFunction()` specifies the evaluation metrics used for evaluation during
+    the hyperparameter tuning process.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`terminationConditions()` is used to mention all termination conditions for
+    the training instance. Hyperparameter tuning will then proceed with the next configuration
+    in the sequence.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Performing hyperparameter tuning
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Once search spaces are defined using `ParameterSpace` or `OptimizationConfiguration`, with
+    a possible range of values, the next step is to complete network configuration
+    using  `MultiLayerSpace` or `ComputationGraphSpace`. After that, we start the
+    training process. We perform multiple training sessions during the hyperparameter
+    tuning process.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this recipe, we will perform and visualize the hyperparameter tuning process.
+    We will be using `MultiLayerSpace` for the demonstration.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Add a search space for the layer size using `IntegerParameterSpace`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Add a search space for the learning rate using `ContinuousParameterSpace`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE25]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Use `MultiLayerSpace` to build a configuration space by adding all the search
+    spaces to the relevant network configuration:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE26]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Create `candidateGenerator` from `MultiLayerSpace`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE27]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Create a data source by implementing the `DataSource` interface:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE28]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We will need to implement four methods: `configure()`, `trainData()`, `testData()`,
+    and `getDataType()`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The following is an example implementation of `configure()`:'
+  prefs:
+  - PREF_UL
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '[PRE29]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Here''s an example implementation of `getDataType()`:'
+  prefs:
+  - PREF_UL
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '[PRE30]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Here''s an example implementation of `trainData()`:'
+  prefs:
+  - PREF_UL
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '[PRE31]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Here''s an example implementation of `testData()`:'
+  prefs:
+  - PREF_UL
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '[PRE32]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Create an array of termination conditions:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE33]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Calculate the score of all models that were created using different combinations
+    of configurations:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE34]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Create `OptimizationConfiguration` and add termination conditions and the score
+    function:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE35]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Create `LocalOptimizationRunner` to run the hyperparameter tuning process:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE36]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Add listeners to `LocalOptimizationRunner` to ensure events are logged properly
+    (skip to step 11 to add `ArbiterStatusListener`):'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE37]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Execute the hyperparameter tuning by calling the `execute()` method:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE38]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Store the model configurations and replace `LoggingStatusListener` with `ArbiterStatusListener`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE39]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Attach the storage to `UIServer`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE40]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Run the hyperparameter tuning session and go to the following URL to view the
+    visualization:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE41]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Evaluate the best score from the hyperparameter tuning session and display
+    the results in the console:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE42]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'You should see the output shown in the following snapshot. The model''s best
+    score, the index where the best model is located, and the number of configurations
+    evaluated in the process are displayed:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/8f118f92-bd5f-475e-a313-f071925878ed.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: How it works...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In step 4, we set up a strategy by which the network configurations will be
+    picked up from the search space. We use `CandidateGenerator` for this purpose.
+    We created a parameter mapping to store all data mappings for use with the data
+    source and passed it to `CandidateGenerator`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In step 5, we implemented the `configure()` method along with three other methods
+    from the `DataSource` interface. The `configure()` method accepts a `Properties` attribute,
+    which has all parameters to be used with the data source. If we want to pass `miniBatchSize` as
+    a property, then we can create a `Properties` instance as shown here:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE43]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Note that the minibatch size needs to be mentioned as a string: `"64"` and
+    not `64`.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The custom `dataPreprocess()` method pre-processes data. `dataSplit()` creates
+    `DataSetIteratorSplitter` to generate train/test iterators for training/evaluation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In step 4, `RandomSearchGenerator` generates candidates for hyperparameter tuning
+    at random. If we explicitly mention a probability distribution for the hyperparameters,
+    then the random search will favor those hyperparameters according to their probability. 
+    `GridSearchCandidateGenerator` generates candidates using a grid search. For discrete
+    hyperparameters, the grid size is equal to the number of hyperparameter values.
+    For integer hyperparameters, the grid size is the same as `min(discretizationCount,max-min+1)`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In step 6, we defined termination conditions. Termination conditions control
+    how far the training process should progress. Termination conditions could be
+    `MaxTimeCondition`, `MaxCandidatesCondition`, or we can define our own termination
+    conditions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In step 7, we created a score function to mention how each and every model is
+    evaluated during the hyperparameter optimization process.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In step 8, we created `OptimizationConfiguration` comprising these termination
+    conditions. Apart from termination conditions, we also added the following configurations
+    to `OptimizationConfiguration`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The location at which the model information has to be stored
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The candidate generator that was created earlier
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The data source that was created earlier
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The type of evaluation metrics to be considered
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`OptimizationConfiguration` ties all the components together to execute the
+    hyperparameter optimization. Note that the `dataSource()` method expects two attributes:
+    one is the class type of your data source class, the other is the data source
+    properties that we want to pass on (`minibatchSize` in our example). The `modelSaver()`
+    builder method requires you to mention the location of the model being trained.
+    We can store model information (model score and other configurations) in the resources
+    folder, and then we can create a `ModelSaver` instance as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE44]'
+  prefs: []
+  type: TYPE_PRE
+- en: In order to visualize the results using arbiter, skip step 10, follow step 12,
+    and then execute the visualization task runner.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'After following the instructions in steps 13 and 14,  you should be able to
+    see arbiter''s UI visualization, as shown here:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/a25f2b28-308c-483a-a17a-027792c1020b.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: It is very intuitive and easy to figure out the best model score from the arbiter
+    visualization. If you run multiple sessions of hyperparameter tuning, then you
+    can select a particular session from the drop-down list at the top. Further important
+    information displayed on the UI is pretty self-explanatory at this stage.
+  prefs: []
+  type: TYPE_NORMAL

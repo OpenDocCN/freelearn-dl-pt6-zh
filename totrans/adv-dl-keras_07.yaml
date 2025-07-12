@@ -1,0 +1,856 @@
+- en: Chapter 7. Cross-Domain GANs
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In computer vision, computer graphics, and image processing a number of tasks
+    involve translating an image from one form to another. As an example, colorization
+    of grayscale images, converting satellite images to maps, changing the artwork
+    style of one artist to another, making night-time images into daytime, and summer
+    photos to winter, are just a few examples. These tasks are referred to as **cross-domain
+    transfer and will be the focus of this chapter**. An image in the source domain
+    is transferred to a target domain resulting in a new translated image.
+  prefs: []
+  type: TYPE_NORMAL
+- en: A cross-domain transfer has a number of practical applications in the real world.
+    As an example, in autonomous driving research, collecting road scene driving data
+    is both time-consuming and expensive. In order to cover as many scene variations
+    as possible in that example, the roads would be traversed during different weather
+    conditions, seasons, and times giving us a large and varied amount of data. With
+    the use of a cross-domain transfer, it's possible to generate new synthetic scenes
+    that look real by translating existing images. For example, we may just need to
+    collect road scenes in the summer from one area and gather road scenes in the
+    winter from another place. Then, we can transform the summer images to winter
+    and the winter images to summer. In this case, it reduces the number of tasks
+    having to be done by half.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Generation of realistic synthesized images is an area that GANs excel at. Therefore,
+    cross-domain translation is one of the applications of GANs. In this chapter,
+    we're going to focus on a popular cross-domain GAN algorithm called **CycleGAN**
+    [2]. Unlike other cross-domain transfer algorithms, such as a **pix2pix** [3],
+    CycleGAN doesn't require aligned training images to work. In aligned images, the
+    training data should be a pair of images made up of the source image and its corresponding
+    target image. For example, a satellite image and the corresponding map derived
+    from this image. CycleGAN only requires the satellite data images and maps. The
+    maps may be from another satellite data and are not necessarily previously generated
+    from the training data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this chapter, we will explore the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The principles of CycleGAN, including its implementation in Keras
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Example applications of CycleGAN, including the colorization of grayscale images
+    using the CIFAR10 dataset and style transfer as applied on MNIST digits and **Street
+    View House Numbers** (**SVHN**) [1] datasets
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Principles of CycleGAN
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '![Principles of CycleGAN](img/B08956_07_01.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 7.1.1: Example of aligned image pair: left, original image and right,
+    transformed image using a Canny edge detector. Original photos were taken by the
+    author.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Translating an image from one domain to another is a common task in computer
+    vision, computer graphics, and image processing. The preceding figure shows edge
+    detection which is a common image translation task. In this example, we can consider
+    the real photo (left) as an image in the source domain and the edge detected photo
+    (right) as a sample in the target domain. There are many other cross-domain translation
+    procedures that have practical applications such as:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Satellite image to map
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Face image to emoji, caricature or anime
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Body image to the avatar
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Colorization of grayscale photos
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Medical scan to a real photo
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Real photo to an artist's painting
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'There are many more examples of this in different fields. In computer vision
+    and image processing, for example, we can perform the translation by inventing
+    an algorithm that extracts features from the source image to translate it into
+    the target image. Canny edge operator is an example of such an algorithm. However,
+    in many cases, the translation is very complex to hand-engineer that it is almost
+    impossible to find a suitable algorithm. Both the source and target domain distributions
+    are high-dimensional and complex:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Principles of CycleGAN](img/B08956_07_02.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 7.1.2: Example of not aligned image pair: left, a photo of real sunflowers
+    along University Avenue, University of the Philippines and right, Sunflowers by
+    Vincent Van Gogh at the National Gallery, London, UK. Original photos were taken
+    by the author.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: A workaround on the image translation problem is to use deep learning techniques.
+    If we have a sufficiently large dataset from both the source and target domains,
+    we can train a neural network to model the translation. Since the images in the
+    target domain must be automatically generated given a source image, they must
+    look like real samples from the target domain. GANs are a suitable network for
+    such cross-domain tasks. The pix2pix [3] algorithm is an example of a cross-domain
+    algorithm.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The pix2pix bears a resemblance to **Conditional GAN** (**CGAN**) [4] that we
+    discussed in [Chapter 4](ch04.html "Chapter 4. Generative Adversarial Networks
+    (GANs)"), *Generative Adversarial Networks (GANs)*. We can recall, that in conditional
+    GANs, on top of the noise input, *z*, a condition such as in the form of a one-hot
+    vector constrains the generator's output. For example, in the MNIST digit, if
+    we want the generator to output the digit 8, the condition is the one-hot vector
+    [0, 0, 0, 0, 0, 0, 0, 0, 1, 0]. In pix2pix, the condition is the image to be translated.
+    The generator's output is the translated image. The pix2pix is trained by optimizing
+    the conditional GAN loss. To minimize blurring in the generated images, the *L1*
+    loss is also included.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The main disadvantage of neural networks similar to pix2pix is the training
+    input, and output images must be aligned. *Figure 7.1.1* is an example of an aligned
+    image pair. The sample target image is generated from the source. In most occasions,
+    aligned image pairs are not available or expensive to generate from the source
+    images, or we have no idea on how to generate the target image from the given
+    source image. What we have are sample data from the source and target domains.
+    *Figure 7.1.2* is an example of data from the source domain (real photo) and the
+    target domain (Van Gogh's art style) on the same sunflower subject. The source
+    and target images are not necessarily aligned.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Unlike pix2pix, CycleGAN learns image translation as long as there are a sufficient
+    amount and variation of source and target data. No alignment is needed. CycleGAN
+    learns the source and target distributions and how to translate from source to
+    target distribution from given sample data. No supervision is needed. In the context
+    of *Figure 7.1.2*, we just need thousands of photos of real sunflowers and thousands
+    of photos of Van Gogh''s paintings of sunflowers. After training the CycleGAN,
+    we''re able to translate a photo of sunflowers to a Van Gogh''s painting:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Principles of CycleGAN](img/B08956_07_03.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 7.1.3: The CycleGAN model is made of four networks: Generator G, Generator
+    F, Discriminator D[y], and Discriminator D[x]'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The CycleGAN Model
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '*Figure 7.1.3* shows the network model of the CycleGAN. The objective of the CycleGAN
+    is to learn the function:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*y''* = *G*(*x*) (Equation 7.1.1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: That generates fake images, *y* *'*, in the target domain as a function of the
+    real source image, *x*. Learning is unsupervised by capitalizing only on the available
+    real images, *x*, in the source domain and real images, *y*, in the target domain.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Unlike regular GANs, CycleGAN imposes the cycle-consistency constraint. The
+    forward cycle-consistency network ensures that the real source data can be reconstructed
+    from the fake target data:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*x''* = *F*(*G*(*x*)) (Equation 7.1.2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'This is done by minimizing the forward cycle-consistency *L1* loss:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![The CycleGAN Model](img/B08956_07_001.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: (Equation 7.1.3)
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The network is symmetric. The backward cycle-consistency network also attempts
+    to reconstruct the real target data from the fake source data:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*y* *''* = *G*(*F*(*y*)) (Equation 7.1.4)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'This is done by minimizing the backward cycle-consistency *L1* loss:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![The CycleGAN Model](img/B08956_07_002.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: (Equation 7.1.5)
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The sum of these two losses is known as cycle-consistency loss:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![The CycleGAN Model](img/B08956_07_003.jpg)![The CycleGAN Model](img/B08956_07_004.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: (Equation 7.1.6)
+  prefs: []
+  type: TYPE_NORMAL
+- en: The cycle-consistency loss uses *L1* or **Mean Absolute Error** (**MAE**) since
+    it generally results in less blurry image reconstruction compared to *L2* or **Mean
+    Square Error** (**MSE**).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Similar to other GANs, the ultimate objective of CycleGAN is for the generator
+    *G* to learn how to synthesize fake target data, *y* *''*, that can fool the discriminator,
+    *D*[y], in the forward cycle. Since the network is symmetric, CycleGAN also wants
+    the generator *F* to learn how to synthesize fake source data, *x* *''*, that
+    can fool the discriminator, *D*[x], in the backward cycle. Inspired by the better
+    perceptual quality of **Least Squares GAN** (**LSGAN**) [5], as described in [Chapter
+    5](ch05.html "Chapter 5. Improved GANs"), *Improved GANs*, CycleGAN also uses
+    MSE for the discriminator and generator losses. Recall that the difference of
+    LSGAN from the original GAN is that the use of the MSE loss instead of a binary
+    cross-entropy loss. CycleGAN expresses the generator-discriminator loss functions
+    as:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![The CycleGAN Model](img/B08956_07_005.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: (Equation 7.1.7)
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![The CycleGAN Model](img/B08956_07_006.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: (Equation 7.1.8)
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![The CycleGAN Model](img/B08956_07_007.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: (Equation 7.1.9)
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![The CycleGAN Model](img/B08956_07_008.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: (Equation 7.1.10)
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![The CycleGAN Model](img/B08956_07_009.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: (Equation 7.1.11)
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![The CycleGAN Model](img/B08956_07_010.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: (Equation 7.1.12)
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The total loss of CycleGAN is shown as:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![The CycleGAN Model](img/B08956_07_011.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: (Equation 7.1.13)
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'CycleGAN recommends the following weight values:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![The CycleGAN Model](img/B08956_07_012.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: and
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![The CycleGAN Model](img/B08956_07_013.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: to give more importance to the cyclic consistency check.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The training strategy is similar to the vanilla GAN. *Algorithm* *7.1.1* summarizes
+    the CycleGAN training procedure.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Repeat for *n* training steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Minimize![The CycleGAN Model](img/B08956_07_014.jpg)
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: by training the forward-cycle discriminator using real source and target data.
+    A minibatch of real target data, *y*, is labeled 1.0\. A minibatch of fake target
+    data, *y* *'* = *G*(*x*), is labelled 0.0.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Minimize![The CycleGAN Model](img/B08956_07_015.jpg)
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: by training the backward-cycle discriminator using real source and target data.
+    A minibatch of real source data, *x*, is labeled 1.0\. A minibatch of fake source
+    data, *x* *'* = *F*(*y*), is labeled 0.0.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Minimize![The CycleGAN Model](img/B08956_07_016.jpg)
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: and
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '![The CycleGAN Model](img/B08956_07_017.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_IMG
+- en: by training the forward-cycle and backward-cycle generators in the adversarial
+    networks. A minibatch of fake target data, *y* *'* = *G*(*x*), is labeled 1.0\.
+    A minibatch of fake source data, *x* *'* = *F*(*y*), is labeled 1.0\. The weights
+    of discriminators are frozen.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '![The CycleGAN Model](img/B08956_07_04.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 7.1.4: During style transfer, the color composition may not be transferred
+    successfully. To address this issue, the identity loss is added to the total loss
+    function.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![The CycleGAN Model](img/B08956_07_05.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 7.1.5: The CycleGAN model with identity loss as shown on the left side
+    of the image'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In neural style transfer problems, the color composition may not be successfully
+    transferred from source image to the fake target image. This problem is shown
+    in *Figure 7.1.4*. To address this problem, CycleGAN proposes to include the forward and
+    backward-cycle identity loss function:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![The CycleGAN Model](img/B08956_07_018.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: (Equation 7.1.14)
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The total loss of CycleGAN becomes:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![The CycleGAN Model](img/B08956_07_019.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: (Equation 7.1.15)
+  prefs: []
+  type: TYPE_NORMAL
+- en: with
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![The CycleGAN Model](img/B08956_07_020.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: . The identity loss is also optimized during adversarial training. *Figure 7.1.5*
+    shows CycleGAN with identity loss.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Implementing CycleGAN using Keras
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Let us tackle a simple problem that CycleGAN can address. In [Chapter 3](ch03.html
+    "Chapter 3. Autoencoders"), *Autoencoders*, we used an autoencoder to colorize
+    grayscale images from the CIFAR10 dataset. We can recall that the CIFAR10 dataset
+    is made of 50,000 trained data and 10,000 test data samples of 32 × 32 RGB images
+    belonging to ten categories. We can convert all color images into grayscale using
+    `rgb2gray(RGB)` as discussed in [Chapter 3](ch03.html "Chapter 3. Autoencoders"),
+    *Autoencoders*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Following on from that, we can use the grayscale train images as source domain
+    images and the original color images as the target domain images. It''s worth
+    noting that although the dataset is aligned, the input to our CycleGAN is a random
+    sample of color images and a random sample of grayscale images. Thus, our CycleGAN
+    will not see the train data as aligned. After training, we''ll use the test grayscale
+    images to observe the performance of the CycleGAN:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Implementing CycleGAN using Keras](img/B08956_07_06.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 7.1.6: The forward cycle generator G, implementation in Keras. The generator
+    is a U-Network made of encoder and decoder.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: As discussed in the previous section, to implement the CycleGAN, we need to
+    build two generators and two discriminators. The generator of CycleGAN learns
+    the latent representation of the source input distribution and translates this
+    representation into target output distribution. This is exactly what autoencoders
+    do. However, typical autoencoders similar to the ones discussed in [Chapter 3](ch03.html
+    "Chapter 3. Autoencoders"), *Autoencoders*, use an encoder that downsamples the
+    input until the bottleneck layer at which point the process is reversed in the
+    decoder. This structure is not suitable in some image translation problems since
+    many low-level features are shared between the encoder and decoder layers. For
+    example, in colorization problems, the form, structure, and edges of the grayscale
+    image are the same as in the color image. To circumvent this problem, the CycleGAN
+    generators use a **U-Net** [7] structure as shown in *Figure 7.1.6*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In a U-Net structure, the output of the encoder layer *e* *n-i* is concatenated
+    with the output of the decoder layer *d* *i*, where *n* = 4 is the number of encoder/decoder
+    layers and *i* = 1, 2 and 3 are layer numbers that share information.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We should note that although the example uses *n* = 4, problems with a higher
+    input/output dimensions may require deeper encoder/decoder. The U-Net structure
+    enables a free flow of feature-level information between encoder and decoder.
+    An encoder layer is made of `Instance Normalization(IN)-LeakyReLU-Conv2D` while
+    the decoder layer is made of `IN-ReLU-Conv2D`. The encoder/decoder layer implementation
+    is shown in *Listing* *7.1.1* while the generator implementation is shown in *Listing*
+    *7.1.2*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'The complete code is available on GitHub:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[https://github.com/PacktPublishing/Advanced-Deep-Learning-with-Keras](https://github.com/PacktPublishing/Advanced-Deep-Learning-with-Keras)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Instance Normalization** (**IN**) is **Batch Normalization** (**BN**) per
+    sample of data (that is, IN is BN per image or per feature). In style transfer,
+    it''s important to normalize the contrast per sample not per batch. Instance normalization
+    is equivalent to contrast normalization. Meanwhile, Batch normalization breaks
+    contrast normalization.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'Remember to install `keras-contrib` before using instance normalization:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Listing 7.1.1, `cyclegan-7.1.1.py` shows us the encoder and decoder layers
+    implementation in Keras:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Listing 7.1.2, `cyclegan-7.1.1.py`. Generator implementation in Keras:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: The discriminator of CycleGAN is similar to vanilla GAN discriminator. The input
+    image is downsampled several times (in this example, three times). The final layer
+    is a `Dense(1)` layer which predicts the probability that the input is real. Each
+    layer is similar to the encoder layer of the generator except that no IN is used.
+    However, in large images, computing the image as real or fake with a single number
+    turns out to be parameter inefficient and results in poor image quality for the
+    generator.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The solution is to use PatchGAN [6] which divides the image into a grid of patches
+    and use a grid of scalar values to predict the probability that the patches are
+    real. The comparison between the vanilla GAN discriminator and a 2 × 2 PatchGAN
+    discriminator is shown in *Figure 7.1.7*. In this example, the patches do not
+    overlap and meet at their boundaries. However, in general, patches may overlap.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We should note that PatchGAN is not introducing a new type of GAN in CycleGAN.
+    To improve the generated image quality, instead of having one output to discriminate,
+    we have four outputs to discriminate if we used a 2 × 2 PatchGAN. There are no
+    changes in the loss functions. Intuitively, this makes sense since the whole image
+    will look more real if every patch or section of the image looks real:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Implementing CycleGAN using Keras](img/B08956_07_07.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 7.1.7: A comparison between GAN and PatchGAN discriminators'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Following figure shows the discriminator network as implemented in Keras. The
+    illustration shows the discriminator determining how likely the input image or
+    a patch is a color CIFAR10 image. Since the output image is small at only 32 ×
+    32 RGB, a single scalar representing that the image is real is sufficient. However,
+    we also evaluate the results when PatchGAN is used. *Listing* *7.1.3* shows the
+    function builder for the discriminator:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Implementing CycleGAN using Keras](img/B08956_07_08.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 7.1.8: The target discriminator, *D*[y], implementation in Keras. The
+    PatchGAN discriminator is shown on the right.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Listing 7.1.3, `cyclegan-7.1.1.py` shows discriminator implementation in Keras:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: Using the generator and discriminator builders, we are now able to build the
+    CycleGAN. *Listing* *7.1.4* shows the builder function. In line with our discussion
+    in the previous section, two generators, `g_source` = *F* and `g_target` = *G*,
+    and two discriminators, `d_source` = *D*[x] and `d_target` = *D*[y] are instantiated.
+    The forward cycle is *x* *'* = *F*(*G*(*x*)) = `reco_source = g_source(g_target(source_input))`.
+    The backward cycle is *y* *'* = *G*(*F*(*y*)) = `reco_target = g_target(g_source(target_input))`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The inputs to the adversarial model are the source and target data while the
+    outputs are the outputs of *D*[x] and *D*[y] and the reconstructed inputs, *x'*
+    and *y.'* The identity network is not used in this example due to the difference
+    between the number of channels of the grayscale image and color image. We use
+    the recommended loss weights of
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Implementing CycleGAN using Keras](img/B08956_07_021.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: and
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Implementing CycleGAN using Keras](img/B08956_07_022.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: for the GAN and cyclic consistency losses respectively. Similar to GANs in the
+    previous chapters, we use RMSprop with a learning rate of 2e-4 and decay rate
+    of 6e-8 for the optimizer of the discriminators. The learning and decay rate for
+    the adversarial is half of the discriminator's.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Listing 7.1.4, `cyclegan-7.1.1.py` shows us the CycleGAN builder in Keras:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: We follow the training procedure in *Algorithm* *7.1.1* from the previous section.
+    Following listing shows the CycleGAN training. The minor difference between this
+    training from the vanilla GAN is there are two discriminators to be optimized.
+    However, there is only one adversarial model to optimize. For every 2000 steps,
+    the generators save the predicted source and target images. We'll use a batch
+    size of 32\. We also tried a batch size of one, but the output quality is almost
+    the same and takes a longer amount of time to train (43 ms/image for a batch size
+    of one vs. 3.6 ms/image for a batch size of 32 on an NVIDIA GTX 1060).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Listing 7.1.5, `cyclegan-7.1.1.py` shows us the CycleGAN training routine in
+    Keras:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: Finally, before we can use the CycleGAN to build and train functions, we have
+    to perform some data preparation. The modules `cifar10_utils.py` and `other_utils.py`
+    load the CIFAR10 train and test data. Please refer to the source code for details
+    of these two files. After loading, the train and test images are converted to grayscale
+    to generate the source data and test source data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Following listing shows how the CycleGAN is used to build and train a generator
+    network (`g_target`) for colorization of grayscale images. Since CycleGAN is symmetric,
+    we also build and train a second generator network (`g_source`) that converts
+    from color to grayscale. Two CycleGAN colorization networks were trained. The
+    first use discriminators with a scalar output similar to vanilla GAN. The second
+    uses a 2 × 2 PatchGAN.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Listing 7.1.6, `cyclegan-7.1.1.py` shows us the CycleGAN for colorization problem:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: Generator outputs of CycleGAN
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '*Figure 7.1.9* shows the colorization results of CycleGAN. The source images
+    are from the test dataset. For comparison, we show the ground truth and the colorization
+    results using a plain autoencoder described in [Chapter 3](ch03.html "Chapter 3. Autoencoders"),
+    *Autoencoders*. Generally, all colorized images are perceptually acceptable. Overall,
+    it seems that each colorization technique has both its own pros and cons. All
+    colorization methods are not consistent with the right color of the sky and vehicle.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: For example, the sky in the background of the plane (3^(rd) row, 2^(nd) column)
+    is white. The autoencoder got it right, but the CycleGAN thinks it is light brown
+    or blue. For the 6^(th) row, 6^(th) column, the boat on the dark sea had an overcast
+    sky but was colorized with blue sky and blue sea by autoencoder and blue sea and
+    white sky by CycleGAN without PatchGAN. Both predictions make sense in the real
+    world. Meanwhile, the prediction of CycleGAN with PatchGAN is similar to the ground
+    truth. On 2^(nd) to the last row and 2^(nd) column, no method was able to predict
+    the red color of the car. On animals, both flavors of CycleGAN have closer colors
+    to the ground truth.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Since CycleGAN is symmetric, it also predicts the grayscale image given a color
+    image. *Figure 7.1.10* shows the color to grayscale conversion performed by the
+    two CycleGAN variations. The target images are from the test dataset. Except for
+    minor differences in the grayscale shades of some images, the predictions are
+    generally accurate:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Generator outputs of CycleGAN](img/B08956_07_09.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 7.1.9: Colorization using different techniques. Shown are the ground
+    truth, colorization using autoencoder (Chapter 3, Autoencoders,), colorization
+    using CycleGAN with a vanilla GAN discriminator, and colorization using CycleGAN
+    with PatchGAN discriminator. Best viewed in color. Original color photo can be
+    found on the book GitHub repository, https://github.com/PacktPublishing/Advanced-Deep-Learning-with-Keras/blob/master/chapter7-cross-domain-gan/README.md.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Generator outputs of CycleGAN](img/B08956_07_10.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 7.1.10: Color (from Figure 7.1.9) to the grayscale conversion of CycleGAN'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The reader can run the image translation by using the pretrained models for
+    CycleGAN with PatchGAN:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: CycleGAN on MNIST and SVHN datasets
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: We're now going to tackle a more challenging problem. Suppose we use MNIST digits
+    in grayscale as our source data, and we want to borrow style from SVHN [1] which
+    is our target data. The sample data in each domain are shown in *Figure 7.1.11*.
+    We can reuse all the build and train functions for CycleGAN that were discussed
+    in the previous section to perform style transfer. The only difference is we have
+    to add routines for loading MNIST and SVHN data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We introduce module `mnist_svhn_utils.py` to help us with this task. *Listing*
+    *7.1.7* shows the initialization and training of the CycleGAN for cross-domain
+    transfer. The CycleGAN structure is same as in the previous section except that
+    we use a kernel size of 5 since the two domains are drastically different:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![CycleGAN on MNIST and SVHN datasets](img/B08956_07_11.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 7.1.11: Two different domains with data that are not aligned. Original
+    color photo can be found on the book GitHub repository, https://github.com/PacktPublishing/Advanced-Deep-Learning-with-Keras/blob/master/chapter7-cross-domain-gan/README.md.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'Remember to install `keras-contrib` before using instance normalization:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Listing 7.1.7, `cyclegan-7.1.1.py` shows us the CycleGAN for cross-domain style
+    transfer between MNIST and SVHN:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: The results for transferring the MNIST from the test dataset to SVHN are shown
+    in *Figure 7.1.12*. The generated images have the style of SVHN, but the digits
+    are not completely transferred. For example, on the 4^(th) row, digits 3, 1, and
+    3 are stylized by CycleGAN. However, on the 3^(rd) row, digits 9, 6, and 6 are
+    stylized as 0, 6, 01, 0, 65, and 68 for the CycleGAN without and with PatchGAN
+    respectively.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The results of the backward cycle are shown in *Figure 7.1.13*. In this case,
+    the target images are from the SVHN test dataset. The generated images have the
+    style of MNIST, but the digits are not correctly translated. For example, on the
+    1^(st) row, the digits 5, 2, and 210 are stylized as 7, 7, 8, 3, 3, and 1 for
+    the CycleGAN without and with PatchGAN respectively.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the case of PatchGAN, the output 1 is understandable given the predicted
+    MNIST digit is constrained to one digit. There are somehow correct predictions
+    like in 2^(nd) row last 3 columns of the SVHN digits, 6, 3, and 4 are converted
+    to 6, 3, and 6 by CycleGAN without PatchGAN. However, the outputs on both flavors
+    of CycleGAN are consistently single digit and recognizable.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The problem exhibited in the conversion from MNIST to SVHN where a digit in
+    the source domain is translated to another digit in the target domain is called
+    **label flipping** [8]. Although the predictions of CycleGAN are cycle-consistent,
+    they are not necessarily semantic consistent. The meaning of digits is lost during
+    translation. To address this problem, Hoffman [8] introduced an improved CycleGAN
+    called **CyCADA** (**Cycle-Consistent Adversarial Domain Adaptation**). The difference
+    is the additional semantic loss term ensures that the prediction is not only cycle-consistent
+    but also sematic-consistent:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![CycleGAN on MNIST and SVHN datasets](img/B08956_07_12.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 7.1.12: Style transfer of test data from the MNIST domain to SVHN. Original
+    color photo can be found on the book GitHub repository, https://github.com/PacktPublishing/Advanced-Deep-Learning-with-Keras/blob/master/chapter7-cross-domain-gan/README.md.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![CycleGAN on MNIST and SVHN datasets](img/B08956_07_13.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 7.1.13: Style transfer of test data from SVHN domain to MNIST. Original
+    color photo can be found on the book GitHub repository, https://github.com/PacktPublishing/Advanced-Deep-Learning-with-Keras/blob/master/chapter7-cross-domain-gan/README.md.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![CycleGAN on MNIST and SVHN datasets](img/B08956_07_14.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 7.1.14: Forward cycle of CycleGAN with PatchGAN on MNIST (source) to
+    SVHN (target). The reconstructed source is similar to the original source. Original
+    color photo can be found on the book GitHub repository, https://github.com/PacktPublishing/Advanced-Deep-Learning-with-Keras/blob/master/chapter7-cross-domain-gan/README.md.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![CycleGAN on MNIST and SVHN datasets](img/B08956_07_15.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 7.1.15: The backward cycle of CycleGAN with PatchGAN on MNIST (source)
+    to SVHN (target). The reconstructed target is not entirely similar to the original
+    target. Original color photo can be found on the book GitHub repository, https://github.com/PacktPublishing/Advanced-Deep-Learning-with-Keras/blob/master/chapter7-cross-domain-gan/README.md.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: In *Figure 7.1.3*, CycleGAN is described to be cycle consistent. In other words,
+    given source *x*, CycleGAN reconstructs the source in the forward cycle as *x*
+    *'*. In addition, given target *y*, CycleGAN reconstructs the target in the backward
+    cycle as *y* *'*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*Figure 7.1.14* shows CycleGAN reconstructing MNIST digits in the forward cycle.
+    The reconstructed MNIST digits are almost identical with the source MNIST digits.
+    *Figure 7.1.15* shows the CycleGAN reconstructing SVHN digits in the backward
+    cycle. Many target images are reconstructed. Some digits are clearly the same
+    such as the 2^(nd) row last 2 columns (3 and 4). While some are the same but blurred
+    like 1st row first 2 columns (5 and 2). Some digits are transformed to another
+    digit although the style remains like 2^(nd) row first two columns (from 33 and
+    6 to 1 and an unrecognizable digit).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'On a personal note, I encourage you to run the image translation by using the
+    pretrained models of CycleGAN with PatchGAN:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: Conclusion
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this chapter, we've discussed CycleGAN as an algorithm that can be used for
+    image translation. In CycleGAN, the source and target data are not necessarily
+    aligned. We demonstrated two examples, *grayscale* ↔ *color,* and *MNIST* ↔ *SVHN*.
+    Though there are many other possible image translations that CycleGAN can perform.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the next chapter, we'll embark on another type of generative model, **Variational
+    AutoEncoders** (**VAEs**). VAEs have a similar objective of learning how to generate
+    new images (data). They focus on learning the latent vector modeled as a Gaussian
+    distribution. We'll demonstrate other similarities in the problem being addressed
+    by GANs in the form of conditional VAEs and the disentangling of latent representations
+    in VAEs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: References
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Yuval Netzer and others. *Reading Digits in Natural Images with Unsupervised
+    Feature Learning*. NIPS workshop on deep learning and unsupervised feature learning.
+    Vol. 2011\. No. 2\. 2011([https://www-cs.stanford.edu/~twangcat/papers/nips2011_housenumbers.pdf](https://www-cs.stanford.edu/~twangcat/papers/nips2011_housenumbers.pdf)).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Zhu, Jun-Yan and others. *Unpaired Image-to-Image Translation Using Cycle-Consistent
+    Adversarial Networks*. 2017 IEEE International Conference on Computer Vision (ICCV).
+    IEEE, 2017 ([http://openaccess.thecvf.com/content_ICCV_2017/papers/Zhu_Unpaired_Image-To-Image_Translation_ICCV_2017_paper.pdf](http://openaccess.thecvf.com/content_ICCV_2017/papers/Zhu_Unpaired_Image-To-Image_Translation_ICCV_2017_paper.pdf)).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Phillip Isola and others. *Image-to-Image Translation with Conditional Adversarial
+    Networks*. 2017 IEEE Conference on Computer Vision and Pattern Recognition (CVPR).
+    IEEE, 2017 ([http://openaccess.thecvf.com/content_cvpr_2017/papers/Isola_Image-To-Image_Translation_With_CVPR_2017_paper.pdf](http://openaccess.thecvf.com/content_cvpr_2017/papers/Isola_Image-To-Image_Translation_With_CVPR_2017_paper.pdf)).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Mehdi Mirza and Simon Osindero. *Conditional Generative Adversarial Nets*. arXiv
+    preprint arXiv:1411.1784, 2014([https://arxiv.org/pdf/1411.1784.pdf](https://arxiv.org/pdf/1411.1784.pdf)).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Xudong Mao and others. *Least Squares Generative Adversarial Networks*. 2017
+    IEEE International Conference on Computer Vision (ICCV). IEEE, 2017([http://openaccess.thecvf.com/content_ICCV_2017/papers/Mao_Least_Squares_Generative_ICCV_2017_paper.pdf](http://openaccess.thecvf.com/content_ICCV_2017/papers/Mao_Least_Squares_Generative_ICCV_2017_paper.pdf)).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Chuan Li and Michael Wand. *Precomputed Real-Time Texture Synthesis with Markovian
+    Generative Adversarial Networks*. European Conference on Computer Vision. Springer,
+    Cham, 2016([https://arxiv.org/pdf/1604.04382.pdf](https://arxiv.org/pdf/1604.04382.pdf)).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Olaf Ronneberger, Philipp Fischer, and Thomas Brox. *U-Net: Convolutional Networks
+    for Biomedical Image Segmentation*. International Conference on Medical image
+    computing and computer-assisted intervention. Springer, Cham, 2015([https://arxiv.org/pdf/1505.04597.pdf](https://arxiv.org/pdf/1505.04597.pdf)).'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Judy Hoffman and others. *CyCADA: Cycle-Consistent Adversarial Domain Adaptation*.
+    arXiv preprint arXiv:1711.03213, 2017([https://arxiv.org/pdf/1711.03213.pdf](https://arxiv.org/pdf/1711.03213.pdf)).'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL

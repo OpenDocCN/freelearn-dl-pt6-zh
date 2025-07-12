@@ -1,0 +1,1349 @@
+- en: Chapter 2. Classifying Handwritten Digits with a Feedforward Network
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The first chapter presented Theano as a compute engine, with its different functions
+    and specificities. With this knowledge, we'll go through an example and introduce
+    some of the main concepts of deep learning, building three neural networks and
+    training them on the problem of handwritten digit classification.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Deep learning is a field of machine learning in which layers of modules are
+    stacked on top of each of other: this chapter introduces a simple single-linear-layer
+    model, then adds a second layer on top of it to create a **multi-layer perceptron**
+    (**MLP**), and last uses multiple convolutional layers to create a **Convolutional
+    Neural Network** (**CNN**).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In the meantime, this chapter recaps the basic machine learning concepts, such
+    as overfitting, validation, and loss analysis, for those who are not familiar
+    with data science:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Small image classification
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Handwritten digit recognition challenge
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Layer design to build a neural network
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Design of a classical objective/loss function
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Back-propagation with stochastic gradient descent
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Training on a dataset with validation
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Convolutional neural networks
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Towards state-of-art results for digit classification
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The MNIST dataset
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The **Modified National Institute of Standards and Technology** (**MNIST**)
+    **dataset** is a very well-known dataset of handwritten digits {0,1,2,3,4,5,6,7,8,9}
+    used to train and test classification models.
+  prefs: []
+  type: TYPE_NORMAL
+- en: A classification model is a model that predicts the probabilities of observing
+    a class, given an input.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Training is the task of *learning* the parameters to fit the model to the data
+    as well as we can so that for any input image, the correct label is predicted.
+    For this training task, the MNIST dataset contains 60,000 images with a target
+    label (a number between 0 and 9) for each example.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To validate that the training is efficient and to decide when to stop the training,
+    we usually split the training dataset into two datasets: 80% to 90% of the images
+    are used for training, while the remaining 10-20% of images will not be presented
+    to the algorithm for training but to validate that the model generalizes well
+    on unobserved data.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: There is a separate dataset that the algorithm should never see during training,
+    named the test set, which consists of 10,000 images in the MNIST dataset.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In the MNIST dataset, the input data of each example is a 28x28 normalized
+    monochrome image and a label, represented as a simple integer between 0 and 9
+    for each example. Let''s display some of them:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'First, download a pre-packaged version of the dataset that makes it easier
+    to load from Python:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Then load the data into a Python session:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: For `Python3`, we need `pickle.load(f, encoding='latin1')` due to the way it
+    was serialized.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The first nine samples from the dataset are displayed with the corresponding
+    label (the *ground truth*, that is, the correct answer expected by the classification
+    algorithm) on top of them:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![The MNIST dataset](img/00010.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'In order to avoid too many transfers to the GPU, and since the complete dataset
+    is small enough to fit in the memory of the GPU, we usually place the full training
+    set in shared variables:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: Avoiding these data transfers allows us to train faster on the GPU, despite
+    recent GPU and fast PCIe connections.
+  prefs: []
+  type: TYPE_NORMAL
+- en: More information on the dataset is available at [http://yann.lecun.com/exdb/mnist/](http://yann.lecun.com/exdb/mnist/).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Structure of a training program
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The structure of a training program always consists of the following steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Set the script environment**: Such as package imports, the use of the GPU,
+    and so on.'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '**Load data**: A data loader class to access the data during training, usually
+    in a random order to avoid too many similar examples of the same class, but sometimes
+    in a precise order, for example, in the case of curriculum learning with simple
+    examples first and complex ones last.'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '**Preprocess the data**: A set of transformations, such as swapping dimensions
+    on images, adding blur or noise. It is very common to add some data augmentation
+    transformations, such as random crop, scale, brightness, or contrast jittering
+    to get more examples than the original ones, and reduce the risk of overfitting
+    on data. If the number of free parameters in the model is too important with respect
+    to the training dataset size, the model might learn from the available examples.
+    Also, if the dataset is too small and too many iterations have been executed on
+    the same data, the model might become too specific to the training examples and
+    not generalize well on new unseen examples.'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '**Build a model**: Defining the model structure with the parameter in persistent
+    variables (shared variables) to update their values during training in order to
+    fit the training data'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '**Train**: There are different algorithms either training on the full dataset
+    as a whole or training on each example step by step. The best convergence is usually
+    achieved by training on a batch, a small subset of examples grouped together,
+    from a few tens to a few hundreds.'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Another reason to use a batch is to improve the training speed of the GPU,
+    because individual data transfers are costly and GPU memory is not sufficient
+    to host the full dataset as well. The GPU is a parallel architecture, so processing
+    a batch of examples is usually faster than processing the examples one by one,
+    up to a certain point. Seeing more examples at the same time accelerates the convergence
+    (in wall-time), up to a certain point. This is true even if the GPU memory is
+    large enough to host the whole dataset: the diminishing returns on the batch size
+    make it usually faster to have smaller batches than the whole dataset. Note that
+    this is true for modern CPUs as well, but the optimal batch size is usually smaller.'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_IND
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: An iteration defines a training on one batch. An epoch is a number of iterations
+    required for the algorithm to see the full dataset.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: During training, after a certain number of iterations, there is usually a **validation**
+    using a split of the training data or a validation dataset that has not been used
+    for learning. The loss is computed on this validation set. Though the algorithm
+    has the objective to reduce the loss given the training data, it does not ensure
+    generalization with unseen data. Validation data is unseen data used to estimate
+    the generalization performance. A lack of generalization might occur when the
+    training data is not representative, or is an exception and has not been sampled
+    correctly, or if the model overfits the training data.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Validation data verifies everything is OK, and stops training when validation
+    loss does not decrease any more, even if training loss might continue to decrease:
+    further training is not worth it any more and leads to overfitting.'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '**Saving model parameters** and displaying results, such as best training/validation
+    loss values, train loss curves for convergence analysis.'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: In the case of classification, we compute the accuracy (the percentage of correct
+    classification) or the error (the percentage of misclassification) during training,
+    as well as the loss. At the end of training, a confusion matrix helps evaluate
+    the quality of the classifier.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Let''s see these steps in practice and start a Theano session in a Python shell
+    session:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Classification loss function
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The loss function is an objective function to minimize during training to get
+    the best model. Many different loss functions exist.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In a classification problem, where the target is to predict the correct class
+    among k classes, cross-entropy is commonly used as it measures the difference
+    between the real probability distribution, *q*, and the predicted one, *p*, for
+    each class:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Classification loss function](img/00011.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Here, *i* is the index of the sample in the dataset, *n* is the number of samples
+    in the dataset, and *k* is the number of classes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'While the real probability ![Classification loss function](img/00012.jpeg)
+    of each class is unknown, it can simply be approximated in practice by the empirical
+    distribution, that is, randomly drawing a sample out of the dataset in the dataset
+    order. The same way, the cross-entropy of any predicted probability, `p`, can
+    be approximated by the empirical cross-entropy:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Classification loss function](img/00013.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Here, ![Classification loss function](img/00014.jpeg) is the probability estimated
+    by the model for the correct class of example ![Classification loss function](img/00015.jpeg).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Accuracy and cross-entropy both evolve in the same direction but measure different
+    things. Accuracy measures how much the predicted class is correct, while cross-entropy
+    measure the distance between the probabilities. A decrease in cross-entropy explains
+    that the probability to predict the correct class gets better, but the accuracy
+    may remain constant or drop.
+  prefs: []
+  type: TYPE_NORMAL
+- en: While accuracy is discrete and not differentiable, the cross-entropy loss is
+    a differentiable function that can be easily used for training a model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Single-layer linear model
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The simplest model is the linear model, where for each class `c`, the output
+    is a linear combination of the input values:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Single-layer linear model](img/00016.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: This output is unbounded.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To get a probability distribution, `p[i]`, that sums to 1, the output of the
+    linear model is passed into a softmax function:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Single-layer linear model](img/00017.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Hence, the estimated probability of class `c` for an input `x` is rewritten
+    with vectors:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Single-layer linear model](img/00018.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Translated in Python with:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The prediction for a given input is given by the most probable class (maximum
+    probability):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In this model with a single linear layer, information moves from input to output:
+    it is a **feedforward network**. The process to compute the output given the input
+    is called **forward propagation**.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'This layer is said fully connected because all outputs, ![Single-layer linear
+    model](img/00019.jpeg), are the sum of (are linked to) all inputs values through
+    a multiplicative coefficient:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Single-layer linear model](img/00020.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Cost function and errors
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The cost function given the predicted probabilities by the model is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The error is the number of predictions that are different from the true class,
+    averaged by the total number of values, which can be written as a mean:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: On the contrary, accuracy corresponds to the number of correct predictions divided
+    by the total number of predictions. The sum of error and accuracy is one.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For other types of problems, here are a few other loss functions and implementations:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '| **Categorical cross entropy**An equivalent implementation of ours |'
+  prefs: []
+  type: TYPE_TB
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: '|'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '| **Binary cross entropy**For the case when output can take only two values
+    {0,1}Typically used after a sigmoid activation predicting the probability, p |'
+  prefs: []
+  type: TYPE_TB
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: '|'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '| **Mean squared error**L2 norm for regression problems |'
+  prefs: []
+  type: TYPE_TB
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: '|'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '| **Mean absolute error**L1 norm for regression problems |'
+  prefs: []
+  type: TYPE_TB
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: '|'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '| **Smooth L1**A mix between L1 for large values, and L2 for small valuesKnown
+    as an outlier resistant loss for regressions |'
+  prefs: []
+  type: TYPE_TB
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: '|'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '| **Squared hinge loss**Particularly used in unsupervised problems |'
+  prefs: []
+  type: TYPE_TB
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: '|'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '| **Hinge loss** |'
+  prefs: []
+  type: TYPE_TB
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: '|'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Backpropagation and stochastic gradient descent
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Backpropagation, or the backward propagation of errors, is the most commonly
+    used supervised learning algorithm for adapting the connection weights.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Considering the error or the cost as a function of the weights *W* and *b*,
+    a local minimum of the cost function can be approached with a gradient descent,
+    which consists of changing weights along the negative error gradient:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Backpropagation and stochastic gradient descent](img/00021.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Here, ![Backpropagation and stochastic gradient descent](img/00022.jpeg) is
+    the learning rate, a positive constant defining the speed of a descent.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The following compiled function updates the variables after each feedforward
+    run:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: The input variable is the index of the batch, since all the dataset has been
+    transferred in one pass to the GPU in shared variables.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Training consists of presenting each sample to the model iteratively (iterations)
+    and repeating the operation many times (epochs):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: This only reports the loss and error on one mini-batch, though. It would be
+    good to also report the average over the whole dataset.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The error rate drops very quickly during the first iterations, then slows down.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Execution time on a GPU GeForce GTX 980M laptop is 67.3 seconds, while on an
+    Intel i7 CPU, it is 3 minutes and 7 seconds.
+  prefs: []
+  type: TYPE_NORMAL
+- en: After a long while, the model converges to a 5.3 - 5.5% error rate, and with
+    a few more iterations could go further down, but could also lead to overfitting,
+    Overfitting occurs when the model fits the training data well but does not get
+    the same error rate on unseen data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this case, the model is too simple to overfit on this data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: A model that is too simple cannot learn very well. The principle of deep learning
+    is to add more layers, that is, increase the depth and build deeper networks to
+    gain better accuracy.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We'll see in the following section how to compute a better estimation of the
+    model accuracy and the training stop.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Multiple layer model
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'A **multi-layer perceptron** (**MLP**) is a feedforward net with multiple layers.
+    A second linear layer, named hidden layer, is added to the previous example:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Multiple layer model](img/00023.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Having two linear layers following each other is equivalent to having a single
+    linear layer.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'With a *non-linear function or non-linearity or transfer function* between
+    the linearities, the model does not simplify into a linear one any more, and represents
+    more possible functions in order to capture more complex patterns in the data:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Multiple layer model](img/00024.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Activation functions helps saturating (ON-OFF) and reproduces the biological
+    neuron activations.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The **Rectified Linear Unit** (**ReLU**) graph is given as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*(x + T.abs_(x)) / 2.0*'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Multiple layer model](img/00025.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'The **Leaky Rectifier Linear Unit** (**Leaky ReLU**) graph is given as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*( (1 + leak) * x + (1 – leak) * T.abs_(x) ) / 2.0*'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Multiple layer model](img/00026.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Here, `leak` is a parameter that defines the slope in the negative values. In
+    leaky rectifiers, this parameter is fixed.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The activation named PReLU considers the `leak` parameter to be learned.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'More generally speaking, a piecewise linear activation can be learned by adding
+    a linear layer followed by a maxout activation of `n_pool` units:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This will output `n_pool` values or units for the underlying learned linearities:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Sigmoid** (T.nnet.sigmoid)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Multiple layer model](img/00027.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: '**HardSigmoid** function is given as:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*T.clip(X + 0.5, 0., 1.)*'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Multiple layer model](img/00028.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: '**HardTanh** function is given as:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*T.clip(X, -1., 1.)*'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Multiple layer model](img/00029.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: '**Tanh** function is given as:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*T.tanh(x)*'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Multiple layer model](img/00030.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'This two-layer network model written in Python will be as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: In deep nets, if weights are initialized to zero with the `shared_zeros` method,
+    the signal will not flow through the network correctly from end to end. If weights
+    are initialized with values that are too big, after a few steps, most activation
+    functions saturate. So, we need to ensure that the values can be passed to the
+    next layer during propagation, as well as for the gradients to the previous layer
+    during back-propagation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We also need to break the symmetry between neurons. If the weights of all neurons
+    are zero (or if they are all equal), they will all evolve exactly in the same
+    way, and the model will not learn much.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The researcher Xavier Glorot studied an algorithm to initialize weights in
+    an optimal way. It consists in drawing the weights from a Gaussian or uniform
+    distribution of zero mean and the following variance:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Multiple layer model](img/00031.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Here are the variables from the preceding formula:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`n[in]` is the number of inputs the layer receives during feedforward propagation'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`n[out]` is the number of gradients the layer receives during back-propagation'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: In the case of a linear model, the shape parameter is a tuple, and `v` is simply
+    `numpy.sum( shape[:2] )` (in this case, `numpy.prod(shape[2:])` is `1`).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The variance of a uniform distribution on *[-a, a]* is given by *a**2 / 3*,
+    then the bound `a` can be computed as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Multiple layer model](img/00032.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'The cost can be defined the same way as before, but the gradient descent needs
+    to be adapted to deal with the list of parameters, `[W1,b1,W2,b2]`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The training loop requires an updated training function:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: In this case, learning rate is global to the net, with all weights being updated
+    at the same rate. The learning rate is set to 0.01 instead of 0.13\. We'll speak
+    about hyperparameter tuning in the training section.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The training loop remains unchanged. The full code is given in the `2-multi.py`
+    file.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Execution time on the GPU is 5 minutes and 55 seconds, while on the CPU it is
+    51 minutes and 36 seconds.
+  prefs: []
+  type: TYPE_NORMAL
+- en: After 1,000 iterations, the error has dropped to 2%, which is a lot better than
+    the previous 5% error rate, but part of it might be due to overfitting. We'll
+    compare the different models later.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Convolutions and max layers
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'A great improvement in image classification has been achieved with the invention
+    of the convolutional layers on the MNIST database:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Convolutions and max layers](img/00033.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: While previous fully-connected layers perform a computation with all input values
+    (pixels in the case of an image) of the input, a 2D convolution layer will consider
+    only a small patch or window or receptive field of NxN pixels of the 2D input
+    image for each output unit. The dimensions of the patch are named kernel dimensions,
+    N is the kernel size, and the coefficients/parameters are the kernel.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'At each position of the input image, the kernel produces a scalar, and all
+    position values will lead to a matrix (2D tensor) called a *feature map*. Convolving
+    the kernel on the input image as a sliding window creates a new output image.
+    The stride of the kernel defines the number of pixels to shift the patch/window
+    over the image: with a stride of 2, the convolution with the kernel is computed
+    every 2 pixels.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For example, on a 224 x 224 input image, we get the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: A 2x2 kernel with stride 1 outputs a 223 x 223 feature map
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: A 3x3 kernel with stride 1 outputs a 222 x 222 feature map
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'In order to keep the output feature map the same dimension as the input image,
+    there is a type of zero-padding called *same* or *half* that enables the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Add a line and a column of zeros at the end of the input image in the case of
+    a 2x2 kernel with stride 1
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Add two lines and two columns of zeros, one in front and one at the end of the
+    input image vertically and horizontally in the case of a 3x3 kernel with stride
+    1
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: So, the output dimensions are the same as the original ones, that is, a 224
+    x 224 feature map.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'With zero padding:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: A 2x2 kernel with stride 2 and zero padding will output a 112 x 112 feature
+    map
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: A 3x3 kernel with stride 2 will output a 112 x 112 feature map
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Without zero-padding, it gets more complicated:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: A 2x2 kernel with stride 2 will output a 112 x 112 feature map
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: A 3x3 kernel with stride 2 will output a 111 x 111 feature map
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Note that kernel dimensions and strides can be different for each dimension.
+    In this case, we say kernel width, kernel height, stride width, or stride height.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In one convolutional layer, it is possible to output multiple feature maps,
+    each feature map being computed with a different kernel (and kernel weights) and
+    representing one feature. We say outputs, neurons, kernels, features, feature
+    maps, units, or output channels indifferently to give the number of these different
+    convolutions with different kernels. To be precise, neuron usually refers to a
+    specific position within a feature map. Kernels are the kernels themselves, and
+    the other ones refer to the result of the convolution operation. The number of
+    them is the same, which is why these words are often used to describe the same
+    thing. I'll use the words channels, outputs, and features.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The usual convolution operators can be applied to multi-channel inputs. This
+    enables to apply them to three-channel images (RGB images, for example) or to
+    the output of another convolution in order to be chained.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s include two convolutions with a kernel size of 5 in front of the previous
+    MLP mode:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Convolutions and max layers](img/00034.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'The 2D convolution operator requires a 4D tensor input. The first dimension
+    is the batch size, the second the number of inputs or input channels (in the "channel-first
+    format"), and the third and fourth the two dimensions of the feature map (in the
+    "channel-last format", channels are the last dimension). MNIST gray images (one
+    channel) stored in a one-dimensional vector need to be converted into a 28x28
+    matrix, where 28 is the image height and width:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Then, adding a first convolution layer of 20 channels on top of the transformed
+    input, we get this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs: []
+  type: TYPE_PRE
+- en: In this case, the Xavier initialization (from the name of its inventor, Xavier
+    Glorot) multiplies the number of input/output channels by the number of parameters
+    in the kernel, `numpy.prod(shape[2:]) = 5 x 5 = 25`, to get the total number of
+    incoming input/output gradients in the initialization formula.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The 20 kernels of size 5x5 and stride 1 on 28x28 inputs will produce 20 feature
+    maps of size 24x24\. So the first convolution output is (`batch_size,20,24,24`).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Best performing nets use max pooling layers to encourage translation invariance
+    and stability to noise. A max-pooling layer performs a maximum operation over
+    a sliding window/patch to keep only one value out of the patch. As well as increasing
+    speed performance, it reduces the size of the feature maps, and the total computation
+    complexity and training time decreases:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs: []
+  type: TYPE_PRE
+- en: The output of the 2x2 max pooling layer will be (`batch_size,20,12,12`). The
+    batch size and the number of channels stay constant. Only the feature map's size
+    has changed.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Adding a second convolutional layer of 50 channels and max pooling layer on
+    top of the previous one leads to an output of size (`batch_size,50,4,4`):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE25]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'To create a classifier, we connect on top the MLP with its two fully-connected
+    linear layers and a softmax, as seen before:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE26]'
+  prefs: []
+  type: TYPE_PRE
+- en: Such a model is named a **Convolutional Neural Net** (**CNN**).
+  prefs: []
+  type: TYPE_NORMAL
+- en: The full code is given in the `3-cnn.py` file.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Training is much slower because the number of parameters has been multiplied
+    again, and the use of the GPU makes a lot more sense: total training time on the
+    GPU has increased to 1 hour, 48 min and 27 seconds. Training on the CPU would
+    take days.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The training error is zero after a few iterations, part of it due to overfitting.
+    Let's see in the next section how to compute a testing loss and accuracy that
+    better explains the model's efficiency.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Training
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In order to get a good measure of how the model behaves on data that's unseen
+    during training, the validation dataset is used to compute a validation loss and
+    accuracy during training.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The validation dataset enables us to choose the best model, while the test dataset
+    is only used at the end to get the final test accuracy/error of the model. The
+    training, test, and validation datasets are discrete datasets, with no common
+    examples. The validation dataset is usually 10 times smaller than the test dataset
+    to slow the training process as little as possible. The test dataset is usually
+    around 10-20% of the training dataset. Both the training and validation datasets
+    are part of the training program, since the first one is used to learn, and the
+    second is used to select the best model on unseen data at training time.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The test dataset is completely outside the training process and is used to get
+    the accuracy of the produced model, resulting from training and model selection.
+  prefs: []
+  type: TYPE_NORMAL
+- en: If the model overfits the training set because it has been trained too many
+    times on the same images, for example, then the validation and test sets will
+    not suffer from this behavior and will provide a real estimation of the model's
+    accuracy.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Usually, a validation function is compiled without a gradient update of the
+    model to simply compute only the cost and error on the input batch.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Batches of data *(x,y)* are commonly transferred to the GPU at every iteration
+    because the dataset is usually too big to fit in the GPU''s memory. In this case,
+    we could still use the trick with the shared variables to place the whole validation
+    dataset in the GPU''s memory, but let''s see how we would do if we had to transfer
+    the batches to the GPU at each step and not use the previous trick. We would use
+    the more usual form:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE27]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'It requires the transfer of batch inputs. Validation is computed not at every
+    iteration, but at `validation_interval` iterations in the training `for` loop:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE28]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Let''s see the simple first model:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE29]'
+  prefs: []
+  type: TYPE_PRE
+- en: In a full training program, a validation interval corresponding to the total
+    number of epochs, with an average validation score for the epoch, would make more
+    sense.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To better estimate how the training performs, let''s plot the training and
+    valid loss. In order to display the descent in early iterations, I''ll stop the
+    drawing at 100 iterations. If I use 1,000 iterations in the plot, I won''t see
+    the early iterations:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Training](img/00035.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: The training loss looks like a wide band because it oscillates between different
+    values. Each of the values corresponds to one batch. The batch might be too small
+    to provide a stable loss value. The mean value of the training loss over the epoch
+    would provide a more stable value to compare with the valid loss and show overfitting.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Also note that the loss plot provides information on how the network converges,
+    but does not give any valuable information on the error. So, it is also very important
+    to plot the training error and the valid error.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For the second model:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE30]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Again, the training curves give better insights:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Training](img/00036.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'For the third model:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE31]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Refer to the following graph:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Training](img/00037.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Here we see the difference between train and valid, losses either due to a slight
+    overfitting to the training data, or a difference between the training and test
+    datasets.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The main causes of overfitting are as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Too small a dataset**: Collect more data'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Too high a learning rate**: The network is learning too quickly on earlier
+    examples'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**A lack of regularization**: Add more dropout (see next section), or a penalty
+    on the norm of the weights in the loss function'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Too small model**: Increase the number of filters/units in different layers'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Validation loss and error gives a better estimate than training loss and error,
+    which are more noisy, and during training, they are also used to decide which
+    model parameters are the best:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Simple model**: 6.96 % at epoch 518'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**MLP model**: 2.96 % at epoch 987'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**CNN model**: 1.06 % at epoch 722'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: These results also indicate that the models might not improve much with further
+    training.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Here''s a comparison of the three models'' validation losses:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Training](img/00038.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Note that the MLP is still improving and the training has not finished, while
+    the CNN and simple networks have converged.
+  prefs: []
+  type: TYPE_NORMAL
+- en: With the selected model, you can easily compute the test loss and error on the
+    test dataset to finalize it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The last important concept of machine learning is hyperparameter tuning. An
+    hyperparameter defines a parameter of the model that is not learned during training.
+    Here are examples:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE32]'
+  prefs: []
+  type: TYPE_PRE
+- en: For the learning rate, too slow a descent might prevent finding a more global
+    minimum, while too fast a descent damages the final convergence. Finding the best
+    initial learning rate is crucial. Then, it is common to decrease the learning
+    rate after many iterations in order to have more precise fine-tuning of the model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Hyperparameter selection requires us to run the previous runs many times for
+    different values of the hyperparameters; testing all combinations of hyperparameters
+    can be done in a simple grid search, for example.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Here is an exercise for the reader:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Train the models with different hyperparameters and draw the training loss curves
+    to see how hyperparameters influence the final loss.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Visualize the content of the neurons of the first layer, once the model has
+    been trained, to see what the features capture from the input image. For this
+    task, compile a specific visualization function:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '[PRE33]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Dropout
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Dropout is a widely used technique to improve convergence and robustness of
+    a neural net and prevent neural nets from overfitting. It consists of setting
+    some random values to zero for the layers on which we'd like it to apply. It introduces
+    some randomness in the data at every epoch.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Usually, dropout is used before the fully connected layers and not used very
+    often in convolutional layers. Let''s add the following lines before each of our
+    two fully connected layers:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE34]'
+  prefs: []
+  type: TYPE_PRE
+- en: The full script is in `5-cnn-with-dropout.py`. After 1,000 iterations, the validation
+    error of the CNN with dropout continues to drops down to 1.08%, while the validation
+    error of the CNN without dropout will not go down by 1.22%.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Readers who would like to go further with dropout should have a look at maxout
+    units. They work well with dropout and replace the tanh non-linearities to get
+    even better results. As dropout does a kind of model averaging, maxout units try
+    to find the optimal non-linearity to the problem.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Inference
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Inference is the process of using the model to produce predictions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For inference, the weight parameters do not need to be updated, so the inference
+    function is simpler than the training function:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE35]'
+  prefs: []
+  type: TYPE_PRE
+- en: Optimization and other update rules
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Learning rate is a very important parameter to set correctly. Too low a learning
+    rate will make it difficult to learn and will train slower, while too high a learning
+    rate will increase sensitivity to outlier values, increase the amount of noise
+    in the data, train too fast to learn generalization, and get stuck in local minima:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Optimization and other update rules](img/00039.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'When training loss does not improve anymore for one or a few more iterations,
+    the learning rate can be reduced by a factor:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Optimization and other update rules](img/00040.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'It helps the network learn fine-grained differences in the data, as shown when
+    training residual networks ([Chapter 7](part0075_split_000.html#27GQ61-ccdadb29edc54339afcb9bdf9350ba6b
+    "Chapter 7. Classifying Images with Residual Networks"), *Classifying Images with
+    Residual Networks*):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Optimization and other update rules](img/00041.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: To check the training process, it is usual to print the norm of the parameters,
+    the gradients, and the updates, as well as NaN values.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The update rule seen in this chapter is the simplest form of update, known
+    as **Stochastic Gradient Descent** (**SGD**). It is a good practice to clip the
+    norm to avoid saturation and NaN values. The updates list given to the `theano`
+    function becomes this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE36]'
+  prefs: []
+  type: TYPE_PRE
+- en: Some very simple variants have been experimented with in order to improve the
+    descent, and are proposed in many deep learning libraries. Let's see them in Theano.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Momentum**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: For each parameter, a momentum (*v*, as velocity) is computed from the gradients
+    accumulated over the iterations with a time decay. The previous momentum value
+    is multiplied by a decay parameter between 0.5 and 0.9 (to be cross-validated)
+    and added to the current gradient to provide the new momentum value.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The momentum of the gradients plays the role of a moment of inertia in the
+    updates, in order to learn faster. The idea is also that oscillations in successive
+    gradients will be canceled in the momentum, to move the parameter in a more direct
+    path towards the solution:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Optimization and other update rules](img/00042.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'The decay parameter between 0.5 and 0.9 is a hyperparameter usually referred
+    to as the momentum, in an abuse of language:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE37]'
+  prefs: []
+  type: TYPE_PRE
+- en: '**Nesterov Accelerated Gradient**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Instead of adding *v* to the parameter, the idea is to add directory the future
+    value of the momentum momentum `v - learning_rate g`, in order to have it compute
+    the gradients in the next iteration directly at the next position:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE38]'
+  prefs: []
+  type: TYPE_PRE
+- en: '**Adagrad**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'This update rule, as well as the following rules consists of adapting the learning
+    rate **parameter-wise** (differently for each parameter). The element-wise sum
+    of squares of the gradients is accumulated into a shared variable for each parameter
+    in order to decay the learning rate in an element-wise fashion:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE39]'
+  prefs: []
+  type: TYPE_PRE
+- en: '`Adagrad` is an aggressive method, and the next two rules, `AdaDelta` and `RMSProp`,
+    try to reduce its aggression.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**AdaDelta**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Two accumulators are created per parameter to accumulate the squared gradients
+    and the updates in moving averages, parameterized by the decay `rho`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE40]'
+  prefs: []
+  type: TYPE_PRE
+- en: '**RMSProp**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'This updates rule is very effective in many cases. It is an improvement of
+    the `Adagrad` update rule, using a moving average (parameterized by `rho`) to
+    get a less aggressive decay:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE41]'
+  prefs: []
+  type: TYPE_PRE
+- en: '**Adam**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'This is `RMSProp` with momemtum, one of the best choices for the learning rule.
+    The time step is kept track of in a shared variable, `t`. Two moving averages
+    are computed, one for the past squared gradients, and the other for past gradient:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE42]'
+  prefs: []
+  type: TYPE_PRE
+- en: To conclude on update rules, many recent research papers still prefer the simple
+    SGD rule, and work the architecture and the initialization of the layers with
+    the correct learning rate. For more complex networks, or if the data is sparse,
+    the adaptive learning rate methods are better, sparing you the pain of finding
+    the right learning rate.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Related articles
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'You can refer to the following documents for more insights into the topics
+    covered in this chapter:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*Deeplearning.net Theano tutorials: Single layer* ([http://deeplearning.net/tutorial/logreg.html](http://deeplearning.net/tutorial/logreg.html)),
+    MLP ([http://deeplearning.net/tutorial/mlp.html](http://deeplearning.net/tutorial/mlp.html)),
+    Convolutions ([http://deeplearning.net/tutorial/lenet.html](http://deeplearning.net/tutorial/lenet.html))'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'All loss functions: for classification, regression, and joint embedding ([http://christopher5106.github.io/deep/learning/2016/09/16/about-loss-functions-multinomial-logistic-logarithm-cross-entropy-square-errors-euclidian-absolute-frobenius-hinge.html](http://christopher5106.github.io/deep/learning/2016/09/16/about-loss-functions-multinomial-logistic-logarithm-cross-entropy-square-errors-euclidian-absolute-frobenius-hinge.html))'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The last example corresponds to Yann Lecun's five-5 layer network as in Gradient
+    based learning applied to document recognition ([http://yann.lecun.com/exdb/publis/pdf/lecun-98.pdf](http://yann.lecun.com/exdb/publis/pdf/lecun-98.pdf))
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Understanding the difficulty of training deep feedforward neural networks, Xavier
+    Glorot, Yoshua Bengio, 2010
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Maxout Networks: Ian J. Goodfellow, David Warde-Farley, Mehdi Mirza, Aaron
+    Courville, Yoshua Bengio 2013'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'An overview of gradient descent algorithms: [http://sebastianruder.com/optimizing-gradient-descent/](http://sebastianruder.com/optimizing-gradient-descent/)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: CS231n Convolutional Neural Networks for Visual Recognition, [http://cs231n.github.io/neural-networks-3/](http://cs231n.github.io/neural-networks-3/)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Yes you should understand backprop, Andrej Karpathy, 2016, [https://medium.com/@karpathy/](https://medium.com/@karpathy/)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Striving for Simplicity: The All Convolutional Net, Jost Tobias Springenberg,
+    Alexey Dosovitskiy, Thomas Brox, Martin Riedmiller, 2014'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Fractional Max-Pooling, Benjamin Graham, 2014
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Batch Normalization: Accelerating Deep Network Training by Reducing Internal
+    Covariate Shift, Sergey Ioffe, Christian Szegedy, 2015'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Visualizing and Understanding Convolutional Networks, Matthew D Zeiler, Rob
+    Fergus, 2013
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Going Deeper with Convolutions, Christian Szegedy, Wei Liu, Yangqing Jia, Pierre
+    Sermanet, Scott Reed, Dragomir Anguelov, Dumitru Erhan, Vincent Vanhoucke, Andrew
+    Rabinovich, 2014
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Classification is a very wide topic in machine learning. It consists of predicting
+    a class or a category, as we have shown with our handwritten digits example. In
+    [Chapter 7](part0075_split_000.html#27GQ61-ccdadb29edc54339afcb9bdf9350ba6b "Chapter 7. Classifying
+    Images with Residual Networks"), *Classifying Images with Residual Networks*,
+    we'll see how to classify a wider set of natural images and objects.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Classification can be applied to different problems and the cross-entropy/negative
+    log likelihood is the common loss function to solve them through gradient descent.
+    There are many other loss functions for problems such as regression (mean square
+    error loss) or unsupervised joint learning (hinge loss).
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this chapter, we have been using a very simple update rule as gradient descent
+    named stochastic gradient descent, and presented some other gradient descent variants
+    (`Momentum`, `Nesterov`, `RMSprop`, `ADAM`, `ADAGRAD`, `ADADELTA`). There has
+    been some research into second order optimizations, such as Hessian Free, or K-FAC,
+    which provided better results in deep or recurrent networks but remain complex
+    and costly, and have not be widely adopted until now. Researchers have been looking
+    for new architectures that perform better without the need for such optimization
+    techniques.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'When training networks, I would strongly encourage you to use the following
+    two Linux commands:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Screen**: To detach your shell, run scripts on the server and reconnect later,
+    since training usually takes a few days.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Tee**: To which you pipe the output of your running program, in order to
+    save the displayed results to a file, while continuing to visualize the output
+    in your shell. This will spare your code the burden of log functions and frameworks.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL

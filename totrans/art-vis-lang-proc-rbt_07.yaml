@@ -1,0 +1,1634 @@
+- en: '*Chapter 7*'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Build a Text-Based Dialogue System (Chatbot)
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Learning Objectives
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'By the end of this chapter, you will be able to:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Define the terms GloVe, Word2Vec and Embeddings
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Develop your own Word2Vec
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Select tools to create conversational agents
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Predict the intent of a conversation
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Create a conversational agent
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: This chapter covers an introduction to terms such as GloVe, Word2Vec, and embeddings
+    and tools that will help you create a conversational agent.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Introduction
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: One of the latest trends in deep NLP is the creation of conversational agents,
+    also knowns as chatbots. A chatbot is a **text-based dialogue system** that understands
+    human language and can hold a real conversation with people. Many companies use
+    these systems to interact with its customers to obtain information and feedback,
+    for example, opinions on a new product launch.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Chatbots are used as assistants, for example, Siri, Alexa, and Google Home.
+    These can give us real-time information about the weather or traffic.
+  prefs: []
+  type: TYPE_NORMAL
+- en: At this point, the question is how can bots understand us? In the previous chapters,
+    we have reviewed language models and how they work. However, the most important
+    thing in language models (LMs) is the position of a word in a sentence. Each word
+    has a certain probability of appearing in a sentence, depending on the words already
+    in that sentence. But the probability distribution approach is not a good fit
+    for this task. In this case, we need to understand the meaning, not predict the
+    next word, after which, the model will understand the meaning of a word in a given
+    corpus.
+  prefs: []
+  type: TYPE_NORMAL
+- en: A word in itself doesn't make sense unless it is placed within a context or
+    in a corpus. It is important to understand the meaning of a sentence and this
+    dictated by its structure (that is, the position of the words in it). The model
+    will then predict the meaning of words by looking at which words are near to it.
+    But firstly, how is it possible to represent this mathematically?
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In *Chapter 4*, *Neural Networks with NLP*, we looked at representing a word
+    using a one-hot encoded vector, which is a vector with 1s and 0s. However, this
+    representation does not provide us with the actual meaning of a word. Let''s take
+    a look at an example:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Dog  [1,0,0,0,0,0]
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Cat  [0,0,0,0,1,0]
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: A dog and a cat are animals, but their representation in 1s and 0s does not
+    give us any information about the meaning of those words.
+  prefs: []
+  type: TYPE_NORMAL
+- en: But what would happen if these vectors gave us a similarity between two words
+    based on their meaning? Two words with a similar meaning would be placed near
+    to each other in a plane, as opposed to two words without any such relation. For
+    example, the name of a country and its capital are related.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Having this approach, a set of sentences can be related to a conversational
+    intention or a specific topic (also known as intent, this term will be used throughout
+    this chapter). Using this system, we would be able to maintain a sensible conversational
+    dialogue with a human.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The intent of a conversation is the topic of the dialogue. For example, if you
+    were talking about a match between Real Madrid and Barcelona, the intent of the
+    conversation would be football.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Later in this chapter, we will review the fundamental concepts of the representation
+    of a word as a vector, and how to create such vectors and use them to recognize
+    the intent of a conversation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Word Representation in Vector Space
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: This section will cover the different architectures for computing a continuous
+    vector representation of words from a corpus. These representations will depend
+    on the similarity of words, in terms of meaning. Also, there will be an introduction
+    to a new Python library (**Gensim**) to do this task.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Word Embeddings
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Word embeddings are a collection of techniques and methods to map words and
+    sentences from a corpus and output them as vectors or real numbers. Word embeddings
+    generate a representation of each word in terms of the context in which the word
+    appears. The main task of word embeddings is to perform a dimension reduction
+    from a space with one dimension per word to a continuous vector space.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To better understand what that means, let''s have a look at an example. Imagine
+    we have two similar sentences, such as these:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: I am good.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: I am great.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Now, encoding these sentences as one-hot vectors, we have something like this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: I  [1,0,0,0]
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Am  [0,1,0,0]
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Good  [0,0,1,0]
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Great  [0,0,0,1]
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: We know the previous two sentences are similar (in terms of their meaning),
+    because "great" and "good" have a similar meaning. But how could we measure the
+    similarity of these two words? We have two vectors representing the words, so
+    let's compute the cosine similarity.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Cosine Similarity
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'Cosine similarity measures the similarity between two vectors. As the name
+    suggests, this method will state the cosine of the angle between two sentences.
+    Its formula is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 7.1: Formula for cosine similarity](img/C13550_07_01.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 7.1: Formula for cosine similarity'
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Figure 7.1 shows the formula for cosine similarity. A and B are the vectors.
+    Following the previous example, if we compute the similarity between "good" and
+    "great", the result is 0\. This is because one-hot encoded vectors are independent
+    and there is no projection along the same dimension (that means there is only
+    a single 1 in a dimension, and the rest are 0s).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Figure 7.2 explains this concept:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 7.2: Dimension without projection](img/C13550_07_02.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 7.2: Dimension without projection'
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Word embeddings solve this problem. There are many techniques to represent word
+    embeddings. But all these techniques are in unsupervised learning algorithms.
+    One of the most famous methods is the Word2Vec model, which is going to be explained
+    next.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Word2Vec
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: The main goal of Word2Vec is to produce word embeddings. It processes a corpus
+    and then assigns a vector to each unique word in the corpus. This vector, however,
+    does not work like the one-hot vector method. For example, if we have a corpus
+    with 10,000 words, we would have 10,000 dimensions in our one-hot encoded vectors,
+    but Word2Vec can perform dimension reduction, typically of several hundred dimensions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The core idea of Word2Vec is that a word''s meaning is represented by the words
+    that are frequently near to it. When a word appears in a sentence, its context
+    is formed by the set of words it has nearby. This set of words are within a fixed-size
+    window:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 7.3: Context words of wx](img/C13550_07_03.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 7.3: Context words of wx'
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Figure 7.3 shows an example of the context words for *wx*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The concept of Word2Vec was created by Tomas Mikolov in 2013\. He proposed a
+    framework for learning word vectors. The method works by iterating through a corpus,
+    taking a set of words with a central word (in Figure 7.3, it is *wx*) and context
+    words (in figure 7.3, the words shown inside the black rectangular box). The vectors
+    of these words keep updating until the corpus ends.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'There are two methods for performing Word2Vec:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Skip-Gram model**: In this model, the input is the word placed in the center
+    and thereafter it predicts the context of words.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**CBOW model**: The input of this model are the vectors of the context words,
+    and the output is the central word.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '![Figure 7.4: CBOW and skip-gram model representation](img/C13550_07_04.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 7.4: CBOW and skip-gram model representation'
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Both of these models output good results, but the skip-gram model works well
+    with a small amount of data. We will not go into these models in more depth to
+    generate our Word2Vec, but we will be using the Gensim library, which is explained
+    in this chapter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Problems with Word2Vec
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'Word2Vec has many advantages for representing words within a vector space.
+    It improves the performance of the task and can capture complex word meanings.
+    But it is not perfect, and does present some problems:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Inefficiently using statistics: It captures co-occurrences of words one at
+    a time. The problem here is that words that do not occur together within a trained
+    corpus tend to get closer in the plane (this can cause ambiguity) because there''s
+    no way to represent their relationships.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The need to modify the parameters of the model, that is, if the corpus size
+    changes. Doing this, the model will be trained again, and this consumes a lot
+    of time.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Before diving deep in how to solve these problems with Word2Vec, we are going
+    to introduce Gensim, a library for creating Word2Vec models.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Gensim
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Gensim is a Python library that provides different NLP methods. It is not like
+    NLTK or spaCy; those libraries are focused on the pre-processing and analysis
+    of data. Gensim provides us with methods to process raw text (which is unstructured).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'These are the advantages of Gensim:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Gensim can be used with a huge corpus. It has memory independence, which means
+    the corpus will not need to be stored in the RAM of your computer. Also, it has
+    memory sharing to store the trained models.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: It can provide efficient vector space algorithms, such as Word2Vec, Doc2Vec,
+    LSI, LSA, and so on.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Its API is easy to learn.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'These are the disadvantages of Gensim:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: It does not provide methods to pre-process text, and it has to be used with
+    NLTK or spaCy to obtain a full NLP pipeline.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Exercise 24: Creation of a Word Embedding'
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: In this exercise, we are going to create our word embedding using a small corpus
+    and use Gensim. Once our model is trained, we will print it on a two-dimensional
+    graph to check the distribution of the words.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Gensim provides the possibility to change some parameters to perform training
+    well on our data. Some useful parameters are as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`Num_features`: Represents the dimensionality of the vectors (more dimensions
+    equals more accuracy, but is more computationally expensive). In our case, we
+    are going to set this parameter to **2** (vectors of 2 dimensions).'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`Window_size`: Represents the size of the fixed window to contain the context
+    of words. In our case, the corpus is small, so the size here is set to **1**.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`Min_word_count`: The minimum set word count threshold.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`Workers`: The threads of your computer running in parallel. In our case, one
+    worker will be good for the size of our corpus.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Let''s begin with the exercise:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Import the libraries. We are going to use the Gensim model, Word2Vec:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Define a small random corpus:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Now we will tokenize each sentence with `spaCy`. The concept of `spaCy` was
+    covered in *Chapter 3*, *Fundamentals of Natural Language Processing*:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Now let''s define a few variables to create the Word2vec model:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Create the model using the Word2Vec method with a seed of 0 (this seed is just
+    a value to initialize the weights of the model; using the same seed to obtain
+    the same results is recommended):'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Now we will build the vocabulary from our corpus. First, we need to have a
+    vocabulary to train our model:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Train the model. The parameters here are the sentences of the corpus: total
+    words and epochs. In this case, 1 epoch will be good:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Now, we can see how the model works when computing the similarity of two words:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '![Figure 7.5: The computed result stating the similarity of two words](img/C13550_07_05.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_IMG
+- en: 'Figure 7.5: The computed result stating the similarity of two words'
+  prefs:
+  - PREF_IND
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: 'Now, to print the model, define a variable with the words of our corpus and
+    an array with the vector of each word:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Create a `DataFrame` with this data using pandas:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '![Figure 7.6: Coordinates of our vectors](img/C13550_07_06.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_IMG
+- en: 'Figure 7.6: Coordinates of our vectors'
+  prefs:
+  - PREF_IND
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: 'Create a figure with the location of each word in a plane:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '![Figure 7.7: Location of items in our Word2Vec model](img/C13550_07_07.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 7.7: Location of items in our Word2Vec model'
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: As you can see in figure 7.7, words can be represented in two dimensions. If
+    you have a smaller corpus, to find out the similarity of two words in terms of
+    meaning, you just need to measure the distances of those two words.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now you know how to train your own Word2Vec model!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Global Vectors (GloVe)
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Global Vectors is a model for word representation. It works just like the Word2Vec
+    model but adds some new features in order to be much more efficient.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Before beginning with this model, it will be beneficial to think of other ways
+    to create a word vector.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The statistics of word occurrences in a corpus is the first source of information
+    we can find to use in unsupervised algorithms, so it is possible to capture the
+    co-occurrence counts directly. To obtain this information, we do not need a processed
+    method; just having the text data will be enough.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Creating a co-occurrence matrix, X, along with a fixed-size window, we can
+    obtain a new representation of words. For example, imagine this corpus:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: I am Charles.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: I am amazing.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: I love apples.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'A window-based co-occurrence matrix is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 7.8: A window-based co-occurrence matrix](img/C13550_07_08.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 7.8: A window-based co-occurrence matrix'
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: The co-occurrence matrix is easy to understand, counting how many times a word
+    appears next to another word in the corpus.
+  prefs: []
+  type: TYPE_NORMAL
+- en: For example, in the first row, with the word "I", the word "am" has the value
+    2, because there are 2 occurrences of "I am."
+  prefs: []
+  type: TYPE_NORMAL
+- en: This representation improves the one-hot encoding and can capture semantic and
+    syntactic information, but it does have certain problems, such as the size of
+    the model, the sparsity of the vocabulary, and the model is less robust overall.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'But in this case, these problems can be solved by reducing the dimension of
+    the matrix using **SVD** (which was explained in *Chapter 3*, *Fundamentals of
+    Natural Language Processing*) with the following formula:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: A = USVT
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The results of doing this are good and the representation of the words do make
+    sense, but this would still be problematic with a large corpus.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The GloVe approach solves the problem of Word2Vec models in the following ways:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The overall time taken to train the model is reduced if the corpus has a change
+    in it.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Statistics are used efficiently. It behaves better with words that do not appear
+    many times in the corpus. This was a problem with Word2Vec, that is, unusual words
+    have similar vectors.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: GloVe combines the preceding two approaches to achieve fast training. It is
+    scalable to a huge corpus and can achieve better performance with small vectors.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: This model was created by Stanford University and is an open source project.
+    You can find more documentation at [https://github.com/PacktPublishing/Artificial-Vision-and-Language-Processing-for-Robotics/tree/master/Lesson07/Exercise25-26/utils](https://github.com/PacktPublishing/Artificial-Vision-and-Language-Processing-for-Robotics/tree/master/Lesson07/Exercise25-26/utils).
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the next exercise, you will learn how to work with GloVe.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Exercise 25: Using a Pretrained GloVe to See the Distribution of Words in a
+    Plane'
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'In this exercise, you will learn how to use GloVe and how to plot a region
+    of a model. We will use the Gensim library once again:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: 'To obtain the model, you will need to download the file from the `utils` folder
+    on GitHub (which is the 50-dimensional model):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[https://github.com/TrainingByPackt/Artificial-Vision-and-Language-Processing-for-Robotics/tree/master/Chapter%207/utils](https://github.com/TrainingByPackt/Artificial-Vision-and-Language-Processing-for-Robotics/tree/master/Chapter%207/utils)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Open up your Google Colab interface.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Create a folder for the book, download the `utils` folder from GitHub, and upload
+    it to the folder.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Import drive and mount it as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Once you have mounted your drive for the first time, you will have to enter
+    the authorization code by clicking on the URL mentioned by Google and pressing
+    the **Enter** key on your keyboard:![Figure 7.9: Image displaying the Google Colab
+    authorization step](img/C13550_07_09.jpg)'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Figure 7.9: Image displaying the Google Colab authorization step'
+  prefs:
+  - PREF_IND
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: 'Now that you have mounted the drive, you need to set the path of the directory:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Note
+  prefs:
+  - PREF_IND
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: The path mentioned in step 5 may change as per your folder setup on Google Drive.
+    However, the path will always begin with `cd /content/drive/My Drive/`.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: The `utils` folder must be present in the path you are setting up.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Import the libraries:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Use the `glove2word2vec` function provided by Gensim to create the `word2vec`
+    model:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Note
+  prefs:
+  - PREF_IND
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: The `glove.6B.50d.txt` file in this case has been placed within the `utils`
+    folder. If you choose to place it elsewhere, the path will change accordingly.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Initialize the model using the file generated by the `glove2word2vec` function:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'With GloVe, you can measure the similarity of a pair of words. Check whether
+    the model works by computing the similarity between two words and printing a word
+    vector:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '![Figure 7.10: Similarity of woman and queen](img/C13550_07_10.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_IMG
+- en: 'Figure 7.10: Similarity of woman and queen'
+  prefs:
+  - PREF_IND
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: 'In *Exercise 24*, *Creation of a Word Embedding*, we created our own vectors,
+    but here, vectors are already created. To see the representation vector of a word,
+    we just have to do the following:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '![Figure 7.11: “Woman” vector representation (50 dimensions)](img/C13550_07_11.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_IMG
+- en: 'Figure 7.11: "Woman" vector representation (50 dimensions)'
+  prefs:
+  - PREF_IND
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: 'We can also see the words most similar to other words. As you can see in steps
+    4 and 5, GloVe have many functionalities related to word representation:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '![Figure 7.12: Words most similar to woman](img/C13550_07_12.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_IMG
+- en: 'Figure 7.12: Words most similar to woman'
+  prefs:
+  - PREF_IND
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: 'Now we are going to use Singular Value Decomposition (SVD) to visualize high-dimensional
+    data to plot the words most similar to woman. Import the necessary libraries:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Initialize an array of 50 dimensions and append the vector of woman. To perform
+    this dimensional reduction, we are going to create a matrix, and its rows will
+    be the vector of each word:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '![Figure 7.13: Matrix values with the word “dog”](img/C13550_07_13.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_IMG
+- en: 'Figure 7.13: Matrix values with the word "woman"'
+  prefs:
+  - PREF_IND
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: 'Now, we have the word `dog` in the matrix and we need to append every vector
+    of the similar words. Add the rest of the vectors to the matrix:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'This matrix is something like this:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '![Figure 7.14: Matrix with the most similar vectors of the “woman” vector](img/C13550_07_14.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_IMG
+- en: 'Figure 7.14: Matrix with the most similar vectors of the "woman" vector'
+  prefs:
+  - PREF_IND
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Once we have all the vectors in the matrix, let's initialize the TSNE method.
+    It is a function of Sklearn;
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Transform the matrix into vectors of two dimensions and create a DataFrame
+    with pandas to store them:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '![Figure 7.15: Coordinates of our vectors in two dimensions](img/C13550_07_15.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_IMG
+- en: 'Figure 7.15: Coordinates of our vectors in two dimensions'
+  prefs:
+  - PREF_IND
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: 'Create a plot to see the words in a plane:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '![Figure 7.16: Distribution of the words most similar to woman](img/C13550_07_16.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 7.16: Distribution of the words most similar to woman'
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Here, we reduced the dimensionality of the vectors to get the output in a two-dimensional
+    graph. Here, we can see the similarity relationship between the words.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You have finished exercise 25! You can now choose between using your own word2vec
+    model or a GloVe model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Dialogue Systems
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: As we mentioned before, chatbots are becoming more and more popular. They can
+    help humans 24/7, answering questions or just holding a conversation. Dialogue
+    systems can understand topics, give reasonable answers, and detect sentiments
+    in a conversation (such as positive, neutral, or negative sentiment) with a human.
+    The main goal of these systems is to hold a natural dialogue by imitating a human.
+    This capability to behave or think like a human is one of the most important factors
+    in ensuring a good user experience in the conversation. The Loebner Prize is a
+    chatbot contest in which chatbots are tested using many different sentences and
+    questions, and the most human-like system wins. One of the most popular conversational
+    agents is the Mitsuku chatbot ([https://www.pandorabots.com/mitsuku/](https://www.pandorabots.com/mitsuku/)).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Chatbots are commonly used as a text service to give information to users.
+    For example, one of the most popular conversational agents in Spain is Lola, which
+    can give you your zodiac information ([https://1millionbot.com/chatbot-lola/](https://1millionbot.com/chatbot-lola/)).
+    You just need to send a message and wait a few seconds to receive the data. But
+    in 2011, Apple developed Siri, a virtual assistant that understands speech, and
+    now, we have Amazon''s Alexa and Google Assistant too. Depending on the input
+    type of a system, they can be classified into two groups: **spoken dialogue systems**
+    and **text-based dialogue systems**, which are explained later in the chapter.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: This is not the only way to classify conversational agents. Depending on the
+    type of knowledge they have, they can be divided into goal-oriented and open-domain.
+    We will also review these classifications later in this chapter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Actually, there are many tools for creating your own chatbot in a few minutes.
+    But in this chapter, you will learn how to create the required system knowledge
+    from scratch.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tools for Developing Chatbots
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'Chatbots help a lot of many upcoming companies. But to create a chatbot, do
+    you need to have knowledge of deep NLP? Well, thanks to these tools, a person
+    without any NLP knowledge can create a chatbot in a matter of hours:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Dialogflow**: This easily creates a natural-language conversation. Dialogflow
+    is a Google-owned developer that provides voice and conversational interfaces.
+    This system uses Google''s machine learning expertise to find the appropriate
+    intents in a dialogue with a user and is deployed on Google Cloud Platform. It
+    supports more than 14 languages and multiple platforms.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**IBM Watson**: Watson Assistant provides a user-friendly interface to create
+    conversational agents. It works just like Dialogflow but it is deployed on IBM
+    Cloud and it''s backed by IBM Watson knowledge. Watson also provides several tools
+    to analyze data generated by conversations.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**LUIS**: Language Understanding (LUIS) is a Microsoft machine learning-based
+    service for building natural-language apps. This bot framework is hosted on the
+    Azure cloud and uses Microsoft knowledge.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The aforementioned tools are a complex NLP system. In this chapter, we are going
+    to look at a basic method for identifying the intent of a message using a pretrained
+    GloVe. The latest chatbot trends are voice assistants. These tools allow you to
+    implement a chatbot controlled by voice. There are many ways to classify a conversational
+    agent.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Types of Conversational Agents
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Conversational agents can be classified into several groups, depending on the
+    type of input-output data and their knowledge limits. When a company orders the
+    creation of a chatbot, the first step is to analyze what its communication channel
+    (text or voice) will be and what the topics of the conversation will be (limited
+    knowledge or without restriction).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, we are going to explain many types of groups and the features of each one.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Classification by Input-Output Data Type
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'A voice-controlled virtual assistant is not like a basic chatbot, which we
+    use text to communicate with. Depending on the input-output type, we can divide
+    them into two groups:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Spoken Dialogue System (SDS)**: These models are designed to be voice-controlled,
+    without chat interfaces or keyboards, but with a microphone and speakers. These
+    systems are harder to work with than a normal chatbot because they are composed
+    of different modules:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '![Figure 7.17: Structure of an SDS model](img/C13550_07_17.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 7.17: Structure of an SDS model'
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Figure 7.17 shows the modules of an SDS. An SDS has a higher error probability,
+    because speech-to-text systems need to transform the voice of a human into text,
+    and this can fail. Once speech is converted into text, the conversational agent
+    identifies the intent of the conversation and returns a response. Before the agent
+    returns a response, the answer is converted to voice.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Text-Based Dialogue System**: In contrast with an SDS, text-based dialogue
+    systems are based on a chat interface, where the user interacts with the chatbot
+    using a keyboard and a screen. In this chapter, we will be creating a text-based
+    dialogue chatbot.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Classification by System Knowledge
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'If the chatbot is able to successfully respond to every kind of message using
+    its knowledge or if it is limited to a set of specific questions, these conversational
+    agents can be divided as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Closed-Domain or Goal-Oriented (GO)**: The model has been trained to identify
+    a set of intents. The chatbot will only understand sentences related to these
+    topics. If the conversational agent does not identify the intent (intent was explained
+    in the introduction to this chapter), it will return a predefined sentence.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Open-Domain**: Not all chatbots have a set of defined intents. If the system
+    can answer every type of sentence using NLG techniques and other data sources,
+    it is classified as an open-domain model. The architecture of these systems is
+    harder to build than a GO model.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: There is a third class of conversational agent, based on its knowledge, that
+    is, the **Hybrid Domain**. It is a combination of the models mentioned previously,
+    therefore, depending on the sentence, the chatbot will have a predefined response
+    (associated intent with many responses) or not.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Creation of a Text-Based Dialogue System
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: So far, we already know the different classes of a conversational agent and
+    how they can pick or generate a response. There are many other ways to build a
+    conversational agent, and NLP provides many different approaches to achieve this
+    objective. For example, **seq2seq** (sequence-to-sequence) models are able to
+    find an answer when given a question. Also, deep language models can generate
+    responses based on a corpus, that is, if a chatbot has a conversational corpus,
+    it can follow a conversation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this chapter, we are going to build a chatbot using Stanford's GloVe. In
+    *Exercise 26*, *Create Your First Conversational Agent*, you will find a brief
+    introduction to the technique we are going to use, and in the activity, we will
+    create a conversational agent to control a robot.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Scope definition and Intent Creation**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Our conversational agent will be a text-based dialogue system and goal-oriented.
+    Therefore, we will interact with our chatbot using the keyboard and it will only
+    understand sentences related to intents created by us.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Before starting with the intent creation, we need to know what the main goal
+    of our chatbot is (maintain a general dialogue, control a device, and obtain information)
+    and what different types of sentences the users may ask.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Once we have analyzed the possible conversations of our chatbot, we can create
+    the intents. Each intent will be a text file with several training sentences.
+    These training sentences are possible interactions of a user with our chatbot.
+    It is really important to define these sentences well because the chatbot could
+    match the wrong intent if there are two similar sentences with different intents.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: A good previous analysis of the possible conversations of our chatbot will make
+    intent definition easier. It is obvious the chatbot will not understand all the
+    sentences a user may say, but it must be able to recognize the meaning of sentences
+    related to our intents.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The system will also have a file with the same name as the intent file, but
+    instead of containing the training sentences, it will have responses related to
+    the intent:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 7.18: Folder structure of the system](img/C13550_07_18.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 7.18: Folder structure of the system'
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: In figure 7.18, we can see the structure of our chatbot. The extension of the
+    intents and responses files are `.txt`, but you can also save them as `.json`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**GloVe for Intent Detection**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: At the beginning of this chapter, the fundamentals of word embeddings, word
+    to vectors, and global vectors were reviewed. GloVe represents each word with
+    a real-valued vector, and these vectors can be used as features in a variety of
+    applications. But for this case – building a conversational agent – we are going
+    to use complete sentences to train our chatbot, not just words.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The chatbot needs to understand that an entire sentence is represented by a
+    set of words as a vector. This representation of a sequence as a vector is called
+    **seq2vec**. Internally, the conversational agent will compare the user's sentence
+    with each intent training phrase to find the most similar meaning.
+  prefs: []
+  type: TYPE_NORMAL
+- en: At this point, there are vectors representing sequences, and these sequences
+    are in a file related to an intent. If the same process mentioned previously is
+    used to join all the sequence vectors into one, we will have a representation
+    of the intent. The main idea is to not just represent a sentence; it is to represent
+    a whole document in a vector, and this is called **Doc2vec**. With this approach,
+    when the user interacts with the chatbot, it will find the intent of that user
+    phrase.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The final structure of our system will look as shown in figure 7.19:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 7.19: Final folder structure](img/C13550_07_19.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 7.19: Final folder structure'
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: 'The file named `main.py` will contain the different methods to analyze the
+    input sentence using the GloVe model located in `/data`, creating the document
+    vectors to perform the match between the user''s sentence and the intent:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 7.20: Doc2Vec transformation](img/C13550_07_20.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 7.20: Doc2Vec transformation'
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Figure 7.20 shows the process of transforming a set of sentences in a vector,
+    representing a document. In the example, the **A.txt** file is an intent with
+    three sentences. Each sentence has three words, so each sentence has three vectors.
+    Combining the vectors, we obtain a representation of each set of words, after
+    which, we get the document vector.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The approach of converting sentences into vectors allows a comparison of a sequence
+    of vectors within a document vector without any problem. When the user interacts
+    with the chatbot, the user phrase will be transformed as seq2vec and then it will
+    be compared with each document vector to find the most similar one.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Exercise 26: Create Your First Conversational Agent'
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: Perform exercise 26 in the same folder that you performed exercise 25 in.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this exercise, you will create a chatbot to understand basic conversation.
+    This exercise will cover the intent and response definition, the transformation
+    of words into a vector, representing a document, and matching the user's sentence
+    with the intent.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Before starting the exercise, please take a look at the folder structure in
+    Google Colab, as shown in figure 7.21:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 7.21: Structure of Exercise 3](img/C13550_07_21.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 7.21: Structure of Exercise 26'
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: 'The `Exercise26.ipynb` file is the `main.py` file that we came across before,
+    and within the `utils` folder, you will find the folder structure presented as
+    mentioned in the previous exercise:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Figure 7.22: Structure of Exercise 3 (2)](img/C13550_07_22.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 7.22: Structure of Exercise 26 (2)'
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: 'The folder responses have the files with the phrases that the chatbot can output
+    when the user interacts with it. Training is where intents are defined within
+    sentences. To obtain the vectors of each word, we are going to use Stanford''s
+    GloVe with five dimensions:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'First, we need to define the intents and the responses for each intent. This
+    is an introduction exercise, so let''s define three intents: welcome, how-are-you,
+    and farewell, and create some related sentences (separated by commas).'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '"Welcome" training sentences: Hi friend, Hello, Hi, Welcome.'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '"Farewell" training sentences: Bye, Goodbye, See you, Farewell, Have a good
+    day.'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '"How are you" training sentences: How are you? What is going on? Are you okay?'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Once we have the intents created, we will need the responses. Create three files
+    with the same name as the intent files and add responses.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '"Welcome" responses: Hello! Hi.'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '"How are you?" responses: I''m good! Very good my friend :)'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '"Farewell" responses: See you! Goodbye!'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Import drive and mount it as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE25]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Once you have mounted your drive for the first time, you will have to enter
+    the authorization code by clicking on the URL mentioned by Google and pressing
+    the **Enter** key on your keyboard:![Figure 7.23: The Google Colab authorization
+    step](img/C13550_07_23.jpg)'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Figure 7.23: The Google Colab authorization step'
+  prefs:
+  - PREF_IND
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: 'Now that you have mounted the drive, you need to set the path of the directory:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE26]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Import the necessary libraries:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE27]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'With spaCy, we are going to tokenize the sentences and erase the punctuation
+    marks. Now, create a function that tokenizes every sentence of a document. In
+    this exercise, we will create the Doc2vec from the word vectors by combining all
+    these vectors into one. That is why we are going to tokenize the whole document,
+    returning an array with all the tokens. It is good practice to erase the stopwords
+    too, but in this exercise it is not necessary. The input of this function is an
+    array of sentences:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE28]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Load the GloVe model:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE29]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Create two lists with the names of the intent files and the response files:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE30]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Create a function that returns a vector of 100 dimensions representing a document.
+    The input of this function will be a list with the tokens of a document. We need
+    to initialize an empty vector with 100 dimensions. What this function will perform
+    is adding every vector word and then dividing it by the length of the tokenized
+    document:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE31]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Now, we are ready to read each intent file (located in the training folder),
+    tokenizing them, and creating an array with every document vector:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE32]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '![Figure 7.24: Documents represented as vectors](img/C13550_07_24.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_IMG
+- en: 'Figure 7.24: Documents represented as vectors'
+  prefs:
+  - PREF_IND
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: 'With a function of `sklearn` called `cosine_similarity`, create a function
+    that finds the most similar intent, comparing a sentence vector with each document
+    vector:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE33]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Let''s test our chatbot. Tokenize the input of the user and use the last function
+    (`select_intent`) to obtain the related intent:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE34]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '![Figure 7.25: Predicted document intent](img/C13550_07_25.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_IMG
+- en: 'Figure 7.25: Predicted document intent'
+  prefs:
+  - PREF_IND
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: 'Create a function that gives a response to the user:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE35]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Check for the output with the test sentence:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE36]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The output will look like this:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '![Figure 7.26: Response of intent how_are_you](img/C13550_07_26.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_IMG
+- en: 'Figure 7.26: Response of intent how_are_you'
+  prefs:
+  - PREF_IND
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Check whether the system works with many test sentences.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: You have completed exercise 26! You are ready to build a conversational agent
+    to control our virtual robot. As you saw in exercise 26 (step 2), you need a good
+    definition of intents. If you try to add the same sentence in two different intents,
+    the system could fail.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Activity 7: Create a Conversational Agent to Control a Robot'
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: In this activity, we will create a chatbot with many intents. To perform this
+    activity, we will use Stanford's GloVe, as in *Exercise 26*, *Create Your First
+    Conversational Agent*. We will learn how to create a program that waits for a
+    user sentence, and when the user interacts with the chatbot, it will return a
+    response.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Scenario: You work in a company developing a security system. This security
+    system will be a robot equipped with a camera to see the environment and wheels
+    to move forward or backward. This robot will be controlled via text, so you can
+    type orders and the robot will perform different actions.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The robot can perform the following actions:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Move forward.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Move backward.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Rotations:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 45º to the right.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 45º to the left.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Identify what the robot can see. This activity is performed in the same way
+    as in *Exercise 26*, *Create Your First Conversational Agent*. To avoid rewriting
+    code, the `chatbot_intro.py` file has four basic methods:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '`Pre_processing`: To tokenize sentences'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '`Doc_vector`: To create document vectors'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '`Select_intent`: To find the most similar intent introduced in a sentence'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '`Send_response`: To send a sentence located in the response folder'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Knowing these methods, the core work is done, so the most important thing is
+    the design of the intents.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'We need to develop four different activities, but the rotation activity has
+    two different types. We are going to define five intents, one per action (two
+    for rotation). You can use these sentences, but you are free to add more training
+    sentences or more actions:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '**Backward**:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Move back
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Going backward
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Backward
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Go back
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Moving backward
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '**Environment**:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: What can you see?
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Environment information
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Take a picture
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Tell me what you are seeing?
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: What do you have in front of you?
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '**Forward**:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Advance
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Move forward
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Go to the front
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Start moving
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Forward
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '**Left**:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Turn to the left
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Go left
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Look to the left
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Turn left
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Left
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '**Right**:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Turn to the right
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Go right
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Look to the right
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Turn right
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Right
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'You can find the files in the activity/training folder:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '![Figure 7.27: Training sentence files](img/C13550_07_27.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 7.27: Training sentence files'
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: The solution for this activity is available on page 323.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Conversational agents, also knowns as chatbots, are text-based dialogue systems
+    that understand human language in order to hold a "real" conversation with people.
+    To achieve a good understanding of what a human is saying, chatbots need to classify
+    dialogue into intents, that is, a set of sentences representing a meaning. Conversational
+    agents can be classified into several groups, depending on the type of input-output
+    data and knowledge limits. This representation of meaning is not easy. To have
+    sound knowledge supporting a chatbot, a huge corpus is needed. Finding the best
+    way to represent a word is a challenge, and one-hot encoding is useless. The main
+    problem with one-hot encoding is the size of the encoded vectors. If we have a
+    corpus of 88,000 words, then the vectors will have a size of 88,000, and without
+    any relationship between the words. This is where the concept of word embeddings
+    enters the picture.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Word embeddings are a collection of techniques and methods to map words and
+    sentences from a corpus into vectors or real numbers. Word embeddings generate
+    a representation of each word in terms of the context in which a word appears.
+    To generate word embeddings, we can use Word2Vec. Word2Vec processes a corpus
+    and assigns a vector to each unique word in the corpus, and it can perform dimension
+    reduction, typically of several hundred dimensions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The core idea of Word2Vec is that a word''s meaning is given by the words that
+    are frequently found near to it. When a word appears in a sentence, its context
+    is formed by the set of words it has nearby. Word2Vec can be implemented using
+    two types of algorithm: skip-gram and CBOW. The idea of Word2Vec is to represent
+    words which is useful, but in terms of efficiency, it has problems. GloVe combines
+    Word2Vec and the statistical information of a corpus. GloVe joins these two approaches
+    to achieve fast training, scalable to huge corpora, and achieve better performance
+    with small vectors. With GloVe, we are capable of giving knowledge to our chatbot,
+    combined with training sentences defining our set of intents.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*Chapter 8*, *Object Recognition to Guide the Robot Using CNNs*, will introduce
+    you to object recognition using different pretrained models. Furthermore, it will
+    look at the latest trend in computer vision – the recognition of objects using
+    boxes identifying what is in every part of a picture.'
+  prefs: []
+  type: TYPE_NORMAL

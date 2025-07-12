@@ -1,0 +1,1614 @@
+- en: Validating Model Performance
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: When you've built a deep learning model using neural networks, you are left
+    with the question of how well it can predict when presented with new data. Are
+    the predictions made by the model accurate enough to be usable in a real-world
+    scenario? In this chapter, we will look at how to measure the performance of your
+    deep learning models. We'll also dive into tooling to monitor and debug your models.
+  prefs: []
+  type: TYPE_NORMAL
+- en: By the end of this chapter, you'll have a solid understanding of different validation
+    techniques you can use to measure the performance of your model. You'll also know
+    how to use a tool such as TensorBoard to get into the details of your neural network.
+    Finally, you will know how to apply different visualizations to debug your neural
+    network.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The following topics will be covered in this chapter:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Choosing a good strategy to validate model performance
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Validating the performance of a classification model
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Validating the performance of a regression model
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Measuring performance of a for out-of-memory datasets
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Monitoring your model
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Technical requirements
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: We assume you have a recent version of Anaconda installed on your computer and
+    have followed the steps in [Chapter 1](9a2c8c46-f9a0-4e05-86ef-31300a28a7ba.xhtml),
+    *Getting Started with CNTK*, to install CNTK on your computer. The sample code
+    for this chapter can be found in our GitHub repository at [https://github.com/PacktPublishing/Deep-Learning-with-Microsoft-Cognitive-Toolkit-Quick-Start-Guide/tree/master/ch4](https://github.com/PacktPublishing/Deep-Learning-with-Microsoft-Cognitive-Toolkit-Quick-Start-Guide/tree/master/ch4).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this chapter, we''ll work on a few examples stored in Jupyter Notebooks.
+    To access the sample code, run the following commands inside an Anaconda prompt
+    in the directory where you''ve downloaded the code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: We'll mention relevant notebooks in each of the sections so you can follow along
+    and try out different techniques yourself.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Check out the following video to see the code in action:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[http://bit.ly/2TVuoR3](http://bit.ly/2TVuoR3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Choosing a good strategy to validate model performance
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Before we dive into different validation techniques for various kinds of models,
+    let's talk a little bit about validating deep learning models in general.
+  prefs: []
+  type: TYPE_NORMAL
+- en: When you build a machine learning model, you're training it with a set of data
+    samples. The machine learning model learns these samples and derives general rules
+    from them. When you feed the same samples to the model, it will perform pretty
+    well on those samples. However, when you feed new samples to the model that you
+    haven't used in training, the model will behave differently. It will most likely
+    be worse at making a good prediction on those samples. This happens because your
+    model will always tend to lean toward data it has seen before.
+  prefs: []
+  type: TYPE_NORMAL
+- en: But we don't want our model to be good at predicting the outcome for samples
+    it has seen before. It needs to work well for samples that are new to the model,
+    because in a production environment you will get different input that you need
+    to predict an outcome for. To make sure that our model works well, we need to
+    validate it using a set of samples that we didn't use for training.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let's take a look at two different techniques for creating a dataset for validating
+    a neural network. First, we'll explore how to use a hold-out dataset. After that
+    we'll focus on a more complex method of creating a separate validation dataset.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using a hold-out dataset for validation
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The first and easiest method to create a dataset to validate a neural network
+    is to use a hold-out set. You''re holding back one set of samples from training
+    and using those samples to measure the performance of your model after you''re
+    done training the model:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/710ddb8c-46f1-4a27-840c-ef361f390092.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The ratio between training and validation samples is usually around 80% training
+    samples versus 20% test samples. This ensures that you have enough data to train
+    the model and a reasonable amount of samples to get a good measurement of the
+    performance.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Usually, you choose random samples from the main dataset to include in the training
+    and test set. This ensures that you get an even distribution between the sets.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You can produce your own hold-out set using the `train_test_split` function
+    from the `scikit-learn` library. It accepts any number of datasets and splits
+    them into two segments based on either the `train_size` or the `test_size` keyword
+    parameter:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: It is good practice to randomly split your dataset each time you run a training
+    session. Deep learning algorithms, such as the ones used in CNTK, are highly influenced
+    by random-number generators, and the order in which you provide samples to the
+    neural network during training. So, to even out the effect of the sample order,
+    you need to randomize the order of your dataset each time you train the model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using a hold-out set works well when you want to quickly measure the performance
+    of your model. It's also great when you have a large dataset or a model that takes
+    a long time to train. But there are downsides to using the hold-out technique.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Your model is sensitive to the order in which samples were provided during training.
+    Also, each time you start a new training session, the random-number generator
+    in your computer will provide different values to initialize the parameters in
+    your neural network. This can cause swings in performance metrics. Sometimes,
+    you will get really good results, but sometimes you get really bad results. In
+    the end, this is bad because it is unreliable.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Be careful when randomizing datasets that contain sequences of samples that
+    should be handled as a single input, such as when working with a time series dataset.
+    Libraries such as `scikit-learn` don't handle this kind of dataset correctly and
+    you may need to write your own randomization logic.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using k-fold cross-validation
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'You can increase the reliability of the performance metrics for your model
+    by using a technique called k-fold cross-validation. Cross-validation performs
+    the same technique as the hold-out set. But it does it a number of times—usually
+    about 5 to 10 times:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/d61537b3-a199-4972-8a7f-9378d9c2548b.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'The process of k-fold cross-validation works like this: First, you split the
+    dataset into a training and test set. You then train the model using the training
+    set. Finally, you use the test set to calculate the performance metrics for your
+    model. This process then gets repeated as many times as needed—usually 5 to 10
+    times. At the end of the cross-validation process, the average is calculated over
+    all the performance metrics, which gives you the final performance metrics. Most
+    tools will also give you the individual values so you can see how much variation
+    there is between different training runs.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Cross-validation gives you a much more stable performance measurement, because
+    you use a more realistic training and test scenario. The order of samples isn't
+    defined in production, which is simulated by running the same training process
+    a number of times. Also, we're using separate hold-out sets to simulate unseen
+    data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using k-fold cross-validation takes a lot of time when validating deep learning
+    models, so use it wisely. If you're still experimenting with the setup of your
+    model, you're better off using the basic hold-out technique. Later, when you're
+    done experimenting, you can use k-fold cross-validation to make sure that the
+    model performs well in a production environment.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note that CNTK doesn't include support for running k-fold cross-validation.
+    You need to write your own scripts to do so.
+  prefs: []
+  type: TYPE_NORMAL
+- en: What about underfitting and overfitting?
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: When you start to collect metrics for a neural network using either a hold-out
+    dataset or by applying k-fold cross-validation you'll discover that the output
+    for the metrics will be different for the training dataset and the validation
+    dataset. In the this section, we'll take a look at how to use the information
+    from the collected metrics to detect overfitting and underfitting problems for
+    your model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: When a model is overfit, it performs really well on samples it has seen during
+    training, but not on samples that are new. You can detect overfitting during validation
+    by looking at the metrics. Your model is overfit when the metric on the test set
+    is lower than the same metric on your training set.
+  prefs: []
+  type: TYPE_NORMAL
+- en: A lot of overfitting is bad for business, since your model doesn't understand
+    how to process new samples. But it is logical to have a little bit of overfitting
+    in your model; this is expected, as you want to maximize the learning effort for
+    your model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The problem of overfitting becomes bigger when your model is trained on a dataset
+    that doesn't represent the real-world environment it is used in. Then you end
+    up with a model that is overfit toward the dataset. It will predict random output
+    on new samples. Sadly, you can't detect this kind of overfitting. The only way
+    to discover this problem is to use your model in production and use proper logging
+    and user feedback to measure how well your model is doing.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Like overfitting, you can also have a model that is underfit. This means the
+    model didn't learn enough from the training set and doesn't predict useful output.
+    You can easily detect this with a performance metric. Usually, it will be lower
+    than you anticipated. Actually, your model will be underfitting when you start
+    training the first epoch and will become less underfit as training progresses.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Once the model is trained, it can still be underfit. You can detect this by
+    looking at the metrics for the training set and the test set. When the metric
+    on the test set is higher than the metric on the training set, you have an underfit
+    model. You can fix this by looking carefully at the settings of your model and
+    changing them so it becomes better the next time you train the model. You can
+    also try to train it for a little longer to see whether that helps.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Monitoring tools will help to detect underfitting and overfitting of your model.
+    So, make sure you use them. We'll talk about how to use them with CNTK later in
+    the section *Monitoring your model.*
+  prefs: []
+  type: TYPE_NORMAL
+- en: Validating performance of a classification model
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the previous section, *Choosing a good strategy to validate model performance*,
+    we talked about choosing a good strategy for validating your neural network. In
+    the following sections, we'll dive into choosing metrics for different kinds of
+    models.
+  prefs: []
+  type: TYPE_NORMAL
+- en: When you're building a classification model, you're looking for metrics that
+    express how many samples were correctly classified. You're probably also interested
+    in measuring how many samples were incorrectly classified.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You can use a confusion matrix—a table with the predicted output versus the
+    expected output—to find out a lot of detail about the performance of your model.
+    This tends to get complicated, so we'll also look at a way to measure the performance
+    of a model using the F-measure.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using a confusion matrix to validate your classification model
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Let''s take a closer look at how you can measure the performance of a classification
+    model using a confusion matrix. To understand how a confusion matrix works, let''s
+    create a confusion matrix for a binary classification model that predicts whether
+    a credit card transaction was normal or fraudulent:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '|  | **Actual fraud** | **Actual normal** |'
+  prefs: []
+  type: TYPE_TB
+- en: '| **Predicted fraud** | True positive | False positive |'
+  prefs: []
+  type: TYPE_TB
+- en: '| **Predicted normal** | False negative | True negative |'
+  prefs: []
+  type: TYPE_TB
+- en: The sample confusion matrix contains two columns and two rows. We have a column
+    for the class fraud and a column for the class normal. We've added rows to the
+    fraud and normal classes as well. The cells in the table will contain numbers
+    that tell us how many samples were marked as true positive, true negative, false
+    positive, and false negative.
+  prefs: []
+  type: TYPE_NORMAL
+- en: When the model correctly predicts fraud for a transaction, we're dealing with
+    a true positive. When we predict fraud but the transaction should not have been
+    marked as fraud, we're dealing with a false positive.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You can calculate a number of different things from the confusion matrix. First,
+    you can calculate precision based on the values in the confusion matrix:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/b333c76a-10c0-432c-a7d4-e50050c28ae2.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Precision tells you how many samples were correctly predicted out of all the
+    samples that we predicted. High precision means that your model suffers from very
+    few false positives.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The second metric that we can calculate based on the confusion matrix is the
+    recall metric:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/9816db92-39dd-4247-8093-fe2f621c0294.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Recall tells you how many of the fraud cases in the dataset were actually detected
+    by the model. Having a high recall means that your model is good at finding fraud
+    cases in general.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Finally, you can calculate the overall accuracy of the model:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/d8205762-7529-4899-be1e-7b0f53b535dc.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'The overall accuracy tells you how well the model does as a whole. But this
+    is a dangerous metric to use when your dataset is unbalanced. For example: if
+    you have 100 samples of which 5 are marked as fraud and 95 are marked as normal,
+    predicting normal for all samples gives you an accuracy of *0.95*. This seems
+    high, but we''re fooling ourselves.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'It''s much better to calculate a balanced accuracy. For this, we need to know
+    the precision and specificity of the model. We already know how to calculate the
+    precision of our model. We can calculate the specificity using the following formula:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/af157728-3148-4bf2-ba7d-024f614c0d41.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The specificity tells us how good our model is at detecting that a sample is
+    normal instead of fraud. It is the perfect inverse of the precision, which tells
+    us how good our model is at detecting fraud.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Once we have the specificity, we can combine it with the precision metric to
+    calculate the balanced accuracy:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/af5bd5d4-7cca-43de-a5fa-e414775f78ed.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'The balanced accuracy tells us how good our model is at separating the dataset
+    into fraud and normal cases, which is exactly what we want. Let''s go back to
+    our previous accuracy measurement and retry it using the balanced version of the
+    accuracy metric:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/d9a34af2-7f5e-4fc3-9e82-552413b68d97.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Remember, we had 100 samples, of which 5 should be marked as fraud. When we
+    predict everything as normal, we end up with a precision of *0.0* because we didn't
+    predict any fraud case correctly. The specificity is *0.95* because out of 100
+    samples we predicted 5 incorrectly as normal. The end result is a balanced accuracy
+    of *0.475*, which is not very high, for obvious reasons.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now that you have a good feel for what a confusion matrix looks like and how
+    it works, let's talk about the more complex cases. When you have a multi-class
+    classification model with more than two classes, you will need to expand the matrix
+    with more rows and columns.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For example: when we create a confusion matrix for a model that predicts three
+    possible classes, we could end up with the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '|  | **Actual A** | **Actual B** | **Actual C** |'
+  prefs: []
+  type: TYPE_TB
+- en: '| **Predicted A** | 91 | 75 | 60 |'
+  prefs: []
+  type: TYPE_TB
+- en: '| **Predicted B** | 5 | 15 | 30 |'
+  prefs: []
+  type: TYPE_TB
+- en: '| **Predicted C** | 4 | 10 | 10 |'
+  prefs: []
+  type: TYPE_TB
+- en: 'We can still calculate the precision, recall, and specificity for this matrix.
+    But it is more complex to do so, and we can only do it on a per-class basis. For
+    example: when you want to calculate the precision for class A, you need to take
+    the true positive rate of A, which is *91*, and divide it by the number of samples
+    that were actually A but were predicted as B and C, which is *9* in total. This
+    gives us the following calculation:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/5749a98a-57f1-42cc-b661-c92fc95d10a2.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The process is much the same for calculating recall, specificity, and accuracy.
+    To get an overall figure for the metrics, you need to calculate the average over
+    all classes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'There are two strategies that you can follow to calculate the average metric,
+    such as precision, recall, specificity, and accuracy. You can either choose to
+    calculate the micro-average or the macro-average. Let''s first explore the macro-average
+    using the precision metric:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/f73d6ac4-bcf7-4df9-aa07-42c975b4e40a.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'To get the macro-average for the precision metric, we first add up the precision
+    values for all classes and then divide them over the number of classes, *k*. The
+    macro-average doesn''t take into account any class imbalances. For example: there
+    could be 100 samples for class A while there are only 20 samples for class B.
+    Calculating the macro-average gives you a skewed picture.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'When you work on multi-class classification models, it''s better to use the
+    micro-average for the different metrics—precision, recall, specificity, and accuracy.
+    Let''s take a look at how to calculate the micro-average precision:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/c26b804c-fcaf-4010-acdf-8418edf329fa.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: First, we'll add up all the true positives for every class. We then divide them
+    by the sum of all true positives and false negatives for every class. This will
+    give us a much more balanced view of the different metrics.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using the F-measure as an alternative to the confusion matrix
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'While using precision and recall give you a good idea of how your model performs,
+    they can''t be maximized at the same time. There''s a strong relationship between
+    the two metrics:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/9f37bee7-0b13-42e5-bdf1-cf29e7afdcdb.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Let's see how this relationship between precision and recall plays out. Let's
+    say you want to use a deep learning model to classify cell samples as cancerous
+    or normal. In theory, to reach maximum precision in your model, you need to reduce
+    the number of predictions to 1\. This gives you the maximum chance to reach 100%
+    precision, but recall becomes really low, as you're missing a lot of possible
+    cases of cancer. When you want to reach maximum recall to detect as many cases
+    of cancer as possible, you need to make as many predictions as possible. But this
+    reduces precision, as you increase the chance that you get false positives.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In practice, you will find yourself balancing between precision and recall.
+    Whether you should go primarily for precision or recall is dependent on what you
+    want your model to predict. Often, you will need to talk to the user of your model
+    to determine what they find most important: a low number of false positives or
+    a high chance of finding that one patient who has a deadly disease.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Once you have made a choice between precision and recall, you need a way to
+    express this in a metric. The F-measure allows you to do this. The F-measure expresses
+    a harmonic average between precision and recall:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/369bf086-6bc9-4050-b4fe-883f66ff9da0.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The full formula for the F-measure includes an extra term, *B*, which is set
+    to 1 to get an equal ratio of precision and recall. This is called the F1-measure
+    and is the standard in almost all tools you will come across. It gives equal weight
+    to recall and precision. When you want to emphasize recall, you can set the *B*
+    factor to 2\. Alternatively, when you want to emphasize precision in your model,
+    you can set the *B* factor to 0.5\.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the next section, we'll see how to use the confusion matrix and f-measure
+    in CNTK to measure the performance of a classification model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Measuring classification performance in CNTK
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Let's take a look at how you can use the CNTK metrics functions to create a
+    confusion matrix for the flower classification model that we used in Chapter 2,
+    *Building Neural Networks with CNTK*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You can follow along with the code in this section by opening the `Validating
+    performance of classification models.ipynb` notebook file from the sample files
+    for this chapter. We'll focus on the validation code in this section. The sample
+    code contains more detail on how to preprocess the data for the model as well.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Before we can train and validate the model, we''ll need to prepare the dataset
+    for training. We''ll split the dataset into separate training and test sets to
+    ensure that we get a proper performance measurement for our model:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: First, we'll import the `train_test_split` function from the `sklearn.model_selection`
+    package. We then take the features, `X`, and the labels, `y`, and run them through
+    the function to split them. We'll use 20% of the samples for testing.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note that we're using the `stratify` keyword parameter. Because we're validating
+    a classification model, we want to have a good balance between classes in the
+    test and training set. Each class should ideally be equally represented in both
+    the test and training set. When you feed a list of classes or labels to the `stratify`
+    keyword, `scikit-learn` will take them to evenly distribute the samples over the
+    training and test set.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now that we have the training and test set, let''s train the model:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: We'll run the whole dataset through the training function for a total of 15
+    epochs of training. We've included a progress writer to visualize the training
+    process.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'At this point, we don''t know what the performance is like. We know that the
+    loss decreased nicely over 15 epochs of training. But the question is this, is
+    it enough? Let''s find out by running the validation samples through the model
+    and create a confusion matrix:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We''re using the `confusion_matrix` function from `scikit-learn` to create
+    the confusion matrix. This function needs the true labels and the predicted labels.
+    Both need to be stored as a numpy array with numeric values representing the labels.
+    We don''t have those numbers. We have a binary representation of the labels because
+    that is what is required by the model. To fix this, we need to convert the binary
+    representation of the labels into a numeric one. You can do this by invoking the
+    `argmax` function from the `numpy` package. The output of the `confusion_matrix`
+    function is a numpy array and looks like this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We get three rows and three columns in the confusion matrix because we have
+    three possible classes that our model can predict. The output itself isn''t very
+    pleasant to read. You can convert this table into a heat map using another package
+    called `seaborn`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: First, we create a new heat map based on the confusion matrix. We pass in the
+    classes of the `label_encoder` used while preprocessing the dataset for the row
+    and column labels.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The standard heat map needs some tweaks to be easily readable. We''re using
+    a custom colormap for the heat map. We''re also using custom labels on the X and
+    Y axes. Finally, we add a title and display the graph:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/de395e15-62fb-4392-ac54-be08052c5b8b.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Standard heat map
+  prefs: []
+  type: TYPE_NORMAL
+- en: Looking at the confusion matrix, you can quickly see how the model is doing.
+    In this case, the model is missing quite a few cases for the Iris-versicolor class.
+    Only 60% of the flowers of this species were correctly classified.
+  prefs: []
+  type: TYPE_NORMAL
+- en: While the confusion matrix gives a lot of detail about how the model performs
+    on different classes, it may be useful to get a single performance figure for
+    your model so you can easily compare different experiments.
+  prefs: []
+  type: TYPE_NORMAL
+- en: One way to get a single performance figure is to use the `classification_error`
+    metric from CNTK. It calculates the fraction of samples that were misclassified.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To use it, we need to modify the training code. Instead of just having a `loss`
+    function to optimize the model, we''re going to include a metric as well. Previously
+    we created just a `loss` function instance, this time we''re going to have to
+    write a `criterion` function that produces a combined `loss` and `metric` function
+    that we can use during training. The following code demonstrates how to do this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Follow the given steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: First, create a new Python function that takes our model as the `output` argument
+    and the target that we want to optimize for as the `output` argument.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Within the function, create a `loss` function and provide it the `output` and
+    `target`.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Next, create a `metric` function and provide it the `output` and `target` as
+    well.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: At the end of the function, return both as a tuple, where the first element
+    is the `loss` function and the second element is the `metric` function.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Mark the function with `@cntk.Function`. This will wrap the loss and metric
+    so we can call the `train` method on it to train the model and call the `test`
+    method to validate the model.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Once we have the combined `loss` and `metric` function factory, we can use
+    it during training:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Follow the given steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: First, import the `cross_entropy_with_softmax` function from the `losses` module
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Next, import the `sgd` learner from the `learners` module
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Also, import the `ProgressPrinter` from the `logging` module so you can log
+    the output of the training process
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Then, create a new instance `progress_writer` to log the output of the training
+    process
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Afer that, create a `loss` using the newly created `criterion_factory` function
+    and feed it the model variable `z` and the `labels` variable
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Next, create the `learner` instance using the `sgd` function and feed it the
+    parameters and a learning rate of `0.1`
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Finally, call the `train` method with the training data, the `learner` and the
+    `progress_writer`
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'When we call train on the `loss` function, we get a slightly different output.
+    Instead of just the loss, we also get to see the output of the `metric` function
+    during training. In our case, the value of the metric should increase over time:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Finally, when we''re done training, you can use the `test` method on the `loss`/`metric`
+    combination function to calculate classification error using the test set we created
+    earlier:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: When you execute the `test` method on the `loss` function with a dataset, CNTK
+    will take the samples you provide as input for this function and make a prediction
+    based on the input features, `X_test`. It then takes the predictions and the values
+    stored in `y_test` and runs them through the `metric` function that we created
+    in the `criterion_factory` function. This produces a single scalar value expressing
+    the metric.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `classification_error` function that we used in this sample measures the
+    difference between the real labels and predicted labels. It returns a value that
+    expresses the percentage of samples that were incorrectly classified.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The output of the `classification_error` function should confirm what we saw
+    when we created the confusion matrix, and will look similar to this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The results may differ because of the random-number generator that is used
+    to initialize the model. You can set a fixed random seed for the random-number
+    generator using the following code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: This will fix some variances in output but not all of them. There are a few
+    components in CNTK that ignore the fixed random seed and will still generate different
+    results each time you run the training code.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'CNTK 2.6 includes the `fmeasure` function, which implements the F-measure we
+    discussed in the section, *Using the F-measure as an alternative to the confusion
+    matrix*. You can use the `fmeasure` in the training code by replacing the call
+    to `cntk.metrics.classification_error` with a call to `cntk.losses.fmeasure` when
+    defining the `criterion factory` function:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Running the training code again will give generate different output for the
+    `loss.test` method call:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: As with the previous samples, the output may vary because of how the random-number
+    generator is used to initialize the model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Validating performance of a regression model
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the previous section, *Validating performance of a classification model,*
+    we talked about validating the performance of a classification model. Now let's
+    look at validating the performance of a regression model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Regression models are different in that there's no binary measure of right or
+    wrong for individual samples. Instead, you want to measure how close the prediction
+    is to the actual value. The closer we are to the expected output, the better the
+    model performs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this section, we'll discuss three methods to measure the performance of a
+    neural network that is used for regression. We'll first talk about how to measure
+    the performance using different error-rate functions. We'll then talk about how
+    to use the coefficient of determination to further validate your regression model.
+    Finally, we'll use a residual plot to get down to a very detailed level of how
+    our model is doing.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Measuring the accuracy of your predictions
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Let's first look at the basic concept of validating a regression model. As we
+    mentioned before, you can't really say whether a prediction is right or wrong
+    when validating a regression model. You want the prediction to be as close to
+    the real value as possible, but a small error margin is acceptable.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You can calculate the error margin on predictions made by a regression model
+    by looking at the distance between the predicted value and the expected value.
+    This can be expressed as a single formula, like so:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/39ce6970-235e-4e52-aaa3-d2f701b0cdd0.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: First, we calculate the distance between the predicted value, *y* indicated
+    by a hat, and the real value, *y*, and square it. To get an overall error rate
+    for the model, we'll need to sum these squared distances and calculate the average.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The square operator is needed to turn negative distances between the predicted
+    value, *y* with a hat, and the real value, *y*, into positive distances. Without
+    this, we would run into problems: when you have a distance of +100 and another
+    of -100 in the next sample, you''ll end up with an error rate of exactly 0\. This
+    is, of course, not what we want. The square operator solves this for us.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Because we square the distance between the prediction and actual values, we
+    punish the computer more for large errors.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `mean squared` error function can be used as a metric for validation and
+    as a loss function during training. Mathematically, there's no difference between
+    the two. This makes it easier to see the performance of a regression model during
+    training. You only need to look at the loss to get an idea of the performance.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'It''s important to understand that you get a distance back from the mean squared
+    error function. This is not an absolute measure of how well your model performs.
+    You have to make a decision what maximum distance between the predicted value
+    and expected value is acceptable to you. For example: you could specify that 90%
+    of the predictions should have a maximum of 5% difference between the actual and
+    the predicted value. This is very valuable for the users of your model. They typically
+    want some form of assurance that the model predicts within certain limits.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'If you''re looking for performance figures that express an error margin, you''re
+    not going to find much use for the `mean squared` error function. Instead, you
+    need a formula that expresses the absolute error. This can be done using the `mean
+    absolute` error function:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/8bf6778d-a641-4b26-9c10-9a72343647b2.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'This takes the absolute distance between the predicted and the real value,
+    sums them, and then takes the average. This will give you a number that is much
+    more readable. For example: when you''re talking about house prices, it''s much
+    more understandable to present users with a $5,000 error margin than a $25,000
+    squared-error margin. The latter seems rather large, but it really isn''t because
+    it is a squared value.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We're going to be purely looking at how to use the metrics from CNTK to validate
+    a regression model. But it's good to remember to talk to the users of your model
+    to determine what performance will be good enough.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Measuring regression model performance in CNTK
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Now that we''ve seen how to validate regression models in theory, let''s take
+    a look at how to use the different metrics we just discussed in combination with
+    CNTK. For this section, we''ll be working with a model that predicts miles per
+    gallon for cars using the following code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Follow the given steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: First, import the required components from the `cntk` package
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Next, define a default activation function using the `default_options` function.
+    We're using the `relu` function for this example
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Create a new `Sequential` layer set and provide two `Dense` layers with `64`
+    neurons each
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Add an additional `Dense` layer to the `Sequential` layer set and give it `1`
+    neuron without an activation. This layer will serve as the output layer
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: After you've created the network, create an input variable for the input features
+    and make sure it has the same shape as the features that we're going to be using
+    for training
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Create another `input_variable` with size 1 to store the expected value for
+    the neural network.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: The output layer doesn't have an activation function assigned because we want
+    it to be linear. When you leave out the activation function for a layer, CNTK
+    will use an identity function instead and the layer will not apply a non-linearity
+    to the data. This is useful for regression scenarios since we don't want to limit
+    the output to a specific range of values.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To train the model, we''re going to need to split the dataset and perform some
+    preprocessing:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Follow the given steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: First, take the dataset and drop the `mpg` column using the `drop` method. This
+    will produce a copy of the original dataset from which we can get the numpy vectors
+    from the `values` property.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Next, scale the data using a `StandardScaler` so we get values between -1 and
+    + 1\. Doing this will help against exploding gradient problems in the neural network.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Finally, split the dataset into a training and validation set using the `train_test_split`
+    function.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Once we have split and preprocessed the data, we can train the neural network.
+    To train the model, we''re going to define a combination of a `loss` and `metric`
+    function to train the model:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Follow the given steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Define a new function named `absolute_error`
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: In the `absolute_error` function calculate the mean absolute difference between
+    the output and target
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Return the result
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Next, create another function called `criterion_factory`
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Mark this function with `@cntk.Function` to tell CNTK to include the `train`
+    and `test` method on the function
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Within the function, create the `loss` using the `squared_loss` function
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Then, create the metric using the `absolute_error` function
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Return both the `loss` and the `metric` as a tuple
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: CNTK will automatically combine these into a single callable function. When
+    you invoke the `train` method, the loss is used to optimize the parameters in
+    the neural network. When you invoke the `test` method, the metric is used to measure
+    the performance of the previously-trained neural network.
+  prefs: []
+  type: TYPE_NORMAL
+- en: If we want to measure the absolute error for our model we need to write our
+    own metric, since the `mean absolute` error function isn't included in the framework.
+    This can be done by combining the standard operators included in CNTK.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now that we have a way to create a combined `loss` and `metric` function, let''s
+    take a look at how to use it to train the model:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We''ll use `criterion_factory` as the `loss` and `metric` combination for our
+    model. When you train the model, you will see that the loss is going down quite
+    nicely over time. We can also see that the mean absolute error is going down as
+    well:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now we need to make sure that our model handles new data just as well is it
+    does the training data. To do this, we need to invoke the `test` method on the
+    `loss`/`metric` combination with the test dataset:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This gives us the value for the performance metric and the number of samples
+    it was run on. The output should look similar to the following. It''s low and
+    tells us that the model has a small error margin:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: When we call the `test` method on the loss with the test set, it will take the
+    test data, `X_test`, and run it through the model to obtain predictions for each
+    of the samples. It then runs these through the `metric` function together with
+    the expected output, `y_test`. This will result in a single scalar value as the
+    output.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Measuring performance for out-of-memory datasets
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: We've talked a lot about different methods to validate the performance of your
+    neural networks. So far, we've only had to deal with datasets that fit in memory.
+    But this is almost never the case in production scenarios, since you need a lot
+    of data to train a neural network. In this section, we'll discuss how to use the
+    different metrics on out-of-memory datasets.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Measuring performance when working with minibatch sources
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'When you use a minibatch data source, you need a slightly different setup for
+    the loss and metric. Let''s go back and review how you can set up training using
+    a minibatch source and extend it with metrics to validate the model. First, we
+    need to set up a way to feed data to the trainer of the model:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Follow the given steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: First, import the components needed to create a minibatch source.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Next, define a new function `create_datasource` with two parameters, `filename`
+    and `limit` with a default value of `INFINITELY_REPEAT`.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Within the function, create a `StreamDef` for the labels that reads from the
+    labels field that has three features. Set the `is_sparse` keyword argument to
+    `False`.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Create another `StreamDef` for the features that reads from the features field
+    that has four features. Set the `is_sparse` keyword argument to `False`.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Next, initialize a new instance of `CTFDeserializer` class and specify the filename
+    and streams that you want to deserialize.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Finally, Create a minibatch source using the `deserializer` and configure it
+    to shuffle the dataset and specify the `max_sweeps` keyword argument with the
+    configured amount of sweeps.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Remember from [Chapter 3](f7cd9148-99e8-427c-acf4-d74c3e52df58.xhtml), *Getting
+    Data into Your Neural Network*, that to use a minibatch source, you need to have
+    a compatible file format. For the classification model in [Chapter 3](f7cd9148-99e8-427c-acf4-d74c3e52df58.xhtml),
+    *Getting Data into Your Neural Network,* we used the CTF file format as input
+    for the MinibatchSource. We've included the data files in the sample code for
+    this chapter. Check out the `Validating with a minibatch source.ipynb` file for
+    more details.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Once we have the data source, we can create the model same model as we used
+    in the earlier section, *Validating performance of a classification model*, and
+    initialize a training session for it:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Follow the given steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: First, import the `ProgressPrinter` to log information about the training process
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Additionally, import the `Trainer` and `training_session` component from the
+    `train` module
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Next, define a mapping between the input variables of the model and the data
+    streams from the minibatch source
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Then, create a new instance of the `ProgressWriter` to log the output of the
+    training progress
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: After, initialize the `trainer` and provide it with the model, the `loss`, the
+    `metric`, the `learner` and the `progress_writer`
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Finally, invoke the `training_session` function to start the training process.
+    Provide the function with the `training_source`, the settings and the mapping
+    between the input variables and the data streams from the minibatch source.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'To add validation to this setup, you need to use a `TestConfig` object and
+    assign it to the `test_config` keyword argument of the `train_session` function.
+    The `TestConfig` object doesn''t have a lot of settings that you need to configure:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Follow the given steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: First, import the `TestConfig` class from the `train` module
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Then, create a new instance of the `TestConfig` with the `test_source`, which
+    we created earlier, as input
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: You can use this test configuration during training by specifying the `test_config`
+    keyword argument for in the `train` method.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'When you run the training session, you will get output that is similar to this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE25]'
+  prefs: []
+  type: TYPE_PRE
+- en: First, you'll see that the model is trained using the data from the training
+    MinibatchSource. Because we configured the progress printer as a callback for
+    the training session, we can see how the loss is progressing. Additionally, you
+    will see a metric increasing in value. This metric output comes from the fact
+    that we gave the `training_session` function a trainer that had both a loss and
+    a metric configured.
+  prefs: []
+  type: TYPE_NORMAL
+- en: When the training finishes, a test pass will be performed over the model using
+    the data coming from the MinibatchSource that you configured in the `TestConfig`
+    object.
+  prefs: []
+  type: TYPE_NORMAL
+- en: What's cool is that not only is your training data now loaded in memory in small
+    batches to prevent memory issues, the test data is also loaded in small batches.
+    This is really useful if you're working on models with large datasets, even for
+    testing purposes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Measuring performance when working with a manual minibatch loop
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Using metrics when training with the regular APIs in CNTK is the easiest way
+    to measure the performance of your model during and after training. Things will
+    be more difficult when you work with a manual minibatch loop. This is the point
+    where you get the most control though.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let's first go back and review how to train a model using a manual minibatch
+    loop. We're going to be working on the classification model we used in the section
+    *Validating performance of a classification model*. You can find it in the `Validating
+    with a manual minibatch loop.ipynb` file in the sample code for this chapter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The loss for the model is defined as a combination of the `cross-entropy` loss
+    function and the F-measure metric that we saw in the section *Using the F-Measure
+    as an alternative to the confusion matrix*. You can use the function object combination
+    that we used before in the section *Measuring classification performance in CNTK,*
+    with a manual training process, which is a nice touch:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE26]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Once we have a loss defined, we can use it in the trainer to set up a manual
+    training session. As you might expect, this requires a bit more work to write
+    it in Python code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE27]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Follow the given steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: To get started, import the `numpy` and `pandas` packages to load and preprocess
+    the data
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Next, import the `ProgressPrinter` class to log information during training
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Then, import the `Trainer` class from the `train` module
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: After importing all the necessary components, create a new instance of the `ProgressPrinter`
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Then, initialize the `trainer` and provide it with the model, the `loss`, the
+    `learner` and the `progress_writer`
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: To train the model, create a loop that iterates over the dataset thirty times.
+    This will be our outer training loop
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Next, load the data from disk using `pandas` and set the `chunksize` keyword
+    argument to `16` so the dataset is loaded in mini-batches
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Iterate over each of the mini-batches using a `for` loop, this will be our inner
+    training loop
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Within the `for` loop, read the first four columns using the `iloc` indexer
+    as the `features` to train from and convert them to `float32`
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Next, read the last column as the label to train from
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: The labels are stored as strings, but we one-hot vectors, so convert the label
+    strings to their numeric representation
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Then, take the numeric representation of the labels and convert them to a numpy
+    array so its easier to work with them
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: After that, create a new numpy array that has the same number of rows as the
+    label values that we just converted. But with `3` columns, representing the number
+    of possible classes that the model can predict
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Now, select the columns based on the numeric label values and set it them `1`,
+    to create one-hot encoded labels
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Finally, invoke the `train_minibatch` method on the `trainer` and feed it the
+    processed features and labels for the minibatch
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'When you run the code you swill see output similar to this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE28]'
+  prefs: []
+  type: TYPE_PRE
+- en: Because we combined a metric and loss in a function object and used a progress
+    printer in the trainer configuration, we get both the output for the loss and
+    the metric during training.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To evaluate the model performance, you need to perform a similar task as with
+    training the model. Only this time, we need to use an `Evaluator` instance to
+    test the model:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE29]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Follow the given steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: First, import the `Evaluator` from the `cntk` package
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Then, create a new instance of the `Evaluator` and provide it the second output
+    of the `loss` function
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: After initializing the `Evalutator`, load the CSV file containing the data and
+    provide the `chunksize` parameter so we load the data in batches
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Now, iterate over the batches returned by the `read_csv` function to process
+    the items in the dataset
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Within this loop, read the first four columns as the `features` and convert
+    them to `float32`
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: After that, read the labels column
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Since the labels are stored as string we need to convert them to a numeric representation
+    first
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: After that, take the underlying numpy array, for easier processing
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Next, create a new array using the `np.zeros` function
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Set the elements at the label indices we obtained in step 7 to `1` to create
+    the one-hot encoded vectors for the labels
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Then, invoke the `test_minibatch` method on the `evaluator` and provide it the
+    features and encoded labels
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Finally, use the `summarize_test_progress` method on the `evaluator` to obtain
+    the final performance metrics
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'When you run the `evaluator`, you will get output similar to this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE30]'
+  prefs: []
+  type: TYPE_PRE
+- en: While the manual minibatch loop is a lot more work to set up for both training
+    and evaluation, it is one of the most powerful. You can change everything and
+    even run evaluation at different intervals during training. This is especially
+    useful if you have a model that takes a long time to train. By using testing at
+    regular intervals, you can monitor when your model starts to overfit, and you
+    can stop the training if you need to.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Monitoring your model
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Now that we''ve done some validation on our models, it''s time to talk about
+    monitoring your model during training. You saw some of this before in the section
+    *Measuring classification performance in CNTK* and the previous [Chapter 2](4c9da7a9-6873-4de9-99a9-43de693d65f8.xhtml),
+    *Building Neural Networks with CNTK,* through the use of the `ProgressWriter`
+    class, but there are more ways to monitor your model. For example: you can use
+    `TensorBoardProgressWriter`. Let''s take a closer look at how monitoring in CNTK
+    works and how you can use it to detect problems in your model.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using callbacks during training and validation
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'CNTK allows you to specify callbacks in several spots in the API. For example:
+    when you call train on a `loss` function, you can specify a set of callbacks through
+    the callbacks argument:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE31]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'If you''re working with minibatch sources or using a manual minibatch loop,
+    you can specify callbacks for monitoring purposes when you create the `Trainer`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE32]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'CNTK will invoke these callbacks at set moments:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: When a minibatch is completed
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: When a full sweep over the dataset is completed during training
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: When a minibatch of testing is completed
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: When a full sweep over the dataset is completed during testing
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: A callback in CNTK can be a callable function or a progress writer instance.
+    The progress writers use a specific API that corresponds to the four times during
+    which logging data is written. We'll leave the implementation of the progress
+    writers for your own exploration. Instead, we'll look at how you can use the different
+    progress writers during training to monitor your model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using ProgressPrinter
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: One of the monitoring tools you will find yourself using quite a lot is `ProgressPrinter`.
+    This class implements basic console-based logging to monitor your model. It can
+    also log to disk should you want it to. This is especially useful if you're working
+    in a distributed training scenario or in a scenario where you can't log in on
+    the console to see the output of your Python program.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You can create a `ProgressPrinter` instance like so:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE33]'
+  prefs: []
+  type: TYPE_PRE
+- en: You can configure quite a few things in `ProgressPrinter`, but we'll limit ourselves
+    to the most-used arguments. You can, however, find more information about `ProgressPrinter`
+    on the CNTK website should you want something more exotic.
+  prefs: []
+  type: TYPE_NORMAL
+- en: When you configure `ProgressPrinter`, you can specify the frequency as the first
+    argument to configure how often data should be printed to the output. When you
+    specify a value of zero, it will print status messages every other minibatch (1,2,4,6,8,...).
+    You can change this setting to a value greater than zero to create a custom schedule.
+    For example, when you enter 3 as the frequency, the logger will write status data
+    after every 3 minibatches.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The `ProgressPrinter` class also accepts a `log_to_file` argument. This is
+    where you can specify a filename to write the log data to. The output of the file
+    will look similar to this when used:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE34]'
+  prefs: []
+  type: TYPE_PRE
+- en: This is quite similar to what you've seen before in this chapter when we used
+    the `ProgressPrinter` class.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Finally, you can specify how the metrics should be displayed by the `ProgressPrinter`
+    class using the `metric_is_pct` setting. Set this to `False` to print the raw
+    value instead of the default strategy to print the metric as a percentage.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using TensorBoard
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'While `ProgressPrinter` can be useful to monitor training progress inside a
+    Python notebook, it certainly leaves a lot to be desired. For example: getting
+    a good view of how the loss and metric progress over time is hard with `ProgressPrinter`.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: There's a great alternative to the `ProgressPrinter` class in CNTK. You can
+    use `TensorBoardProgressWriter` to log data in a native TensorBoard format.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'TensorBoard is a tool that was invented by Google to be used with TensorFlow.
+    It can visualize all sorts of metrics from your model during and after training.
+    You can download this tool manually by installing it using PIP:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE35]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'To use TensorBoard, you need to set up `TensorBoardProgressWriter` in your
+    training code first:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE36]'
+  prefs: []
+  type: TYPE_PRE
+- en: First, import the `time` package
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Next, Import the `TensorBoardProgressWriter`
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Finally, create a new `TensorBoardProgressWriter` and provide a timestamped
+    directory to log to. Make sure to provide the model as a keyword argument so it
+    gets sent to TensorBoard during training.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: We opted to use a separate log `dir` for each run by parameterizing the log
+    directory setting with a timestamp. This ensures that multiple runs on the same
+    model are logged separately and can be viewed and compared. Finally, you can specify
+    the model that you're using the TensorBoard progress writer with.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Once you've trained your model, make sure you call the `close` method on your
+    `TensorboardProgressWriter` instance to ensure that the log files are fully written.
+    Without this, you're likely to miss a few, if not all, metrics collected during
+    training.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You can visualize the TensorBoard logging data by starting TensorBoard using
+    the command in your Anaconda prompt:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE37]'
+  prefs: []
+  type: TYPE_PRE
+- en: The `--logdir` argument should match the root `dir` where all runs are logged.
+    In this case, we're using the `logs` `dir` as the input source for TensorBoard.
+    Now you can open TensorBoard in your browser by going to the URL indicated in
+    the console where you started TensorBoard.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The TensorBoard web page looks like this, with the SCALARS tab as the default
+    page:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/c969bf59-e1d1-4416-8ccb-5b858c9626af.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Tensorboard web page, with the scalars tab as the default page
+  prefs: []
+  type: TYPE_NORMAL
+- en: You can view multiple runs by selecting them on the left of the screen. This
+    allows you to compare different runs to see how much things have changed between
+    the runs. In the middle of the screen, you can check out different charts that
+    depict the loss and metrics over time. CNTK will log the metrics per minibatch
+    and per epoch, and both can be used to see how metrics have changed over time.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'There are more ways in which TensorBoard helps to monitor your model. When
+    you go to the GRAPHS tab, you can see what your model looks like in a nice graphical
+    map:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/06fc5bc5-ac3b-4235-85c9-fb035af05dcb.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Display of your model in a graphical map
+  prefs: []
+  type: TYPE_NORMAL
+- en: This is especially useful for technically-complex models with a lot of layers.
+    It helps you understand how layers are connected, and it has saved many developers
+    from a headache because they were able to find their disconnected layers through
+    this tab.
+  prefs: []
+  type: TYPE_NORMAL
+- en: TensorBoard contains many more ways to monitor your model, but sadly CNTK uses
+    only the SCALARS and GRAPH tabs by default. You can also log images to TensorBoard
+    should you work with them. We'll talk about this later in [Chapter 5](9d91a0e4-3870-4a2f-b483-82fdb8849bc2.xhtml),
+    *Working with Images*, when we start to work on images.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this chapter, you learned how to validate different types of deep learning
+    models and how you can use metrics in CNTK to implement validation logic for your
+    models. We also explored how to use TensorBoard to visualize training progress
+    and the structure of the model so you can easily debug your models.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Monitoring and validating your model early and often will ensure that you end
+    up with neural networks that work very well on production and do what your client
+    expects them to. It is the only way to detect underfitting and overfitting of
+    your model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now that you know how to build and validate basic neural networks, we'll dive
+    into more interesting deep learning scenarios. In the next chapter, we will explore
+    how you can use images with neural networks to perform image detection, and in
+    [Chapter 6](a5da9ef2-399a-4c30-b751-318d64939369.xhtml), *Working with Time Series
+    Data*, we will take a look at how to build and validate deep learning models that
+    work on time series data, such as financial market data. You will need all of
+    the techniques described in this and previous chapters in the next chapters to
+    make the most of the more advanced deep learning scenarios.
+  prefs: []
+  type: TYPE_NORMAL

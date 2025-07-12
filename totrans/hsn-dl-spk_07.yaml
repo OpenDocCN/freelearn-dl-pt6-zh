@@ -1,0 +1,755 @@
+- en: Training Neural Networks with Spark
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the previous two chapters, we have learned how to programmatically configure
+    and build **convolutional neural networks** (**CNNs**) and **recurrent neural
+    networks** (**RNNs**) using the **DeepLearning4j** (**DL4J**) API in Scala. There,
+    implementing the training of these networks was mentioned, but very little explanation
+    has been provided. This chapter finally goes into details of how to implement
+    the training strategies for both kinds of network. The chapter also explains why
+    Spark is important in the training process and what the fundamental role of DL4J
+    is from a performance perspective.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The second and third sections focus on specific training strategies for CNNs
+    and RNNs respectively. The fourth section of this chapter also provides suggestions,
+    tips, and tricks for a proper Spark environment configuration. The final section
+    describes how to use the DL4J Arbiter component for hyperparameter optimization.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Here is a summary of what we will cover in this chapter:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: CNN distributed training with Spark and DL4J
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: RNN distributed training with Spark and DL4J
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Performance considerations
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Hyperparameter optimization
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Distributed network training with Spark and DeepLearning4j
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The training of **Multilayer Neural Networks** (**MNNs**) is computationally
+    expensive—it involves huge datasets, and there is also the need to complete the
+    training process in the fastest way possible. In [Chapter 1](ad6da519-0705-4db6-aa38-2b98b85892cc.xhtml), *The
+    Apache Spark Ecosystem*, we have learned about how Apache Spark can achieve high
+    performances when undertaking large-scale data processing. This makes it a perfect
+    candidate to perform training, by taking advantage of its parallelism features.
+    But Spark alone isn't enough—its performances are excellent, in particular for
+    ETL or streaming, but in terms of computation, in an MNN training context, some
+    data transformation or aggregation need to be moved down using a low-level language
+    (such as C++).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Here''s where the ND4J ([https://nd4j.org/index.html](https://nd4j.org/index.html))
+    module of DL4J comes into play. There''s no need to learn and program in C++,
+    as ND4J provides the Scala APIs, and those are what we need to use. The underlying
+    C++ library is transparent to Scala or Java developers using ND4J. Here is a simple
+    example of how a Scala application that uses the ND4J API appears (the inline
+    comments explain what the code does):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: ND4J brings to the JVM an open source, distributed, GPU-enabled, intuitive scientific
+    library, filling the gap between JVM languages and Python programmers in terms
+    of availability of powerful data analysis tools. DL4J relies on Spark for training
+    models in parallel. Large datasets are partitioned, with each partition available
+    to separate neural networks, each one in its own core—DL4J iteratively averages
+    the parameters they produce in a central model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Just for completeness of information, whether training would be demanded to
+    DL4J only, running multiple models in the same server, `ParallelWrapper` ([https://deeplearning4j.org/api/v1.0.0-beta2/org/deeplearning4j/parallelism/ParallelWrapper.html](https://deeplearning4j.org/api/v1.0.0-beta2/org/deeplearning4j/parallelism/ParallelWrapper.html))
+    should be used. But please consider that this process is particularly expensive
+    and the server has to be equipped with a large number of CPUs (at least 64) or
+    multiple GPUs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'DL4J provides the following two classes for training neural networks on top
+    of Spark:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`SparkDl4jMultiLayer` ([https://deeplearning4j.org/api/v1.0.0-beta2/org/deeplearning4j/spark/impl/multilayer/SparkDl4jMultiLayer.html](https://deeplearning4j.org/api/v1.0.0-beta2/org/deeplearning4j/spark/impl/multilayer/SparkDl4jMultiLayer.html)),
+    a wrapper around `MultiLayerNetwork` (this is the class that has been used in
+    some examples presented in the previous chapters).'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`SparkComputationGraph` ([https://deeplearning4j.org/api/v1.0.0-beta2/org/deeplearning4j/spark/impl/graph/SparkComputationGraph.html](https://deeplearning4j.org/api/v1.0.0-beta2/org/deeplearning4j/spark/impl/graph/SparkComputationGraph.html)),
+    a wrapper around `ComputationGraph` ([https://deeplearning4j.org/api/v1.0.0-beta2/org/deeplearning4j/nn/graph/ComputationGraph.html](https://deeplearning4j.org/api/v1.0.0-beta2/org/deeplearning4j/nn/graph/ComputationGraph.html)),
+    a neural network with arbitrary connection structure (DAG) that can also have
+    an arbitrary number of inputs and outputs.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: These two classes are wrappers around the standard single-machine classes, so
+    the network configuration process is identical in both standard and distributed
+    training.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In order to train a network through DL4J on a Spark cluster you have to follow
+    this standard workflow:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Specify the network configuration through the `MultiLayerConfiguration` ([https://static.javadoc.io/org.deeplearning4j/deeplearning4j-nn/0.9.1/org/deeplearning4j/nn/conf/MultiLayerConfiguration.html](https://static.javadoc.io/org.deeplearning4j/deeplearning4j-nn/0.9.1/org/deeplearning4j/nn/conf/MultiLayerConfiguration.html))
+    class or the `ComputationGraphConfiguration` ([https://static.javadoc.io/org.deeplearning4j/deeplearning4j-nn/0.9.1/org/deeplearning4j/nn/conf/ComputationGraphConfiguration.html](https://static.javadoc.io/org.deeplearning4j/deeplearning4j-nn/0.9.1/org/deeplearning4j/nn/conf/ComputationGraphConfiguration.html))
+    class
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Create an instance of `TrainingMaster` ([https://static.javadoc.io/org.deeplearning4j/dl4j-spark_2.11/0.9.1_spark_2/org/deeplearning4j/spark/api/TrainingMaster.html](https://static.javadoc.io/org.deeplearning4j/dl4j-spark_2.11/0.9.1_spark_2/org/deeplearning4j/spark/api/TrainingMaster.html))
+    to control how distributed training is executed in practice
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Create the `SparkDl4jMultiLayer` or `SparkComputationGraph` instance using the
+    network configuration and the `TrainingMaster` object previously created
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Load the training data
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Call the appropriate fit method on the `SparkDl4jMultiLayer` (or `SparkComputationGraph`)
+    instance
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Save the trained network
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Build the JAR file for the Spark job
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Submit the JAR for execution
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'The code examples presented in [Chapter 5](fbec1d8a-a92f-4899-af0f-11f3d545e0eb.xhtml),
+    *Convolutional Neural Networks*, and [Chapter 6](f7a89101-15be-49e3-8bf5-8c74c655f6d7.xhtml),
+    *Recurrent Neural Networks*, have given you an idea of how to configure and build
+    an MNN; those in [Chapter 3](44fab060-12c9-4eec-9e15-103da589a510.xhtml), *Extract,
+    Transform, Load*, and [Chapter 4](198c1dc7-bc2a-47e8-9f97-8dbe37b7a2e3.xhtml),
+    *Streaming*, have presented insights about different ways to load the training
+    data and, from [Chapter 1](ad6da519-0705-4db6-aa38-2b98b85892cc.xhtml), *The Apache
+    Spark Ecosystem*, you have learned how to execute a Spark job. Let''s now focus
+    in the next sections on understanding how to implement the missing part: the network
+    training.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'At the present time, to train a network, DL4J provides a single approach—parameter
+    averaging ([https://arxiv.org/abs/1410.7455](https://arxiv.org/abs/1410.7455)).
+    Here''s how this process conceptually happens:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The Spark master starts using the network configuration and parameters
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Depending on the configuration of the `TrainingMaster`, data is partitioned
+    into subsets
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'For each subset:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Configuration and the parameters are distributed from the master across each
+    worker
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Each worker executes the fit on its own partition
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The average of the parameters is calculated and then the results are returned
+    back to the master
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The training completes and a copy of the trained network is available in the
+    master
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: CNN distributed training with Spark and DL4J
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Let''s get back to the example that has been presented in [Chapter 5](fbec1d8a-a92f-4899-af0f-11f3d545e0eb.xhtml),
+    *Convolutional Neural Networks*, *Hands-on CNN with Spark*, about handwritten
+    digits image classification on the `MNIST` dataset. For convenience, here''s a
+    reminder of the network configuration used there:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We used that `MultiLayerConfiguration` object to initialize the model. Having
+    the model and the training data, the training can be set. As explained in the
+    previous section, the training happens with Spark. Therefore, the next steps would
+    be creating a Spark context, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We then parallelize the training data after loading it in memory, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now it is time to create the `TrainingMaster` instance, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We can use the only currently available implementation for the `TrainingMaster`
+    interface, the `ParameterAveragingTrainingMaster` ([https://static.javadoc.io/org.deeplearning4j/dl4j-spark_2.11/0.9.1_spark_2/org/deeplearning4j/spark/impl/paramavg/ParameterAveragingTrainingMaster.html](https://static.javadoc.io/org.deeplearning4j/dl4j-spark_2.11/0.9.1_spark_2/org/deeplearning4j/spark/impl/paramavg/ParameterAveragingTrainingMaster.html)).
+    In the preceding example we have used only three configuration options available
+    for this `TrainingMaster` implementation, but there are more:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`dataSetObjectSize`: Specifies how many examples are in each `DataSet`.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`workerPrefetchNumBatches`: The Spark workers are capable of asynchronously
+    prefetching a number of `DataSet` objects, in order to avoid waiting for data
+    to be loaded. It is possible to disable prefetching by setting this property to
+    zero. Setting it to two (such as in our example) is a good compromise (a sensible
+    default with a non-excessive use of memory).'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`*rddTrainingApproach*`: DL4J provides two approaches when training from an
+    RDD—`RDDTrainingApproach.Export` and `RDDTrainingApproach.Direct` ([https://static.javadoc.io/org.deeplearning4j/dl4j-spark_2.11/0.9.1_spark_2/org/deeplearning4j/spark/api/RDDTrainingApproach.html](https://static.javadoc.io/org.deeplearning4j/dl4j-spark_2.11/0.9.1_spark_2/org/deeplearning4j/spark/api/RDDTrainingApproach.html)).
+    `Export` is the default approach; it first saves an `RDD<DataSet>` to disk in
+    batched and serialized form. Then, the executors load asynchronously all the `DataSet`
+    objects. The choice between the `Export` and the `Direct` method depends on the
+    size of the datasets. For large datasets that don''t fit into memory and multiple
+    epochs, the `Export` approach is preferable—in those cases the split and repartition
+    operations overhead typical of the `Direct` approach doesn''t apply and the memory
+    consumption is smaller.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`exportDirectory`: The location where the temporary data files are stored (`Export`
+    method only).'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`storageLevel`: Applies only when using a `Direct` approach and training from
+    a `RDD<DataSet>` or `RDD<MultiDataSet>`. The default storage level that DL4J persists
+    the *RDDs* at is `StorageLevel.MEMORY_ONLY_SER`.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`storageLevelStreams`: Applies only when using the `fitPaths(RDD<String>)`
+    method. The default storage level that DL4J persists the `RDD<String>` at is `StorageLevel.MEMORY_ONLY`*.*'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`repartitionStrategy`: Specifies the strategy by which repartitioning should
+    be done. Possible values are `Balanced` (default, custom repartitioning strategy
+    defined by DL4J) and `SparkDefault` (standard repartitioning strategy used by
+    Spark).'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Here you can find the full list and their meaning:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[https://deeplearning4j.org/docs/latest/deeplearning4j-spark-training](https://deeplearning4j.org/docs/latest/deeplearning4j-spark-training)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Once the `TrainingMaster` configuration and strategy have been defined, an
+    instance of `SparkDl4jMultiLayer` can be created, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Then the training can happen, choosing the appropriate `fit` method, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[Chapter 8](b30120ea-bd42-4cb7-95d9-5ecaa2b7c181.xhtml), *Monitoring and Debugging
+    Neural Network Training*, and [Chapter 9](869a9495-e759-4810-8623-d8b76ba61398.xhtml),
+    *Interpreting Neural Network Output*, will explain how to monitor, debug, and
+    evaluate the results of network training.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: RNN distributed training with Spark and DL4J
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Let''s reconsider the example that has been presented in [Chapter 6](f7a89101-15be-49e3-8bf5-8c74c655f6d7.xhtml),
+    *Recurrent Neural Networks*, section *RNNs with DL4J and Spark*, about an LSTM
+    that would be trained to generate text, one character at a time. For convenience,
+    let''s remind ourselves of the network configuration used there (an LSTM RNN implementation
+    of the model proposed by Alex Graves):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'All of the considerations made in *CNN distributed training with Spark and
+    DeepLearning4j*, about the creation and configuration of a `TrainingMaster` instance, apply
+    the same way for the creation and configuration of a `SparkDl4jMultiLayer` instance,
+    so they are not repeated. What is different for the `SparkDl4jMultiLayer` is that,
+    in this case, we have to specify the `IteratorListeners` ([https://static.javadoc.io/org.deeplearning4j/deeplearning4j-nn/0.9.1/org/deeplearning4j/optimize/api/IterationListener.html](https://static.javadoc.io/org.deeplearning4j/deeplearning4j-nn/0.9.1/org/deeplearning4j/optimize/api/IterationListener.html))
+    for the model (which would be useful in particular for monitoring and debugging
+    purposes, as will be explained in next chapter). Specify the iterator listeners
+    as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'And here''s one way the training could happen in this case. Define the number
+    of epochs, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Then for each one, apply the appropriate fit method through the `sparkNetwork`
+    and sample some characters, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Finally, because we decided on an `Export` trained approach, we need to delete
+    the temporary files when done, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[Chapter 8](b30120ea-bd42-4cb7-95d9-5ecaa2b7c181.xhtml), *Monitoring and Debugging
+    Neural Network Training*, and [Chapter 9](869a9495-e759-4810-8623-d8b76ba61398.xhtml),
+    *Interpreting Neural Network Output*, will explain how to monitor, debug, and
+    evaluate the results of this network training.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Performance considerations
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: This section presents some recommendations to get the most from DL4J when training
+    on Spark. Let's start with some considerations about memory configuration. It
+    is important to understand how DL4J manages memory first. This framework is built
+    upon the ND4J scientific library (written in C++). ND4J utilizes off-heap memory
+    management—this means that the memory allocated for `INDArrays` isn't on the JVM
+    heap, as happens for Java objects, but it is allocated outside the JVM. This kind
+    of memory management allows for the efficient use of high-performance native code
+    for numerical operations and it is also necessary for efficient operations with
+    CUDA ([https://developer.nvidia.com/cuda-zone](https://developer.nvidia.com/cuda-zone))
+    when running on GPUs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'This way, the outcome in terms of extra memory and time overhead is evident—allocating
+    memory on the JVM heap requires that any time there is the need to preliminary
+    copy the data from there, perform then the calculations, and finally copy the
+    result back. ND4J simply passes pointers around for numerical calculations. Heap
+    (JVM) and off-heap (ND4J through JavaCPP ([https://github.com/bytedeco/javacpp](https://github.com/bytedeco/javacpp)))
+    are two separate memory pools. In DL4J, the memory limits of both are controlled
+    via Java command-line arguments through the following system properties:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`Xms`: The memory the JVM heap can use at application start'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`Xmx`: The maximum memory limit the JVM heap could use'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`org.bytedeco.javacpp.maxbytes`: The off-heap maximum memory limit'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`org.bytedeco.javacpp.maxphysicalbytes`: To be set typically with the same
+    value as for the `maxbytes` property'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '[Chapter 10](1066b0d4-c2f3-44f9-9cc4-d38469d72c3f.xhtml), *Deploying on a Distributed
+    System*, (which focuses on the deployment of a distributed system to train or
+    run a neural network) will present more details about memory management.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Another good practice to improve performance is to configure Spark locality
+    settings. This is an optional configuration, but can bring benefits on this front.
+    Locality refers to where data is, relative to where it can be processed. At execution
+    time, any time data has to be copied across the network to be processed by a free
+    executor; Spark has to decide between waiting for an executor that has local access
+    to the data to become free or executing the network transfer. The default behavior
+    for Spark is to wait a bit before transferring data across the network to a free
+    executor.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Training neural networks with DL4J is computationally intensive, so the amount
+    of computation per input `DataSet` is relatively high. For this reason, the Spark
+    default behavior isn’t an ideal fit for maximizing cluster utilization. During
+    Spark training, DL4J ensures there is exactly one task per executor—so it is always
+    better to immediately transfer data to a free executor, rather than waiting for
+    another one to become free. The computation time will become more important than
+    any network transfer time. The way to tell Spark that it hasn't to wait, but start
+    transferring data immediately is simple—when submitting the configuration we have
+    to set the value of the `spark.locality.wait` property to `0`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Spark has problems handling Java objects with large off-heap components (this
+    could be the case with `DataSet` and `INDArray` objects in DL4J), in particular
+    in caching or persisting them. From [Chapter 1](ad6da519-0705-4db6-aa38-2b98b85892cc.xhtml),
+    *The Apache Spark Ecosystem*, you know that Spark provides different storage levels.
+    Among those, `MEMORY_ONLY` and `MEMORY_AND_DISK` persistence can cause problems
+    with off-heap memory, because Spark can't properly estimate the size of objects
+    in an RDD, leading to out of memory issues. It is then good practice using `MEMORY_ONLY_SER`
+    or `MEMORY_AND_DISK_SER` when persisting an `RDD<DataSet>` or an `RDD<INDArray>`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let's go into detail on this. Spark drops part of an RDD based on the estimated
+    size of that block. It estimates the size of a block depending on the selected
+    persistence level. In the case of `MEMORY_ONLY` or `MEMORY_AND_DISK`, the estimate
+    is done by walking the Java object graph. The problem is that this process doesn't
+    take into account the off-heap memory used by DL4J and ND4J, so Spark underestimates
+    the true size of objects, such as `DataSets` or `INDArrays`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Furthermore, when deciding whether to keep or drop blocks, Spark also only considers the
+    amount of heap memory used. `DataSet` and `INDArray` objects have a very small
+    on-heap size, then Spark will keep too many of them, causing out of memory issues
+    because off-heap memory becomes exhausted. In cases of `MEMORY_ONLY_SER` or `MEMORY_AND_DISK_SER`,
+    Spark stores blocks on the JVM heap in serialized form. Because there is no off-heap
+    memory for the serialized objects, their size can be estimated accurately by Spark—it
+    drops blocks when required, avoiding out of memory issues.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Spark provides two serialization libraries—Java (default serialization) and
+    Kryo ([https://github.com/EsotericSoftware/kryo](https://github.com/EsotericSoftware/kryo)).
+    By default, it serializes objects using Java’s `ObjectOutputStream` ([https://docs.oracle.com/javase/8/docs/api/java/io/ObjectOutputStream.html](https://docs.oracle.com/javase/8/docs/api/java/io/ObjectOutputStream.html)),
+    and can work with any class that implements the serializable interface ([https://docs.oracle.com/javase/8/docs/api/java/io/Serializable.html](https://docs.oracle.com/javase/8/docs/api/java/io/Serializable.html)).
+    However, it can also use the Kryo library, which is significantly faster and more
+    compact than the Java serialization.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The cons are that Kryo doesn''t support all of the serializable types and it
+    doesn''t work well with the off-heap data structures by ND4J. So if you want to
+    use Kryo serialization with ND4J on Spark, it is necessary to set some extra configuration,
+    in order to skip potential `NullPointerExceptions` due to incorrect serialization
+    on some of the `INDArray` fields. To use Kryo you need to add the dependency to
+    your project (the following example is for Maven, but you can import the same
+    dependency with Gradle or sbt using the specific syntax for those build tools),
+    as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Then configure Spark to use the Nd4J Kryo registrator, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: Hyperparameter optimization
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Before any training can begin, ML techniques in general, and so DL techniques,
+    have a set of parameters that have to be chosen. They are referred to as hyperparameters.
+    Keeping focus on DL, we can say that some of these (the number of layers and their
+    size) define the architecture of a neural network, while others define the learning
+    process (learning rate, regularization, and so on). Hyperparameter optimization
+    is an attempt to automate this process (that has a significant impact on the results
+    achieved by training a neural network) using a dedicated software that applies
+    some search strategies. DL4J provides a tool, Arbiter, for hyperparameter optimization
+    of neural nets. This tool doesn't fully automate the process—a manual intervention
+    from data scientists or developers is needed in order to specify the search spaces
+    (the ranges of valid values for hyperparameters). Please be aware that the current
+    Arbiter implementation doesn't prevent failures on finding good models in those
+    cases where the search spaces haven't been manually defined in a good way. The
+    rest of this section covers the details of how Arbiter can be used programmatically.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The Arbiter dependency needs to be added to the DL4J Scala project for which
+    hyperparameter optimization need to be done, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The sequence of steps to follow to set up and execute a hyperparameter optimization
+    through Arbiter is always the same, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Define a hyperparameter search space
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Define a candidate generator for that hyperparameter search space
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Define a data source
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Define a model saver
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Choose a score function
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Choose a termination condition
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Use the previously defined data source, model saver, score function, and termination
+    condition to construct an optimization configuration
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Execute the process using the optimization runner
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Let''s now see the details on how to programmatically implement these steps.
+    The setup of the hyperparameter configuration space is very similar to the configuration
+    of an MNN in DL4J. It happens through the `MultiLayerSpace` class ([https://deeplearning4j.org/api/latest/org/deeplearning4j/arbiter/MultiLayerSpace.html](https://deeplearning4j.org/api/latest/org/deeplearning4j/arbiter/MultiLayerSpace.html)).
+    `ParameterSpace<P>` ([https://deeplearning4j.org/api/latest/org/deeplearning4j/arbiter/optimize/api/ParameterSpace.html](https://deeplearning4j.org/api/latest/org/deeplearning4j/arbiter/optimize/api/ParameterSpace.html))
+    is the arbiter class through which it is possible to define acceptable ranges
+    of values for a given hyperparameter. Here are some examples:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The lower and upper bound values specified in the `ParameterSpace` constructors
+    are included in the interval. Interval values are generated uniformly at random
+    between the given boundary. The hyperparameters space can then be built, such
+    as in the following example:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: In DL4J, two classes, `MultiLayerSpace` and `ComputationGraphSpace` ([https://deeplearning4j.org/api/latest/org/deeplearning4j/arbiter/ComputationGraphSpace.html](https://deeplearning4j.org/api/latest/org/deeplearning4j/arbiter/ComputationGraphSpace.html)),
+    are available for the hyperparameters search space setup (they represent what
+    `MultiLayerConfiguration` and `ComputationGraphConfiguration` are for MNNs configuration.)
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The next step is the definition of candidate generator. It could be a random
+    search, such as in the following line of code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: Alternatively, it could be a grid search.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In order to define the data source (the origin of the data to be used to train
+    and test the different candidates), the `DataSource` interface ([https://deeplearning4j.org/api/latest/org/deeplearning4j/arbiter/optimize/api/data/DataSource.html](https://deeplearning4j.org/api/latest/org/deeplearning4j/arbiter/optimize/api/data/DataSource.html))
+    is available in Arbiter and needs to be implemented (it requires a no-argument
+    constructor) for a given origin.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'At this point we need to define where to save the model that would be generated
+    and tested. Arbiter supports saving models to disk or storing results in-memory.
+    Here is an example of usage of the `FileModelSaver` class ([https://deeplearning4j.org/api/latest/org/deeplearning4j/arbiter/saver/local/FileModelSaver.html](https://deeplearning4j.org/api/latest/org/deeplearning4j/arbiter/saver/local/FileModelSaver.html))
+    to save to disk:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: We have to choose a score function. Arbiter provides three different choices—`EvaluationScoreFunction`
+    ([https://deeplearning4j.org/api/latest/org/deeplearning4j/arbiter/scoring/impl/EvaluationScoreFunction.html](https://deeplearning4j.org/api/latest/org/deeplearning4j/arbiter/scoring/impl/EvaluationScoreFunction.html)),
+    `ROCScoreFunction` ([https://deeplearning4j.org/api/latest/org/deeplearning4j/arbiter/scoring/impl/ROCScoreFunction.html](https://deeplearning4j.org/api/latest/org/deeplearning4j/arbiter/scoring/impl/ROCScoreFunction.html)),
+    and `RegressionScoreFunction` ([https://deeplearning4j.org/api/latest/org/deeplearning4j/arbiter/scoring/impl/RegressionScoreFunction.html](https://deeplearning4j.org/api/latest/org/deeplearning4j/arbiter/scoring/impl/RegressionScoreFunction.html)).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'More details on evaluation, ROC, and regression will be discussed in [Chapter
+    9](869a9495-e759-4810-8623-d8b76ba61398.xhtml), *Interpreting Neural Network Output*.
+    Here''s an example with `EvaluationScoreFunction`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: Finally we specify a list of termination conditions. The current implementation
+    of Arbiter provides only two termination conditions, `MaxTimeCondition` ([https://deeplearning4j.org/api/latest/org/deeplearning4j/arbiter/optimize/api/termination/MaxTimeCondition.html](https://deeplearning4j.org/api/latest/org/deeplearning4j/arbiter/optimize/api/termination/MaxTimeCondition.html))
+    and `MaxCandidatesCondition` ([https://deeplearning4j.org/api/latest/org/deeplearning4j/arbiter/optimize/api/termination/MaxCandidatesCondition.html](https://deeplearning4j.org/api/latest/org/deeplearning4j/arbiter/optimize/api/termination/MaxCandidatesCondition.html)).
+    Searching stops when one of the specified termination conditions is satisfied
+    for a hyperparameters space. In the following example, the search stops after
+    15 minutes or after 20 candidates (depending on the one that
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'happens first):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now that all of the options have been set, it is possible to build the `OptimizationConfiguration`
+    ([https://deeplearning4j.org/api/latest/org/deeplearning4j/arbiter/optimize/config/OptimizationConfiguration.html](https://deeplearning4j.org/api/latest/org/deeplearning4j/arbiter/optimize/config/OptimizationConfiguration.html)),
+    as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Then run it through an `IOptimizationRunner` ([https://deeplearning4j.org/api/latest/org/deeplearning4j/arbiter/optimize/runner/IOptimizationRunner.html](https://deeplearning4j.org/api/latest/org/deeplearning4j/arbiter/optimize/runner/IOptimizationRunner.html)),
+    such as in the following example:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs: []
+  type: TYPE_PRE
+- en: At the end of the execution, the application stores the generated candidate
+    in separate directories inside the base save directory preliminary specified for
+    the model saver. Each subdirectory is named with a progressive number.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'With reference to this section''s examples, it would be `./arbiterOutput/0/`
+    for the first candidate, `./arbiterOutput/1/` for the second, and so on. A JSON
+    representation of the model is also generated (as shown in following screenshot)
+    and it could be stored as well for further re-use:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/c2142391-9ad0-454e-a76c-acba8691848b.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 7.1: Candidate JSON serialization in Arbiter'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The Arbiter UI
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'To get the results of a hyperparameter optimization, you have to wait for the
+    process execution to end and finally retrieve them using the Arbiter API, such
+    as in the following example:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'But, depending on the specific case, this process could be long and take hours
+    before it ends and the results become available. Luckily, Arbiter provides a web
+    UI to monitor it at runtime and get insights of potential issues and hints about
+    tuning the optimization configuration, with no need to wait in vain until it completes.
+    In order to begin using this web UI, a further dependency should be added to the
+    project, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The server that manages the web UI needs to be configured before the `IOptimizationRunner`
+    starts, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE25]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In the preceding example we are persisting the Arbiter stats to file. Once
+    the optimization process has started, the web UI can be accessed at the following
+    URL, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE26]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'It has a single view, which, at the top, shows a summary of the ongoing optimization
+    process, as seen in the following screenshot:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/2c93b853-c30a-4dce-8101-19146b24c07d.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 7.2: Live summary of a hyperparameters optimization process'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In its central area, it shows a summary of the optimization settings, as seen
+    in the following screenshot:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/bf0a277d-9b06-47f7-96aa-23ff2719d7cb.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 7.3: Summary of a hyperparameter optimization settings'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'And, at the bottom, it shows a list of the results, as seen in the following
+    screenshot:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/6e624d3c-e872-4596-9f77-cbf615288a10.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 7.4: Live summary of the results of a hyperparameter optimization process'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'By clicking on a result id, extra details about that particular candidate,
+    extra charts, and the model configuration are shown in the following screenshot:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/b772b489-4bae-4388-ab84-741b23a8e246.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 7.5: Candidate details in the Arbiter web UI'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The Arbiter UI uses the same implementation and persistence strategy of the
+    DL4J UI to monitor the training process. These details will be covered in the
+    next chapter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this chapter, you have learned how training happens for CNNs and RNNs with
+    DL4J, ND4J, and Apache Spark. You now also have insights into memory management,
+    a number of tips to improve performance for the training process, and details
+    of how to use Arbiter for hyperparameter optimization.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The next chapter will focus on how to monitor and debug CNNs and RNNs during
+    their training phases.
+  prefs: []
+  type: TYPE_NORMAL

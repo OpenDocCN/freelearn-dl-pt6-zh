@@ -1,0 +1,731 @@
+- en: Transfer Learning for Image Classification
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In [Chapter 3](5e051ef6-a3bf-4fe3-b888-8cebdb4240e6.xhtml), *Multi-Label* *Image
+    Classification using Convolutional Neural Networks*, we saw how to develop an
+    end-to-end project for handling multi-label image classification problems using
+    CNN based on Java and the **Deeplearning4J** (**DL4J**) framework on real Yelp
+    image datasets. For that purpose, we developed a CNN model from scratch.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Unfortunately, developing such a model from scratch is very time consuming and
+    requires a significant amount of computational resources. Secondly, sometimes,
+    we may not even have enough data to train such deep networks. For example, ImageNet
+    is one of the largest image datasets at the moment and has millions of labeled
+    images.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Therefore, we will develop an end-to-end project to solve dog versus cat image
+    classification using a pretrained VGG-16 model, which is already trained with
+    ImageNet. In the end, we will wrap up everything in a Java JFrame and JPanel application
+    to make the overall pipeline understandable. Concisely, we will learn the following
+    topics throughout an end-to-end project:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Transfer learning for image classification
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Developing an image classifier using transfer learning
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Dataset collection and description
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Developing a dog versus cat detector UI
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Frequently Asked Questions** (**FAQs**)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Image classification with pretrained VGG16
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: One of the most useful and emerging applications in the ML domain nowadays is
+    using the transfer learning technique; it provides high portability between different
+    frameworks and platforms.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Once you've trained a neural network, what you get is a set of trained hyperparameters'
+    values. For example, **LeNet-5** has 60k parameter values, **AlexNet** has 60
+    million, and **VGG- 16** has about 138 million parameters. These architectures
+    are trained using anything from 1,000 to millions of images and typically have
+    very deep architectures, having hundreds of layers that contribute toward so many
+    hyperparameters.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There are many open source community guys or even tech giants who have made
+    those pretrained models publicly available for research (and also industry) so
+    that they can be restored and reused to solve similar problems. For example, suppose
+    we want to classify new images into one of 1,000 classes in the case of AlexNet
+    and 10 for LeNet-5\. We typically do not need to deal with so many parameters
+    but only a few selected ones (we will see an example soon).
+  prefs: []
+  type: TYPE_NORMAL
+- en: In short, we do not need to train such a deep network from scratch, but we reuse
+    the existing pre-trained model; still, we manage to achieve acceptable classification
+    accuracy. More technically, we can use the weights of that pre-trained model as
+    a feature extractor, or we can just initialize our architecture with it and then
+    fine-tune them to our new task.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this regard, while using the TL technique to solve your own problem, there
+    might be three options available:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Use a Deep CNN as a fixed feature extractor**: We can reuse a pre-trained
+    ImageNet having a fully connected layer by removing the output layer if we are
+    no longer interested in the 1,000 categories it has. This way, we can treat all
+    other layers, as a feature extractor. Even once you have extracted the features
+    using the pre-trained model, you can feed these features to any linear classifier,
+    such as the softmax classifier, or even linear SVM!'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Fine-tune the Deep CNN**: Trying to fine-tune the whole network, or even
+    most of the layers, may result in overfitting. Therefore, with some extra effort
+    to fine-tune the pre-trained weights on your new task using backpropagation.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Reuse pre-trained models with checkpointing**: The third widely used scenario
+    is to download checkpoints that people have made available on the internet. You
+    may go for this scenario if you do not have big computational power to train the
+    model from scratch, so you just initialize the model with the released checkpoints
+    and then do a little fine-tuning.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Now at this point, you may have an interesting question come to mind: what
+    is the difference between traditional ML and ML using transfer learning? Well,
+    in traditional ML, you do not transfer any knowledge or representations to any
+    other task, which is not the case in transfer learning.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Unlike traditional machine learning, the source and target task or domains do
+    not have to come from the same distribution, but they have to be similar. Moreover,
+    you can use transfer learning in case of fewer training samples or if you do not
+    have the necessary computational power.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/792d1f27-123a-4af5-b400-7bd0cb749722.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Traditional machine learning versus transfer learning
+  prefs: []
+  type: TYPE_NORMAL
+- en: DL4J and transfer learning
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Now, let''s take a look how the DL4J provides us with these functionalities
+    through the transfer learning API it has. The DL4J transfer learning API enables
+    users to (see more at [https://deeplearning4j.org/transfer-learning](https://deeplearning4j.org/transfer-learning)):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Modify the architecture of an existing model
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Fine-tune learning configurations of an existing model
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Hold parameters of a specified layer (also called a **frozen layer**) constant
+    during training
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'These functionalities are depicted in the following diagram, where we solve
+    task B (similar to task A) using the transfer learning technique:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/74b69371-b7bf-47e7-8f0a-9ec9bde897ac.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Working principle of transfer learning
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the next section, we will provide more insights into how to use such a pretrained
+    model with DL4J to help us in transfer learning.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Developing an image classifier using transfer learning
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the next section, we will see how to distinguish between dogs and cats based
+    on their raw images. We will also see how to implement our first CNN model to
+    deal with the raw and color image having three channels.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This project is highly inspired (but extended significantly) by the "Java Image
+    Cat&Dog Recognition with Deep Neural Networks" article by Klevis Ramo ([http://ramok.tech/](http://ramok.tech/)).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The `code` folder has three packages with a few Java files in each. Their functionalities
+    are outlined as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`com.packt.JavaDL.DogvCatClassification.Train`:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`TrainCatvsDogVG16.java`: It is used to train the network and the trained model
+    is saved to a user specific location. Finally, it prints the results.'
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`PetType.java`: Contains an `enum` type that specifies pet types (that is,
+    cat, dog, and unknown).'
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`VG16CatvDogEvaluator.java`: Restores the trained model saved in a specified
+    location by the `TrainCatvsDogVG16.java` class. Then it evaluates on both test
+    and validation sets. Finally, it prints the results.'
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`com.packt.JavaDL.DogvCatClassification.Classifier`:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`PetClassfier.java`: Gives the user the opportunity to upload a sample image
+    (that is, either dog or cat). Then, the user can make the detection from a high-level
+    UI.'
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`com.packt.JavaDL.DogvCatClassification.UI`:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`ImagePanel.java`: Acts as the image panel by extending the Java JPanel'
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`UI.java`: Creates the user interface for uploading the image and shows the
+    result'
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`ProgressBar.java`: Shows the progress bar'
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: We will explore them step by step. First, let us look at the dataset description.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Dataset collection and description
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: For this end-to-end project, we will use the dog versus cat dataset from Microsoft
+    that was provided for the infamous dogs versus cats classification problem as
+    a playground competition. The dataset can be downloaded from [https://www.microsoft.com/en-us/download/details.aspx?id=54765.](https://www.microsoft.com/en-us/download/details.aspx?id=54765.)
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The train folder contains 25k images of both dogs and cats, where the labels
+    are part of the filename. However, the test folder contains 12.5k images named
+    according to numeric IDs. Now let''s take a look at some sample snaps from the
+    25k images:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/56ec1ba5-7445-4ac4-82ae-dc4d575a03ae.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Showing the true labels of images that are randomly selected
+  prefs: []
+  type: TYPE_NORMAL
+- en: For each image in the test set, we have to predict whether an image contains
+    a dog (*1 = dog, 0 = cat*). In short, this is a binary classification problem.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Architecture choice and adoption
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'As mentioned earlier, we will be reusing the VGG-16 pretrained model, which
+    is already trained with different images of cat and dog breeds from ImageNet (see
+    the list here at [http://www.image-net.org/challenges/LSVRC/2014/results#clsloc](http://www.image-net.org/challenges/LSVRC/2014/results#clsloc)).
+    The original VGG-16 model had 1,000 classes of images to be predicted as outlined
+    in the following diagram:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/8de28bf5-65da-4908-9b80-d3edef23304d.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Original VGG-16 model architecture
+  prefs: []
+  type: TYPE_NORMAL
+- en: Fortunately, the trained model and network weights are already available on
+    the DL4J website (see [http://blob.deeplearning4j.org/models/vgg16_dl4j_inference.zip](http://blob.deeplearning4j.org/models/vgg16_dl4j_inference.zip))
+    and the size is about 500 MB.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You can manually download and restore, or a better way is to do it the DL4J
+    way, where you just need to specify the pretrained type (up to DL4J 1.0.0 alpha,
+    there were only four pretrained types available, such as ImageNet, CIFAR, MNIST,
+    and VGG-Face).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The latter is very straightforward; just use the following lines of code and
+    the trained model will be downloaded automatically (it will take a while depending
+    on Internet speed though):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the preceding code snippet, the `ComputationGraph` class is used to instantiate
+    a computation graph, which is a neural network with an arbitrary (that is, a directed,
+    acyclic graph) connection structure. This graph structure may also have an arbitrary
+    number of inputs and outputs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now, let''s take a look at the network architecture including the number of
+    neurons in/out, the parameter shape, and the number of parameters:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/913bd9a8-7cd0-4b01-8494-d4f46594a1ea.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: VGG-16 model architecture as a computational graph
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now that we have the pretrained model, using this, we will predict as many
+    as 1,000 classes. And the trainable parameters are equal to total parameters:
+    138 million. It is a difficult job to train so many parameters.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Nevertheless, since we need only two classes to be predicted, we need to modify
+    the model architecture slightly such that it outputs only two classes instead
+    of 1,000\. So we leave everything unchanged. The modified VGG-16 network will
+    then look like this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/7a85deba-fab7-4f1c-91ec-adacd11c161a.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: From the input to the last fully connected layer (that is, fc2) is freeze
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the preceding diagram, we freeze until the last pooling layer and use initial
+    weights. The green part is the topic of interest that we want to train, so we
+    are going to train only the last layer for the two classes. In other words, in
+    our case, we are going to freeze from the input to the last fully connected layer,
+    which is `fc2`. That is, the `featurizeExtractionLayer` variable value would be
+    `fc2`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'However, before that, let us define some properties such as seed, the number
+    of classes, and up to which layer we want to freeze:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Then we instantiate the configuration for fine-tuning, which will override
+    the values for all non-frozen layers with the values set here:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: '**FineTuneConfiguration** is the configuration for fine-tuning. Values set
+    in this configuration will override the values in each non-frozen layer. Interested
+    readers can take a look at [https://deeplearning4j.org/doc/org/deeplearning4j/nn/transferlearning/FineTuneConfiguration.html](https://deeplearning4j.org/doc/org/deeplearning4j/nn/transferlearning/FineTuneConfiguration.html).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Then we create a configuration graph that will do the trick: it will work as
+    the transfer learner using pretrained VGG-16 model:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The following screenshot shows the output of the previous code snippet:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/55a7cae8-7caf-4ffe-9693-5f9134fd91f5.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The frozen network has only 8,194 trainable parameters
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the preceding code, we removed previously computed predictions and instead
+    used our way so that the modified network predicts only two classes by re-adding
+    a new predictions layer.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In addition, the `setFeatureExtractor` method freezes the weights by specifying
+    a layer vertex to set as a feature extractor. Then, the specified layer vertex
+    and the layers on the path from an input vertex to it will be frozen, with the
+    parameters staying constant.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Thus, we are going to train only 8,192 parameters (out of 138 million parameters)
+    from the last layer to the two outputs; two extra parameters are for the biases
+    for two classes. In short, by freezing until the fc2 layer, now the trainable
+    parameters are drastically reduced from 138 million to 8,194 (that is *8,192 network
+    params + 2 bias params*).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Train and test set preparation
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Now that we have created a **ComputationGraph**, we need to prepare the training
+    and test sets for the fine-tuning stage. But even before that, we define some
+    parameters, such as allowable format and data paths:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Let''s briefly discuss the difference between MultiLayerNetwork and ComputationGraph.
+    In DL4J, there are two types of network composed of multiple layers:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**MultiLayerNetwork**: A stack of neural network layers we''ve used so far.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**ComputationGraph**: This allows networks to be built with the following features:
+    multiple network input arrays and multiple network outputs (for both classification
+    and regression). In this network type, layers connected with each other using
+    a directed acyclic graph connection structure.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Anyway, let''s come to the point. Once the params are set, the next task is
+    defining the file paths. Readers should follow this path or show an accurate path
+    during training:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Then we will use the `NativeImageLoader` class based on the `JavaCV` library
+    for loading images, where the allowed formats are `.bmp`, `.gif`, `.jpg`, `.jpeg`,
+    `.jp2`, `.pbm`, `.pgm`, `.ppm`, `.pnm`, `.png`, `.tif`, `.tiff`, `.exr`, and `.webp`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**JavaCV** uses wrappers from the JavaCPP presets of several libraries for
+    computer vision (for example, OpenCV and FFmpeg). More details can be found at
+    [https://github.com/bytedeco/javacv](https://github.com/bytedeco/javacv).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Once the features are extracted from images, we randomly split the features
+    space into 80% for training and the remaining 20% for validating the training
+    itself to prevent overfitting:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In addition, our DL4J network will not be able to consume the data in this
+    format, but we need to convert it to `DataSetIterator` format:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In the preceding lines, we converted both training and validation sets into
+    `DataSetIterator` through the `getDataSetIterator()` method. The signature of
+    this method can be seen as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: Fantastic! Up to this point, we have managed to prepare the training sets. Nevertheless,
+    remember that this will take a while since it has to process 12,500 images.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now we can start the training. However, you might be wondering why we did not
+    talk about the test set. Well, yes! Definitely we will need the test set, too.
+    However, let's discuss this in the network evaluation step.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Network training and evaluation
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Now that training and test sets are prepared, we can start the training. However,
+    before that, we define some hyperparameters for the dataset preparation:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Additionally, we specify the path where the trained model will be saved for
+    future reuse:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now we can start training the network. We will do the training combined such
+    that training is carried out with the training set and validation is effected
+    by using the validation set. Finally, the network will evaluate the network performance
+    using the test set. Therefore, for this, we need to prepare the test set too:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Then we start the training; we used a batch size of 128 and 100 epochs. Therefore,
+    the first while loop will be executed 100 times. Then, the second inner `while`
+    loop will be executed 196 times (25,000 cat and dog images/128):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: This way, we've already tried to make the training faster, but still it might
+    take several hours or even days depending on a number of an epoch that is set.
+    And, if the training is carried out on a CPU rather than GPU, it might take several
+    days. For me, it took 48 hours for 100 epochs. By the way, my machine has a Core
+    i7 processor, 32 GB of RAM, and GeForce GTX 1050 GPU.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Epoch versus iteration
+  prefs: []
+  type: TYPE_NORMAL
+- en: An epoch is a full traversal through the data, and one iteration is one forward
+    and one back propagation on the batch size specified.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Anyway, once the training is complete, the trained model will be saved in the
+    location specified previously. Now let us take a look at how the training went.
+    For this, we will see the performance on the validation set (as stated earlier,
+    we used 15% of the total training set as a validation set, that is, 5,000 images):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Then, when we evaluated our model on a full test set (that is, 12,500 images),
+    I experienced the following performance metrics:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: Restoring the trained model and inferencing
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Now that we have seen how our model performed, it would be worth exploring
+    the feasibility of restoring the already trained model. In other words, we will
+    restore the trained model and evaluate the network performance on both validation
+    and test sets:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the previous line, of code, first, we restored the trained model from the
+    disk; then we performed the evaluation on both the test set (full test set) and
+    validation set (on 20% of the training set).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now, let''s take a look at the signature of the `runOnTestSet()` method, which
+    is straightforward, in the sense that we already described a similar workflow
+    in the previous subsection:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now, let''s take a look at the signature of the `runOnValidationSet` method:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: Making simple inferencing
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Now we have seen that our trained model shows outstanding accuracy on both test
+    and validation sets. So why don't we develop a UI that would help us make the
+    thing easier? As outlined previously, we will develop a simple UI that will allow
+    us to unload a sample image, and then we should be able to detect it through a
+    simple button press. This part is pure Java, so I'm not going to discuss the details
+    here.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'If we run the `PetClassifier.java` class, it first loads our trained model
+    and acts as the backend deployed the model. Then it calls the `UI.java` class
+    to load the user interface, which looks as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/dd775f02-53c6-4827-b0b2-5b3bdc1593f6.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: UI for the cat versus dog recognizer
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In the console, you should experience the following logs/messages:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now, let''s upload a few photos from the test set (it makes more sense since
+    we are reusing the trained model, which is trained to recognize only the training
+    set, so the test set is still unseen):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/78c5ac06-bae8-46c2-85f3-8f7c5afb8c4b.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Our cat versus dog recognizer recognizes dogs from the images having dogs of
+    different shapes and colors
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Therefore, our trained model has been able to recognize dogs having a different
+    shape, size, and color in terms of images. Now, let us try to upload a few cat
+    images and see if it works:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/399ca5c8-189f-4585-b8be-d13a23744b0f.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Our cat versus dog recognizer recognizes cats from the images having cats of
+    different shape and colors
+  prefs: []
+  type: TYPE_NORMAL
+- en: Frequently asked questions (FAQs)
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Now that we have solved the dog versus cat classification problem with outstanding
+    accuracy, there are other practical aspects of transfer learning and overall deep
+    learning phenomena that need to be considered too. In this section, we will see
+    some frequently asked questions that might already be on your mind. Answers to
+    these questions can be found in Appendix A.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Can I train the model with my own animal images?
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Training using all the images is taking too long. What can I do?
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Can I wrap up this application as a web app?
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Can I use VGG-19 for this task?
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: How many hyperparameters do we have? I also want to see for each layer.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this chapter, we solved an interesting dog versus cat classification problem
+    using the transfer learning technique. We used a pre-trained VGG16 model and its
+    weights, and subsequently we fine-tuned the training with a real-life cat versus
+    dog dataset from Kaggle.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Once the training was complete, we saved the trained model for model persistence
+    and subsequent reuse. We saw that the trained model can successfully detect and
+    differentiate both cat and dog images having very different sizes, qualities,
+    and shapes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Even the trained model/classifier can be used in solving a real-life cat versus
+    dog problem. The takeaway is that this technique with some minimal effort can
+    be extended and used for solving similar image classification problems, which
+    applies to both binary and multiclass classification problems.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the next chapter, we will see how to develop an end-to-end project that will
+    detect objects from video frames when a video clip plays continuously. We will
+    also see how to utilize a pre-trained `TinyYOLO` model, which is a smaller variant
+    of the original YOLOv2 model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Furthermore, some typical challenges in object detection from both still images
+    and videos will be discussed. Then we will demonstrate how to solve them using
+    bounding box and non-max suppression techniques. Nevertheless, we will see how
+    to process a video clip using the JavaCV library on top of DL4J. Finally, we will
+    see some frequently asked questions that should be useful for adopting and extending
+    this project.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Answers to questions
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '**Answer** **to question 1**: Yes, of course, you can. However, please note
+    that you have to provide a sufficient number of images, preferably at least a
+    few thousand images for each animal type. Otherwise, the model will not be trained
+    well.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Answer** **to question 2**: A possible reason could be you are trying to
+    feed all the images at once or you are training on CPU (and your machine does
+    not have a good configuration). The former can be addressed easily; we can undertake
+    the training in batch mode, which is recommended for the era of deep learning.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The latter case can be addressed by migrating your training from CPU to GPU.
+    However, if your machine does not have a GPU, you can try migrating to Amazon
+    GPU instance to get the support for a single (p2.xlarge) or multiple GPUs (for
+    example, p2.8xlarge).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Answer** **to question 3**: The application provided should be enough to
+    understand the effectiveness of the application. However, this application can
+    still be wrapped up as a web application where the trained model can be served
+    at the backend.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: I often use Spring Boot Framework (see more at [https://projects.spring.io/spring-boot/](https://projects.spring.io/spring-boot/))
+    for this purpose. Apart from this, Java CUBA studio can be used too (see [https://www.cuba-platform.com/](https://www.cuba-platform.com/)).
+  prefs: []
+  type: TYPE_NORMAL
+- en: As mentioned earlier in this chapter, VGG-16 is a small variant of VGG-19\.
+    Unfortunately, there is no way to use VGG-19 directly. However, readers can try
+    to load VGG-19 can be imported with Keras import.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Answer to question 6:** Just use the following code immediately after the
+    network initialization:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE

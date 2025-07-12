@@ -1,0 +1,1173 @@
+- en: Fraud Analytics Using Autoencoders and Anomaly Detection
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Detecting and preventing fraud in financial companies, such as banks, insurance
+    companies, and credit unions, is an important task in order to see a business
+    grow. So far, in the previous chapter, we have seen how to use classical supervised
+    machine learning models; now it's time to use other, unsupervised learning algorithms,
+    such as autoencoders.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this chapter, we will use a dataset having more than 284,807 instances of
+    credit card use and for each transaction, where only 0.172% transactions are fraudulent.
+    So, this is highly imbalanced data. And hence it would make sense to use autoencoders
+    to pre-train a classification model and apply an anomaly detection technique to
+    predict possible fraudulent transactions; that is, we expect our fraud cases to
+    be anomalies within the whole dataset.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In summary, we will learn the following topics through this end-to-end project:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Outlier and anomaly detection using outliers
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Using autoencoders in unsupervised learning
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Developing a fraud analytics predictive model
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Hyperparameters tuning, and most importantly, feature selection
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Outlier and anomaly detection
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Anomalies are the unusual and unexpected patterns in an observed world. Thus
+    analyzing, identifying, understanding, and predicting anomalies from seen and
+    unseen data is one of the most important task in data mining. Therefore, detecting
+    anomalies allows extracting critical information from data which then can be used
+    for numerous applications.
+  prefs: []
+  type: TYPE_NORMAL
+- en: While anomaly is a generally accepted term, other synonyms, such as outliers,
+    discordant observations, exceptions, aberrations, surprises, peculiarities or
+    contaminants, are often used in different application domains. In particular,
+    anomalies and outliers are often used interchangeably. Anomaly detection finds
+    extensive use in fraud detection for credit cards, insurance or health care, intrusion
+    detection for cyber-security, fault detection in safety critical systems, and
+    military surveillance for enemy activities.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The importance of anomaly detection stems from the fact that for a variety
+    of application domains anomalies in data often translate to significant actionable
+    insights. When we start exploring a highly unbalanced dataset, there are three
+    possible interpretation of your dataset using kurtosis.  Consequently, the following
+    questions need to be answered and known by means of data exploration before applying
+    the feature engineering:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: What is the percentage of the total data being present or not having null or
+    missing values for all the available fields? Then try to handle those missing
+    values and interpret them well without losing the data semantics.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: What is the correlation between the fields? What is the correlation of each
+    field with the predicted variable? What values do they take (that is, categorical
+    or on categorical, numerical or alpha-numerical, and so on)?
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Then find out if the data distribution is skewed or not. You can identify the
+    skewness by seeing the outliers or long tail (slightly skewed to the right or
+    positively skewed, slightly skewed to the left or negatively skewed, as shown
+    in Figure 1). Now identify if the outliers contribute towards making the prediction
+    or not. More statistically, your data has one of the 3 possible kurtosis as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Mesokurtic if the measure of kurtosis is less than but almost equal to 3
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Leptokurtic if the measure of kurtosis is more than 3
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Platykurtic if the measure of kurtosis is less than 3
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '![](img/1fa1b01a-9ef4-40c5-9b15-4fc6f24f7ff0.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 1: Different kind of skewness in imbalance dataset'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s give an example. Suppose you are interested in fitness walking and you
+    walked on a sports ground or countryside in the last four weeks (excluding the
+    weekends). You spent the following time (in minutes to finish a 4 KM walking track):15,
+    16, 18, 17.16, 16.5, 18.6, 19.0, 20.4, 20.6, 25.15, 27.27, 25.24, 21.05, 21.65,
+    20.92, 22.61, 23.71, 35, 39, and 50\. Compute and interpret the skewness and kurtosis
+    of these values using R would produce a density plot as follows.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The interpretation presented in *Figure 2* of the distribution of data (workout
+    times) shows the density plot is skewed to the right so is leptokurtic. So the
+    data points to the right-most position can be thought as the unusual or suspicious
+    for our use case. So we can potentially identify or remove them to make our dataset
+    balanced. However, this is not the purpose of this project but only the identification
+    is.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/7b9c075a-e64b-4e9d-8ed8-591699664df1.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 2: Histogram of the workout time (right-skewed)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Nevertheless, by removing the long tail, we cannot remove the imbalance completely.
+    There is another workaround called outlier detection and removing those data points
+    would be useful.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Moreover, we can also look at the box-plots for each individual feature. Where
+    the box plot displays the data distribution based on five-number summaries: **minimum**,
+    **first quartile**, median, **third quartile**, and **maximum**, as shown in *Figure
+    3*, where we can look for outliers beyond three (3) **Inter-Quartile Range** (**IQR**):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/e5b1e2a8-6ec6-4f45-af32-39e594a0f7d0.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 3: Outliers beyond three (3) Inter-Quartile Range (IQR)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Therefore, it would be useful to explore if removing the long tail could provide
+    better predictions for supervised or unsupervised learning. But there is no concrete
+    recommendation for this highly unbalanced dataset. In short, the skewness analysis
+    does not help us in this regard.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Finally, if you observe your model cannot provide you the perfect classification
+    but the **mean square error** (**MSE**) can provide some clue on finding the outlier
+    or anomaly. For example, in our case,  even if our projected model cannot classify
+    your dataset into fraud and non-fraud cases but the mean MSE is definitely higher
+    for fraudulent transactions than for regular ones. So even it would sound naïve,
+    still we can identify outlier instances by applying an MSE threshold for what
+    we can consider outliers. For example, we can think of an instance with an MSE
+    > 0.02 to be an anomaly/outlier.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now question would be how we can do so? Well, through this end-to-end project,
+    we will see that how to use autoencoders and anomaly detection. We will also see
+    how to use autoencoders to pre-train a classification model. Finally, we’ll see
+    how we can measure model performance on unbalanced data. Let's get started with
+    some knowing about autoencoders.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Autoencoders and unsupervised learning
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Autoencoders are artificial neural networks capable of learning efficient representations
+    of the input data without any supervision (that is, the training set is unlabeled).
+    This coding, typically, has a much lower dimensionality than the input data, making
+    autoencoders useful for dimensionality reduction. More importantly, autoencoders
+    act as powerful feature detectors, and they can be used for unsupervised pre-training
+    of deep neural networks.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Working principles of an autoencoder
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'An autoencoder is a network with three or more layers, where the input layer
+    and the output layer have the same number of neurons, and the intermediate (hidden)
+    layers have a lower number of neurons. The network is trained to simply reproduce
+    in output, for each input data, the same pattern of activity in the input. The
+    remarkable aspect of the problem is that, due to the lower number of neurons in
+    the hidden layer, if the network can learn from examples, and generalize to an
+    acceptable extent, it performs data compression: the status of the hidden neurons
+    provides, for each example, a compressed version of the input and output common
+    states.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The remarkable aspect of the problem is that, due to the lower number of neurons
+    in the hidden layer, if the network can learn from examples, and generalize in
+    an acceptable extent, it performs *data compression*: the status of the hidden
+    neurons provides, for each example, a *compressed version* of the *input* and
+    *output common states*. Useful applications of autoencoders are **data denoising**
+    and **dimensionality** **reduction** for data visualization.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The following schema shows how an autoencoder typically works. It reconstructs
+    the received input through two phases: an encoding phase that corresponds to a
+    dimensional reduction for the original input*,* and a decoding phase, capable
+    of reconstructing the original input from the encoded (compressed) representation:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/844e530e-9cd2-4222-95d4-a3e29a4cd44a.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 4: Encoder and decoder phases in autoencoder'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'As an unsupervised neural network, an autoencoders main characteristic is in
+    its symmetrical structure. An autoencoder has two components: an encoder that
+    converts the inputs to an internal representation, followed by a decoder that
+    converts back the internal representation to the outputs. In other words, an autoencoder
+    can be seen as a combination of an encoder, where we encode some input into a
+    code, and a decoder, where we decode/reconstruct the code back to its original
+    input as the output. Thus, a **Multi-Layer Perceptron** (**MLP**) typically has
+    the same architecture as an autoencoder, except that the number of neurons in
+    the output layer must be equal to the number of inputs.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: As mentioned earlier, there is more than one way to train an autoencoder. The
+    first one is by training the whole layer at once, similar to MLP. Although, instead
+    of using some labeled output when calculating the cost function (as in supervised
+    learning), we use the input itself. So, the `cost` function shows the difference
+    between the actual input and the reconstructed input.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The second way is by greedy-training one layer at a time. This training implementation
+    comes from the problem that was created by the backpropagation method in supervised
+    learning (for example, classification). In a network with a large number of layers,
+    the backpropagation method became very slow and inaccurate in gradient calculation.
+    To solve this problem, Geoffrey Hinton applied some pretraining methods to initialize
+    the classification weight, and this pretraining method was done to two neighboring
+    layers at a time.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Efficient data representation with autoencoders
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'A big problem that plagues all supervised learning systems is the so-called
+    **curse of dimensionality**: a progressive decline in performance while increasing
+    the input space dimension. This occurs because the number of necessary samples
+    to obtain a sufficient sampling of the input space increases exponentially with
+    the number of dimensions. To overcome these problems, some optimizing networks
+    have been developed.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The first are autoencoders networks: these are designed and trained for transforming
+    an input pattern in itself, so that, in the presence of a degraded or incomplete
+    version of an input pattern, it is possible to obtain the original pattern. The
+    network is trained to create output data such as that presented in the entrance,
+    and the hidden layer stores the data compressed, that is, a compact representation
+    that captures the fundamental characteristics of the input data.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The second optimizing networks are **Boltzmann machines**: these types of networks
+    consist of an input/output visible layer and one hidden layer. The connections
+    between the visible layer and the hidden one are non-directional: data can travel
+    in both directions, visible-hidden and hidden-visible, and the different neuronal
+    units can be fully connected or partially connected.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s see an example. Decide which of the following series you think would
+    be easier to memorize:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 45, 13, 37, 11, 23, 90, 79, 24, 87, 47
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 50, 25, 76, 38, 19, 58, 29, 88, 44, 22, 11, 34, 17, 52, 26, 13, 40, 20
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Seeing the preceding two series, it seems the first series would be easier for
+    a human, because it is shorter, containing only a few numbers compared to the
+    second one. However, if you take a careful look at the second series, you would
+    find that even numbers are exactly two times the following numbers. Whereas the
+    odd numbers are followed by a number times three plus one. This is a famous number
+    sequence called the **hailstone sequence**.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'However, if you can easily memorize long series, you can also recognize patterns
+    in the data easily and quickly. During the 1970s, researchers observed that expert
+    chess players were able to memorize the positions of all the pieces in a game
+    by looking at the board for just five seconds. This might sound controversial,
+    but chess experts don''t have a more powerful memory than you and I do. The thing
+    is that they can realize the chess patterns more easily than a non-chess player
+    does. An autoencoder works such that it first observes the inputs, converts them
+    to a better and internal representation, and can swallow similar to what it has
+    already learned:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/6b8afe47-97cc-4bc8-8cd9-12e01f78432d.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 5: Autoencoder in chess game perspective'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Take a look at a more realistic figure concerning the chess example we just
+    discussed: the hidden layer has two neurons (that is, the encoder itself), whereas
+    the output layer has three neurons (in other words, the decoder). Because the
+    internal representation has a lower dimensionality than the input data (it is
+    2D instead of 3D), the autoencoder is said to be under complete. An under complete
+    autoencoder cannot trivially copy its inputs to the coding, yet it must find a
+    way to output a copy of its inputs.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: It is forced to learn the most important features in the input data and drop
+    the unimportant ones. This way, an autoencoder can be compared with **Principal
+    Component Analysis** (**PCA**), which is used to represent a given input using
+    a lower number of dimensions than originally present.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Up to this point, we know how an autoencoder works. Now, it would be worth knowing
+    anomaly detection using outlier identification.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Developing a fraud analytics model
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Before we fully start, we need to do two things: know the dataset, and then
+    prepare our programming environment.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Description of the dataset and using linear models
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'For this project, we will be using the credit card fraud detection dataset
+    from Kaggle. The dataset can be downloaded from [https://www.kaggle.com/dalpozz/creditcardfraud](https://www.kaggle.com/dalpozz/creditcardfraud).
+    Since I am using the dataset, it would be a good idea to be transparent by citing
+    the following publication:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Andrea Dal Pozzolo, Olivier Caelen, Reid A. Johnson, and Gianluca Bontempi,
+    *Calibrating Probability with Undersampling for Unbalanced Classification*. In
+    Symposium on **Computational Intelligence and Data Mining** (**CIDM**), IEEE,
+    2015.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The datasets contain transactions made by credit cards by European cardholders
+    in September 2013 over the span of only two days. There is a total of 285,299
+    transactions, with only 492 frauds out of 284,807 transactions, meaning the dataset
+    is highly imbalanced and the positive class (fraud) accounts for 0.172% of all
+    transactions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: It contains only numerical input variables, which are the result of a PCA transformation.
+    Unfortunately, due to confidentiality issues, we cannot provide the original features
+    and more background information about the data. There are 28 features, namely
+    `V1`, `V2`, ..., `V28`, that are principal components obtained with PCA, except
+    for the `Time` and `Amount`. The feature `Class` is the response variable, and
+    it takes value 1 in the case of fraud and 0 otherwise. We will see details later
+    on.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Problem description
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Given the class imbalance ratio, we recommend measuring the accuracy using the
+    **Area Under the Precision-Recall Curve** (**AUPRC**). Confusion matrix accuracy
+    is not meaningful for imbalanced classification. Regarding this, use linear machine
+    learning models, such as random forests, logistic regression, or support vector
+    machines, by applying over-or under-sampling techniques. Alternatively, we can
+    try to find anomalies in the data, since an assumption like only a few fraud cases
+    being anomalies within the whole dataset.
+  prefs: []
+  type: TYPE_NORMAL
+- en: When dealing with such a severe imbalance of response labels, we also need to
+    be careful when measuring model performance. Because there are only a handful
+    of fraudulent instances, a model that predicts everything as non-fraud will already
+    achieve more than the accuracy of 99%. But despite its high accuracy, linear machine
+    learning models won't necessarily help us find fraudulent cases.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Therefore, it would be worth exploring deep learning models, such as autoencoders.
+    Additionally, we need to use anomaly detection for finding anomalies. In particular,
+    we will see how to use autoencoders to pre-train a classification model and measure
+    model performance on unbalanced data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Preparing programming environment
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'In particular, I am going to use several tools and technologies for this project.
+    The following is the list explaining each technology:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**H2O/Sparking water**: For deep learning platform (see more in the previous
+    chapter)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Apache Spark**: For data processing environment'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Vegas**: An alternative to Matplotlib, similar to Python, for plotting. It
+    can be integrated with Spark for plotting purposes'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Scala**: The programming language for our project'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Well, I am going to create a Maven project, where all the dependencies will
+    be injected into the `pom.xml` file. The full content of the `pom.xml` can be
+    downloaded from the Packt repository. So let''s do it:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: Now, Eclipse or your favorite IDE will pull all the dependencies. The first
+    dependency will also pull all the Spark related dependencies compatible with this
+    H2O version. Then, create a Scala file and provide a suitable name. Then we are
+    ready to go.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Step 1 - Loading required packages and libraries
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'So let''s start by importing required libraries and packages:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: Step 2 - Creating a Spark session and importing implicits
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'We then need to create a Spark session as the gateway of our program:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Additionally, we need to import implicits for spark.sql and h2o:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: Step 3 - Loading and parsing input data
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'We load and get the transaction. Then we get the distribution:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: Step 4 - Exploratory analysis of the input data
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: As described earlier, the dataset contains numerical input variables `V1` to
+    `V28`, which are the result of a PCA transformation of the original features.
+    The response variable `Class` tells us whether a transaction was fraudulent (value
+    = 1) or not (value = 0).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'There are two additional features, `Time` and `Amount`. The `Time` column signifies
+    the time in seconds between the current transaction and the first transaction.
+    Whereas the `Amount` column signifies how much money was transferred in this transaction.
+    So let''s see a glimpse of the input data (only `V1`, `V2`, `V26`, and `V27` are
+    shown, though) in *Figure 6*:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/29ef9fd6-5183-47f2-8d32-6715d749d7cf.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 6: A snapshot of the credit card fraud detection dataset'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We have been able to load the transaction, but the preceding DataFrame does
+    not tell us about the class distribution. So, let''s compute the class distribution
+    and think about plotting them:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![](img/df46daf3-9596-4e75-9ade-2d93f781f36e.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 7: Class distribution in the credit card fraud detection dataset'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now, let''s see if the time has any important contribution to suspicious transactions.
+    The `Time` column tells us the order in which transactions were done, but doesn''t
+    tell us anything about the actual times (that is, time of day) of the transactions.
+    Therefore, normalizing them by day and binning those into four groups according
+    to time of day to build a `Day` column from `Time` would be useful. I have written
+    a UDF for this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now let''s plot it:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![](img/e01f7590-6be0-4115-acac-8410a5dbf6bf.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 8: Day distribution in the credit card fraud detection dataset'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The preceding graph shows that the same number of transactions was made on
+    these two days, but to be more specific, slightly more transactions were made
+    in `day1`. Now let''s build the `dayTime` column. Again, I have written a UDF
+    for it:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now that we need to get the quantiles (`q1`, median, `q2`) and building time
+    bins (`gr1`, `gr2`, `gr3`, and `gr4`):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Then let''s get the distribution for class `0` and `1`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now let''s plot the group distribution for class `0`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![](img/29070829-7d9b-40e4-918c-7d4de5fe8913.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 9: Group distribution for class 0 in the credit card fraud detection
+    dataset'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'From the preceding graph, it is clear that most of them are normal transactions.
+    Now let''s see the group distribution for `class 1`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![](img/077d35cb-67f7-4002-82d8-9b53fb78d8ad.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 10: Group distribution for class 1 in the credit card fraud detection
+    dataset'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'So, the distribution of transactions over the four **Time** bins shows that
+    the majority of fraud cases happened in group 1\. We can of course look at the
+    distribution of the amounts of money that were transferred:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![](img/491ab0c9-6738-411e-a8a2-fc6e00edba83.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 11: Distribution of the amounts of money that were transferred for class
+    0'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now let''s plot the same for `class 1`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![](img/3dfd4828-7a0d-44e5-902e-4ab6e1c6dc8b.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 12: Distribution of the amounts of money that were transferred for class
+    1'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'So, from the preceding two graphs, it can be observed that fraudulent credit
+    card transactions had a higher mean amount of money that was transferred, but
+    the maximum amount was much lower compared to regular transactions. As we have
+    seen in the `dayTime` column that we manually constructed, it is not that significant,
+    so we can simply drop it. Let''s do it:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: Step 5 - Preparing the H2O DataFrame
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Up to this point, our DataFrame (that is, `t4`) is in Spark DataFrame. But
+    it cannot be consumed by the H2O model. So, we have to convert it to an H2O frame.
+    So let''s do it:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We split the dataset to, say, 40% supervised training, 40% unsupervised training,
+    and 20% test using H2O built-in splitter called FrameSplitter:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the above code segment, `Key.make[Frame](_)` is used as a low-level task
+    to split the frame based on the split ratio that also help attain distributed
+    Key/Value pairs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Keys are very crucial in H2O computing. H2O supports a distributed Key/Value
+    store, with exact Java memory model consistency. The thing is that Keys are a
+    means to find a link value somewhere in the Cloud, to cache it locally, to allow
+    globally consistent updates to a link Value.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Finally, we need to convert the `Time` column from String to Categorical (that
+    is, **enum**) explicitly:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: Step 6 - Unsupervised pre-training using autoencoder
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'As described earlier, we will be using Scala with the `h2o` encoder. Now it''s
+    time to start the unsupervised autoencoder training. Since the training is unsupervised,
+    it means we need to exclude the `response` column from the unsupervised training
+    set:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The next task is to define the hyperparameters, such as the number of hidden
+    layers with neurons, seeds for the reproducibility, the number of training epochs
+    and the activation function for the deep learning model. For the unsupervised
+    pre-training, just set the autoencoder parameter to `true`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the preceding code, we are applying a technique called **bottleneck** training,
+    where the hidden layer in the middle is very small. This means that my model will
+    have to reduce the dimensionality of the input data (in this case, down to two
+    nodes/dimensions).
+  prefs: []
+  type: TYPE_NORMAL
+- en: The autoencoder model will then learn the patterns of the input data, irrespective
+    of given class labels. Here, it will learn which credit card transactions are
+    similar and which transactions are outliers or anomalies. We need to keep in mind,
+    though, that autoencoder models will be sensitive to outliers in our data, which
+    might throw off otherwise typical patterns.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Once the pre-training is completed, we should save the model in the `.csv`
+    directory:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Reload the model and restore it for further use:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now let''s print the model''s metrics to see how the training went:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![](img/5dc693c5-f3ed-46b4-8012-b902b7470df6.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 13: Autoencoder model''s metrics'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Fantastic! The pre-training went very well, because we can see the RMSE and
+    MSE are pretty low. We can also see that some features are pretty unimportant,
+    such as `v16`, `v1`, `v25`, and so on. We will try to analyze it later on.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Step 7 - Dimensionality reduction with hidden layers
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Since we used a shallow autoencoder with two nodes in the hidden layer in the
+    middle, it would be worth using the dimensionality reduction to explore our feature
+    space. We can extract this hidden feature with the `scoreDeepFeatures()` method
+    and plot it to show the reduced representation of the input data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `scoreDeepFeatures()` method scores an auto-encoded reconstruction on-the-fly,
+    and materialize the deep features of given layer. It takes the following parameters,
+    frame Original data (can contain response, will be ignored) and layer index of
+    the hidden layer for which to extract the features. Finally, a frame containing
+    the deep features is returned. Where number of columns is the hidden [layer]
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now, for the supervised training, we need to extract the Deep Features. Let''s
+    do it from layer 2:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The plotting for eventual cluster identification is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE25]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![](img/7408e0ac-c725-476f-b0d4-52d0a2c442a3.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 14: Eventual cluster for classes 0 and 1'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'From the preceding figure, we cannot see any cluster of fraudulent transactions
+    that is distinct from non-fraudulent instances, so dimensionality reduction with
+    our autoencoder model alone is not sufficient to identify fraud in this dataset.
+    But we could use the reduced dimensionality representation of one of the hidden
+    layers as features for model training. An example would be to use the 10 features
+    from the first or third hidden layer. Now, let''s extract the Deep Features from
+    layer 3:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE26]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now let''s do unsupervised DL using the dataset of the new dimension again:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE27]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We then save the model:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE28]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'For measuring model performance on test data, we need to convert the test data
+    to the same reduced dimensions as the training data:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE29]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now, this actually looks quite good in terms of identifying fraud cases: 93%
+    of fraud cases were identified!'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Step 8 - Anomaly detection
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'We can also ask which instances were considered outliers or anomalies within
+    our test data. Based on the autoencoder model that was trained before, the input
+    data will be reconstructed, and for each instance, the MSE between actual value
+    and reconstruction is calculated. I am also calculating the mean MSE for both
+    class labels:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE30]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![](img/01c06441-36c9-4976-a9ea-c669408e55b3.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 15: DataFrame showing MSE, class, and row ID'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Seeing this DataFrame, it''s really difficult to identify outliers. But plotting
+    them would provide some more insights:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE31]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![](img/add43d6c-82c0-472e-b39f-5ebc1dfc40e4.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 16: Distribution of the reconstructed MSE, across different row IDs'
+  prefs: []
+  type: TYPE_NORMAL
+- en: As we can see in the plot, there is no perfect classification into fraudulent
+    and non-fraudulent cases, but the mean MSE is definitely higher for fraudulent
+    transactions than for regular ones. But a minimum interpretation is necessary.
+  prefs: []
+  type: TYPE_NORMAL
+- en: From the preceding figure, we can at least see that most of the **idRows** have
+    an MSE of **5µ**. Or, if we extend the MSE threshold up to **10µ**, then the data
+    points exceeding this threshold can be considered as outliers or anomalies, that
+    is, fraudulent transactions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Step 9 - Pre-trained supervised model
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'We can now try using the autoencoder model as a pre-training input for a supervised
+    model. Here, I am again using a neural network. This model will now use the weights
+    from the autoencoder for model fitting. However, transforming the classes from
+    Int to Categorical in order to train for classification is necessary. Otherwise,
+    the H2O training algorithm will treat it as a regression:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE32]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now that the training set (that is, `train_supervised`) is ready for supervised
+    learning, let''s jump into it:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE33]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Well done! We have now completed the supervised training. Now, to see the predicted
+    versus actual classes:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE34]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now, this looks much better! We did miss 17% of the fraud cases, but we also
+    did not misclassify too many of the non-fraudulent cases. In real life, we would
+    spend some more time trying to improve the model by example, performing grid searches
+    for hyperparameter tuning, going back to the original features and trying different
+    engineered features and/or trying different algorithms. Now, what about visualizing
+    the preceding result? Let''s do it using the `Vegas` package:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE35]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![](img/f46c6d3a-8edc-489b-9250-cba98b3b7f58.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 17: Predicted versus actual classes using the supervised trained model'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Step 10 - Model evaluation on the highly-imbalanced data
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Since the dataset is highly imbalanced towards non-fraudulent cases, using model
+    evaluation metrics, such as accuracy or **area under the curve** (**AUC**), does
+    not make sense. The reason is that these metrics would give overly optimistic
+    results based on the high percentage of correct classifications of the majority
+    class.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'An alternative to AUC is to use the precision-recall curve, or the sensitivity
+    (recall) -specificity curve. First, let''s compute the ROC using the `modelMetrics()`
+    method from the `ModelMetricsSupport` class:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE36]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now that we have the `precision_recall` DataFrame, it would be exciting to
+    plot it. So let''s do it:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE37]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![](img/f66e5dc0-0b53-4b60-9ba2-9186bfa32671.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 18: Precision-recall curve'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Precision is the proportion of test cases predicted to be fraudulent that were
+    truly fraudulent, also called **true positive** predictions. On the other hand,
+    recall, or sensitivity, is the proportion of fraudulent cases that were identified
+    as fraudulent. And specificity is the proportion of non-fraudulent cases that
+    are identified as non-fraudulent.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The preceding precision-recall curve tells us the relationship between actual
+    fraudulent predictions and the proportion of fraudulent cases that were predicted.
+    Now, the question is how to compute the sensitivity and specificity. Well, we
+    can do it using standard Scala syntax and plot it using the `Vegas` package:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE38]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![](img/d09bc5bc-db14-4d43-8cd8-69615e21e749.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 19: Sensitivity versus specificity curve'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now the preceding sensitivity-specificity curve tells us the relationship between
+    correctly predicted classes from both labels—for example, if we have 100% correctly
+    predicted fraudulent cases, there will be no correctly classified non-fraudulent
+    cases, and vice versa).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Finally, it would be great to take a closer look at this a little bit differently,
+    by manually going through different prediction thresholds and calculating how
+    many cases were correctly classified in the two classes. More specifically, we
+    can visually inspect true positive, false positive, true negative, and false negative
+    over different prediction thresholds—for example, 0.0 to 1.0:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE39]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'First, let''s draw the true positive one:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE40]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![](img/8744aaab-cff4-4f47-91a5-c79c408bd47e.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 20: True positives across different prediction thresholds in [0.0, 1.0]'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Secondly, let''s draw the false positive one:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE41]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![](img/3a0053e8-ba09-438e-ba3a-95f59da4e307.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 21: False positives across different prediction thresholds in [0.0,
+    1.0]'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'However, the preceding figure is not easily interpretable. So let''s provide
+    a threshold of 0.01 for the `datum.th` and then draw it again:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE42]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![](img/f4190313-1a84-41f5-8193-164149958df3.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 22: False positives across different prediction thresholds in [0.0,
+    1.0]'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Then, it''s the turn for the true negative one:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE43]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![](img/4720dbe2-95f4-4b8c-a5ee-df4b4b9d61c9.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 23: False positives across different prediction thresholds in [0.0,
+    1.0]'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Finally, let''s draw the false negative one, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE44]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![](img/bab24a7b-dd1a-4857-96dc-c82ae1521854.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 24: False positives across different prediction thresholds in [0.0,
+    1.0]'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Therefore, the preceding plots tell us that we can increase the number of correctly
+    classified non-fraudulent cases without losing correctly classified fraudulent
+    cases when we increase the prediction threshold from the default 0.5 to 0.6.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Step 11 - Stopping the Spark session and H2O context
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Finally, stop the Spark session and H2O context. The following `stop()` method
+    invocation will shut down the H2O context and Spark cluster, respectively:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE45]'
+  prefs: []
+  type: TYPE_PRE
+- en: The first one, especially, is more important, otherwise it sometimes does not
+    stop the H2O flow but still holds the computing resources.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Auxiliary classes and methods
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'In the preceding steps, we have seen some classes or methods that we should
+    describe here, too. The first method, named `toCategorical()`, converts the Frame
+    column from String/Int to enum; this is used to convert `dayTime` bags (that is,
+    `gr1`, `gr2`, `gr3`, `gr4`) to a factor-like type. This function is also used
+    to convert the `Class` column to a factor type in order to perform classification:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE46]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This builds a confusion matrix for anomaly detection according to a threshold
+    if an instance is considered anomalous (if its MSE exceeds the given threshold):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE47]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Apart from these two auxiliary methods, I have defined three Scala case classes
+    for computing precision, recall; sensitivity, specificity; true positive, true
+    negative, false positive and false negative and so on. The signature is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE48]'
+  prefs: []
+  type: TYPE_PRE
+- en: Hyperparameter tuning and feature selection
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Here are some ways of improving the accuracy by tuning hyperparameters, such
+    as the number of hidden layers, the neurons in each hidden layer, the number of
+    epochs, and the activation function. The current implementation of the H2O-based
+    deep learning model supports the following activation functions:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`ExpRectifier`'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`ExpRectifierWithDropout`'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`Maxout`'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`MaxoutWithDropout`'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`Rectifier`'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`RectifierWthDropout`'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`Tanh`'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`TanhWithDropout`'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Apart from the `Tanh` one, I have not tried other activation functions for this
+    project. However, you should definitely try.
+  prefs: []
+  type: TYPE_NORMAL
+- en: One of the biggest advantages of using H2O-based deep learning algorithms is
+    that we can take the relative variable/feature importance. In previous chapters,
+    we have seen that, using the random forest algorithm in Spark, it is also possible
+    to compute the variable importance. So, the idea is that if your model does not
+    perform well, it would be worth dropping less important features and doing the
+    training again.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s see an example; in *Figure 13*, we have seen the most important features
+    in unsupervised training in autoencoder. Now, it is also possible to find the
+    feature importance during supervised training. I have observed feature importance
+    here:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/e5331bba-dac7-43af-a0b9-428c83482cad.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 25: False positives across different prediction thresholds in [0.0,
+    1.0]'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Therefore, from *Figure 25*, it can be observed that the features Time, `V21`,
+    `V17`, and `V6` are less important ones. So why don't you drop them and try training
+    again and observe whether the accuracy has increased or not?
+  prefs: []
+  type: TYPE_NORMAL
+- en: Nevertheless, grid searching or cross-validation techniques could still provide
+    higher accuracy. However, I'll leave it up to you.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this chapter, we have used a dataset having more than 284,807 instances of
+    credit card use and for each transaction where only 0.172% transactions are fraudulent.
+    We have seen how we can use autoencoders to pre-train a classification model and
+    how to apply anomaly detection techniques to predict possible fraudulent transactions
+    from highly imbalanced data—that is, we expected our fraudulent cases to be anomalies
+    within the whole dataset.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Our final model now correctly identified 83% of fraudulent cases and almost
+    100% of non-fraudulent cases. Nevertheless, we have seen how to use anomaly detection
+    using outliers, some ways of hyperparameter tuning, and, most importantly, feature
+    selection.
+  prefs: []
+  type: TYPE_NORMAL
+- en: A **recurrent neural network** (**RNN**) is a class of artificial neural network
+    where connections between units form a directed cycle. RNNs make use of information
+    from the past. That way, they can make predictions in data with high temporal
+    dependencies. This creates an internal state of the network that allows it to
+    exhibit dynamic temporal behavior.
+  prefs: []
+  type: TYPE_NORMAL
+- en: An RNN takes many input vectors to process them and output other vectors. Compared
+    to a classical approach, using an RNN with **Long Short-Term Memory cells** (**LSTMs**)
+    requires almost no feature engineering. Data can be fed directly into the neural
+    network, which acts like a black box, modeling the problem correctly. The approach
+    here is rather simple in terms of how much of the data was preprocessed.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In the next chapter, we will see how to develop an machine learning project
+    using an RNN implementation called **LSTM** for **human activity recognition**
+    (**HAR**), using a smartphones dataset. In short, our machine learning model will
+    be able to classify the type of movement from six categories: walking, walking
+    upstairs, walking downstairs, sitting, standing, and laying.'
+  prefs: []
+  type: TYPE_NORMAL

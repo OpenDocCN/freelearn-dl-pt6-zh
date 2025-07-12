@@ -1,0 +1,561 @@
+- en: Constructing an LSTM Network for Time Series
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this chapter, we will discuss how to construct a **long short-term memory**
+    (**LSTM**) neural network to solve a medical time series problem. We will be using
+    data from 4,000 **i****ntensive care unit** (**ICU**) patients. Our goal is to
+    predict the mortality of patients using a given set of generic and sequential
+    features. We have six generic features, such as age, gender, and weight. Also,
+    we have 37 sequential features, such as cholesterol level, temperature, pH, and
+    glucose level. Each patient has multiple measurements recorded against these sequential
+    features. The number of measurements taken from each patient differs. Furthermore,
+    the time between measurements also differs among patients.
+  prefs: []
+  type: TYPE_NORMAL
+- en: LSTM is well-suited to this type of problem due to the sequential nature of
+    the data. We could also solve it using a regular **recurrent neural network**
+    (**RNN**), but the purpose of LSTM is to avoid vanishing and exploding gradients.
+    LSTM is capable of capturing long-term dependencies because of its cell state.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this chapter, we will cover the following recipes:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Extracting and reading clinical data
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Loading and transforming data
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Constructing input layers for a network
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Constructing output layers for a network
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Training time series data
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Evaluating the LSTM network's efficiency
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Technical requirements
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: A concrete implementation of the use case discussed in this chapter can be found
+    here: [https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/blob/master/06_Constructing_LSTM_Network_for_time_series/sourceCode/cookbookapp-lstm-time-series/src/main/java/LstmTimeSeriesExample.java](https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/blob/master/06_Constructing_LSTM_Network_for_time_series/sourceCode/cookbookapp-lstm-time-series/src/main/java/LstmTimeSeriesExample.java).
+  prefs: []
+  type: TYPE_NORMAL
+- en: After cloning the GitHub repository, navigate to the `Java-Deep-Learning-Cookbook/06_Constructing_LSTM_Network_for_time_series/sourceCode`
+    directory. Then, import the `cookbookapp-lstm-time-series` project as a Maven
+    project by importing `pom.xml`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Download the clinical time series data from here: [https://skymindacademy.blob.core.windows.net/physionet2012/physionet2012.tar.gz](https://skymindacademy.blob.core.windows.net/physionet2012/physionet2012.tar.gz).
+    The dataset is from the PhysioNet Cardiology Challenge 2012.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Unzip the package after the download. You should see the following directory
+    structure:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/008ce812-7845-46e1-bb46-a61d4f155a8c.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The features are contained in a directory called `sequence` and the labels are
+    contained in a directory called `mortality`. Ignore the other directories for
+    now. You need to update file paths to features/labels in the source code to run
+    the example.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Extracting and reading clinical data
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '**ETL** (short for **Extract, Transform, and Load**) is the most important
+    step in any deep learning problem. We''re focusing on data extraction in this
+    recipe, where we will discuss how to extract and process clinical time series
+    data. We have learned about regular data types, such as normal CSV/text data and
+    images, in previous chapters. Now, let''s discuss how to deal with time series
+    data. We will use clinical time series data to predict the mortality of patients.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Create an instance of `NumberedFileInputSplit`  to club all feature files together:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Create an instance of `NumberedFileInputSplit`  to club all label files together:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Create record readers for features/labels:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: How it works...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Time series data is three-dimensional. Each sample is represented by its own
+    file. Feature values in columns are measured on different time steps denoted by
+    rows. For instance, in step 1, we saw the following snapshot, where time series
+    data is displayed:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/aaad59fe-f05f-47be-9ca0-94fa113e7b3a.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Each file represents a different sequence. When you open the file, you will
+    see the observations (features) recorded on different time steps, as shown here:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/ff49eeb2-399f-4e88-8194-03612a69d5f1.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The labels are contained in a single CSV file, which contains a value of `0`,
+    indicating death, or a value of `1`, indicating survival. For example, for the
+    features in `1.csv`, the output labels are in `1.csv` under the mortality directory. Note
+    that we have a total of 4,000 samples. We divide the entire dataset into train/test
+    sets so that our training data has 3,200 examples and the testing data has 800
+    examples.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In step 3, we used `NumberedFileInputSplit`to read and club all the files (features/labels)
+    with a numbered format.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`CSVSequenceRecordReader` is to read sequences of data in CSV format, where each
+    sequence is defined in its own file.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: As you can see in the preceding screenshots, the first row is just meant for
+    feature labels and needs to be bypassed.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Hence, we have created the following CSV sequence reader:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: Loading and transforming data
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: After the data extraction phase, we need to transform the data before loading
+    it into a neural network. During data transformation, it is very important to
+    ensure that any non-numeric fields in the dataset are transformed into numeric
+    fields. The role of data transformation doesn't end there. We can also remove
+    any noise in the data and adjust the values. In this recipe, we load the data
+    into a dataset iterator and transform the data as required.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We extracted the time series data into record reader instances in the previous
+    recipe. Now, let's create train/test iterators from them. We will also analyze
+    the data and transform it if needed.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Before we proceed, refer to the dataset in the following screenshot to understand
+    how every sequence of the data looks:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/509bb04f-9227-4878-87d5-d1211bd1d1dc.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Firstly, we need to check for the existence of any non-numeric features in the
+    data. We need to load the data into the neural network for training, and it should
+    be in a format that the neural network can understand. We have a sequenced dataset
+    and it appears that non-numeric values are not present. All 37 features are numeric.
+    If you look at the range of feature data, it is close to a normalized format.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Create the training iterator using `SequenceRecordReaderDataSetIterator`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Create the test iterator using `SequenceRecordReaderDataSetIterator`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: How it works...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'In steps 1 and 2, we used `AlignmentMode` while creating the iterators for
+    the training and test datasets. The `AlignmentMode` deals with input/labels of
+    varying lengths (for example, one-to-many and many-to-one situations). Here are
+    some types of alignment modes:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`ALIGN_END`: This is intended to align labels or input at the last time step.
+    Basically, it adds zero padding at the end of either the input or the labels.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`ALIGN_START`: This is intended to align labels or input at the first time
+    step. Basically, it adds zero padding at the end of the input or the labels.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`EQUAL_LENGTH`: This assumes that the input time series and label are of the
+    same length, and all examples are the same length.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`SequenceRecordReaderDataSetIterator`: This helps to generate a time series
+    dataset from the record reader passed in. The record reader should be based on
+    sequence data and is optimal for time series data. Check out the attributes passed
+    to the constructor:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: '`testFeaturesReader` and `testLabelsReader` are record reader objects for input
+    data (features) and labels (for evaluation), respectively. The Boolean attribute
+    (`false`) refers to whether we have regression samples. Since we are talking about
+    time series classification, this is going to be false. For regression data, this
+    has to be set to `true`.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Constructing input layers for the network
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: LSTM layers will have gated cells that are capable of capturing long-term dependencies,
+    unlike regular RNN. Let's discuss how we can add a special LSTM layer in our network
+    configuration. We can use a multilayer network or computation graph to create
+    the model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this recipe, we will discuss how to create input layers for our LSTM neural
+    network. In the following example, we will construct a computation graph and add
+    custom layers to it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Configure the neural network using `ComputationGraph`, as shown here:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Configure the LSTM layer:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Add the LSTM layer to the `ComputationGraph` configuration:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: How it works...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'In step 1, we defined a graph vertex input as the following after calling the
+    `graphBuilder()` method:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: By calling `graphBuilder()`, we are actually constructing a graph builder to
+    create a computation graph configuration.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Once the LSTM layers are added into the `ComputationGraph` configuration in
+    step 3, they will act as input layers in the `ComputationGraph` configuration. We
+    pass the previously mentioned graph vertex input (`trainFeatures`) to our LSTM
+    layer, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: The last attribute, `trainFeatures`, refers to the graph vertex input. Here,
+    we're specifying that the `L1` layer is the input layer.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The main purpose of the LSTM neural network is to capture the long-term dependencies
+    in the data. The derivatives of a `tanh` function can sustain for a long range
+    before reaching the zero value. Hence, we use `Activation.TANH` as the activation
+    function for the LSTM layer.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `forgetGateBiasInit()`set forgets gate bias initialization. Values in the
+    range of `1` to `5` could potentially help with learning or long-term dependencies.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We use the `Builder`strategy to define the LSTM layers along with the required
+    attributes, such as `nIn` and `nOut`.These are input/output neurons, as we saw
+    in [Chapters 3](5cf01186-c9e3-46e7-9190-10cd43933694.xhtml), *Building Deep Neural
+    Networks for Binary Classification*, and [Chapter 4](4a688ef9-2dd8-47de-abaf-456fa88bcfc2.xhtml),
+    *Building Convolutional Neural Networks*. We add LSTM layers using the `addLayer` method.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Constructing output layers for the network
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The output layer design is the last step in configuring the neural network layer.
+    Our aim is to implement a time series prediction model. We need to develop a time
+    series classifier to predict patient mortality. The output layer design should
+    reflect this purpose. In this recipe, we will discuss how to construct the output
+    layer for our use case.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Design the output layer using `RnnOutputLayer`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Use the `addLayer()` method to add an output layer to the network configuration:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: How it works...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: While constructing the output layer, make note of the `nOut` value of the preceding
+    LSTM input layer. This will be taken as `nIn` for the output layer. `nIn` should
+    be the same as `nOut` of the preceding LSTM input layer.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In steps 1 and step 2, we are essentially creating an LSTM neural network, an
+    extended version of a regular RNN. We used gated cells to have some sort of internal
+    memory to hold long-term dependencies. For a predictive model to make predictions
+    (patient mortality), we need to have probability produced by the output layer.
+    In step 2, we see that `SOFTMAX` is used at the output layer of a neural network.
+    This activation function is very helpful for computing the probability for the
+    specific label. `MCXENT` is the ND4J implementation for the negative loss likelihood
+    error function. Since we use the negative loss likelihood loss function, it will
+    push the results when the probability value is found to be high for a label on
+    a particular iteration.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`RnnOutputLayer`is more like an extended version of regular output layers found
+    in feed-forward networks. We can also use `RnnOutputLayer` for one-dimensional
+    CNN layers. There is also another output layer, named `RnnLossLayer`,where the
+    input and output activations are the same. In the case of `RnnLossLayer`, we have
+    three dimensions with the `[miniBatchSize,nIn,timeSeriesLength]` and `[miniBatchSize,nOut,timeSeriesLength]` shape,
+    respectively.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Note that we''ll have to specify the input layer that is to be connected to
+    the output layer. Take a look at this code again:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: We mentioned that the `L1` layer is the input layer to the output layer.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Training time series data
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: So far, we have constructed network layers and parameters to define the model
+    configuration. Now it's time to train the model and see the results. We can then
+    check whether any of the previously-defined model configuration can be altered
+    to obtain optimal results. Be sure to run the training instance multiple times
+    before making any conclusions from the very first training session. We need to
+    observe a consistent output to ensure stable performance.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this recipe, we train our LSTM neural network against the loaded time series
+    data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Create the `ComputationGraph` model from the previously-created model configuration:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Load the iterator and train the model using the `fit()` method:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'You can use the following approach as well:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: We can then avoid using a `for` loop by directly specifying the `epochs` parameter
+    in the `fit()` method.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How it works...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In step 2, we pass both the dataset iterator and epoch count to start the training
+    session. We use a very large time series dataset, hence a large epoch value will
+    result in more training time. Also, a large epoch may not always guarantee good
+    results, and may end up overfitting. So, we need to run the training experiment
+    multiple times to arrive at an optimal value for epochs and other important hyperparameters.
+    An optimal value would be the bound where you observe the maximum performance
+    for the neural network.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Effectively, we are optimizing our training process using memory-gated cells
+    in layers. As we discussed earlier, in the *Constructing input layers for the
+    network* recipe, LSTMs are good for holding long-term dependencies in datasets.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Evaluating the LSTM network's efficiency
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: After each training iteration, the network's efficiency is measured by evaluating
+    the model against a set of evaluation metrics. We optimize the model further on
+    upcoming training iterations based on the evaluation metrics. We use the test
+    dataset for evaluation. Note that we are performing binary classification for
+    the given use case. We predict the chances of that patient surviving. For classification
+    problems, we can plot a **Receiver Operating Characteristics** (**ROC**) curve
+    and calculate the **Area Under The Curve** (**AUC**) score to evaluate the model's
+    performance. The AUC score ranges from 0 to 1\. An AUC score of 0 represents 100%
+    failed predictions and 1 represents 100% successful predictions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Use ROC for the model evaluation:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Generate output from features in the test data:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Use the ROC evaluation instance to perform the evaluation by calling `evalTimeseries()`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Display the AUC score (evaluation metrics) by calling `calculateAUC()`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: How it works...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In step 3, `actuals` are the actual output for the test input, and `predictions`
+    are the observed output for the test input.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The evaluation metrics are based on the difference between `actuals` and `predictions`.
+    We used ROC evaluation metrics to find this difference. An ROC evaluation is ideal
+    for binary classification problems with datasets that have a uniform distribution
+    of the output classes. Predicting patient mortality is just another binary classification
+    puzzle.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`thresholdSteps` in the parameterized constructor of `ROC` is the number of
+    threshold steps to be used for the ROC calculation. When we decrease the threshold,
+    we get more positive values. It increases the sensitivity and means that the neural
+    network will be less confident in uniquely classifying an item under a class.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In step 4, we printed the ROC evaluation metrics by calling `calculateAUC()`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The `calculateAUC()` method will calculate the area under the ROC curve plotted
+    from the test data. If you print the results, you should see a probability value
+    between `0` and `1`. We can also call the `stats()` method to display the whole
+    ROC evaluation metrics, as shown here:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/94b354c8-da4b-4ceb-b51a-cc76d468a60a.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The `stats()` method will display the AUC score along with the **AUPRC** (short
+    for **Area Under Precision/Recall Curve**) metrics. AUPRC is another performance
+    metric where the curve represents the trade-off between precision and recall values.
+    For a model with a good AUPRC score, positive samples can be found with fewer
+    false positive results.
+  prefs: []
+  type: TYPE_NORMAL

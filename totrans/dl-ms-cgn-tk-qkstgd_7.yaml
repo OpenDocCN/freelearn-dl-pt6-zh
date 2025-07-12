@@ -1,0 +1,1317 @@
+- en: Deploying Models to Production
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the previous chapters of this book, we've worked on our skills for developing,
+    testing, and using various deep learning models. We haven't talked much about
+    the role of deep learning within the broader context of software engineering.
+    In this last chapter, we will use the time to talk about continuous delivery,
+    and the role of machine learning within this context. We will then look at how
+    you can deploy models to production with a continuous delivery mindset. Finally,
+    we will look at Azure Machine Learning service to properly manage the models you
+    develop.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The following topics will be covered in this chapter:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using machine learning in a DevOps environment
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Storing models
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Using Azure Machine Learning service to manage models
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Technical requirements
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'We assume that you have a recent version of Anaconda installed on your computer,
+    and have followed the steps in [Chapter 1](9a2c8c46-f9a0-4e05-86ef-31300a28a7ba.xhtml),
+    *Getting Started with CNTK*, to install CNTK on your computer. The sample code
+    for this chapter can be found in our GitHub repository at: [https://github.com/PacktPublishing/Deep-Learning-with-Microsoft-Cognitive-Toolkit-Quick-Start-Guide/tree/master/ch7](https://github.com/PacktPublishing/Deep-Learning-with-Microsoft-Cognitive-Toolkit-Quick-Start-Guide/tree/master/ch7).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this chapter, we''ll work on a few examples stored in Jupyter notebooks.
+    To access the sample code, run the following commands inside an Anaconda prompt
+    in the directory where you''ve downloaded the code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This chapter also contains a C# code sample to demonstrate how to load models
+    in the open source ONNX format. If you want to run the C# code you will need to
+    have .NET Core 2.2 installed on your machine. You can download the latest version
+    of .NET core from: [https://dotnet.microsoft.com/download](https://dotnet.microsoft.com/download).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Check out the following video to see the code in action:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[http://bit.ly/2U8YkZf](http://bit.ly/2U8YkZf)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using machine learning in a DevOps environment
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Most modern software development happens in an agile fashion, in an environment
+    where developers and IT-pros work on the same project. The software we're building
+    often is deployed to production through continuous integration and continuous
+    deployment pipelines. How are we going to integrate machine learning in this modern
+    environment? And does it mean we have to change a lot when we start building AI
+    solutions? These are some of the frequently asked questions you can run into when
+    you introduce AI and machine learning to the workflow.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Luckily, you don't have to change your whole build environment or deployment
+    tool stack to integrate machine learning into your software. Most of the things
+    that we'll talk about will fit right into your existing environment.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s take a look at a typical continuous delivery scenario that you may encounter
+    in a regular agile software project:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/31eff2da-92c2-470c-8e45-8b98931548be.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: This overview will look familiar if you've worked in a DevOps environment before.
+    It starts with source control, which is connected to a continuous integration
+    pipeline. The continuous integration pipeline produces artifacts that can be deployed
+    to production. These artifacts are typically stored somewhere for backup and rollback
+    purposes. This artifact repository is connected to a release pipeline that deploys
+    the software to a test, acceptance, and, finally, a production environment.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You don''t need to change much of this standard setup to integrate machine
+    learning into it. There are, however, a few key things that are important to get
+    right when you start to use machine learning. Let''s focus on four stages and
+    explore how to extend the standard continuous delivery setup:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to keep track of the data you use for machine learning.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Training models in a continuous integration pipeline.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Deploying models to production.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Gathering feedback on production.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Keeping track of your data
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Let''s start where it all begins with machine learning: the data with which
+    you are going to train your models. It''s difficult to get good data for machine
+    learning. Almost 80% of your effort will be on data management and data processing.
+    It would be really sad if you had to redo all your work every time you want to
+    train a model.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: That's why it is important to have some form of data management in place. This
+    can be a central server where you store datasets that you know are good to use
+    for training models. It could also be a data warehouse, if you have more than
+    a few gigabytes of data. Some companies choose to use tools such as Hadoop or
+    Azure Data Lake to manage their data. Whatever you use, the most important thing
+    is to keep your dataset clean and in a format that is ready to use for training.
+  prefs: []
+  type: TYPE_NORMAL
+- en: To create a data pipeline for your solution you can use traditional **Extract**
+    **Transform** **Load** (**ETL**) tools, such as SQL server integration services,
+    or you can build custom scripts in Python and execute them as part of a dedicated
+    continuous integration pipeline in Jenkins, Azure DevOps, or Team Foundation Server.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The data pipeline will be your tool to gather data from various business sources,
+    and process it so that you get a dataset that is of sufficient quality to be stored
+    as the master dataset for your model. It's important to note here that, although
+    you can reuse datasets across different models, it is best not to start out with
+    this goal in mind. You will quickly find that your master dataset will turn dirty
+    and unmanageable when you try to use the dataset across too many usage scenarios.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Training models in a continuous integration pipeline
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Once you have a basic data pipeline running, it's time to look at integrating
+    the training of AI models in your continuous integration environment. Up until
+    now, we've only used Python notebooks to create our models. Sadly, Python notebooks
+    don't deploy well to production. You can't automatically run them during a build.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In a continuous delivery environment, you can still use Python notebooks to
+    perform initial experiments in order to discover patterns in the data and to build
+    an initial version of your model. Once you have a candidate model, you will have
+    to move your code away from a notebook and into a proper Python program.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You can run your Python training code as part of a continuous integration pipeline.
+    For example, if you're using Azure DevOps, Team Foundation Server, or Jenkins,
+    you already have all the tools to run your training code as a continuous integration
+    pipeline.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We recommend running the training code as a separate pipeline from the rest
+    of your software. Training a deep learning model often takes a very long time,
+    and you don't want to lock your build infrastructure on that. Often, you will
+    see people build training pipelines for their machine learning models using dedicated
+    virtual machines, or even dedicated hardware, because of the amount of computation
+    power it takes to train a model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The continuous integration pipeline will produce a model based on a dataset
+    you produced using your data pipeline. Just like code, you should also version
+    your models and the settings you've used to train them.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Keeping track of your models and the settings you used to train them is important,
+    as this allows you to experiment with different versions of the same model in
+    production and gather feedback. Keeping a backup of your trained models also helps
+    to get back in production fast after a disaster, such as a crashed production
+    server.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Since models are binary files and can get quite large, it's best you treat your
+    models as binary artifacts, much like NuGet packages in .NET, or Maven artifacts
+    in Java.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tools like Nexus or Artifactory are great for storing models. Publishing your
+    models in Nexus or Artifactory takes only a few lines of code, and will save you
+    up to hundreds of hours of work retraining your model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Deploying models to production
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Once you have a model, you need to be able to deploy it to production. If you've
+    stored your models in a repository, such as Artifactory or Nexus, this becomes
+    easier. You can create dedicated release pipelines in the same way that you would
+    create a continuous integration pipeline. In Azure DevOps and Team Foundation
+    Server, there's a dedicated feature for this. In Jenkins, you can use a separate
+    pipeline to deploy models to a server.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the release pipeline, you can download your model from the artifact repository
+    and deploy it to production. There are two main deployment methods for machine
+    learning models. Either you can deploy it as an extra file with your application,
+    or you can deploy it as a dedicated service component.
+  prefs: []
+  type: TYPE_NORMAL
+- en: If you're deploying your model as part of an application, you will typically
+    store just the model in your artifact repository. The model now becomes an extra
+    artifact that needs to be downloaded in an existing release pipeline that deploys
+    your solution.
+  prefs: []
+  type: TYPE_NORMAL
+- en: If you're deploying a dedicated service component for your model, you will typically
+    store the model, the scripts that use the model to make a prediction, and other
+    files needed by the model, in the artifact repository and deploy that to production.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Gathering feedback on your models
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: There's one last point that is important to keep in mind when working with deep
+    learning or machine learning models in production. You've trained the models with
+    a certain dataset. You hope this dataset contains a good representation of what
+    is really happening in your production environment. But it doesn't have to be
+    that way, because the world changes around you as you build your models.
+  prefs: []
+  type: TYPE_NORMAL
+- en: That's why it is important to ask for feedback from your users and update your
+    model accordingly. Although not officially part of a continuous deployment environment,
+    it's still an important aspect to set up correctly if you want to be successful
+    with your machine learning solution.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Setting up a feedback loop doesn't have to be very complicated. For example,
+    when you're classifying transactions for fraud detection, you can set up a feedback
+    loop by asking an employee to validate the outcome of the model. You can then
+    store the validation result of the employee with the input that was classified.
+    By doing this, you make sure your model doesn't falsely accuse customers of fraud,
+    and it helps you gather new observations to improve your model. Later, when you
+    want to improve the model, you can use the newly gathered observations to extend
+    your training set.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Storing your models
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In order to be able to deploy your models to production, you need to be able
+    to store a trained model on disk. CNTK offers two ways to store models on disk.
+    You can either store checkpoints to continue training at a later time, or you
+    can store a portable version of your model. Each of these storage methods has
+    its own use.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Storing model checkpoints to continue training at a later point
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Some models take a long time to train, sometimes up to weeks at a time. You
+    don't want to lose all your progress when your machine crashes during training,
+    or if there's a power outage.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'This is where checkpointing becomes useful. You can create a checkpoint during
+    training using a `CheckpointConfig` object. You can add this additional callback
+    to your training code by modifying the callbacks list as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Follow the given steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: First, create a new `CheckpointConfig` and provide a filename for the checkpointed
+    model file, the number of minibatches before a new checkpoint should be created
+    as the `frequency` and set the `preserve_all` setting to `False`.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Next, use the train method on the `loss` and provide the `checkpoint_config`
+    in the `callbacks` keyword argument to use checkpointing.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: When you use checkpointing during training, you will start to see additional
+    files on disk named `solar.dnn`, and `solar.dnn.ckp`. The `solar.dnn` file contains
+    the trained model stored in a binary format. The `solar.dnn.ckp` file contains
+    the checkpoint information for the minibatch source used during training.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The most recent checkpoint is automatically restored for you when you set the
+    restore parameter of the `CheckpointConfig` object to `True`. This makes it easy
+    to integrate checkpointing in your training code.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Having a checkpointed model is not only useful in case you run into a computer
+    problem during training. A checkpoint is also useful if you want to continue training
+    after you've gathered additional data from production. You can simply restore
+    the latest checkpoint and start feeding new samples into the model from there.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Storing portable models for use in other applications
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Although you can use a checkpointed model in production, it's not very smart
+    to do so. Checkpointed models are stored in a format that is only understood by
+    CNTK. For now, it's fine to use the binary format, since CNTK is around and the
+    model format will remain compatible for quite a long time. But, as with all software,
+    CNTK isn't made to last for an eternity.
+  prefs: []
+  type: TYPE_NORMAL
+- en: That's exactly why ONNX was invented. ONNX is the open neural network exchange
+    format. When you use ONNX, you store your model in a protobuf compatible format
+    that is understood by many other frameworks. There's even a native ONNX runtime
+    available for Java and C#, which allows you to use models created in CNTK from
+    your .NET or Java application.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ONNX is supported by a number of large companies, such as Facebook, Intel, NVIDIA,
+    Microsoft, AMD, IBM, and Hewlett-Packard. Some of these companies offer converters
+    for ONNX, while others even support running ONNX models directly on their hardware
+    without using additional software. NVIDIA has a number of chips available now
+    that can read ONNX files directly and execute these models.
+  prefs: []
+  type: TYPE_NORMAL
+- en: As an example, we'll first explore how to store a model in the ONNX format and
+    use C# to load it from disk again to make predictions. First, we'll look at how
+    to save a model in the ONNX format and after that we'll explore how to load ONNX
+    models.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Storing a model in ONNX format
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'To store a model in the ONNX format you can use the `save` method on the `model`
+    function. When you don''t provide any additional parameters, it will store the
+    model in the same format as is used for checkpointing. You can, however, provide
+    an additional parameter to specify the model format as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Follow the given steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: First, import the `ModelFormat` enumeration from the `cntk` package.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Next, invoke the `save` method on the trained model with the output filename
+    and specify `ModelFormat.ONNX` as the `format` keyword argument.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Using ONNX models in C#
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Once the model is stored on disk, we can use C# to load and use it. CNTK version
+    2.6 includes a pretty complete API for C#, which you can use for training and
+    evaluating models.
+  prefs: []
+  type: TYPE_NORMAL
+- en: To use a CNTK model in C# you need to use a library called `CNTK.GPU` or `CNTK.CPUOnly`,
+    which can be retrieved from NuGet, a package manager for .NET. The CPU-only version
+    of CNTK includes a version of the CNTK binaries that have been compiled to run
+    models on the CPU, while the GPU version can use the GPU as well as the CPU.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Loading a CNTK model in C# is done by using the following snippet of code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Follow the given steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: First, create a device descriptor so the model is executed against the CPU.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Next, use the `Function.Load` method to load the previously stored model. Provide
+    the `deviceDescriptor` and use the `ModelFormat.ONNX` to load the file as ONNX
+    model.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Now that we have loaded the model, let''s make a prediction with it. For, this
+    we need to write another fragment of code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Follow the given steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Create a new method `Predict` that accepts the input features for the model.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Within the `Predict` method, store the input and output variable of the model
+    in two separate variables for easy access.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Next, create a dictionary to map data to the input and output variables of the
+    model.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Then, create a new batch, containing one sample with the input features for
+    the model.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Add a new entry to the input mapping to map the batch to the input variable.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Next, add a new entry to the output mapping for the output variable.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Now, invoke the `Evaluate` method on the loaded model with the input, output
+    mapping, and a device descriptor.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Finally, extract the output variable from the output mapping and retrieve the
+    data.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: The sample code for this chapter includes a basic C# project in .NET core that
+    demonstrates the use of CNTK from a .NET Core project. You can find the sample
+    code in the `csharp-client` folder in the code examples directory for this chapter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Working with models stored in the ONNX format makes it possible to use Python
+    for training models and C# or another language to run models on production. This
+    is especially useful since the runtime performance of a language like C# is much
+    better than that of Python.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the next section we'll look at using Azure Machine Learning service to manage
+    the process of training and storing models so we have a much more structured way
+    of working with models.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using Azure Machine Learning service to manage models
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: While you can completely hand-build a continuous integration pipeline, it's
+    still quite a bit of work. You need to get dedicated hardware to run deep learning
+    training jobs, and that can bring up the costs. There are great alternatives available
+    in the cloud. Google has a TensorFlow serving offer. Microsoft offers Azure Machine
+    Learning service as a way to manage models. Both are great tools that we can highly
+    recommend.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s take a look at Azure Machine Learning service to get a sense of what
+    it can do for you when you want to set up a complete machine learning pipeline:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/931612d7-2dae-4252-b2ba-0ea9d6bf7d19.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Azure Machine Learning service is a cloud service that offers a complete solution
+    for every phase of your machine learning project. It has the concept of experiments,
+    and runs that allow you to manage experiments. It features a model registry that
+    allows you to store trained models and Docker images for those models. You can
+    use the Azure Machine Learning service tools to deploy these models to production
+    in a matter of minutes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Deploying Azure Machine Learning service
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'In order to use this service, you need to have an active account on Azure.
+    You can use a trial account by going to: [https://azure.microsoft.com/en-gb/free/](https://azure.microsoft.com/en-gb/free/),
+    if you haven''t got an account yet. This will give you a free account for 12 months
+    with 150 dollars, worth of credits to explore the different Azure services.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: There are many ways in which you can deploy Azure Machine Learning service.
+    You can create a new instance through the portal, but you can also use the cloud
+    shell to create an instance of the service. Let's take a look at how you can create
+    a new Azure Machine Learning service instance through the portal.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'With your favorite browser, navigate to the URL at: [https://portal.azure.com/](https://portal.azure.com/).
+    Log in with your credentials, and you will be greeted with a portal that shows
+    you all your available Azure resources and a dashboard resembling the following
+    screenshot:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/d6be4d9a-532b-43d3-873e-7f298c5fd304.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Azure resources and a dashboard
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'From this portal you can create new Azure resources, such as the Azure Machine
+    Learning Workspace. Click the large + button at the top left of the screen to
+    get started. This will show the following page, allowing you to create a new resource:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/d473560b-00c5-4ba2-88ef-2cb881565369.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Creating a new resource
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You can search for different types of resources in this search bar. Search
+    for Azure Machine Learning and select the Azure Machine Learning Workspace resource
+    type from the list. This will show the following details panel that allows you
+    to start the creation wizard:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/ea5b88f6-7e13-4d81-8726-59f65d9c68c3.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Starting the creation wizard
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'This details panel will explain what the resource does, and point towards the
+    documentation and other important information about this resource, such as the
+    pricing details. To create a new instance of this resource type, click the create
+    button. This will start the wizard to create a new instance of the Azure Machine
+    Learning workspace as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/c36e7609-d67b-4cd8-8700-c6d3da70200d.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Creating a new instance of the Azure Machine Learning workspace
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the creation wizard, you can configure the name of the workspace, the resource
+    group it belongs to, and the data center it should create. Azure resources are
+    created as part of resource groups. These resource groups help you organize things,
+    and keep related infrastructure together in one place. If you want to remove a
+    set of resources, you can just delete the resource group instead of every resource
+    separately. This is especially useful if you want to remove everything after you're
+    done testing the machine learning workspace.
+  prefs: []
+  type: TYPE_NORMAL
+- en: It's a good idea to use a dedicated resource group for the machine learning
+    workspace, since it will contain more than one resource. Mixing this with other
+    resources will make it harder to clean up after you're done or need to move resources
+    for some reason.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Once you have clicked the create button at the bottom of the screen, the machine
+    learning workspace is created. This will take a few minutes. In the background,
+    the Azure Resource Manager will create a number of resources based on the selection
+    in the creation wizard. You will receive a notification in the portal when the
+    deployment is completed.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'When the machine learning workspace is created, you can navigate to the workspace
+    through the portal by first going to the Resource groups on the portal in the
+    navigation bar on the left of the screen. Next, click the resource group you just
+    created to get an overview of the machine learning workspace and related resources,
+    as shown in the following screenshot:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/d9c88065-5451-4366-9750-fb73570dbb4b.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Getting an overview of the machine learning workspace and related resources
+  prefs: []
+  type: TYPE_NORMAL
+- en: There's the workspace itself, with a dashboard that allows you to explore experiments
+    and manage some aspects of your machine learning solution. The workspace also
+    includes a Docker registry to store models as Docker images, together with the
+    scripts needed to make a prediction using a model. When you check out the workspace
+    on Azure Portal, you'll also find a storage account that you can use to store
+    datasets and data generated by your experiments.
+  prefs: []
+  type: TYPE_NORMAL
+- en: One of the nice things that's included in an Azure Machine Learning service
+    environment is an Application Insights instance. You can use Application Insights
+    to monitor your models in production and gather valuable feedback to improve your
+    models later on. This is included by default, so you don't have to manually create
+    a monitoring solution for your machine learning solution.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Exploring the machine learning workspace
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The Azure Machine Learning workspace contains a number of elements. Let''s
+    explore them to get a feel of what''s available to you when you start working
+    with it:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/560a062f-5309-48c3-a1b7-0f4bdef7b38e.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Machine learning workspace
+  prefs: []
+  type: TYPE_NORMAL
+- en: To get to the machine learning workspace, click the resource groups item in
+    the navigation bar on the left of the screen. Select the resource group containing
+    the machine learning workspace item and click on machine learning workspace. It
+    will have the name you've configured in the creation wizard earlier.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the workspace, there's a dedicated section for experiments. This section
+    will provide access to experiments that you've run in the workspace, as well as
+    details about the runs executed as part of the experiments.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Another useful element of the machine learning workspace is the models section.
+    When you've trained a model, you can store it in the model registry so you can
+    deploy it to production at a later time. A model automatically connects to the
+    experiment run that produced it, so you can always trace back what code was used
+    to produce a model, and which settings were used to train it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Below the model section is the images section. This section shows you the Docker
+    images created from your models. You can package models in Docker images together
+    with a scoring script to make deployment to production easier and more predictable.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Finally, there's the deployment sections that contain all the deployments based
+    on the images. You can use Azure Machine Learning service to deploy models to
+    production using single container instances, a virtual machine, or even a Kubernetes
+    cluster, should you need to scale your model deployment.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Azure Machine Learning service also offers a technique that allows you to build
+    a pipeline to prepare data, train a model, and deploy it to production. This feature
+    can be useful should you want to build a single process that contains both preprocessing
+    steps and training steps. It's especially powerful in cases where you need to
+    execute many steps to obtain a trained model. For now, we'll limit ourselves to
+    running basic experiments and deploying the resulting model to a production Docker
+    container instance.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Running your first experiment
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Now that you have a workspace, let's take a look at how to use it from a Python
+    notebook. We'll modify some deep learning code so we save the trained model to
+    the Azure Machine Learning service workspace as the output of an experiment, and
+    track metrics for the model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'First, we need to install the `azureml` package as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The `azureml` package contains the necessary components to run experiments.
+    In order for it to work, you''ll need to create a file called `config.json` in
+    the root of your machine learning project. If you''re working with the sample
+    code for this chapter, you can modify the `config.json` file in the `azure-ml-service`
+    folder. It contains the following content:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: This file contains the workspace your Python code will work with, the resource
+    group that contains the workspace you're working with, and the subscription that
+    the workspace was created in. The workspace name should match the name you've
+    chosen in the wizard to create the workspace earlier. The resource group should
+    match the one that contains the workspace. Finally, you will need to find the
+    subscription ID.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'When you navigate to Resource groups for the machine learning workspace on
+    the portal, you''ll see the Subscription ID at the top of the resource group details
+    panel, as shown in the following screenshot:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/e46ec086-f4c5-4d0b-b3f5-dffbfabc7860.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Subscription ID at the top of the resource group details panel
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'When you hover over the value for the Subscription ID, the portal will show
+    a button to copy the value to your clipboard. Paste this value into the subscriptionId
+    field of the config file and save it. You can now connect to your workspace from
+    any Python notebook or Python program by using the following small snippet of
+    code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Follow the given steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: First, we create a new workspace based on the configuration file we just created.
+    This connects to the workspace in Azure. Once you're connected, you can create
+    a new experiment with a name of your choice and connect it to the workspace.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Next, create a new experiment and connect it to the workspace.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: An experiment in Azure Machine Learning service can be used to keep track of
+    an architecture you're testing with CNTK. For example, you could create an experiment
+    for a convolutional neural network, and a second experiment to try solving the
+    same problem with a recurrent neural network.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s explore how to track metrics and other output from experiments. We''ll
+    use the iris flower classification model from previous chapters and extend the
+    training logic to track metrics as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Follow the given steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: First, import the `default_options` and `input_variable` function.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Next, import the layer types for the model from the `cntk.layers` module.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: After that, import the `log_softmax` and `sigmoid` activation function from
+    the `cntk.ops` module.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Create a new `Sequential` layer set.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Add a new `Dense` layer to the `Sequential` layer set with 4 neurons and the
+    `sigmoid` activation function.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Add another `Dense` layer with 3 outputs and a `log_softmax` activation function.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Create a new `input_variable` with size 4.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Invoke the model with the `features` variable to complete the model.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'To train the model, we''re going to use a manual minibatch loop. First, we''ll
+    have to load and preprocess the iris dataset so that it matches the format that
+    our model expects, as demonstrated in the following code snippet:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Follow the given steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Import the `pandas` and `numpy` modules to load the CSV file containing the
+    training samples.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Use the read_csv function to load the input file containing the training data.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Next, extract the first 4 columns as the input features
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Finally, extract the species column as the labels
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'The labels are stored as a string, so we''ll have to convert those to a set
+    of one-hot vectors in order to match the model as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Follow the given steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Create a mapping from labels to their numeric representation.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Next, define a new utility function `one_hot` to encode a numeric value to a
+    one-hot vector.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Finally, use a python list comprehension, to iterate over the values in the
+    labels collection and turn them into one-hot encoded vectors.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'We need to execute one more step to prepare the dataset for training. In order
+    to be able to verify that the model did indeed get optimized correctly, we want
+    to create a hold-out set, against which we will run a test:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: Using the `train_test_split` method, create a small hold-out set containing
+    20% of training samples. Use the `stratify` keyword and provide the labels to
+    balance the split.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Once we have the data prepared, we can focus on training the model. First,
+    we''ll need to set up a `loss` function, `learner`, and `trainer` as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: Import the cross_entropy_with_softmax function from the `cntk.losses` module.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Next, import the classificatin_error function from the `cnkt.metrics` module.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Then, import the `sgd` learner from the `cntk.learners` module.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Create a new `input_variable` with shape 3 to store the labels
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Next, create a new instance of the cross_entropy_with_softmax loss and provide
+    it the model variable `z` and the `label` variable.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Then, create a new metric using the classification_error function and provide
+    it the network and `label` variable.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Now, initialize the `sgd` learner with the parameters of the network and set
+    its learning rate to 0.001.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Finally, initialize the `Trainer` with the network, `loss`, `metric` , and `learner`.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Normally, we could just use the `train` method on the `loss` function to optimize
+    the parameters in our model. This time, however, we want to have control over
+    the training process so we can inject logic to track metrics in the Azure Machine
+    Learning workspace, as demonstrated in the following code snippet:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Follow the given steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: To start a new run, invoke the `start_logging` method on the experiment. This
+    will create a new `run`. Within the scope of the run, we can execute the training
+    logic.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Create a new for-loop to train for 10 epochs.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Within the for-loop, call the `train_minibatch` method on the `trainer` to train
+    the model. Provide it a mapping between the input variables and the data to train
+    with.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: After this, log the `average_loss` metric for the run using the `previous_minibatch_loss_average`
+    value from the trainer object.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: In addition to the average loss, log the average metric in the run using the
+    `previous_minibatch_evaluation_average` property on the trainer object.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Once we have trained the model, we can execute a test against the test set using
+    the `test_minibatch` method. This method returns the output of the `metric` function
+    that we created earlier. We will log this to the machine learning workspace as
+    well.
+  prefs: []
+  type: TYPE_NORMAL
+- en: A run allows us to keep track of data related to a single training session for
+    a model. We can log metrics using the `log` method on the `run` object. This method
+    accepts the name of the metric and a value for the metric. You can use this method
+    to record things such as the output of the `loss` function to monitor how your
+    model is converging to an optimal set of parameters.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Other things can also be logged, such as the number of epochs used to train
+    the model, the random seed used in the program, and other useful settings that
+    you may need in order to reproduce the experiment at a later time.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Metrics recorded during a run automatically show up on the portal when you navigate
+    to the experiment in the machine learning workspace under the experiments tab
+    as is shown in the image below.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/2cbb7274-466a-4831-943b-ab5c0d1ad1e0.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Navigating to the experiment in the machine learning workspace under the experiments
+    tab
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Aside from the `log` method, there''s an `upload_file` method to upload files
+    generating during training, as demonstrated in the following code snippet. You
+    can use this method to store model files that you''ve saved after training is
+    completed:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: The `upload_file` method needs a name for the file, as it can be found in the
+    workspace and a local path where the source file can be found. Please be aware
+    of the location of the file. Due to a limitation in the Azure Machine Learning
+    workspace, it will only pick up files from the outputs folder. This limitation
+    will likely be lifted in the future.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Make sure you execute the `upload_file` method within the scope of the run,
+    so that the AzureML library links the model to your experiment run as to make
+    it traceable.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'After you''ve uploaded the file to the workspace, you can find it in the portal
+    under the outputs section of a run. To get to the run details, open up the machine
+    learning workspace in Azure Portal, navigate to the experiment, and then select
+    the run you want to see the details for as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/663a6299-7df9-4aac-b503-0005bb600bc0.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Selecting the run
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Finally, when you''re done with the run and want to publish the model, you
+    can register it in the model registry as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The `register_model` method stores the model in the model registry so you can
+    deploy it to production. When the model was previously stored in the registry,
+    it will automatically be stored as a new version. Now you can always go back to
+    a previous version should you need to, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/1747e79d-4e26-473d-abbf-941254425c2f.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Model stored as a new version
+  prefs: []
+  type: TYPE_NORMAL
+- en: You can find the model in the model registry in your workspace by going to the
+    Machine Learning workspace on Azure Portal and clicking on the Models item in
+    the bar in the navigation menu of the workspace.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Models are automatically related to experiment runs, so you can always find
+    the settings that you used to train the model. This is important, as it increases
+    the chance that you can reproduce the results, should you need to.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We''ve limited ourselves to running experiments locally. You can use Azure
+    Machine Learning to run experiments on dedicated hardware, should you want to.
+    You can read more about this on the Azure Machine Learning documentation website
+    at: [https://docs.microsoft.com/en-us/azure/machine-learning/service/how-to-set-up-training-targets](https://docs.microsoft.com/en-us/azure/machine-learning/service/how-to-set-up-training-targets).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Once you have completed a run for an experiment you can deploy the trained model
+    to production. In the next section we'll explore how to do this.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Deploying your model to production
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The final interesting piece of Azure Machine Learning is the deployment tooling
+    that is included with it. The deployment tooling allows you to take a model from
+    the model registry and deploy it to production.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Before you can deploy a model to production, you need to have an image that
+    includes the model and a scoring script. The image is a Docker image that includes
+    a web server, which will invoke the scoring script when a request is made against
+    it. The scoring script accepts input in the form of a JSON payload, and uses it
+    to make a prediction using the model. The scoring script for our iris classification
+    model looks like this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Follow the given steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: First, import the components needed to build the script.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Next, define a global model variable that will contain the loaded model.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: After that, define the init function to initialize the model in the script.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Within the init function, retrieve the path for the model using the `Model.get_model_path`
+    function. This automatically locates the model file in the Docker image.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Next, load the model by initializing a new instance of the `onnxruntime.InferenceSession`
+    class.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Define another function, `run` that accepts a single parameter `raw_data`.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Within the `run` function, convert the contents of `raw_data` variable from
+    JSON to a Python array.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Next, convert the `data` array into a Numpy array so we can use it to make a
+    prediction.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: After that, use the `run` method on the loaded model and feed it the input features.
+    Include a dictionary that tells the ONNX runtime how to map the input data to
+    the input variable of the model.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: The model returns an array of outputs with 1 element for the output of the model.
+    This output contains one row of data. Select the first element from the output
+    array and the first row from the selected output variable and store it in the
+    `prediction` variable.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Finally, return the predicted output as a JSON object.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Azure Machine Learning service will automatically include any model files that
+    you registered for a particular model when you create a container image. So, `get_model_path`
+    will also work inside deployed images and resolve to a directory in the container
+    that hosts the model and scoring script.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now that we have a scoring script, let''s create an image and deploy the image
+    as a web service in the cloud. To deploy a web service, you can explicitly create
+    an image. Or, you can let Azure Machine Learning service create one based on the
+    configuration you provided, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Follow the given steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: First, import the ContainerImage class from the `azureml.core.image` module.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Next, create a new image configuration using the `ContainerImage.image_configuration`
+    method. Provide it with the score.py as the `execution_script` argument, the python
+    `runtime` and finally provide conda_env.yml as the `conda_file` for the image.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'We configure the container image to use Python as the runtime. We''re also
+    configuring a special environment file for Anaconda so that we can configure custom
+    modules like CNTK as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Follow the given steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: First, give the environment a name. This optional, but can be useful when you
+    create an environment from this file locally for testing.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Next, Provide the python version 3.6.2 for your scoring script.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Finally, add a pip dependency to the list with a sublist containing `azureml-default`
+    and `onnxruntime`.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: The `azureml-default` package contains everything you need to work with experiments
+    and models in the docker container image. It includes standard packages like Numpy
+    and Pandas as well for easier installation. The `onnxruntime` package is required
+    so we can load the model inside the scoring script that we're using.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'One more step is needed to deploy the trained model as a web service. We''ll
+    need to set up a web service configuration and deploy the model as a service.
+    Machine Learning service supports deploying to virtual machines, Kubernetes clusters,
+    and Azure Container Instances, which are basic Docker containers running in the
+    cloud. This is how to deploy the model to an Azure Container Instance:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Follow the given steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: First, Import the AciWebservice and Webservice classes from the azureml.core.webservice
+    module.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Then, create a new `AciWebservice` configuration using the deploy_configuration
+    method on the AziWebservice class. Provide it with a set of resource limits for
+    the software. One CPU and 1GB of memory.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Once you have a configuration for the web service, deploy the model the registered
+    model to production by calling `deploy_from_model` with the workspace to deploy
+    from, a service name and the models that you want to deploy. Provide the image
+    configuration you created earlier.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Once the container image is created, it will get deployed as a container instance
+    on Azure. This will create a new resource in the resource group for your machine
+    learning workspace.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Once the new service is started, you will see a new deployment on Azure Portal
+    in your machine learning workspace, as seen in the following screenshot:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/8c048b5c-208c-4e6a-917c-b4043faf8d70.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: New deployment on Azure Portal in your machine learning workspace
+  prefs: []
+  type: TYPE_NORMAL
+- en: The deployment includes a scoring URL that you can invoke from your application
+    to use the model. Because you're using REST to invoke the model, you're isolated
+    from the fact that it runs CNTK underneath the covers. You also have something
+    that can be used from any programming language you can possibly think of, as long
+    as it can execute HTTP requests.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For example, in Python, we can use the `requests` package as a basic REST client
+    to make predictions using the service you just created. Let''s start by installing
+    the `requests` module first, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'With the `requests` package installed, we can write a small script to execute
+    a request against the deployed service as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Follow the given steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: First, import the requests and json package.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Next, create a new variable for the service_url and fill it with the URL for
+    the webservice.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Then, create another variable, to store the data you want to make a prediction
+    for.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: After that, use the requests.post function to post the data to the deployed
+    service and store the response.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Finally, read the JSON data returned in the response to obtain the predicted
+    values.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'The service_url can be obtained by performing the following steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: First, navigate to the resource group that contains the machine learning workspace.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Then, select the workspace and choose the Deployments section on the left of
+    the details panel.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Select the deployment you want to view the details of and copy the URL from
+    the details page.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![](img/98ea4d64-d656-4c2d-a74e-7a76b9ace6fc.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Selecting the deployment
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'When you run the script you just created, you''ll receive a response with the
+    predicted classes for the input sample. The output will look similar to this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs: []
+  type: TYPE_PRE
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this chapter, we've looked at what it takes to bring deep learning and machine
+    learning models to production. We've explored some of the basic principles that
+    will help you to be successful with deep learning in a continuous delivery environment.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We've taken a look at exporting models to ONNX to make it easier to deploy your
+    trained models to production and keep them running for years, thanks to the portable
+    nature of the ONNX format. We then explored how you can use the CNTK API in other
+    languages, such as C#, to make predictions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Finally, we've looked at using Azure Machine Learning service to level-up your
+    DevOps experience with experiment management, model management, and deployment
+    tools. Although you don't need a tool like this to get started, it really helps
+    to have something like Azure Machine Learning service in your arsenal when you're
+    planning on running a bigger project on production.
+  prefs: []
+  type: TYPE_NORMAL
+- en: With this chapter, we've reached the end of this book. In the first chapter,
+    we started exploring CNTK. We then looked at how to build models, feed them with
+    data, and measure their performance. With the basics covered, we explored two
+    interesting use cases looking at images and time series data. Finally, we ended
+    with taking models to production. You should now have enough information get started
+    with building your own models with CNTK!
+  prefs: []
+  type: TYPE_NORMAL

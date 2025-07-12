@@ -1,0 +1,887 @@
+- en: Deploying on a Distributed System
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The upcoming chapters of this book will show what we have learned so far in
+    order to implement some practical and real-world use cases of CNNs and RNNs. But
+    before doing that, let''s consider DL4J in a production environment. This chapter
+    is divided into four main sections:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Some considerations about the setup for a DL4J environment in production, with
+    focus in particular on memory management, CPU, and GPU setup, and job submission
+    for training
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Distributed training architecture details (data parallelism and strategies implemented
+    in DL4J)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The practical way to import, train, and execute Python (Keras and TensorFlow)
+    models in a DL4J (JVM)-based production environment
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: A comparison between DL4J and a couple of alternative DL frameworks for the
+    Scala programming language (with particular focus on their readiness for production)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Setup of a distributed environment with DeepLearning4j
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: This section explains some tricks to do when setting up a production environment
+    for DL4J neural network model training and execution.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Memory management
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In [Chapter 7](3b6f47c0-6e17-484b-ad30-b6f92eb0473c.xhtml), *Training Neural
+    Networks with Spark*, in the *Performance considerations *section, we learned
+    how DL4J handles memory when training or running a model. Because it relies on
+    ND4J, it also utilizes off-heap memory and not only heap memory. Being off-heap,
+    it means that it is outside the scope managed by the JVM's **Garbage Collection**
+    (**GC**) mechanism (the memory is allocated outside the JVM). At the JVM level,
+    there are only pointers to off-heap memory locations; they can be passed to the
+    C++ code via the Java Native Interface (JNI, [https://docs.oracle.com/javase/8/docs/technotes/guides/jni/spec/jniTOC.html](https://docs.oracle.com/javase/8/docs/technotes/guides/jni/spec/jniTOC.html))
+    for use in ND4J operations.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In DL4J, it is possible to manage memory allocations using two different approaches:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: JVM GC and weak reference tracking
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Memory workspaces
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'In this section, both approaches are going to be covered. The idea behind both
+    is the same: once an `INDArray` is no longer required, the off-heap memory associated
+    with it should be released so that it can be reused. The difference between the
+    two approaches is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**JVM GC**: When an `INDArray` is collected by the garbage collector, its off-heap
+    memory is deallocated, with the assumption that it is not used elsewhere'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Memory workspaces**: When an `INDArray` leaves the workspace scope, its off-heap
+    memory may be reused, without deallocation and reallocation'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Please refer to [Chapter 7](3b6f47c0-6e17-484b-ad30-b6f92eb0473c.xhtml), *Training
+    Neural Networks with Spark*, in the *Performance considerations* section, for
+    details on how to configure the limits for the heap and off-heap memory.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The memory workspaces approach needs more explanation. Compared to the JVM GC
+    approach, it gives the best results in terms of performance in cyclic workloads.
+    Within a workspace, any operation is possible with `INDArrays`. Then at the end
+    of the workspace loop, all `INDArrays` content in memory is invalidated. Whether
+    an `INDArray` should be needed outside a workspace (which could be the case when
+    moving results out of it), it is possible to use the `detach` method of the `INDArray`
+    itself to create an independent copy of it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Workspaces are enabled by default in DL4J releases from 1.0.0-alpha or later.
+    In order to use them, they need to be activated for DL4J release 0.9.1 or older.
+    In DL4J 0.9.1, at network configuration time, workspaces can be activated this
+    way (for training):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Or for inference, they can be activated as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: A `SEPARATE` workspace is slower, but it uses less memory, while a `SINGLE`
+    workspace is faster, but requires more memory. The choice between `SEPARATE` and
+    `SINGLE` depends on the compromise you choose between memory footprint and performance.
+    When workspaces are enabled, all the memory used during training is made reusable
+    and tracked without interference by the JVM GC. Only the `output` method, which
+    uses workspaces internally for the feed-forward loop, is an exception, but then
+    it detaches the resulting `INDArray` from the workspaces, so it can then be handled
+    by the JVM GC. Starting from release 1.0.0-beta, the `SEPARATE` and `SINGLE` modes
+    have been deprecated. The available modes are `ENABLED` (default) and `NONE`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Please remember that, when a training process uses workspaces, in order to
+    get the most from this approach, periodic GC calls need to be disabled, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Or their frequency needs to be reduced, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: This setting should be done before invoking the `fit` method for the model in
+    training. The workspace modes are available also for `ParallelWrapper` (in the
+    case of training demanded to DL4J only, running multiple models on the same server).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In some cases, to save memory, it would be necessary to release all the workspaces
+    created during training or evaluation. This can be done by invoking the following
+    method of `WorkspaceManager`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: It destroys all workspaces that have been created within the calling thread.
+    Workspaces created in some external threads that are no longer needed can be destroyed
+    using the same method in that thread.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In DL4J release 1.0.0-alpha and later, when using the `nd4j-native` backend,
+    it is also possible to use a memory-mapped file instead of RAM. While it is slower,
+    it allows memory allocation in a manner that is impossible to achieve using RAM.
+    This option is mostly workable in those cases where `INDArrays` can''t fit into
+    RAM. Here''s how this could be done programmatically:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: In this example, a temporary file of 2 GB is created, a workspace is mapped
+    there, and the `ndArray` `INDArray` is created in that workspace.
+  prefs: []
+  type: TYPE_NORMAL
+- en: CPU and GPU setup
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'As mentioned before in this book, any application implemented through DL4J
+    can be executed on CPUs or GPUs. To switch from CPUs to GPUs, a change in the
+    application dependencies for ND4J is needed. Here''s an example for CUDA release
+    9.2 (or later) and NVIDIA-compatible hardware (the example is for Maven, but the
+    same dependency could be set for Gradle or sbt), as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: This dependency replaces that for `nd4j-native`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'When you have multiple GPUs in your system, whether it should restrict their
+    usage and force to execute on a single one, it is possible to change this programmatically
+    through the `CudaEnvironment` helper class ([https://deeplearning4j.org/api/latest/org/nd4j/jita/conf/CudaEnvironment.html](https://deeplearning4j.org/api/latest/org/nd4j/jita/conf/CudaEnvironment.html))
+    of the `nd4j-cuda` library. The following line of code needs to be executed as
+    the first instruction in a DL4J application entry point:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: In section 10.1.1, we have learned how to configure heap and off-heap memory
+    in DL4J. Some considerations need to be made when executing on GPUs. It should
+    be clear that the settings for the command-line arguments `org.bytedeco.javacpp.maxbytes`
+    and `org.bytedeco.javacpp.maxphysicalbytes` define the memory limits for the GPU(s),
+    because for `INDArrays`*,* the off-heap memory is mapped to the GPU (`nd4j-cuda`
+    is used).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Also, when running on GPUs, most probably less RAM would be used in the JVM
+    heap, while more would be used in the off-heap, as this is where all of the `INDArrays`
+    are stored. Allocating too much to the JVM heap would leave a real risk of having
+    not enough memory left off-heap. Anyway, while doing proper settings, in some
+    situations, execution could lead to the following exception:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: This means that we have run out of off-heap memory. In situations like this
+    (in particular for training), we need to consider `WorkspaceConfiguration` to
+    handle the `INDArrays` memory allocation (as learned in the *Memory management*
+    section). If not, the `INDArrays` and their off-heap resources would be reclaimed
+    through the JVM GC approach, which might severely increase latency and generate
+    other potential out of memory issues.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The command-line arguments to set the memory limits are optional. Not specifying
+    anything means that by default 25% of the total system RAM is set as the limit
+    for the heap memory, while by default twice the RAM reserved for the heap memory
+    would be set for the off-heap memory. It is up to us to find the perfect balance,
+    particularly in cases of execution on GPUs, considering the expected amount of
+    off-heap memory for the `INDArrays`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Typically, CPU RAM is greater than GPU RAM. For this reason, how much RAM is
+    being used off-heap needs to be monitored. DL4J allocates memory on the GPU equivalent
+    to the amount of off-heap memory specified through the previously mentioned command-line
+    arguments. In order to make the communication between CPU and GPU more efficient,
+    DL4J allocates off-heap memory on the CPU RAM too. This way, a CPU can access
+    data from an `INDArray` with no need to fetch data from a GPU any time there is
+    a call for it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'However there is one caveat: if a GPU has less than 2 GB of RAM, it''s probably
+    not suitable for DL production workloads. In that case, a CPU should be used.
+    Typically, DL workloads require a minimum of 4 GB of RAM (8 GB of RAM is recommended
+    on a GPU).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Here is a final consideration: with a CUDA backend and using workspaces, it is
+    also possible to use `HOST_ONLY` memory. Programmatically, this could be set up
+    as in the following example:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: This reduces performance, but it can be useful as in-memory cache pairs when
+    using the `unsafeDuplication` method of `INDArray`, which performs efficient (but
+    unsafe) `INDArray` duplication.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Building a job to be submitted to Spark for training
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: At this stage, I am assuming you have already started browsing and trying the
+    code examples in the GitHub repository ([https://github.com/PacktPublishing/Hands-On-Deep-Learning-with-Apache-Spark](https://github.com/PacktPublishing/Hands-On-Deep-Learning-with-Apache-Spark))
+    associated with this book. If so, you should have noticed that all of the Scala
+    examples use Apache Maven ([https://maven.apache.org/](https://maven.apache.org/))
+    for packaging and dependency management. In this section, I am going to refer
+    to this tool in order to build a DL4J job that will then be submitted to Spark
+    to train a model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Once you are confident that the job that you have developed is ready for training
+    in the destination Spark cluster, the first thing to do is to build the uber-JAR
+    file (also called the fat JAR file), which contains the Scala DL4J Spark program
+    classes and dependencies. Check that all of the required DL4J dependencies for
+    the given project are present in the `<dependencies>` block of the project POM
+    file. Check that the correct version of the dl4j-Spark library has been selected;
+    all of the examples in this book are meant to be used with Scala 2.11.x and Apache
+    Spark 2.2.x. The code should look as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: If your project POM file, as well as the other dependencies, contains references
+    to Scala and/or any of the Spark libraries, please declare their scope as `provided`,
+    as they are already available across the cluster nodes. This way, the uber-JAR
+    would be lighter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Once you have checked for the proper dependencies, you need to instruct the
+    POM file on how to build the uber-JAR. There are three techniques to build an
+    uber-JAR: unshaded, shaded, and JAR of JARs. The best approach for this case would
+    be a shaded uber-JAR. Along with the unshaded approach, it works with the Java
+    default class loader (so there is no need to bundle an extra special class loader),
+    but brings the advantage of skipping some dependency version conflicts and the
+    possibility, when there are files present in multiple JARs with the same path,
+    to apply an appending transformation to them. Shading can be achieved in Maven
+    through the Shade plugin ([http://maven.apache.org/plugins/maven-shade-plugin/](http://maven.apache.org/plugins/maven-shade-plugin/)).
+    The plugin needs to be registered in the `<plugins>` section of the POM file as
+    follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This plugin executes when the following command is issued:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: At the end of the packaging process, the latest versions of this plugin replace
+    the slim JAR with the uber-JAR, renaming it with the original filename. For a
+    project with the following coordinates, the name of the uber-JAR would be `rnnspark-1.0.jar`*:*
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: The slim JAR is preserved anyway, but it is renamed as `original-rnnspark-1.0.jar`.
+    They both can be found inside the `target` sub-directory of the project root directory.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The JAR can then be submitted to the Spark cluster for training using the `spark-submit`
+    script, the same way as for any other Spark job, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: Spark distributed training architecture details
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The *Distributed network training with Spark and DeepLearning4J* section in [Chapter
+    7](3b6f47c0-6e17-484b-ad30-b6f92eb0473c.xhtml), *Training Neural Networks with
+    Spark*, explains why it is important to train MNNs in a distributed way across
+    a cluster, and states that DL4J uses a parameter averaging approach to parallel
+    training. This section goes through the architecture details of the distributed
+    training approaches (parameter averaging and gradient sharing, which replaced
+    the parameter averaging approach in DL4J starting from release 1.0.0-beta of the
+    framework). The way DL4J approaches distributed training is transparent to developers,
+    but it is good to have knowledge of it anyway.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Model parallelism and data parallelism
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Parallelizing/distributing training computation can happen as **model parallelism**
+    or **data parallelism**.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In model parallelism (see following diagram), different nodes of the cluster
+    are responsible for the computation in different parts of a single MNN (an approach
+    could be that each layer in the network is assigned to a different node):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/7d5a9a36-ede6-4b17-a35a-f71efc2d529f.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 10.1: Model parallelism'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In data parallelism (see the following diagram), different cluster nodes have
+    a complete copy of the network model, but they get a different subset of the training
+    data. The results from each node are then combined, as demonstrated in the following
+    diagram:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/4f2147d0-b25b-4698-ba8c-698dca76d88b.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 10.2: Data parallelism'
+  prefs: []
+  type: TYPE_NORMAL
+- en: These two approaches can also be combined; they aren't mutually exclusive. Model
+    parallelism works well in practice, but data parallelism has to be preferred for
+    distributed training; matters like implementation, fault tolerance, and optimized
+    cluster resource utilization (just to mention a few) are definitely easier for
+    data parallelism than for model parallelism.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The data parallelism approach requires some way of combining the results and
+    synchronizing the model parameters across workers. In the next two subsections,
+    we are going to explore just the two (parameter averaging and gradient sharing)
+    that have been implemented in DL4J.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Parameter averaging
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Parameter averaging happens as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The master first initializes the neural network parameters based on the model
+    configuration
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Then, it distributes a copy of the current parameters to each worker
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: The training starts on each worker using its own subset of data
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: The master sets the global parameters to the average parameters for each worker
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: In those cases where there is more data to process, the flow repeats from *Step
+    2*
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'The following diagram shows a representation from *Step 2* to *Step 4*:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/bcfecfcc-1965-401b-b353-82b078608429.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 10.3: Parameter averaging'
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this diagram, **W** represents the parameters (weights and biases) in the
+    network. In DL4J, this implementation uses Spark's TreeAggregate ([https://umbertogriffo.gitbooks.io/apache-spark-best-practices-and-tuning/content/treereduce_and_treeaggregate_demystified.html](https://umbertogriffo.gitbooks.io/apache-spark-best-practices-and-tuning/content/treereduce_and_treeaggregate_demystified.html)).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Parameter averaging is a simple approach, but it comes with some challenges.
+    The most intuitive idea for doing averaging is to simply average the parameters
+    after each iteration. While this approach can work, the added overhead could be
+    extremely high and the network communication and synchronization costs may nullify
+    any benefit from scaling the cluster by adding extra nodes. For this reason, parameter
+    averaging is typically implemented with an averaging period (number of minibatches
+    per worker) greater than one. If the averaging period is too infrequent, the local
+    parameters in each worker may significantly diverge, resulting in a poor model.
+    Good averaging periods are of the order of once in every 10 to 20 minibatches
+    per worker. Another challenge is related to the optimization methods (the updaters
+    of DL4J). It has been demonstrated that these methods ([http://ruder.io/optimizing-gradient-descent/](http://ruder.io/optimizing-gradient-descent/))
+    improve the convergence properties during neural network training. But they have
+    an internal state that could probably be averaged as well. This results in a faster
+    convergence in each worker, but at the cost of doubling the size of the network
+    transfers.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Asynchronous stochastic gradient sharing
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Asynchronous stochastic gradient sharing is the approach that has been chosen
+    in the latest release of DL4J (and future ones as well). The main difference between
+    asynchronous stochastic gradient sharing and parameter averaging is that in asynchronous
+    stochastic gradient sharing, updates instead of parameters are transferred from
+    the workers to the parameter server. From an architectural perspective, this is
+    similar to parameter averaging (see the following diagram):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/79e28023-42f8-4305-8972-923b5354f0be.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 10.4: Asynchronous stochastic gradient sharing architecture
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'What is different is the formula through which the parameters are calculated:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/159c04a0-1d94-43b1-bc89-5ad05105fc87.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Here, ![](img/c91cb8c9-1433-4549-b7aa-381e8950a0a3.png) is the scaling factor.
+    The asynchronous stochastic gradient sharing algorithm is obtained by allowing
+    the updates ![](img/108002a8-d16d-451e-836f-f5c30eb9e7bf.png) to be applied to
+    the parameter vectors as soon as they are computed.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'One of the main benefits of asynchronous stochastic gradient sharing is that
+    it is possible to obtain higher throughput in a distributed system, rather than
+    waiting for the parameter averaging step to be completed, so the workers can spend
+    more time performing useful computations. Another benefit is the following: the
+    workers can potentially incorporate parameter updates from other workers sooner,
+    when compared to the case of using synchronous updating.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'One downside of asynchronous stochastic gradient sharing is the so-called stale
+    gradient problem. The calculation of gradients (updates) requires time, and by
+    the time a worker has finished his calculations and applied the results to the
+    global parameter vector, the parameters may have been updated more than once (a
+    problem you can''t see in the parameter averaging, as this has a synchronous nature).
+    Several approaches have been proposed in order to mitigate the stale gradient
+    problem. Among these, one is by scaling the value ![](img/c91cb8c9-1433-4549-b7aa-381e8950a0a3.png)
+    separately for each update, based on the staleness of the gradients. Another way
+    is called soft synchronization: rather than updating the global parameter vector
+    immediately, the parameter server waits to collect a given number of updates from
+    any of the learners. Then, the formula through which the parameters are updated
+    becomes this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/7ed522f5-d93c-42d3-997c-26e0fea27211.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Here, *s* is the number of updates that the parameter server waits to collect
+    and ![](img/7fbd793e-4160-4bee-bba8-18fec6a7f311.png) is a Scalar staleness-dependent
+    scaling factor.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In DL4J, while the parameter averaging implementation has always been fault
+    tolerant, the gradient sharing implementation has been made fully fault tolerant
+    starting from release 1.0.0-beta3.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Importing Python models into the JVM with DL4J
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the previous chapter, we have learned how powerful and, at the same time,
+    how easy the DL4J APIs are when it comes to configuring, building, and training
+    multilayer neural network models. The possibilities to implement new models are
+    almost innumerable relying on this framework only in Scala or Java.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'But, let''s have a look at the following search results from Google; they concern
+    TensorFlow neural network models that are available on the web:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/d75b5945-793d-4b08-b910-141e38adc3e8.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 10.5: The result of a Google search about TensorFlow neural network
+    models'
+  prefs: []
+  type: TYPE_NORMAL
+- en: You can see that it is quite an impressive number in terms of results. And this
+    is just a raw search. Refining the search to more specific model implementations
+    means that the numbers are pretty high. But what's TensorFlow? TensorFlow ([https://www.tensorflow.org/](https://www.tensorflow.org/))
+    is a powerful and comprehensive open source framework for ML and DL, developed
+    by the Google Brain team. At present, it is the most popularly used framework
+    by data scientists. So it has a big community, and lots of shared models and examples
+    are available for it. This explains the big numbers. Among those models, the chances
+    of finding a pre-trained model that fits your specific use case needs are high.
+    So, where's the problem? TensorFlow is mostly Python.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'It provides support for other programming languages, such as Java for the JVM,
+    but its Java API is currently experimental and isn''t covered by the TensorFlow
+    API stability guarantees. Furthermore, the TensorFlow Python API presents a steep
+    learning curve for non-Python developers and software engineers with no or a basic
+    data science background. How then can they benefit from this framework? How can
+    we reuse an existing valid model in a JVM-based environment? Keras ([https://keras.io/](https://keras.io/))
+    comes to the rescue. It is an open source, high-level neural network library written
+    in Python that can be used to replace the TensorFlow high-level API (the following
+    diagram shows the TensorFlow framework architecture):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/c632938e-2c0f-4e23-9ea7-0b8593e06ea9.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 10.6: The TensorFlow architecture'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Compared to TensorFlow, Keras is lightweight and allows easier prototyping.
+    It can run not only on top of TensorFlow, but also on other backend Python engines.
+    And last but not least, it can be used to import Python models into DL4J. The
+    Keras Model Import DL4J library provides facilities for importing neural network
+    models configured and trained through the Keras framework.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The following diagram shows that once a model has been imported into DL4J,
+    the full production stack is at disposal for using it:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/841beb3d-cdf3-4dff-86f9-c55d732296d5.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 10.7: Importing a Keras model into DL4J'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s now go into detail to understand how this happens. For the examples
+    in this section, I am assuming you have already Python 2.7.x and the `pip` ([https://pypi.org/project/pip/](https://pypi.org/project/pip/))
+    package installer for Python on your machine. In order to implement a model in
+    Keras, we have to install Keras itself and choose a backend (TensorFlow for the
+    examples presented here). TensorFlow has to be installed first, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'That''s for the CPU only. If you need to run it on GPUs, you need to install
+    the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We can now install Keras, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: Keras uses TensorFlow as its default tensor manipulation library, so no extra
+    action has to be taken if TensorFlow is our backend of choice.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s start simple, implementing an MLP model using the Keras API. After the
+    necessary imports, enter the following lines of code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We create a `Sequential` model, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Then, we add layers through the `add` method of `Sequential`, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The configuration of the learning process for this model can be done through
+    the `compile` method, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Finally, we serialize the model in HDF5 format, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs: []
+  type: TYPE_PRE
+- en: '**Hierarchical Data Format** (**HDF**) is a set of file formats (with the extensions
+    .hdf5 and .h5) to store and manage large amounts of data, in particular multidimensional
+    numeric arrays. Keras uses it to save and load models.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'After saving this simple program, `basic_mlp.py`, and running it, as follows
+    the model will be serialized and saved in the `basic_mlp.h5` file:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now, we are ready to import this model into DL4J. We need to add to the Scala
+    project the usual DataVec API, DL4J core, and ND4J dependencies, plus the DL4J
+    model import library, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Copy the `basic_mlp.h5` file in the resource folder of the project, then programmatically
+    get its path, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE25]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Then, load the model as DL4J `MultiLayerNetwork`*,* using the `importKerasSequentialModelAndWeights`
+    method of the `KerasModelImport` class ([https://static.javadoc.io/org.deeplearning4j/deeplearning4j-modelimport/1.0.0-alpha/org/deeplearning4j/nn/modelimport/keras/KerasModelImport.html](https://static.javadoc.io/org.deeplearning4j/deeplearning4j-modelimport/1.0.0-alpha/org/deeplearning4j/nn/modelimport/keras/KerasModelImport.html)),
+    as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE26]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Generate some mock data, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE27]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now, we can train the model the usual way in DL4J, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE28]'
+  prefs: []
+  type: TYPE_PRE
+- en: All the considerations made in [Chapter 7](3b6f47c0-6e17-484b-ad30-b6f92eb0473c.xhtml),
+    *Training Neural Networks with Spark*, [Chapter 8](b30120ea-bd42-4cb7-95d9-5ecaa2b7c181.xhtml),
+    *Monitoring and Debugging Neural Network Training*, and [Chapter 9](869a9495-e759-4810-8623-d8b76ba61398.xhtml),
+    *Interpreting Neural Network Output*, about training, monitoring, and evaluation
+    with DL4J, apply here too.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'It is possible, of course, to train the model in Keras (as in the following
+    example):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE29]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Here, `x_train` and `y_train` are NumPy ([http://www.numpy.org/](http://www.numpy.org/))
+    arrays) and evaluate it before saving it in serialized form, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`loss_and_metrics = model.evaluate(x_test, y_test, batch_size=128)`'
+  prefs: []
+  type: TYPE_NORMAL
+- en: You can finally import the pre-trained model in the same way as explained previously,
+    and just run it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The same as for `Sequential` model imports, DL4J allows also the importing of
+    Keras `Functional` models.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The latest versions of DL4J, also allow the importing of TensorFlow models.
+    Imagine you want to import this ([https://github.com/tensorflow/models/blob/master/official/mnist/mnist.py](https://github.com/tensorflow/models/blob/master/official/mnist/mnist.py))
+    pre-trained model (a CNN estimator for the `MNIST` database). At the end of the
+    training, which happens in TensorFlow, you can save the model in a serialized
+    form. TensorFlow's file format is based on Protocol Buffers ([https://developers.google.com/protocol-buffers/?hl=en](https://developers.google.com/protocol-buffers/?hl=en)),
+    which is a language and platform neutral extensible serialization mechanism for
+    structured data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Copy the serialized `mnist.pb` file into the resource folder of the DL4J Scala
+    project and then programmatically get it and import the model, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE30]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Finally, feed the model with images and start to do predictions, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE31]'
+  prefs: []
+  type: TYPE_PRE
+- en: Alternatives to DL4J for the Scala programming language
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: DL4J isn't the only framework for deep learning available for the Scala programming
+    language. Two open source alternatives exist. In this section, we are going to
+    learn more about them and do a comparison with DL4J.
+  prefs: []
+  type: TYPE_NORMAL
+- en: BigDL
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: BigDL ([https://bigdl-project.github.io/0.6.0/](https://bigdl-project.github.io/0.6.0/))
+    is an open source, distributed, deep learning framework for Apache Spark implemented
+    by Intel ([https://www.intel.com](https://www.intel.com)). It is licensed with
+    the Apache 2.0 license, the same as for DL4J. It has been implemented in Scala
+    and exposes APIs for Scala and Python. It doesn't provide support for CUDA. While
+    DL4J allows cross-platform execution in standalone mode (including Android mobile
+    devices) and distributed mode (with and without Spark), BigDL has been designed
+    to execute in a Spark cluster only. The available benchmarks state that training/running
+    this framework is faster than the most popular Python frameworks, such as TensorFlow
+    or Caffe, because BigDL uses the Intel Math Kernel Library (MKL, [https://software.intel.com/en-us/mkl](https://software.intel.com/en-us/mkl)),
+    assuming it is running on Intel processor-based machines.
+  prefs: []
+  type: TYPE_NORMAL
+- en: It provides high-level APIs for neural networks and the possibility to import
+    Python models from Keras, Caffe, or Torch.
+  prefs: []
+  type: TYPE_NORMAL
+- en: While it has been implemented in Scala, at the time this chapter was written,
+    it supports only Scala 2.10.x.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Looking at the latest evolution of this framework, it seems that Intel is going
+    to provide more support for importing Python models implemented with other frameworks
+    (and is starting also to provide support for some TensorFlow operations) and enhancements
+    of the Python API, rather than the Scala API.
+  prefs: []
+  type: TYPE_NORMAL
+- en: What about community and contributions? BigDL is supported and driven by Intel,
+    which keeps an eye in particular on how this framework is used on hardware based
+    on their microprocessors. So, this could be a potential risk in adopting this
+    framework in other production hardware contexts. While DL4J is supported by Skymind
+    ([https://skymind.ai/](https://skymind.ai/)), the company owned by Adam Gibson,
+    who is one of the authors of this framework, the vision, in terms of future evolution,
+    isn't restricted to the company business. The goal is to make the framework more
+    comprehensive in terms of capabilities and try to further reduce the gap between
+    the JVM languages and Python in relation to available numeric computation and
+    DL tools/features. Also, the number of contributors, commits, and releases are
+    increasing for DL4J.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Compared to the Scala BigDL API, the DL4J API for Scala (and Java) is more high
+    level (some sort of DSL), which is in particular of great help for Scala developers
+    approaching the DL world for the first time, as it speeds up the the process of
+    getting familiar with the framework, and allows programmers to focus more on the
+    model being trained and implemented.
+  prefs: []
+  type: TYPE_NORMAL
+- en: If your plan is to stay in the JVM world, I definitely believe DL4J is a better
+    choice than BigDL.
+  prefs: []
+  type: TYPE_NORMAL
+- en: DeepLearning.scala
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: DeepLearning.scala ([https://deeplearning.thoughtworks.school/](https://deeplearning.thoughtworks.school/))
+    is a DL framework from ThoughtWorks ([https://www.thoughtworks.com/](https://www.thoughtworks.com/)).
+    Implemented in Scala, the goal since the start has been, to get the most from
+    the functional programming and object-oriented paradigms for this language. It
+    supports GPU-accelerated *N*-dimensional arrays. Neural networks in this framework
+    can be built from mathematical formulas, so it can calculate derivatives of the
+    weights in the formulas used.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This framework supports plugins, so it could be extended by writing custom plugins,
+    which can then coexist along with the plugin set available out of the box (a significant
+    set of plugins is currently available in terms of models, algorithms, hyperparameters,
+    calculation features, and so on).
+  prefs: []
+  type: TYPE_NORMAL
+- en: DeepLearning.scala applications can run as standalone on the JVM, as Jupyter
+    ([http://jupyter.org/](http://jupyter.org/)) notebooks, or as scripts in Ammonite
+    ([http://ammonite.io/](http://ammonite.io/)).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Numerical computing happens through ND4J, the same as for DL4J.
+  prefs: []
+  type: TYPE_NORMAL
+- en: It doesn't have support for Python, nor facilities to import models implemented
+    through Python DL frameworks.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'One big difference between this framework and others, such as DL4J and BigDL,
+    is the following: the structure of the neural networks is dynamically determined
+    at runtime. All the Scala language features (functions, expressions, control flows,
+    and so on) are available for implementation. Neural networks are Scala Monads,
+    so they can be created by composing higher order functions, but that''s not the
+    only option in DeepLearning.scala; the framework also provides a type class called
+    `Applicative` (through the Scalaz library, [http://eed3si9n.com/learning-scalaz/Applicative.html](http://eed3si9n.com/learning-scalaz/Applicative.html)),
+    which allows multiple calculations in parallel.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: No native support for Spark or Hadoop was available for this framework at the
+    time this chapter was written.
+  prefs: []
+  type: TYPE_NORMAL
+- en: DeepLearning.scala can be a good alternative to DL4J in those contexts where
+    there's no need for Apache Spark distributed training, and where you want to implement
+    things in pure Scala. In terms of APIs for this programming language, it is more
+    observant of the principles of pure Scala programming than DL4J, which has targeted
+    all of the languages that run on the JVM (starting from Java, then extending to
+    Scala, Clojure, and others, including Android).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The initial visions for these two frameworks are also different: DL4J started
+    to target software engineers, while DeepLearning.scala has an approach more oriented
+    toward data scientists. Still to be verified is its level of stability and performance
+    in production, as it is younger than DL4J and has a smaller number of adopters
+    in real use cases. The lack of support to import existing models from Python frameworks
+    could also be a limitation, because you would need to build and train your model
+    from scratch and can''t rely on existing Python models that may be an excellent
+    fit for your specific use case. In terms of community and releases, at present
+    it can''t of course compare with DL4J and BigDL (even if there is the chance that
+    it could grow in the very near future). Last but not least, the official documentation
+    and examples are limited and not yet as mature and comprehensive as they are for
+    DL4J.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this chapter, some concepts to think about when moving DL4J to production
+    have been discussed. In particular, we understood how heap and off-heap memory
+    management should be set up, looked at extra considerations on GPUs setup, saw
+    how to prepare job JARs to be submitted to Spark for training, and also saw how
+    it is possible to import and integrate Python models into an existing DL4J JVM
+    infrastructure. Finally, a comparison between DL4J and two other DL frameworks
+    for Scala (BigDL and DeepLearning.scala) was presented, and the reasons why DL4J
+    could be a better choice from a production perspective were detailed.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the next chapter, the core concepts of Natural Language Processing (NLP)
+    will be explained, and a complete Scala implementation of NLP using Apache Spark
+    and its MLLib (Machine Learning Library) will be detailed. We will go through
+    the potential limitations of this approach, before in [Chapter 12](2bff1c2a-d984-49a0-aa22-03bafeb05fbc.xhtml),
+    *Textual Analysis and Deep Learning*, presenting the same solution using DL4J
+    and/or Keras/TensorFlow.
+  prefs: []
+  type: TYPE_NORMAL

@@ -1,0 +1,1046 @@
+- en: Chapter 5. Using Various Generative Models to Generate Images
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Deep learning shines with big data and deeper models. It has millions of parameters
+    that can take even weeks to train. Some real-life scenarios may not have sufficient
+    data, hardware, or resources to train bigger networks in order to achieve the
+    desired accuracy. Is there any alternative approach or do we need to reinvent
+    the training wheel from scratch all the time?
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this chapter, we will first look at the powerful and widely used training
+    approach in modern deep learning based applications named **Transfer Learning**
+    through hands-on examples with real datasets (`MNIST`, `cars vs cats vs dogs vs
+    flower`, `LFW`). Also, you will build deep learning-based network over large distributed
+    clusters using Apache Spark and BigDL. Then you will combine both Transfer Learning
+    and GAN to generate high resolution realistic images with facial datasets. Finally,
+    you will also understand how to create artistic hallucination on images beyond
+    GAN.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We will cover the following topics in this chapter:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: What is Transfer Learning?—its benefits and applications
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Classifying `cars vs dog vs flower` with pre-trained VGG model using Keras
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Training and deploying a deep network over large distributed clusters with Apache
+    Spark—deep learning pipeline
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Identifying handwritten digits through feature extraction and fine tuning using
+    BigDL
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: High resolution image generation using pre-trained model and SRGAN
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Generating artistic hallucinated images with DeepDream and image generation
+    with VAE
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Building a deep learning model from scratch requires sophisticated resources
+    and also it is very time consuming. And hence you don't always want to build such
+    deep models from scratch to solve your problem at hand. Instead of reinventing
+    the same wheel, you will reuse an already existing model built for similar problems
+    to satisfy your use case.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let's say you want to build a self-driving car. You can either to spend years
+    building a decent image recognition algorithm from scratch or you can simply take
+    the pre-trained inception model built by Google from a huge dataset of ImageNet.
+    A pre-trained model may not reach the desired accuracy level for your application,
+    but it saves huge effort required to reinvent the wheel. And with some fine tuning
+    and tricks your accuracy level will definitely improve.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Introduction to Transfer Learning
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Pre-trained models are not optimized for tackling user specific datasets, but
+    they are extremely useful for the task at hand that has similarity with the trained
+    model task.
+  prefs: []
+  type: TYPE_NORMAL
+- en: For example, a popular model, InceptionV3, is optimized for classifying images
+    on a broad set of 1000 categories, but our domain might be to classify some dog
+    breeds. A well-known technique used in deep learning that adapts an existing trained
+    model for a similar task to the task at hand is known as Transfer Learning.
+  prefs: []
+  type: TYPE_NORMAL
+- en: And this is why Transfer Learning has gained a lot of popularity among deep
+    learning practitioners and in recent years has become the go-to technique in many
+    real-life use cases. It is all about transferring knowledge (or features) among
+    related domains.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The purpose of Transfer Learning
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Let's say you have trained a deep neural network to differentiate between fresh
+    mango and rotten mango. During training the network will have required thousands
+    of rotten and fresh mango images and hours of training to learn knowledge such
+    as if any fruit is rotten, liquid will come out of it and it will produce a bad
+    smell. Now with this training experience the network can be used for different
+    tasks/use-cases to differentiate between rotten apples and fresh apples using
+    the knowledge of the rotten features learned during training of mango images.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The general approach of Transfer Learning is to train a base network and then
+    copy its first n layers to the first n layers of a target network. The remaining
+    layers of the target network are initialized randomly and trained toward the targeted
+    use case.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The main scenarios for using Transfer Learning in your deep learning workflow
+    are as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Smaller datasets**: When you have a smaller dataset, building a deep learning
+    model from scratch won''t work well. Transfer Learning provides the way to apply
+    a pre-trained model to new classes of data. Let''s say a pre-trained model built
+    from one million images of ImageNet data will converge to a decent solution (after
+    training on just a fraction of the available smaller training data, for example,
+    CIFAR-10) compared to a deep learning model built with a smaller dataset from
+    scratch.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Less resources**: Deep learning processes (such as convolution) require a
+    significant amount of resource and time. Deep learning processes are well suited
+    to run on high grade GPU-based machines. But with pre-trained models, you can
+    easily train across a full training set (let''s say 50,000 images) in less than
+    a minute using your laptop/notebook without GPU, since the majority of time a
+    model is modified in the final layer with a simple update of just a classifier
+    or regressor.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Various approaches of using pre-trained models
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'We will discuss how pre-trained model could be used in different ways:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Using pre-trained architecture**: Instead of transferring weights of the
+    trained model, we can only use the architecture and initialize our own random
+    weights to our new dataset.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Feature extractor**: A pre-trained model can be used as a feature extraction
+    mechanism just by simply removing the output layer of the network (that gives
+    the probabilities for being in each of the n classes) and then freezing all the
+    previous layers of the network as a fixed feature extractor for the new dataset.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Partially freezing the network**: Instead of replacing only the final layer
+    and extracting features from all previous layers, sometimes we might train our
+    new model partially (that is, to keep the weights of initial layers of the network
+    frozen while retraining only the higher layers). The choice of the number of frozen
+    layers can be considered as one more hyper-parameter.![Various approaches of using
+    pre-trained models](img/B08086_05_01.png.jpg)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Figure-1: Transfer Learning with a pre-trained model'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Depending mainly on data size and dataset similarity, you might have to decide
+    on how to proceed with Transfer Learning. The following table discusses these
+    scenarios:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '|   | High data similarity | Low data similarity |'
+  prefs: []
+  type: TYPE_TB
+- en: '| --- | --- | --- |'
+  prefs: []
+  type: TYPE_TB
+- en: '| **Data size small** | In the scenario of small data size but high data similarity,
+    we will modify only the output layers of the pre-trained model and use it as a
+    feature extractor. | When both data size as well as data similarity is low, we
+    can freeze initial *k* layers of the pre-trained network and train only the *(n-k)*
+    remaining layers again. This will help the top layers to customize to the new
+    dataset and the small data size will also get compensated by frozen initial *k*
+    layers of the network. |'
+  prefs: []
+  type: TYPE_TB
+- en: '| **Data size large** | In this scenario, we can use the architecture and initial
+    weights of the pre-trained model. | Although we have a large dataset, the data
+    is very different compared to the one used for training the pre-trained model,
+    so using it in this scenario would not be effective. Instead it is better to train
+    the deep network from scratch. |'
+  prefs: []
+  type: TYPE_TB
+- en: In case of image recognition Transfer Learning utilize the pre-trained convolutional
+    layers to extract features about the new input images, that means only a small
+    part of the original model (mainly the dense layers) are retrained. The rest of
+    the network remains frozen. In this way, it saves a lot of time and resource by
+    passing the raw images through the frozen part of the network only once, and then
+    never goes through that part of the network again.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Classifying car vs cat vs dog vs flower using Keras
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Let us implement the concept of Transfer Learning and fine-tuning to identify
+    customizable object categories using a customized dataset consisting of 150 training
+    images and 50 validation images for each category of car, cat, dog, and flower.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note that the dataset is prepared by taking images from the *Kaggle Dogs vs.Cats*
+    ([https://www.kaggle.com/c/dogs-vs-cats](https://www.kaggle.com/c/dogs-vs-cats)),
+    Stanford cars ([http://ai.stanford.edu/~jkrause/cars/car_dataset.html](http://ai.stanford.edu/~jkrause/cars/car_dataset.html)),
+    and `Oxford flower` dataset ([http://www.robots.ox.ac.uk/~vgg/data/flowers](http://www.robots.ox.ac.uk/~vgg/data/flowers)).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Classifying car vs cat vs dog vs flower using Keras](img/B08086_05_02.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure-2: Car vs Cat vs Dog vs Flower dataset structure'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We need to perform some preprocessing using the `preprocessing` function and
+    apply various data augmentation transformation through `rotation`, `shift`, `shear`,
+    `zoom`, and `flip` parameters:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Next, we need to load the InceptionV3 model from the `keras.applications` module.
+    The flag `include_top=False` is used to leave out the weights of the last fully
+    connected layer:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Initialize a new last layer by adding fully-connected `Dense` layer of size
+    1024, followed by a `softmax` function on the output to squeeze the values between
+    `[0,1]`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: Once the last layer of the network is stabilized (Transfer Learning), we can
+    move onto retraining more layers (fine-tuning).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Use a utility method to freeze all layers and compile the model:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This is another utility method to freeze the bottom of the top two inception
+    blocks in the InceptionV3 architecture and retrain the remaining top:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now we''re all ready for training using the `fit_generator` method and finally
+    save our model:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Run the following command for training and fine tuning:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![Classifying car vs cat vs dog vs flower using Keras](img/B08086_05_03.png.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Even with such a small dataset size, we are able to achieve an accuracy of
+    98.5 percent on the validation set by utilizing the power of the pre-trained model
+    and Transfer Learning:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Classifying car vs cat vs dog vs flower using Keras](img/B08086_05_04.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Voila, we can now use the saved model to predict images (either from the local
+    filesystem or from the URL) with test data:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![Classifying car vs cat vs dog vs flower using Keras](img/B08086_05_05.png.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Large scale deep learning with Apache Spark
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Deep learning is a resource hungry and computationally intensive process and
+    you get better result with more data and bigger network, but its speed gets impacted
+    by the size of the datasets as well. And in practice, deep learning requires experimenting
+    with different values for training parameters known as hyper-parameter tuning,
+    where you have to run your deep networks on a large dataset iteratively or many
+    times and speed does matter. Some common ways to tackle this problem is to use
+    faster hardware (usually GPUs), optimized code (with a proper production-ready
+    framework), and scaling out over distributed clusters to achieve some form of
+    parallelism.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Data parallelism is a concept of sharding large datasets into multiple chunks
+    of data and then processing chunks over neural networks running on separate nodes
+    of distributed clusters.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Apache Spark is a fast, general-purpose, fault-tolerant framework for interactive
+    and iterative computations on large, distributed datasets by doing in-memory processing
+    of RDDs or DataFrames instead of saving data to hard disks. It supports a wide
+    variety of data sources as well as storage layers. It provides unified data access
+    to combine different data formats, streaming data, and defining complex operations
+    using high-level, composable operators.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Today Spark is the superpower of big data processing and makes big data accessible
+    to everyone. But Spark or its core modules alone are not capable of training or
+    running deep networks over the clusters. In the next few sections, we will develop
+    deep learning applications over Apache Spark cluster with optimized libraries.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'For coding purposes, we will not cover the distributed Spark cluster setup,
+    instead use Apache Spark standalone mode. More information about Spark cluster
+    mode can be found at: [https://spark.apache.org/docs/latest/cluster-overview.html](https://spark.apache.org/docs/latest/cluster-overview.html).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Running pre-trained models using Spark deep learning
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Deep learning pipelines is an open-source library that leverages the power of
+    Apache Spark cluster to easily integrate scalable deep learning into machine learning
+    workflows. It is built on top of Apache Spark's ML Pipelines for training, and
+    uses Spark DataFrames and SQL for deploying models. It provides high-level APIs
+    for running Transfer Learning in a distributed manner by integrating pre-trained
+    model as transformer in Spark ML Pipeline.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Deep learning pipelines make Transfer Learning easier with the concept of a
+    featurizer. The featurizer (or `DeepImageFeaturizer` in case of image operation)
+    automatically removes the last layer of a pre-trained neural network model and
+    uses all the previous layers output as features for the classification algorithm
+    (for example, logistic regression) specific to the new problem domain.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let us implement deep learning pipelines for predicting sample images of the
+    `flower` dataset ([http://download.tensorflow.org/example_images/flower_photos.tgz](http://download.tensorflow.org/example_images/flower_photos.tgz))
+    with a pre-trained model over the Spark cluster:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'First start the PySpark with the deep learning pipeline package:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Tip
+  prefs:
+  - PREF_IND
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'Note: If you get the error **No module named sparkdl** while starting the PySpark
+    with deep learning, please check the GitHub page for workaround:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[https://github.com/databricks/spark-deep-learning/issues/18](https://github.com/databricks/spark-deep-learning/issues/18)'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: First read the images and randomly split it into `train`, `test` set.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Then create a pipeline with `DeepImageFeaturizer` using the `InceptionV3` model:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Now fit the images with an existing pre-trained model, where `train_images_df`
+    is a dataset of images and labels:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Finally, we will evaluate the accuracy:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '![Running pre-trained models using Spark deep learning](img/B08086_05_06.png.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_IMG
+- en: 'In addition to `DeepImageFeaturizer`, we can also utilize the pre-existing
+    model just to do prediction, without any retraining or fine tuning using `DeepImagePredictor`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The input image and its top five predictions are shown as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Running pre-trained models using Spark deep learning](img/B08086_05_07.png.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: In addition to using the built-in pre-trained models, deep learning pipeline
+    allows users to plug in Keras models or TensorFlow graphs in a Spark prediction
+    pipeline. This really turns any single-node deep models running on a single-node
+    machine into one that can be trained and deployed in a distributed fashion, on
+    a large amount of data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'First, we will load the Keras built-in InceptionV3 model and save it in the
+    file:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'During the prediction phase, we will simply load the model and pass images
+    through it to get the desired prediction:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: Deep learning pipeline is a really fast way of doing Transfer Learning over
+    distributed Spark clusters. But you must have noticed that featurizer only allow
+    us to change the final layer of the pre-trained model. But in some scenarios,
+    you might have to modify more than one layer of the pre-trained network to get
+    the desired result and deep learning pipeline doesn't provide this full capability.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Handwritten digit recognition at a large scale using BigDL
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'BigDL is an open-source distributed high performance deep learning library
+    that can run directly on top of Apache Spark clusters. Its high performance is
+    achieved by combing **Intel® Math Kernel Library** (**MKL**) along with multithreaded
+    programming in each Spark task. BigDL provides Keras style (both sequential and
+    function) high-level APIs to build deep learning application and scale out to
+    perform analytics at a large scale. The main purposes of using BigDL are:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Running deep learning model at a large scale and analyzing massive amount of
+    data residing in a Spark or Hadoop cluster (in say Hive, HDFS, or HBase)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Adding deep learning functionality (both training and prediction) to your big
+    data workflow![Handwritten digit recognition at a large scale using BigDL](img/B08086_05_08.png.jpg)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Figure-3: BigDL execution over Spark cluster'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: As you can see from the figure, the BigDL driver program is first launched in
+    the Spark master node of the cluster. Then with the help of **cluster manager**
+    and the driver program, Spark tasks are distributed across the Spark executors
+    on the worker nodes. And BigDL interacts with Intel MKL to enable faster execution
+    of those tasks.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let us implement a deep neural network at a large scale for identifying hand-written
+    digits with the `mnist` dataset. First we will prepare training and validation
+    samples:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Then we will create the LeNet architecture consisting of two sets of convolutional,
+    activation, and pooling layers, followed by a fully-connected layer, activation,
+    another fully-connected, and finally a `SoftMax` classifier. LeNet is small, yet
+    powerful enough to provide interesting results:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now we will configure an `Optimizer` and set the validation logic:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Then we will take a few test samples, and make prediction by checking both
+    the predicted labels and the ground truth labels:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Finally, we will train the LeNet model in the Spark cluster using the `spark-submit`
+    command. Download the BigDL distribution ([https://bigdl-project.github.io/master/#release-download/](https://bigdl-project.github.io/master/#release-download/))
+    based on your Apache Spark version and then execute the file (`run.sh`) provided
+    with the code to submit the job in the Spark cluster:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'More information regarding `spark-submit` can be found at: [https://spark.apache.org/docs/latest/submitting-applications.html](https://spark.apache.org/docs/latest/submitting-applications.html).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Once you have submitted the job, you can track the progress on the **Spark
+    Master** application page as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Handwritten digit recognition at a large scale using BigDL](img/B08086_05_09.png.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure-4: BigDL job of LeNet5 model running on Apache Spark cluster'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'After the job has successfully finished, you can search the logs of the Spark
+    workers to verify the accuracy of your model similar to the one shown as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: High resolution image generation using SRGAN
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: '**Super Resolution Generative Network** (**SRGAN)** excels in generating high
+    resolution images from its low-resolution counterpart. During the training phase,
+    a high resolution image is transformed to a low resolution image by applying the
+    Gaussian filter to a high resolution image followed by the down-sampling operation.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let us define some notation before diving into the network architecture:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*I*^(*LR*): Low resolution image having the size width(*W*) x height(*H*) x
+    color channels(*C*)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*I*^(*HR*): High resolution image having the size *rW × rH × C*'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*I*^(*SR*): Super resolution image having the size *rW × rH × C*'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*r*: down sampling factor'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*G*[*θG*]: Generator network'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*D*[*θD*]: Discriminator network'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'To achieve the goal of estimating a high resolution input image from its corresponding
+    low resolution counterpart, the generator network is trained as a feed-forward
+    convolution neural network *G*[*θG*] parametrized by *θG* where *θG* is represented
+    by weights (*W1:L*) and biases (*b1:L*) of the L-layer of the deep network and
+    is obtained by optimizing super resolution specific `loss` function. For training
+    images having high resolution ![High resolution image generation using SRGAN](img/B08086_05_23.jpg),
+    *n=1*; N along with its corresponding low resolution ![High resolution image generation
+    using SRGAN](img/B08086_05_24.jpg), *n=1*, N, we can solve for *θG*, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![High resolution image generation using SRGAN](img/B08086_05_10.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Note
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: The formulation of the perceptual loss function *lSR* is critical for the performance
+    of the generator network. In general, perceptual loss is commonly modeled based
+    on **Mean Square Error** (**MSE**), but to avoid unsatisfying solutions with overly
+    smooth textures, a new content loss based on the ReLU activation layers of the
+    pre-trained 19 layer VGG network is formulated.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The perceptual loss is the weighted combination of several `loss` functions
+    that map important characteristics of the super resolution image as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![High resolution image generation using SRGAN](img/B08086_05_11.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: '**Content loss**: The VGG-based content loss is defined as the Euclidean distance
+    between the feature representations of a reconstructed image *G**[θG]* (*I*^(*LR*))
+    and the corresponding high resolution image *I**HR*. Here ![High resolution image
+    generation using SRGAN](img/B08086_05_25.jpg)[*i,j*] indicate the feature map
+    obtained by the jth convolution (after activation) before the ith max-pooling
+    layer within the VGG19 network. And *Wi,j*, *Hi,j* describe the dimensions of
+    the respective feature maps within the *VGG* network:![High resolution image generation
+    using SRGAN](img/B08086_05_12.jpg)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Adversarial loss**: The generative loss is based on the probabilities of
+    the discriminator *D*[*θD*]*(G*[*θG*]*(I*[*LR*]*))* over all training images and
+    encourages the network to favor solutions residing on the manifold of natural
+    images, in order to fool the discriminator network:![High resolution image generation
+    using SRGAN](img/B08086_05_13.jpg)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Similar to the concept of adversarial network, the general idea behind the
+    SRGAN approach is to train a generator *G* with the goal of fooling a discriminator
+    *D* that is trained to distinguish super-resolution images from real images:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![High resolution image generation using SRGAN](img/B08086_05_14.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Based on this approach the generator learns to create solutions that are highly
+    similar to real images and thus hard to classify by discriminator *D*. And this
+    encourages perceptually superior solutions residing in the subspace, the manifold,
+    of natural images.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Architecture of the SRGAN
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: As illustrated in the following figure, the generator network **G** consists
+    of **B** **residual blocks** with identical layout. Each block has two convolutional
+    layers with small 3×3 kernels and 64 feature maps followed by batch-normalization
+    layers [32] and ParametricReLU [28] as the `activation` function. The resolution
+    of the input image is increased by two trained sub-pixel convolution layers.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The discriminator network uses Leaky ReLU activation (with *α* = 0.2) and consists
+    of eight convolutional layers with an increasing number of 3×3 filter kernels,
+    increasing by a factor of 2 from 64 to 512 kernels. Each time the number of features
+    is doubled, strided convolutions are used to reduce the image resolution.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The resulting 512 feature maps go through two dense layers followed by a final
+    sigmoid activation layer to obtain a classification probability for a generated
+    image sample:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Architecture of the SRGAN](img/B08086_05_15.png.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure-5: Architecture of generator and discriminator network with corresponding
+    kernel size (k), number of feature maps (n) and stride (s) indicated for each
+    convolutional layer.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Source: *arXiv, 1609.04802, 2017*'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now it's time to deep dive into the code with TensorFlow and generate high resolution
+    images using an LFW facial dataset.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The generator network is first built as a single deconvolution layer with 3×3
+    kernels and 64 feature maps followed by ReLU as an `activation` function. Then
+    there are five residual blocks with identical layout of each block having two
+    convolutional layers followed by batch-normalization and ReLU. Finally, the resolution
+    of the input image is increased by two trained pixel-shuffle layers:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The `deconvolution layer` function is defined with a TensorFlow `conv2d_transpose`
+    method with Xavier initialization as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The discriminator network consists of eight convolutional layers having 3×3
+    filter kernels that get increased by a factor of 2 from 64 to 512 kernels. The
+    resulting 512 feature maps are flattened and go through two dense fully connected
+    layers followed by a final softmax layer to obtain a classification probability
+    for a generated image sample:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The network uses LeakyReLU (with *α* = 0.2) as an `activation` function with
+    the convolutional layer:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE25]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The `convolution layer` function is defined with a TensorFlow `conv2d` method
+    with Xavier initialization as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE26]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Please note that the code implementation uses the least squares `loss` function
+    (to avoid the vanishing gradient problem) for the discriminator, instead of the
+    sigmoid cross entropy `loss` function as proposed in the original paper of SRGAN
+    (*arXiv, 1609.04802, 2017*):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE27]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'More information about **Least Square GAN** can be found at: [https://arxiv.org/abs/1611.04076](https://arxiv.org/abs/1611.04076)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The `code` directory structure for running the SRGAN is shown as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Architecture of the SRGAN](img/B08086_05_16.png.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'First let us download an `LFW facial` dataset and do some preprocessing (frontal
+    face detection and splitting the dataset as train and test) and store the dataset
+    under the `data/` directory:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE28]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![Architecture of the SRGAN](img/B08086_05_17.png.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Next download the pre-trained VGG19 model from the following link, extract
+    it, and save it under the `backup/` directory:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[https://drive.google.com/open?id=0B-s6ok7B0V9vcXNfSzdjZ0lCc0k](https://drive.google.com/open?id=0B-s6ok7B0V9vcXNfSzdjZ0lCc0k)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Next execute the `trainSrgan.py` file to start the SRGAN operation using a
+    VGG19 model:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE29]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Once the training is going on the generator network will start generating super
+    resolution images in the `result/` directory. Some of the sample images from the
+    `result/` directory are shown as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Architecture of the SRGAN](img/B08086_05_18.png.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Generating artistic hallucinated images using DeepDream
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The DeepDream algorithm is a modified neural network that has capability of
+    producing impressive surrealistic, dream-like hallucinogenic appearances by changing
+    the image in the direction of training data. It uses backpropagation to change
+    the image instead of changing weights through the network.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Broadly, the algorithm can be summarized in the following steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Select a layer of the network and a filter that you feel is interesting.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Then compute the activations of the image up to that layer.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Back-propagate the activations of the filter back to the input image.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Multiply the gradients with learning rate and add them to the input image.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Repeat steps 2 to 4 until you are satisfied with the result.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Applying the algorithm iteratively on the output and applying some zooming after
+    each iteration helps the network to generate an endless stream of new impressions
+    by exploring the set of things that it knows about.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s deep dive into the code to generate a hallucinogenic dreamy image. We
+    will apply the following settings to the various layers of the pre-trained VGG16
+    model available in Keras. Note that instead of using pre-trained we can apply
+    this setting to a fresh neural network architecture of your choice as well:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE30]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This utility function basically loads, resizes, and formats images to an appropriate
+    tensors format:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE31]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Then we calculate the continuity loss to give the image a local coherence and
+    avoid messy blurs that look like a variant of the total variation loss discussed
+    in the paper ([http://www.robots.ox.ac.uk/~vedaldi/assets/pubs/mahendran15understanding.pdf](http://www.robots.ox.ac.uk/~vedaldi/assets/pubs/mahendran15understanding.pdf)):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE32]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Next, we will load the VGG16 model with pretrained weights:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE33]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'After that we will add the `l2` norm of the features of a layer to the `loss`
+    and then add continuity loss to give the image local coherence followed by adding
+    again `l2` norm to loss in order to prevent pixels from taking very high values
+    and then compute the gradients of the dream with respect to the loss:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE34]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Finally, we will add a `random_jitter` to the input image and run the `L-BFGS`
+    optimizer over the pixels of the generated image to minimize the loss:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE35]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'At the end, we will decode the dream and save it in an output image file:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE36]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The dreamy output generated just after five iterations is shown as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Generating artistic hallucinated images using DeepDream](img/B08086_05_19.png.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure-6: Left showing the original input image and right showing the dreamy
+    artistic image created by deep dream'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Generating handwritten digits with VAE using TensorFlow
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The **Variational Autoencoder** (**VAE**) nicely synthesizes unsupervised learning
+    with variational Bayesian methods into a sleek package. It applies a probabilistic
+    turn on the basic autoencoder approach by treating inputs, hidden representations,
+    and reconstructed outputs as probabilistic random variables within a directed
+    graphical model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: From Bayesian perspective, the encoder becomes a variational inference network,
+    that maps the observed inputs to posterior distributions over latent space, and
+    the decoder becomes a generative network that maps the arbitrary latent coordinates
+    back to distributions over the original data space.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'VAE is all about adding a constraint on the encoding network that generates
+    latent vectors that roughly follow a unit Gaussian distribution (this constraint
+    that separates a VAE from a standard autoencoder) and then reconstructs the image
+    back by passing the latent vector through the decoder network:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Generating handwritten digits with VAE using TensorFlow](img/B08086_05_22.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: A real world analogy of VAE
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Let's say we want to generate data (an animal) and a good way of doing it is
+    to first decide what kind of data we want to generate, before actually generating
+    the data. So, we must imagine some criteria about representing the animal, like
+    it should have four legs and be able to swim. Once we have those criteria, we
+    can then generate the animal by sampling from the animal kingdom. Our imagination
+    criteria are analogous to latent variables. Deciding the latent variable in the
+    first place helps to describe the data well, otherwise it is like generating data
+    blindly.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The basic idea of VAE is to infer *p(z)* using *p(z|x)*. Let''s now expand
+    with some mathematical notation:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*x*: Represents the data (that is, animal) we want to generate'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*z*: Represents the latent variable (that is, our imagination)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*p(x)*: Represents the distribution of data (that is, animal kingdom)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*p(z)*: Represents the normal probability distribution of the latent variable
+    (that is, the source of imagination—our brain)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*p(x|z)*: Probability distribution of generating data given the latent variable
+    (that is, turning imagination into a realistic animal)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: As per the analogous example, we want to restrict our imagination only on the
+    animal kingdom domain, so that we shouldn't imagine about things such as root,
+    leaf, money, glass, GPU, refrigerator, carpet as it's very unlikely that those
+    things have anything in common with the animal kingdom.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The `loss` function of the VAE is basically the negative log-likelihood with
+    a regularizer as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![A real world analogy of VAE](img/B08086_05_20.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: The first term is the expected negative log-likelihood or reconstruction loss
+    of the ith data point where the expectation is calculated with respect to the
+    encoder's distribution over the representations. This term helps the decoder to
+    reconstruct the data well and incur large costs if it fails to do so. The second
+    term represents the Kullback-Leibler divergence between encoder distribution *q(z|x)*
+    and *p(z)* and acts as a regularizer that adds a penalty to the loss when an encoder's
+    output representation *z* differs from normal distribution.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now let''s dive deep into the code for generating handwritten digits from the
+    MNIST dataset with VAE using TensorFlow. First let us create the encoder network
+    *Q(z|X)* with a single hidden layer that will take *X* as input and output *μ(X)*
+    and *Σ(X)* as part of Gaussian distribution:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE37]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now we create the decoder network *P(X|z)*:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE38]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Then we calculate the reconstruction loss and Kullback-Leibler divergence loss
+    and sum them up to get the total loss of the VAE network:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE39]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'And then use an `AdamOptimizer` to minimize the loss:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE40]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Run the file (`VAE.py` or `VAE.ipynb`) to start VAE operations on an `MNIST`
+    dataset and the images will be generated in the output folder. The sample handwritten
+    digit images are generated after 10,000 iterations:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![A real world analogy of VAE](img/B08086_05_21.png.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: A comparison of two generative models—GAN and VAE
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Although both are very exciting approaches of the generative model and have
+    helped researchers to make inroads into the unsupervised domain along with generating
+    capability, these two models differ in how they are trained. GAN is rooted in
+    game theory, with an objective to find the nash equilibrium between the discriminator
+    network and generator network. Whereas VAE is basically a probabilistic graphical
+    model rooted in Bayesian inference, whose goal is latent modeling, that is, it
+    tries to model the probability distribution of underlying data, in order to sample
+    new data from that distribution.
+  prefs: []
+  type: TYPE_NORMAL
+- en: VAE has a clear known way of evaluating the quality of the model (such as log-likelihood,
+    either estimated by importance sampling or lower-bounded) compared to GAN, but
+    the problem with VAE is that it uses direct mean squared error in the calculation
+    of latent loss, instead of an adversarial network, so they over simplify the objective
+    task as they are bound to work in a latent space and as a result they often generate
+    blured images compared to GAN.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Transfer Learning addresses the problem of dealing with small data effectively
+    without re-inventing the training wheel from scratch. You have learned to extract
+    and transfer features from a pre-trained model and apply it to your own problem
+    domain. Also, you have mastered training and running deeper models over a large
+    scale distributed system using Spark and its related components. Then, you have
+    generated a realistic high resolution image leveraging the power of Transfer Learning
+    within SRGAN. Also, you have mastered the concepts of other generative model approaches
+    such as VAE and DeepDream for artistic image generation. In the last chapter,
+    we will shift our focus from training deep models or generative models and learn
+    various approaches of deploying your deep learning-based applications in production.
+  prefs: []
+  type: TYPE_NORMAL

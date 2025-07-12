@@ -1,0 +1,789 @@
+- en: Chapter 4. Generating Text with a Recurrent Neural Net
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the previous chapter, you learned how to represent a discrete input into
+    a vector so that neural nets have the power to understand discrete inputs as well
+    as continuous ones.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Many real-world applications involve variable-length inputs, such as connected
+    objects and automation (sort of Kalman filters, much more evolved); natural language
+    processing (understanding, translation, text generation, and image annotation);
+    human behavior reproduction (text handwriting generation and chat bots); and reinforcement
+    learning.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Previous networks, named feedforward networks, are able to classify inputs
+    of fixed dimensions only. To extend their power to variable-length inputs, a new
+    category of networks has been designed: the **recurrent neural networks** (**RNN**)
+    that are well suited for machine learning tasks on variable-length inputs or sequences.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Three well-known recurrent neural nets (simple RNN, GRU, and LSTM) are presented
+    for the example of text generation. The topics covered in this chapter are as
+    follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The case of sequences
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The mechanism of recurrent networks
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: How to build a simple recurrent network
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Backpropagation through time
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Different types of RNN, LSTM, and GRU
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Perplexity and word error rate
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Training on text data for text generation
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Applications of recurrent networks
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Need for RNN
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Deep learning networks for natural language is numerical and deals well with
+    multidimensional arrays of floats and integers, as input values. For categorical
+    values, such characters or words, the previous chapter demonstrated a technique
+    known as embedding for transforming them into numerical values as well.
+  prefs: []
+  type: TYPE_NORMAL
+- en: So far, all inputs have been fixed-sized arrays. In many applications, such
+    as texts in natural language processing, inputs have one semantic meaning but
+    can be represented by sequences of variable length.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'There is a need to deal with variable-length sequences as shown in the following
+    diagram:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Need for RNN](img/00065.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: '**Recurrent Neural Networks** (**RNN**) are the answer to variable-length inputs.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Recurrence can be seen as applying a feedforward network more than once at different
+    time steps, with different incoming input data, but with a major difference, the
+    presence of connections to the past, previous time steps, and in one goal, to
+    refine the representation of input through time.
+  prefs: []
+  type: TYPE_NORMAL
+- en: At each time step, the hidden layer output values represent an intermediate
+    state of the network.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Recurrent connections define the transition for moving from one state to another,
+    given an input, in order to refine the representation:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Need for RNN](img/00066.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Recurrent neural networks are suited for challenges involving sequences, such
+    as texts, sounds and speech, hand writing, and time series.
+  prefs: []
+  type: TYPE_NORMAL
+- en: A dataset for natural language
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: As a dataset, any text corpus can be used, such as Wikipedia, web articles,
+    or even with symbols such as code or computer programs, theater plays, and poems;
+    the model will catch and reproduce the different patterns in the data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this case, let''s use tiny Shakespeare texts to predict new Shakespeare
+    texts or at least, new texts written in a style inspired by Shakespeare; two levels
+    of predictions are possible, but can be handled in the same way:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**At the character level**: Characters belong to an alphabet that includes
+    punctuation, and given the first few characters, the model predicts the next characters
+    from an alphabet, including spaces to build words and sentences. There is no constraint
+    for the predicted word to belong to a dictionary and the objective of training
+    is to build words and sentences close to real ones.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**At the word level**: Words belong to a dictionary that includes punctuation,
+    and given the first few words, the model predicts the next word out of a vocabulary.
+    In this case, there is a strong constraint on the words since they belong to a
+    dictionary, but not on sentences. We expect the model to focus more on capturing
+    the syntax and meaning of the sentences than on the character level.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: In both modes, token designates character/word; dictionary, alphabet, or vocabulary
+    designates (the list of possible values for the token);
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The popular NLTK library, a Python module, is used to split texts into sentences
+    and tokenize into words:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In a Python shell, run the following command to download the English tokenizer
+    in the `book` package:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Let''s parse the text to extract words:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Or the `char` library:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: The additional start token (the `START` word and the `^` character) avoids having
+    a void hidden state when the prediction starts. Another solution is to initialize
+    the first hidden state with ![A dataset for natural language](img/00067.jpeg).
+  prefs: []
+  type: TYPE_NORMAL
+- en: The additional end token (the `END` word and the `$` character) helps the network
+    learn to predict a stop when the sequence generation is predicted to be finished.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Last, the `out of vocabulary` token (the `UNKNOWN` word) replaces words that
+    do not belong to the vocabulary to avoid big dictionaries.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this example, we'll omit the validation dataset, but for any real-world application,
+    keeping a part of the data for validation is a good practice.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Also, note that functions from [Chapter 2](part0026_split_000.html#OPEK1-ccdadb29edc54339afcb9bdf9350ba6b
+    "Chapter 2. Classifying Handwritten Digits with a Feedforward Network"), *Classifying
+    Handwritten Digits with a Feedforward Network* for layer initialization `shared_zeros`
+    and `shared_glorot_uniform` and from [Chapter 3](part0040_split_000.html#164MG1-ccdadb29edc54339afcb9bdf9350ba6b
+    "Chapter 3. Encoding Word into Vector"), *Encoding Word into Vector* for model
+    saving and loading `save_params` and `load_params` have been packaged into the
+    `utils` package:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: Simple recurrent network
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'An RNN is a network applied at multiple time steps but with a major difference:
+    a connection to the previous state of layers at previous time steps named hidden
+    states ![Simple recurrent network](img/00068.jpeg):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Simple recurrent network](img/00069.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'This can be written in the following form:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Simple recurrent network](img/00070.jpeg)![Simple recurrent network](img/00071.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: An RNN can be unrolled as a feedforward network applied on the sequence ![Simple
+    recurrent network](img/00072.jpeg) as input and with shared parameters between
+    different time steps.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Input and output''s first dimension is time, while next dimensions are for
+    the data dimension inside each step. As seen in the previous chapter, the value
+    at a time step (a word or a character) can be represented either by an index (an
+    integer, 0-dimensional) or a one-hot-encoding vector (1-dimensional). The former
+    representation is more compact in memory. In this case, input and output sequences
+    will be 1-dimensional represented by a vector, with one dimension, the time:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The structure of the training program remains the same as in [Chapter 2](part0026_split_000.html#OPEK1-ccdadb29edc54339afcb9bdf9350ba6b
+    "Chapter 2. Classifying Handwritten Digits with a Feedforward Network"), *Classifying
+    Handwritten Digits with a Feedforward Network* with feedforward network, except
+    the model that we''ll define with a recurrent module shares the same weights at
+    different time steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Let''s define the hidden and input weights:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'And the output weights:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Initial state can be set to zero while using the start tokens:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: It returns two tensors, where the first dimension is time and the second dimension
+    is data values (0-dimensional in this case).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Gradient computation through the scan function is automatic in Theano and follows
+    both direct and recurrent connections to the previous time step. Therefore, due
+    to the recurrent connections, the error at a particular time step is propagated
+    to the previous time step, a mechanism named **Backpropagation Through Time**
+    (**BPTT**).
+  prefs: []
+  type: TYPE_NORMAL
+- en: It has been observed that the gradients either explode or vanish after too many
+    time steps. This is why the gradients are truncated after 10 steps in this example,
+    and errors will not be backpropagated to further past time steps.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For the remaining steps, we keep the classification as before:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: This returns a vector of values at each time step.
+  prefs: []
+  type: TYPE_NORMAL
+- en: LSTM network
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: One of the main difficulties with RNN is to capture long-term dependencies due
+    to the vanishing/exploding gradient effect and truncated backpropagation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: To overcome this issue, researchers have been looking at a long list of potential
+    solutions. A new kind of recurrent network was designed in 1997 with a memory
+    unit, named a cell state, specialized in keeping and transmitting long-term information.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'At each time step, the cell value can be updated partially with a candidate
+    cell and partially erased thanks to a gate mechanism. Two gates, the update gate
+    and the forget gate, decide how to update the cell, given the previously hidden
+    state value and current input value:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![LSTM network](img/00073.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'The candidate cell is computed in the same way:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![LSTM network](img/00074.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'The new cell state is computed as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![LSTM network](img/00075.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'For the new hidden state, an output gate decides what information in the cell
+    value to output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![LSTM network](img/00076.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'The remaining stays equal with the simple RNN:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![LSTM network](img/00077.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: This mechanism allows the network to store some information to use a lot further
+    in future than it was possible with a simple RNN.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Many variants of design for LSTM have been designed and it is up to you to test
+    these variants on your problems to see how they behave.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this example, we'll use a variant, where gates and candidates use both the
+    previously hidden state and previous cell state.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In Theano, let''s define the weights for:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '- the input gate:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: '- the forget gate:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: '- the output gate:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: '- the cell:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: '- the output layer:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The array of all trainable parameters:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The step function to be placed inside the recurrent loop :'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Let''s create the recurrent loop with the scan operator :'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: Gated recurrent network
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'The GRU is an alternative to LSTM, simplifying the mechanism without the use
+    of an extra cell:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Gated recurrent network](img/00078.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'The code to build a gated recurrent network consists simply of defining the
+    weights and the `step` function, as before:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '- Weights for the Update gate:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: '- Weights for the Reset gate:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: '- Weight for the Hidden layer:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: '- Weight for the Output layer:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The trainable parameters:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The step function:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The recurrent loop:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE25]'
+  prefs: []
+  type: TYPE_PRE
+- en: Having introduced the major nets, we'll see how they perform on the text generation
+    task.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Metrics for natural language performance
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The **Word Error Rate** (**WER**) or **Character Error Rate** (**CER**) is equivalent
+    to the designation of the accuracy error for the case of natural language.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Evaluation of language models is usually expressed with perplexity, which is
+    simply:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Metrics for natural language performance](img/00079.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Training loss comparison
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'During training, the learning rate might be strong after a certain number of
+    epochs for fine-tuning. Decreasing the learning rate when the loss does not decrease
+    anymore will help during the last steps of training. To decrease the learning
+    rate, we need to define it as an input variable during compilation:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE26]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'During training, we adjust the learning rate, decreasing it if the training
+    loss is not better:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE27]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'As a first experiment, let''s see the impact of the size of the hidden layer
+    on the training loss for a simple RNN:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Training loss comparison](img/00080.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: More hidden units improve training speed and might be better in the end. To
+    check this, we should run it for more epochs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Comparing the training of the different network types, in this case, we do
+    not observe any improvement with LSTM and GRU:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Training loss comparison](img/00081.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: This might be due to the `truncate_gradient` option or because the problem is
+    too simple and not so memory-dependent.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Another parameter to tune is the minimum number of occurrences for a word to
+    be a part of the dictionary. A higher number will learn on words that are more
+    frequent, which is better.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example of predictions
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Let''s predict a sentence with the generated model:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE28]'
+  prefs: []
+  type: TYPE_PRE
+- en: Note that we take the most probable next word (argmax), while we must, in order
+    to get some randomness, draw the next word following the predicted probabilities.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'At 150 epochs, while the model has still not converged entirely with learning
+    our Shakespeare writings, we can play with the predictions, initiating it with
+    a few words, and see the network generate the end of the sentences:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**First citizen**: A word , i know what a word'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**How** now!'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Do** you not this asleep , i say upon this?'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Sicinius**: What, art thou my master?'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Well,** sir, come.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**I have been** myself'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**A most** hose, you in thy hour, sir'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**He shall** not this'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Pray you**, sir'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Come**, come, you'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**The crows**?'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**I''ll give** you'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**What**, ho!'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Consider you**, sir'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**No more**!'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Let us** be gone, or your UNKNOWN UNKNOWN, i do me to do'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**We are** not now'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: From these examples, we notice that the model has learned to position punctuation
+    correctly, adding a point, comma, question mark, or an exclamation mark at the
+    right place to order direct objects, indirect objects, and adjectives correctly.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The original texts are composed of short sentences in a Shakespeare style.
+    Bigger articles such as Wikipedia pages, as well as pushing the training further
+    with a validation split to control overfitting will produce longer texts. [Chapter
+    10](part0096_split_000.html#2RHM01-ccdadb29edc54339afcb9bdf9350ba6b "Chapter 10. Predicting
+    Times Sequences with Advanced RNN"), *Predicting Times Sequence with Advanced
+    RNN*: will teach how to predict time sequences with Advanced RNN and present an
+    advanced version of this chapter.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Applications of RNN
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'This chapter introduced the simple RNN, LSTM, and GRU models. Such models have
+    a wide range of applications in sequence generation or sequence understanding:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Text generation, such as automatic generation of Obama political speech (obama-rnn),
+    for example with a text seed on jobs:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Good afternoon. God bless you. The United States will step up to the cost of
+    a new challenges of the American people that will share the fact that we created
+    the problem. They were attacked and so that they have to say that all the task
+    of the final days of war that I will not be able to get this done. The promise
+    of the men and women who were still going to take out the fact that the American
+    people have fought to make sure that they have to be able to protect our part.
+    It was a chance to stand together to completely look for the commitment to borrow
+    from the American people. And the fact is the men and women in uniform and the
+    millions of our country with the law system that we should be a strong stretcks
+    of the forces that we can afford to increase our spirit of the American people
+    and the leadership of our country who are on the Internet of American lives. Thank
+    you very much. God bless you, and God bless the United States of America.
+  prefs:
+  - PREF_IND
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: You can check this example out in detail at [https://medium.com/@samim/obama-rnn-machine-generated-political-speeches-c8abd18a2ea0#.4nee5wafe.](https://medium.com/@samim/obama-rnn-machine-generated-political-speeches-c8abd18a2ea0#.4nee5wafe.)
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Text annotation, for example, the **Part of Speech** (**POS**) tags: noun,
+    verb, particle, adverb, and adjective.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Generating human handwriting: [http://www.cs.toronto.edu/~graves/handwriting.html](http://www.cs.toronto.edu/~graves/handwriting.html)'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '![Applications of RNN](img/00082.jpeg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_IMG
+- en: Drawing with Sketch-RNN ([https://github.com/hardmaru/sketch-rnn](https://github.com/hardmaru/sketch-rnn))![Applications
+    of RNN](img/00083.jpeg)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Speech synthesis**: A recurrent network will generate parameters for generating
+    each phoneme in a speech or voice speaking. In the following image, time-frequency
+    homogeneous blocs are classified in phonemes (or graphemes or letters):![Applications
+    of RNN](img/00084.jpeg)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Music generation:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Melody generation at [https://github.com/tensorflow/magenta/tree/master/magenta/models/melody_rnn](https://github.com/tensorflow/magenta/tree/master/magenta/models/melody_rnn).
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Mozart style music generation with Mozart-RNN at [http://www.hexahedria.com/2015/08/03/composing-music-withrecurrent-neural-networks/](http://www.hexahedria.com/2015/08/03/composing-music-withrecurrent-neural-networks/).
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Any classification of sequences, such as sentiment analysis (positive, negative,
+    or neutral sentiments) that we'll address in [Chapter 5](part0060_split_000.html#1P71O2-ccdadb29edc54339afcb9bdf9350ba6b
+    "Chapter 5. Analyzing Sentiment with a Bidirectional LSTM"), *Analyzing* *Sentiment
+    with a Bidirectional LSTM*.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Sequence encoding or decoding that we'll address in [Chapter 6](part0069_split_000.html#21PMQ2-ccdadb29edc54339afcb9bdf9350ba6b
+    "Chapter 6. Locating with Spatial Transformer Networks"), *Locating with Spatial
+    Transformer Networks*.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Related articles
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'You can refer to the following links for more insight:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*The Unreasonable Effectiveness of Recurrent Neural Networks*, Andrej Karpathy
+    May 21, 2015 ([http://karpathy.github.io/2015/05/21/rnn-effectiveness/](http://karpathy.github.io/2015/05/21/rnn-effectiveness/))'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Understanding LSTM Networks* on Christopher Colah''s blog''s, 2015 ([http://colah.github.io/posts/2015-08-Understanding-LSTMs/](http://colah.github.io/posts/2015-08-Understanding-LSTMs/))'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Use of LSTM for audio classification: *Connectionist Temporal Classification
+    and Deep Speech: Scaling up end-to-end speech recognition* ([https://arxiv.org/abs/1412.5567](https://arxiv.org/abs/1412.5567))'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Handwriting demo at [http://www.cs.toronto.edu/~graves/handwriting.html](http://www.cs.toronto.edu/~graves/handwriting.html)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*General Sequence Learning using Recurrent Neural Networks* tutorial at [https://www.youtube.com/watch?v=VINCQghQRuM](https://www.youtube.com/watch?v=VINCQghQRuM)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: On the difficulty of training Recurrent Neural Networks Razvan Pascanu, Tomas
+    Mikolov, Yoshua Bengio 2012
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Recurrent Neural Networks Tutorial:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Introduction to RNNS
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Implementing RNN with Python, NumPy, and Theano
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Backpropagation through time and vanishing gradients
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Implementing a GRU/LSTM RNN with Python and Theano Denny Britz 2015 at [http://www.wildml.com/2015/09/recurrent-neural-networks-tutorial-part-1-introduction-to-rnns/](http://www.wildml.com/2015/09/recurrent-neural-networks-tutorial-part-1-introduction-to-rnns/)
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: LONG SHORT-TERM MEMORY, Sepp Hochreiter, Jürgen Schmidhuber, 1997
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Recurrent Neural Networks provides the ability to process variable-length inputs
+    and outputs of discrete or continuous data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'While the previous feedforward networks were able to process only one input
+    to one output (one-to-one scheme), recurrent neural nets introduced in this chapter
+    offered the possibility to make conversions between variable-length and fixed-length
+    representations adding new operating schemes for deep learning input/output: one-to-many,
+    many-to-many, or many-to-one.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The range of applications of RNN is wide. For this reason, we'll study them
+    more in depth in the further chapters, in particular how to enhance the predictive
+    power of these three modules or how to combine them to build multi-modal, question-answering,
+    or translation applications.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In particular, in the next chapter, we'll see a practical example using text
+    embedding and recurrent networks for sentiment analysis. This time, there will
+    also be an opportunity to review these recurrence units under another library
+    Keras, a deep learning library that simplifies writing models for Theano.
+  prefs: []
+  type: TYPE_NORMAL

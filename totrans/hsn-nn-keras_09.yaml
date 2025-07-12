@@ -1,0 +1,1885 @@
+- en: Reinforcement Learning with Deep Q-Networks
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the last chapter, we saw how recursive loops, information gates, and memory
+    cells can be used to model complex time-dependent signals with neural networks.
+    More specifically, we saw how the **Long Short-Term Memory** (**LSTM**) architecture
+    leverages these mechanics to preserve prediction errors and backpropagate them
+    over increasingly long time steps. This allowed our system to inform predictions
+    using both short-term (that is, from information relating to the immediate environment)
+    and long-term representations (that is, from information pertaining to the environment
+    that was observed long ago).
+  prefs: []
+  type: TYPE_NORMAL
+- en: The beauty of the LSTM lies in the fact that it is able to learn and preserve
+    useful representations over very large periods of time (up to a thousand time
+    steps). By maintaining a constant error flow through the architecture, we can
+    implement a mechanism that allows our network to learn complex cause-and-effect
+    patterns, embedded in the reality we face everyday. Indeed, the problem of educating
+    computers on matters of cause and effect has presented itself to be quite a challenge
+    so far in the field of **Artificial Intelligence** (**AI**). As it happens, real-world
+    environments are heavily populated with sparse and time-delayed rewards, with
+    increasingly complex sets of actions corresponding to these rewards. Modeling
+    optimal behavior in such circumstances involves discovering sufficient information
+    about a given environment, along with the possible set of actions and respective
+    rewards to make relevant predictions. As we know, encoding such complex cause-and-effect
+    relations can be difficult, even for humans. We often succumb to our irrational
+    desires without perusing some pretty beneficial cause and effect relations. Why?
+    Simply put, the actual cause and effect relationship may not correspond to our
+    internal valuation of the situation. We may be acting upon different reward signals,
+    spread out through time, each influencing our aggregate decision.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The degree to which we act upon certain reward signals is highly variant. This
+    is based upon the specific individual and determined by a complex combination
+    of genetic makeup and environmental factors that are faced by a given individual.
+    In some ways, it is embedded in our nature. Some of us are just, inherently, a
+    little more swayed by short-term rewards (such as delicious snacks or entertaining
+    movies) over long-term rewards (such as having a healthy body or using our time
+    efficiently). This isn't so bad, right? Well, not necessarily. Different environments
+    require different balances of short and long-term considerations to be able to
+    succeed. Given the diversity of environments a human may encounter (in individual
+    sense, as well as the broad, species sense), it is not a surprise that we observe
+    such a variety in the interpretation of reward signals among different individuals.
+    On a grand scale, evolution is simply maximizing our chances to survive as many
+    environments that this reality may impress upon us. However, as well will shortly
+    see, this may have consequences for certain individuals (and perhaps some greedy
+    machines) on the minute scale of events.
+  prefs: []
+  type: TYPE_NORMAL
+- en: On reward and gratification
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Interestingly, a group of Stanford researchers showed (Marshmallow experiment, in
+    the 1970s, led by psychologist Walter Mischel) how the capability for individuals
+    to delay short term gratification was correlated with more successful outcomes
+    in the long term. Essentially, these researchers called upon children and observed
+    their behavior once they were presented with a set of choices. The children were
+    given two choices that determined how many total marshmallows they could receive
+    during an interaction. They could either choose to cash out one marshmallow on
+    the spot, or cash out two marshmallows if they chose to wait it out for 15 minutes.
+    This experiment gave keen insight into how interpreting reward signals are beneficial
+    or detrimental for performing in a given environment as the subjects who chose
+    two marshmallows turned out to be more successful on average over the span of
+    their lives. It turns out that delaying gratification could be a paramount part
+    of maximizing actions that are more beneficial over the long term. Many have even
+    pointed out how concepts such as religion could be the collective manifestation
+    of delaying short term gratification (that is, do not steal), for favorable, long-term
+    consequences (such as eventually ascending to heaven).
+  prefs: []
+  type: TYPE_NORMAL
+- en: A new way of examining learning
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: So, it would seem that we develop an internal sense of what actions to take
+    and how this may affect future outcomes. We have mechanisms that enable us to
+    tune these senses through environmental interaction, observing what kind of rewards
+    we get for different actions, over very long periods of time. This appears to
+    be true for humans, as well as most living things that inhabit our planet, including
+    not only fauna but also flora. Even plants are optimizing some sort of energy
+    score throughout the day as they turn their leaves and branches to capture the
+    sunlight that's required for them to live. So, what is this mechanism that permits
+    these organisms to model optimal outcomes? How do these biological systems keep
+    track of the environment and execute timely and precise maneuvers to favorable
+    ends? Well, perhaps a branch of behavioral psychological, known as **reinforcement
+    theory**, may shine some light on this topic.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Proposed by Harvard psychologist B.F. Skinner, this view defines reinforcement
+    as a consequence of an observed interaction between an agent (human, animal, and
+    now, computer program) and its environment. The encoding of information from this
+    interaction may either strengthen or weaken the likelihood of the agent acting
+    in the same way in similar future iterations. In simpler terms, if you walk on
+    hot coals, the pain you feel will act as negative reinforcement, decreasing the
+    likelihood of you choosing to step on hot coals in the future. Conversely, if
+    you rob a bank and get away with it, the thrill and excitement may reinforce this
+    action as a more likely one to consider in the future. In fact, Skinner showed
+    how you can even train the common pigeon to recognize the difference between words
+    of the English language and play games of ping-pong through a simple mechanism
+    of designed reinforcement. He showed how exposing the pigeon to enough reward
+    signals over a period of time was enough to incentivize the pigeon to pick up
+    on the subtle variations between the words it was shown or the movements it was
+    asked to perform. Since picking up on these variations represented the difference
+    between a full and empty stomach for the pigeon, Skinner was able to influence
+    its behavior by incrementally rewarding the pigeon for desirable outcomes. From
+    these experiments, he coined the term *operant conditioning*, relating to breaking
+    down tasks into increments and then rewarding favorable behavior iteratively.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Today, about half a century later, we operationalize these concepts in the realm
+    of **machine learning** (**ML**) to reinforce favorable behavior that a simulated
+    agent is to perform in a given environment. This notion is referred to as reinforcement
+    learning, and can give rise to complex systems that parallel (and perhaps even
+    surpass) our own intellect when performing tasks.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Conditioning machines with reinforcement learning
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: So far in our journey, we have been dealing with simple regression and classification
+    tasks. We regressed observations against continuous values (that is, when predicting
+    the stock market) and classified features into categorical labels (while conducting
+    sentiment analysis). These are two cornerstone activities pertaining to supervised
+    ML. We showed a specific target label for each observation our network comes across
+    while training. Later on in this book, we will cover some unsupervised learning
+    techniques with neural networks by using **Generative Adversarial Networks** (**GANs**)
+    and autoencoders. Today, however, we employ neural networks to something quite
+    different from these two caveats of learning. This caveat of learning can be named
+    **reinforcement learning**.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Reinforcement learning is noticeably distinct from the aforementioned variations
+    of ML. Here, we do not explicitly label all possible sequences of actions to all
+    possible outcomes in an environment (as in supervised classification)—nor do we
+    try and partition our data based on similarity-based distance measures (as in
+    unsupervised clustering) to segment optimal actions. Rather, we let the machine
+    monitor responses from actions it takes and cumulatively model the maximum possible
+    reward as a function of actions over a period of time. In essence, we deal with
+    goal-oriented algorithms that learn to achieve complex objectives over given time
+    steps. The goal can be to beat the space invaders that are gradually moving down
+    the screen, or for a dog-shaped robot in the real world to move from point A to
+    B.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The credit assignment problem
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Just as our parents reinforced our behavior with treats and rewards, so can
+    we reinforce desirable machine actions for given states (or configurations) of
+    our environment. This invokes more of a *trial-and-error* approach to learning,
+    and recent events have shown how such an approach can produce extremely powerful
+    learning systems, opening the door to some very interesting use cases. This considerably
+    distinct yet powerful paradigm of learning does bring some complications of its
+    own into the picture. Consider the credit assignment problem, for instance. That
+    is to say, which of our previous actions are responsible for generating a reward,
+    and to what degree? In an environment with sparse, time delayed rewards, many
+    actions may occur between some action, which later generated the reward in question.
+    It can become very difficult to properly assign due credit to respective actions.
+    In the absence of proper credit assignment, our agent is left clueless while evaluating
+    different strategies to use when trying to accomplish its goal.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The explore-exploit dilemma
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Let's assume that our agent even manages to figure out a consistent strategy
+    that delivers rewards. What's next? Should they simply stick to that same strategy,
+    generating the same reward for eternity? Or rather should they keep trying new
+    things all the time? Perhaps, by not exploiting a known strategy, the agent can
+    have a chance at a much bigger reward in the future? This is known as the **explore-exploit
+    dilemma**, referring to the degree to which agents should explore new strategies
+    or exploit known strategies.
+  prefs: []
+  type: TYPE_NORMAL
+- en: At the extreme, we can better appreciate the explore-exploit dilemma by understanding
+    how it can be detrimental to rely on known strategies for immediate reward in
+    the long run. Experiments with rats, for example, have shown that these animals
+    will starve themselves to death if given a mechanism to trigger the release of
+    dopamine (a neurotransmitter that's responsible for regulating our reward system).
+    Clearly, starving was not the right move in the long run, however ecstatic the
+    finale may have been. Yet since the rat exploits a simple strategy that consistently
+    triggers a reward signal, the prospect of long-term rewards (such as staying alive)
+    were not explored. So, how can we compensate for the fact that our environment
+    may present better opportunities later on by foregoing current ones? Somehow,
+    we have to make our agent understand this notion of delayed gratification if we
+    want it to aptly solve complex environments. Soon, we will see how deep reinforcement
+    learning attempts to solve such problems, giving rise to even more complex and
+    powerful systems that some may even call devilishly sharp.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Path to artificial general intelligence
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Take the example of the AlphaGo system, which was developed by UK-based start-up
+    DeepMind, which leverages an acute flavor of deep reinforcement learning to inform
+    its predictions. There is good reason behind Google's move to acquire it for a
+    round sum of $500 million, since many claim that DeepMind has made first steps
+    toward something called **Artificial General Intelligence** (**AGI**)—sort of
+    the Holy Grail of AI, if you will. This notion refers to the capability of an
+    artificially intelligent system to perform well on various tasks, instead of the
+    narrow span of application our networks have taken so far. A system that learns
+    through observing its own actions on an environment is similar in spirit (and
+    potentially much faster) to how we humans learn ourselves.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The networks we built in the previous chapters perform well at a narrow classification
+    or regression task, but must be redesigned significantly and retrained to perform
+    on any other task. DeepMind, however, demonstrated how they could train a single
+    network to perform well at several different (albeit narrow) tasks, involving
+    playing several old-school Atari 2600 games. While a bit dated, these games were
+    initially designed to be challenging for humans, making the feat quite a remarkable
+    achievement in the field of AI. In their research ([https://deepmind.com/research/dqn/](https://deepmind.com/research/dqn/)),
+    DeepMind showed how their **Deep Q Networks** (**DQN**) may be used to make artificial
+    agents play different games just by observing the pixels on the screen without
+    any prior information about the game itself. Their work inspired a new wave of
+    researchers, who set off to train deep learning networks using reinforcement learning-based
+    algorithms, giving birth to deep reinforcement learning. Since then, researchers
+    and entrepreneurs alike have tried leveraging such techniques for a cascade of
+    use cases, including but not limited to making machines move like animals and
+    humans, generating molecular compounds for medicine, and even making bots that
+    can trade on the stock market.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Needless to say, such systems can be much more flexible at modeling real-world
+    events and can be applied to an array of tasks, reducing the resources that are
+    spent on training separate narrow systems. One day, they may even be able to uncover
+    complex and high-dimensional cause and effect relations, leveraging training examples
+    from several domains to encode synergistic representations, which in turn help
+    us to solve more complex problems. Our own discoveries are often inspired by information
+    from various scientific domains. This tends to enhance our understanding of these
+    situations and the complex dynamics that govern them. So, why not let machines
+    do this too? Given the right reward signals for possible actions in a given environment,
+    it may even surpass our own intuitions! Perhaps you can help with this one day.
+    For now, let's start by having a look at how we go about simulating a virtual
+    agent and make it interact with an environment to solve simple problems.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Simulating environments
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: First things first, we will need a simulated environment. An environment is
+    defined as the *interaction space for a learning agent*. For humans, an environment
+    can be any play you go to in the course of a day. For an artificial agent, this
+    will often be a simulated environment that we have engineered. Why is it simulated?
+    Well, we could ask the agent to learn in real time, like ourselves, but it turns
+    out that this is quite impractical. For one, we would have to design each agent
+    a body and then precisely engineer its actions and the environments that they
+    are to interact with. Moreover, an agent can train much faster in a simulation,
+    without requiring it to be restricted to human time frames. By the time a machine
+    completes a single task in reality, its simulated version could have completed
+    the same task several times over, providing a better opportunity for it to learn
+    from its mistakes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Next, we will go over the basic terminology that's used to describe a game,
+    which represents an environment where an agent is expected to perform certain
+    tasks to receive rewards and solve the environment.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Understanding states, actions, and rewards
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The environment itself can be broken down into a collection of different states,
+    all of which represent the different situations that the agent may find itself
+    in. The agent can navigate through these states by trying out different combinations
+    of actions it is allowed to perform (such as walking left or right and jumping,
+    in respect to a 2D arcade game). The actions that are made by the agent effectively
+    change the state of the environment, making available tools, alternate routes,
+    enemies, or any other goodies the game makers may have hidden to make it more
+    interesting for you. All of these objects and events represent different states
+    that the learning environment may take as the agent navigates through it. A new
+    state is generated by the environment as a result of the agent interacting with
+    it at its previous state, or due to random events occurring in the environment.
+    This is how a game essentially progresses until a terminal state is reached, meaning
+    that the game can go no further (due to a win or a death).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Essentially, we want the agent to pursue timely and favorable actions to solve
+    its environment. These actions must change the environment''s state to bring the
+    agent closer toward attaining a given goal (like moving from point A to B or maximizing
+    a score). To be able to do this, we need to design reward signals that occur as
+    a consequence of the agent''s interactions with different states of the environment.
+    We can use the notion of reward as feedback that allows our agent to assess the
+    degree of success that''s attained by its actions as it optimizes a given goal:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/26d4b365-8425-4fac-9733-2ea36e1afcc1.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: For those of you who are familiar with classic arcade style video games, think
+    of a game of Mario. Mario himself is the agent and is controlled by you. The environment
+    refers to the map that Mario can move about in. The presence of coins and mushrooms
+    represent different states of the game. Once Mario interacts with either of these
+    states, a reward is triggered in the form of points and a new state is born as
+    consequence, which in turn alters Mario's environment accordingly. Mario's goal
+    can be either to move from point A to B (if you're in a hurry to complete the
+    game) or to maximize his score (if you're more interested in unlocking achievements).
+  prefs: []
+  type: TYPE_NORMAL
+- en: A self-driving taxi cab
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Next, we will clarify the theoretical understandings we have gathered so far
+    by observing how environments can be solved by artificial agents. We will see
+    how this can be achieved even through randomly sampling actions from an agent's
+    action space (possible actions an agent may perform). This will help us to understand
+    the complexities involved in solving even the simplest of environments, and why
+    we might want to call upon deep reinforcement learning shortly to help us to achieve
+    our goals. The goal we are about to address is creating a self-driving taxi cab
+    in a reduced, simulated environment. While the environment we will deal with is
+    much simpler than the real world, this simulation will serve as an excellent stepping
+    stone into the design architecture of reinforcement learning systems.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To do this, we will be using OpenAI''s `gym`, an adequately named module that''s
+    used to simulate artificial environments for training machines. You may install
+    the OpenAI gym dependency by using the `pip` package manager. The following command
+    will run on Jupyter Notebooks and initiate the installation of the module:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The `gym` module comes with a plethora of pre-installed environments (or test
+    problems), spanning from simple to more complex simulations. The test problem
+    we will be using for the following example comes from the `''TaxiCab-v2''` environment.
+    We will begin our experiments with what is known as the **taxicab simulation**,
+    which simply simulates a grid of roads for a taxi to navigate through so that
+    they can pick up and drop off customers:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: Understanding the task
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The taxi cab simulation was introduced in (Dietterich 2000) to demonstrate
+    problems with applying reinforcement learning in a hierarchical manner. We will,
+    however, use this simulation to solidify our understanding of agents, environments,
+    rewards, and goals, before we continue to simulate and solve more complex problems.
+    For now, the problem we face is relatively simple: pick up passengers and drop
+    them off at a given location. These locations (four in total) are represented
+    by letters. All our agent has to do is travel to these pickup locations, pick
+    up a passenger, then travel to a designated drop-off location where the passenger
+    may disembark. Given a successful disembark, the agent receives +20 points (simulating
+    the money our virtual cabby gets). Each time step our cabby takes before it reaches
+    its destination, is attributed a reward of -1 (intuitively, this is the penalty
+    our cabby incurs for the cost of petrol they must replenish). Lastly, another
+    penalty of -10 exists for pickups and drop-offs that are not scheduled. You could
+    imagine the reason behind penalizing pickups as a taxi company trying to optimize
+    its fleet deployment to cover all areas of the city, requiring our virtual cabby
+    to only pick up assigned passengers. Unscheduled drop-offs, on the other hand,
+    simply reflect disgruntled and baffled customers. Let''s have a look at what the
+    taxi cab environment actually looks like.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Rendering the environment
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'To visualize the environment we just loaded up, we must first initialize it
+    by calling `reset()` on our environment object. Then, we can render the starting
+    frame, corresponding to the position of our taxi (in yellow) and four different
+    pickup locations (denoted by colored letters):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We get the following output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/96326554-b2e7-4610-bc85-8e8503b9bc64.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Do note that the preceding screenshot depicts open roads using colons (`:`),
+    and walls that cannot be traversed by the taxi using the symbol (`|`). While the
+    position of these obstacles and routes remain permanent, the letters denoting
+    the pickup points, as well as our yellow taxi, keep changing every time the environment
+    is initialized. We can also notice that resetting the environment generates an
+    integer. This refers to a specific state of the environment (that is, positioning
+    of the taxi and the pickups) that's taken upon initialization.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You can replace the `Taxi-v2` string with other environments in the registry
+    (like `CartPole-v0` or `MountainCar-v0`), and render a few frames to get an idea
+    of what we are dealing with. There's also a few other commands that let you better
+    understand the environment you are dealing with. While the taxi cab environment
+    is simple enough to be simulated using colored symbols, more complex environments
+    may be rendered in a separate window, which opens upon execution.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Referencing observation space
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Next, we will try to better understand our environment and action space. All
+    states in the taxi cab environment are denoted by an integer ranging between 0
+    to 499\. We can verify this by printing out the total number of possible states
+    our environment has. Let''s have a look at the number of possible different states
+    our environment may take:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: Referencing action space
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'In the taxi cab simulation, our cabby agent is given six distinct actions that
+    it may perform at each time step. We can check the total number of possible actions
+    by checking the environment''s action space, as shown here:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: Our cabby may, at any given time, do one of these six actions. These actions
+    correspond to moving up, down, left, or right; picking someone up; or dropping
+    them off.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Interacting with the environment
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'To make our agent do something, we can use the `step()` method on our environment
+    object. The `step(i)` method takes an integer that refers to one out of the six
+    possible actions that our agent is allowed to take. In this case, these actions
+    were labeled as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: (0) to move down
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: (1) to move up
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: (2) for a right turn
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: (3) for a left turn
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: (4) for picking up a passenger
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: (5) for dropping the passenger off
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Here''s how the code is represented:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We get the following output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/14ef2611-c6f5-4c9e-bbc7-93f19dd2688d.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'As we can see here, we make our agent take a step downward. Now, we understand
+    how to make our agent do all of the required steps to achieve its goal. In fact,
+    calling `step(i)` on the environment object will return four specific variables,
+    referring to what action (i) did to the environment, from the perspective of the
+    agent. These variables are as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`observation`: This is the observed state of the environment. This can be pixel
+    data from game screenshots or another manner of representing the states of the
+    environment to the learning agent.'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '`reward`: This is the compensation for our agent, due to actions taken on a
+    given time step. We use the reward to set goals for our learning agent by simply
+    asking it to maximize the reward it receives in a given environment. Note that
+    the scale of the reward (float) values may differ per experimental setup.'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '`done`: This Boolean (binary) value denotes whether a trial episode has terminated
+    or not. In the case of the taxi-cab simulation, an episode is considered `done`
+    when a passenger has been picked up and dropped off at a given location. For an
+    Atari game, an episode can be defined as the life of the agent, which terminates
+    once you get hit by a space invader.'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '`info`: This dictionary item serves to store information that''s used to debug
+    our agents'' actions and is usually not used in the learning process itself. It
+    does store valuable information, such as the probabilities affecting the previous
+    change of states, for a given step:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: Solving the environment randomly
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Armed with the logic governing OpenAI gym environments, and how to make artificial
+    agents interact therein, we can proceed to implement a random algorithm that allows
+    the agent to (eventually) solve the taxi cab environment. First, we define a fixed
+    state to begin our simulation with. This is helpful if you want to repeat the
+    same experiment (that is, initiate the environment with the same state) while
+    checking how many random steps the agent took in solving the environment each
+    episode. We also define a `counter` variable that simply keeps track of the number
+    of time steps our agent takes as the episode progresses. The reward variable is
+    initialized as `None` and will be updated once the agent takes its first step.
+    Then, we simply initiate a `while` loop that repeatedly samples possible actions
+    that are random from our action space and updates the respective `state`, `reward`,
+    and `done` variables for each sampled action. To randomly sample actions from
+    the environment''s action space, we use the `.sample()` method on the `env.action_space`
+    object. Finally, we increment our `counter` and render the environment for visualization:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We get the following output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/07002f1f-b2af-4e82-b9be-6a0dacef89ba.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: It wasn't until the 2,145^(th) attempt that our agent even got to the right
+    passenger in the cab (as indicated by the cab turning green). That's quite long,
+    even if you may not feel the time pass by. Random algorithms are helpful to benchmark
+    our performance when calling upon more complex models as a measure of sanity.
+    But surely we can do better than 6,011 steps (as taken by the agent running on
+    the random algorithm) to solve this simple environment. How? Well, we reward it
+    for being right. To do this, we must first define the notion of reward mathematically.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Trade-off between immediate and future rewards
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'At first glance, this may appear quite simple. We already saw how the cabby
+    can be incentivized by awarding it +20 points for a correct dropoff, -10 for a
+    false one, and -1 for each time step that it takes to complete the episode. Logically,
+    then, you can calculate the total reward collected by an agent for an episode
+    as the cumulation of all the individual rewards for each time step that''s seen
+    by the agent. We can denote this mathematically and represent the total reward
+    in an episode as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/47449219-aeff-4a74-acb8-0e703c9695f5.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Here, *n* simply denotes the time step of the episode. This seems intuitive
+    enough. We can now ask our agent to maximize the total reward in a given episode.
+    But there's a problem. Just like our own reality, the environment that's faced
+    by our agent may be governed by largely random events. Hence, there may be no
+    guarantee that performing the same action will return the same reward in the similar
+    future states. In fact, as we progress into the future, the rewards may diverge
+    more and more from the corresponding actions that are taken at each state due
+    to the inherent randomness that's present.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Discounting future rewards
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'So, how can we compensate for this divergence? One way is through discounting
+    future rewards, thereby amplifying the relevance of current rewards over rewards
+    from future time steps. We can achieve this by adding a discount factor to the
+    reward that''s generated at each time step while we calculate the total reward
+    in a given episode. The purpose of this discount factor will be to dampen future
+    rewards and amplify current ones. In the short term, we have more certainty of
+    being able to collect rewards by using corresponding state action pairs. This
+    cannot be said in the long run due to the cumulating effects of random events
+    that populate the environment. Hence, to incentivize the agent to focus on relatively
+    certain events, we can modify our earlier formulation for total reward to include
+    this discount factor, like so:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/8491e1d1-370d-4734-a81c-d522f17ca20f.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'In our new total reward formulation, γ denotes a discount factor between 0
+    and 1, and *t* denotes the present time step. As you may have noticed right away,
+    the exponential decrease of the γ term allows for future rewards to be dampened
+    over current ones. Intuitively, this just means that rewards that are far into
+    the future are taken less into account compared to more contemporary ones while
+    the agent considers its next action. And by how much? Well, that is still up to
+    us. A discount factor nearing zero will produce short sighted strategies, hedonistically
+    favoring immediate rewards over future ones. On the other hand, setting a discount
+    factor too close to one will defeat the purpose of having it in the first place.
+    In practice, a balancing value can be in the range of 0.75-0.9, depending on the
+    degree of stochasticity in the environment. As a rule of thumb, you would want
+    higher gamma (γ ) values for more deterministic environments, and lower (γ) values
+    for stochastic environments. We can even simplify the total reward formula that
+    was given prior like so:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/5e7e1c95-2c44-4f03-9830-f1bffdd5502e.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Hence, we formalize the total reward in an episode as the cumulative discounted
+    reward for each time step in the episode. By using the notion of discounted future
+    reward, we can generate strategies for an agent, hence governing its actions.
+    An agent carrying out a beneficial strategy will aim to select actions that maximize
+    the discounted future rewards in a given episode. Now that we have a good idea
+    of how to engineer a reward signal for our agent, it's time to move on and look
+    at an overview of the entire process of learning.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Markov decision process
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In reinforcement learning, we are trying to solve the problem of correlating
+    immediate actions with the delayed rewards they return. These rewards are simply
+    sparse, time-delayed labels that are used to control the agent's behavior. So
+    far, we have discussed how an agent may act upon different states of an environment.
+    We also saw how interactions generate various rewards for the agent and unlock
+    new states of the environment. From here, the agent can resume interacting with
+    the environment until the end of an episode. It's about time we mathematically
+    formalize these relations between an agent and environment for the purpose of
+    goal optimization. To do this, we will call upon a framework proposed by Russian
+    mathematician Andrey Markov, now known as the **Markov decision process** (**MDP**).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'This mathematical framework allows us to model our agent''s decision-making
+    process in an environment that is partially stochastic and partially controllable
+    by the agent. This process relies on the Markov assumption, stating that the probability
+    of future states (*st+1*) depends on the current state (*st*) only. This assumption
+    means that all states and actions leading up to the current state have no influence
+    on the probability of future states. A MDP is defined by the following five variables:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/b9c1b7d8-197f-48a1-9192-f157ca72de81.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: While the first two variables are quite self-explanatory, the third one (**R**)
+    refers to the probability distribution of a reward, given a state-action pair.
+    Here, a state-action pair simply refers to the corresponding action to take for
+    a given state of the environment. Next on the list is the transition probability
+    (**P**), which denotes the probability of the new state given the chosen state-action
+    pair at a time step.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Finally, the discount factor refers to the degree to which we wish to discount
+    future rewards for more immediate ones, which is elaborated on in the following
+    diagram:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/8ccdd66f-917a-41a7-b81c-f065858f093b.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Left: Reinforcement learning problem. Right: Markov decision process'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Hence, we can describe interactions between our agent and the environment using
+    the MDP. An MDP is composed of a collection of states and actions, together with
+    rules that dictate the transition from one state to another. We can now mathematically
+    define one episode as a finite sequence of states, actions, and rewards, like
+    so:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/8fe05707-fcf7-4973-b70d-aa6832a6f676.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Here, (s[t]) and (a[t]) denote the state and corresponding action at time *t*.
+    We can also denote the reward corresponding to this state-action pair as (r[t+1]).
+    Hence, we begin an episode by sampling an initial state from the environment (s[o]).
+    Then, until our goal is completed, we ask our agent to select an action for the
+    corresponding state of the environment it finds itself in. Once the agent executes
+    an action, the environment samples a reward for the action taken by the agent
+    and the next state (s[t+1]) to follow. The agent then receives both the reward
+    and the next state before repeating the process until it is able to solve the
+    environment. Finally, a terminal state (s[n]) is reached at the end of an episode
+    (that is, when our goal is completed, or we deplete our lives in a game). The
+    rules that determine the actions of the agent at each state are collectively known
+    as a **policy**, and are denoted by the Greek symbol (π).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Understanding policy functions
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'As we can see, the efficiency of our agent to solve an environment depends
+    on what policy it uses to match state-action pairs at each time step. Hence, a
+    function, known as a **policy function** (π), can specify the combination of state-action
+    pairs for each time step the agent comes across. As the simulation runs, the policy
+    is responsible for producing the trajectory, which is composed of game-states;
+    actions that are taken by our agent as a response; and a reward that''s generated
+    by the environment, as well as the next state of the game the agent receives.
+    Intuitively, you can think of a policy as a heuristic that generates actions that
+    respond to the generated states of an environment. A policy function itself can
+    be a good or a bad one. If your policy is to shoot first and ask questions later,
+    you may end up shooting a hostage. Hence, all we need to do now is evaluate different
+    policies (that is, the trajectories they produce, including their sequences of
+    states, actions, rewards, and next-states), and pick out the optimal policy (π
+    *) that maximizes the cumulative discounted rewards for a given game. This can
+    be illustrated mathematically as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/237dbf57-199c-4267-9521-853d92843d01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Hence, if we are trying to move from point A to point B, our optimal policy
+    will involve taking an action that allows us to move as close as possible to point
+    B at each time step. Unfortunately, due to the randomness that''s present in such
+    environments, we may not speak with such certainty as to claim that our policy
+    absolutely maximizes the sum of discounted rewards. By definition, we cannot account
+    for certain random events like earthquakes, for example, while traveling from
+    point A to B (assuming you''re not a seismological expert). Hence, we can also
+    not perfectly account for the rewards that arise as a result of the actions performed
+    due to randomness in an environment. Instead, we can define the optimal policy
+    ( π *) as a policy that lets our agent maximize the expected sum of discounted
+    rewards. This can be denoted with a slight modification to the earlier equation,
+    which can be portrayed as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/d253b709-88ec-4d0d-bcda-79f29ff914c4.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Here, we use the MDP framework and sample the initial state (s[o]) from our
+    state probability distribution p(s[o]). The actions of our agent (a[t]) are sampled
+    from a policy, given a state. Then, a reward is sampled that corresponds to the
+    utility of the action that's performed at the given state. Finally, the environment
+    samples the next state (s[t+1]), from the transition probability distribution
+    of the current state-action pair. Hence, at each time step, we aim to update our
+    optimal policy so that we can maximize the expected sum of discounted rewards.
+    Some of you may wonder at this point, how can we assess the utility of an action,
+    given a state? Well, this is where the value and Q-value functions come in. To
+    evaluate different policy functions, we need to be able to assess the value of
+    different states, as well as the quality of actions corresponding to these states,
+    for a given policy. For this, we need to define two additional functions, known
+    as the value function and the Q-value function.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Assessing the value of a state
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'First, we need to estimate the value (*V*) of state (*s*) while following a
+    specific policy (π). This tells you the expected cumulative reward at the terminal
+    state of a game while following a policy (π) starting at state (*s*). Why is this
+    useful? Well, imagine that our learning agent''s environment is populated by enemies
+    that are continuously chasing the agent. It may have developed a policy dictating
+    it to never stop running during the whole game. In this case, the agent should
+    have enough flexibility to evaluate the value of game states (when it runs up
+    to the edge of a cliff, for example, so as to not run off it and die). We can
+    do this by defining the value function at a given state, *V* *π (s)*, as the expected
+    cumulative (discounted) reward that the agent receives from following that policy,
+    starting from the current state:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/8cc4b32c-c73b-408b-9a93-17d214b22a7f.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Hence, we are able to use the value function to evaluate how good a state is
+    while following a certain policy. However, this only tells us about the value
+    of a state itself, given a policy. We also want our agent to be able to judge
+    the value of an action in response to a given state. This is what really allows
+    the agent to act dynamically in response to whatever the environment throws at
+    it (be it an enemy or the edge of a cliff). We can operationalize this notion
+    of *goodness* for given state action pairs for a given policy by using the Q-value
+    function.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Assessing the quality of an action
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'If you walk up to a wall, there are not many actions you can perform. You will
+    likely respond to this state in your environment by choosing the action of turning
+    around, followed by asking yourself why you walked up to a wall in the first place.
+    Similarly, we would like our agent to leverage a sense of goodness for different
+    actions with respect to the states they find themselves in while following a policy.
+    We can achieve this using a Q-Value function. This function simply denotes the
+    expected cumulative reward from taking a specific action, in a specific state,
+    while following a policy. In other words, it denotes the quality of a state-action
+    pairs for a given policy. Mathematically, we can denote the *Q* *π ( a , s)* relation
+    as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/174dab38-76ed-457e-be41-f29e0daf7ea9.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'The *Q* *π ( s , a)* function allows us to represent the expected cumulative
+    reward from following a policy (π). Intuitively, this function helps us to quantify
+    our total score at the end of a game, given the actions (that is, the different
+    joystick control moves) taken at each state (game screen you observe) of the environment
+    (a game of Mario, for example), while following a policy (move forward while jumping).
+    Using this function, we can then define the best possible expected cumulative
+    reward at the terminal state of a game, given the policy being followed. This
+    can be represented as the maximum expected value that''s attainable by the Q-value
+    function and is known as the optimal Q-value function. We can mathematically define
+    this as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/7cef80af-3b08-4873-9144-6372f7b1fd09.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Now, we have a function that quantifies the expected optimal value of state
+    action pairs, given a policy. We can use this function to predict the optimal
+    action to follow, given a game state. However, how do we assess the true label
+    of our prediction? We don't exactly have our game-screens labeled with corresponding
+    target actions to assess how far off the mark our network is. This is where the
+    Bellman equation comes in, which helps us asses the value of a given state action
+    pair as a function of both the current reward generated, as well as the value
+    of the following game state. We can then use this function to compare our network's
+    predictions and back-propagate the error to update the model weights.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using the Bellman equation
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The Bellman equation, which was proposed by American mathematician Richard Bellman,
+    is one of the main workhorse equations powering the chariot of deep Q-learning.
+    It essentially allows us to solve the Markov decision process we formalized earlier.
+    Intuitively, the Bellman equation makes one simple assumption. It states that
+    the maximum future reward for a given action, performed at a state, is the immediate
+    reward plus the maximum future reward for the next state. To draw a parallel to
+    the marshmallow experiments, the maximum possible reward of two marshmallows is
+    attained by the agents through the act of abstaining at the first time step (with
+    a reward of 0 marshmallows) and then collecting (with a reward of two marshmallows)
+    at the second time step.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In other words, given any state-action pair, the quality (Q) of performing
+    an action (a) at the given state (s) is equal to the reward to be received (r)
+    , along with the value of the following state (s'') that the agent ends up in.
+    Thus, we can calculate the optimal action for the current state as long as we
+    can estimate the optimal state-action values, *Q*(s'',a'')*, for the next time
+    step. As we just saw with the marshmallow example, our agent needs to be able
+    to anticipate the maximum possible reward at a future time (of two marshmallows)
+    to abstain from accepting just one marshmallow at the current time. Using the
+    Bellman equation, we want our agent to take actions that maximize the immediate
+    reward (r), as well as the optimal Q*-value for the next state-action pair to
+    come, *Q*(s'',a'')* , dampened by discount factor gamma (y). In more simple terms,
+    we want it to be able to calculate the maximum expected future rewards for actions
+    at the current state. This translates to the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/c753435a-e314-4ca8-b636-8bd4d4dc4b67.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Now, we know how to mathematically estimate the expected quality of an action
+    at a given state. We also know how to estimate the maximum expected reward of
+    state-action pairs when following a specific policy. From this, we can redefine
+    our optimal policy (π*) at a given state, (s), as the maximum expected Q-values
+    for actions at given states. This can be shown as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/2dc686a1-049a-4431-ade7-2f936882a02d.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Finally, we have all of the pieces of the puzzle to actually try and find an
+    optimal policy (π *) to guide our agent. This policy will allow our agent to maximize
+    the expected discounted rewards (incorporating environmental stochasticity) by
+    choosing ideal actions for each state the environment generates. So, how do we
+    actually go about doing this? A simple, non-deep learning solution is to use a
+    value iteration algorithm to calculate the quality of actions at future time steps
+    *( Qt+1 ( s , a ))* as a function of expected current reward (r) and maximum discounted
+    reward at the following state of the game ( *γ max a Qt ( s'' , a''))*. Mathematically,
+    we can formulate this as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/e0d8f2b2-a7ea-43b1-9706-0e1853cdb2cb.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Here, we basically update the Bellman equation iteratively until Qt converges
+    to Q*, as *t* increases, ad infinitum. We can actually test out the estimation
+    of the Bellman equation by naively implementing it to solve the taxi cab simulation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Updating the Bellman equation iteratively
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'You may recall that a random approach to solving the taxi cab simulation took
+    our agent about 6,000 time steps. Sometimes, out of sheer luck, you may be able
+    to solve it under 2,000 time steps. However, we can further tip the odds in our
+    favor by implementing a version of the Bellman equation. This approach will essentially
+    allow our agent to remember its actions and corresponding rewards per state by
+    using a Q-table. We can implement this Q-table on Python using a NumPy array,
+    with dimensions corresponding to our observation space (the number of different
+    possible states) and action space (the number of different possible actions our
+    agent can make) in the taxi cab environment. Recall that the taxi cab simulation
+    has an environment space of 500 and an action space of six, making our Q-table
+    a matrix of 500 rows and six columns. We can also initialize a reward variable
+    (`R`) and a value for our discount factor, gamma:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Then, we simply loop through a thousand episodes. Per episode, we initialize
+    the state of the environment, a counter to keep track of drop-offs that have been
+    performed, and the reward variables (total: `R` and episode-wise: `r`). Within
+    our first loop, we nest yet another loop, instructing our agent to pick an action
+    with the highest Q-value, perform the action, and store the future state of the
+    environment, along with the reward that''s received. This loop is instructed to
+    run until the episode is considered terminated, as indicated by the Boolean variable
+    done.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Next, we update the state-action pairs in the Q-table, along with the global
+    reward variable (which indicates how well our agent performed overall). The alpha
+    term (α) in the algorithm denotes a learning rate, which helps to control the
+    amount of change between the previous and newly generated Q-value while performing
+    the update of the Q-table. Hence, our algorithm iteratively updates the quality
+    of state action pairs (Q [state, action]) through approximating optimal Q-values
+    for actions at each time step. As this process keeps repeating, our agent eventually
+    converges to optimal state-action pairs, as denoted by Q*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Finally, we update the state variable, redefining the current state with the
+    new state variable. Then, the loop may begin anew, iteratively updating the Q-values,
+    and ideally converging to optimal state-action pairs that are stored in the Q-table.
+    We print out the overall rewards that are sampled by the environment as a result
+    of our agent's actions every 50 episodes. We can see that our agent eventually
+    converges to the optimal possible reward for the task at hand (that is, the optimal
+    reward considering the traveling costs at each time step, as well as the reward
+    for a correct drop-off), which is somewhere between 9 to 13 points for this task.
+    You will also notice that, by the 50^(th) episode, our agent has performed 19
+    successful drop-offs in 51 time steps! This approach turns out to perform much
+    better than its stochastic counterpart we implemented before.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Why use neural networks?
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: As we just saw, a basic value iteration approach can be used to update the Bellman
+    equation and iteratively find ideal state-action pairs to optimally navigate a
+    given environment. This approach actually stores new information at each time
+    step, iteratively making our algorithm more *intelligent*. However, there is a
+    problem with this method as well. It's simply not scalable! The taxi cab environment
+    is simple enough, with 500 states and 6 actions, to be solved by iteratively updating
+    the Q-values, thereby estimating the value of each individual state-action pair.
+    However, more complex simulations, like a video game, may potentially have millions
+    of states and hundreds of actions, which is why computing the quality of each
+    state-action pair becomes computationally unfeasible and logically inefficient.
+    The only option we are left with, in such circumstances, is to try approximating
+    the function *Q(a,s)* using a network of weighted parameters.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'And thus, we venture into the territories of neural networks, which, as we
+    are well aware of by now, make excellent function approximators. The particular
+    flavor of deep reinforcement learning that we will experience shortly is known
+    as deep Q-learning, which naturally gets its name from its task of learning optimal
+    Q-values for given state-action pairs in an environment. More formally, we will
+    use a neural network to approximate the optimal function *Q*(s,a)* through simulating
+    a sequence of states, actions, and rewards for our agent. By doing this, we can
+    then iteratively update our model weights (theta) in the direction that best matches
+    the optimal state-action pairs for a given environment:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/d8250fa4-145f-4881-b4f9-cff3a1fcf568.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Performing a forward pass in Q-learning
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Now, you understand the intuition behind using a neural network to approximate
+    the optimal function *Q*(s,a)*, finding the best possible actions at given states.
+    It goes without saying that the optimal sequence of actions, for a sequence of
+    states, will generate an optimal sequence of rewards. Hence, our neural network
+    is trying to estimate a function that can map possible actions to states, generating
+    an optimal reward for the overall episode. As you will also recall, the optimal
+    quality function *Q*(s,a)* that we need to estimate must satisfy the Bellman equation.
+    The Bellman equation simply models maximum possible future reward as the reward
+    at the current time, plus the maximum possible reward, at the immediately following
+    time step:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/352c3c39-06cb-42d5-8b18-419f59cb8c9d.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Hence, we need to ensure that the conditions set forth by the Bellman equation
+    are maintained when we aim to predict the optimal Q-value at a given time. To
+    do this, we can define the overall loss function of this model as one that minimizes
+    the error in our Bellman equation and in-play predictions. In other words, at
+    each forward pass, we compute how far the current state-action quality values
+    *Q (s, a ; θ)* are from the ideal ones that have been denoted by the Bellman equation
+    at that time (*Y[t]*). Since the ideal predictions denoted by the Bellman equation
+    are being iteratively updated, we are actually computing our model''s loss using
+    a moving target variable (Y[t]). This can be formulated mathematically as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/069e0250-a679-40a7-b27c-34686e709dc9.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Hence, our network will be trained by minimizing a sequence of loss functions,
+    *L[t](θt)*, changing at each time step. Here, the term *y[t]* is the target label
+    for our prediction, at time (*t*), and is continuously updated at each time step.
+    Also note that the term *ρ(s, a)* simply denotes the internal probability distribution
+    over sequences s and actions taken by our model, also known as its behavior distribution.
+    As you can see, the model weights at the previous time (*t-1*) step are kept frozen
+    when optimizing the loss function at a given time (*t*). While the implementation
+    shown here uses the same network for two separate forward passes, later variations
+    of Q-learning (Mihn et al., 2015) use two separate networks: one to predict the
+    moving target variable satisfying the Bellman equation (named target network),
+    and another to compute the model''s predictions at a given time. For now, let''s
+    have a look at how the backward pass updates our model weights in deep Q-learning.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Performing a backward pass in Q-Learning
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Now, we have a defined loss metric, which computes the error between the optimal
+    Q-function (derived from the Bellman equation) and the current Q-function at a
+    given time. We can then propagate our prediction errors in Q-values, backwards
+    through the model layers, as our network plays about the environment. As we are
+    well aware of by now, this is achieved by taking the gradient of the loss function
+    with respect to model weights, and then updating these weights in the opposite
+    direction of the gradient per learning batch. Hence, we can iteratively update
+    the model weights in the direction of the optimal Q-value function. We can formulate
+    the backpropagation process and illustrate the change in model weights (theta)
+    like so:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/b02f39ee-9fea-4576-9a35-b898c0f5deb6.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Eventually, as the model has seen enough state action pairs, it will sufficiently
+    backpropagate its errors and learn optimal representations to help it navigate
+    the given environment. In other words, a trained model will have the ideal configuration
+    of layer weights, corresponding to the optimal Q-value function, mapping the agent's
+    actions at given states of the environment.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Long story short, these equations describe the process of estimating an optimal
+    polity (π*) to solve a given environment. We use a neural network to learn the
+    best Q-values for state action pairs in the given environment, which in turn can
+    be used to calculate trajectories that generate optimal rewards, for our agent
+    (that is, optimal policies). This is how we can use reinforcement learning to
+    train anticipatory and reactive agents operating in a quasi-random simulation
+    with sparse time delayed rewards. Now, we have all of the understanding that's
+    required to go ahead and implement our very own deep reinforcement learning agent.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Replacing iterative updates with deep learning
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Before we move on to the implementation, let''s clarify what we have learned
+    in regards to deep Q-learning so far. As we saw with the iterative update approach,
+    we can use the transitions (from initial state, action performed, reward generated,
+    and new state sampled, < s, a, r, s'' >) to update the Q-table holding the value
+    of these tuples at each time step. However, as we mentioned, this method is not
+    computationally scalable. Instead, we will replace this iterative update performed
+    on the Q-table and try to approximate the optimal Q-value function (*Q*(s,a)*),
+    using a neural network, like so:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Execute a feedforward pass using current state (*s*) as input, and then predict
+    the Q-values for all of the actions at this state.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Execute a feedforward pass using the new state (*s'*) to compute the maximum
+    overall outputs of our network at the next state, that is, *max a' Q(s', a')*.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: With the maximum overall outputs calculated in step 2, we set the target Q-value
+    for the respective action to *r + γmax a' Q(s', a')*. We also set the target Q-value
+    for all other actions to the same value that's returned by step 1 for each of
+    the unselected action to only compute the prediction error for of the selected
+    action. This effectively neutralizes (sets to zero) the effect of the errors from
+    the predicted actions that were not taken by our agent at each time step.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Backpropagate the error to update the model weights
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: All we did here is build a network that's capable of making predictions on a
+    moving target. This is useful since our model iteratively comes across more information
+    about the physics of the environment as it plays the game. This is reflected by
+    the fact that our target outputs (what actions to perform, at a given state) also
+    keep changing, unlike in supervised learning, where we have fixed outputs that
+    we call labels. Hence, we are actually trying to learn a function *Q*(s,a) that *can
+    learn the mapping between constantly changing inputs (game states) and outputs
+    (corresponding actions to take).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Through this process, our model develops better intuitions on what actions to
+    perform and gain a better idea of the correct Q-values for state-action pairs
+    as it sees more of the environment. In theory, Q-learning allows us to address
+    the credit assignment problem by correlating rewards to actions that have been
+    taken at previous game states. The errors are backpropagated until our model is
+    able to identify decisive state-action pairs that are responsible for generating
+    a given reward. However, we will soon see that a lot of computational and mathematical
+    tricks are employed to make deep Q-learning systems work as well as they do. Before
+    we dive into these considerations, it may be helpful to further explore the forward
+    and backward passes that occur in a deep Q-network.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Deep Q-learning in Keras
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Now that we understand how to train an agent to select optimal state action
+    pairs, let's try to solve a more complex environment than the taxi cab simulation
+    we dealt with previously. Why not implement a learning agent to solve a problem
+    that was originally crafted for humans themselves? Well, thanks to the wonders
+    of the open source movement, that is exactly what we will do. Next on our task
+    list, we will implement the methodologies of Mnih et al. (2013, and 2015) referring
+    to the original DeepMind paper that implemented a Q-learning based agent. The
+    researchers used the same methodology and neural architecture to play seven different
+    Atari games. Notably, the researchers achieved remarkable results for six of the
+    seven different games it was tested on. In three out of these six games, the agent
+    was noted to outperform a human expert. This is why, today, we try and partially
+    replicate these results and train a neural network to play some old-school games
+    like Space Invaders and Ms. Pacman.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This is done by using a **convolutional neural network** (**CNN**), which takes
+    video game screenshots as input and estimates the optimal Q values for actions
+    given states of the game. To follow along, all you need to do is install the reinforcement
+    learning package built on top of Keras, known as `keras-rl`. You will also require
+    the Atari dependency for the OpenAI `gym` module, which we used previously. The
+    Atari dependency is essentially an emulator for the Atari console that will generate
+    our training environments. While the dependency was originally designed to run
+    on the Ubuntu operating system, it has since been ported to be compatible Windows
+    and Mac users alike. You can install both modules for the following experiments
+    using the `pip` package manager.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You can install the Keras reinforcement learning package with the following
+    command:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'You can install the Atari dependency for Windows with the following command:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: Mnih et al (2015) [https://arxiv.org/pdf/1312.5602v1.pdf](https://arxiv.org/pdf/1312.5602v1.pdf)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Making some imports
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'In the realm of machine intelligence, it has been a long-standing dream to
+    achieve human-level control for tasks like gaming. The complexity involved in
+    automating an agent, operating only on high-dimensional sensory inputs (like audio,
+    images, and so on), has been quite a challenging to accomplish with reinforcement
+    learning. Previous approaches heavily relied on hand-crafted features, combined
+    with linear policy representations that relied too much on the quality of the
+    engineered features, to perform well. Unlike the previous attempts, this technique
+    does not require our agent to have any human-engineered knowledge about the game.
+    It will solely rely on the pixel inputs it receives and encode representations
+    to predict the optimal Q-value for each possible action at each state of the environment
+    it traverses. Pretty cool, no? Let''s import the following libraries into our
+    workspace to see how we can proceed with this task:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: Preprocessing techniques
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: As we mentioned previously, we will be using a CNN to encode representative
+    visual features about each state that's shown to our agent. Our CNN will proceed
+    to regress these higher-level representations against optimal Q-values, corresponding
+    to optimal actions to be taken for each given state. Hence, we must show our network
+    a sequence of inputs, corresponding to a sequence of screenshots you would see,
+    when playing an Atari game.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Were we playing the game of Space Invaders (Atari 2600), these screenshots
+    would look something like this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/ca81f847-74e0-4b70-8d0d-d60eea49f25a.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The original Atari 2600 screen frames, which were designed to be aesthetically
+    pleasing to the human palate from the 70s era, exist in the dimensions of 210
+    x 160 pixels, with a color scheme of 128\. While it may be computationally demanding
+    to process these raw frames in sequence, note that there is a lot of opportunity
+    for downsampling our training images from these frames to work with more manageable
+    representations. Indeed, this follows the approach taken by Minh et al. to reduce
+    the input dimensions to a more manageable size. This is achieved by downsampling
+    the original RGB image to a greyscale image with 110 x 84 pixels, before cropping
+    out the extremities of the image where nothing much happens. This leaves us with
+    our final image size of 84 x 84 pixels. This reduction in dimensionality helps
+    our CNN better encode representative visual features, following the theory we
+    covered in Chapter 4, *Convolutional Neural Networks*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Defining input parameters
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Finally, our convolutional network will also receive these cropped images in
+    batches of four at a time. Using these four frames, the neural network will be
+    asked to estimate the optimal Q-values for the given input frame. Hence, we define
+    our input shape, referring to the size of the pre-processed 84 x 84 game screen
+    frames. We also define a window length of `4`, which simply refers to the number
+    of images our network sees at a time. For each image, the network will make a
+    scalar prediction for the optimal Q-value, which maximizes the expected future
+    rewards that are attainable by our agent:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/bf877265-f575-4d99-9b14-5a02378aa151.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Making an Atari game state processor
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Since our network is only allowed to observe the state of the game through the
+    input images, we must first construct a Python class that lets our **deep-Q learning
+    agent** (**DQN**) processes the states and the rewards that are generated by the
+    Atari emulator. This class will accept a processor object, which simply refers
+    to the coupling mechanism between an agent and its environment, as implemented
+    in the `keras-rl` library.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We are creating the `AtariProcessor` class as we want to use the same network
+    to perform in different environments, each with different types of states, actions,
+    and rewards. What''s the intuition behind this? Well, think of the difference
+    in game screen and possible moves between a Space Invaders game versus a Pacman
+    game. While the defender in the space invaders game can only scroll sideways and
+    fire, Pacman can move up, down, left, and right to respond to the different states
+    of its environment. A custom processor class helps us streamline the training
+    process between different games, without performing too many modifications on
+    the learning agent or on the observed environment. The processor class we will
+    implement will allow us to simplify the processing of different game states and
+    rewards that are generated through the agent acting upon the environment:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: Processing individual states
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Our processor class includes three simple functions. The first function (`process_observation`)
+    takes an array representing a simulated game state and converts it into images.
+    The images are then resized, converted back into an array, and returned as a manageable
+    datatype to the experience memory (a concept we will elaborate upon shortly).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Processing states in batch
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Next, we have the (`process_state_batch`) function, which processes the images
+    in batch and returns them as a `float32` array. While this step could also be
+    achieved in the first function, the reason we do it separately is to achieve higher
+    computational efficiency. As simple mathematics dictates, storing a `float32`
+    array is four times more memory intensive than storing an 8-bit array. Since we
+    want our observations to be stored in experience memory, we would rather store
+    them in manageable representations. Doing so becomes especially important when
+    processing the millions of states of a given environment.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Processing rewards
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Finally, the last function in our class lets us clip the rewards that are generated
+    from the environment by using the (`process_reward`) function. Why do this? Well,
+    let's consider a little bit of background information. While we let our agent
+    train on the real, unmodified game, this change to the reward structure is performed
+    during training only. Instead of letting our agent use the actual score from the
+    game screen, we can fix positive and negative rewards to +1 and -1, respectively.
+    A reward of 0 is not influenced by this clipping operation. Doing so is practically
+    useful as it lets us limit the scale of the derivatives as we backpropagate our
+    network's errors. Moreover, it becomes easier to implement the same agent on a
+    different learning environment since the agent does not have to learn a new scoring
+    scheme for an entirely new type of game.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Limitations of reward clipping
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: One clear downside of clipping rewards, as noted in the DeepMind paper (Minh
+    et al, 2015), is that this operation prohibits our agent from being able to differentiate
+    rewards of differing magnitude. Such a notion will certainly be relevant for even
+    more complex simulations. Consider a real self-driving car, for instance. The
+    artificial agent in control may need to assess the magnitudes of reward/penalty
+    for dilemmatic actions it may have to take, given a state of the environment.
+    Perhaps the agent faces actions like running over a pedestrian to avoid a more
+    disastrous accident on the road. This limitation, however, does not seem to severely
+    affect our agent's ability to conquer the simpler learning environment that's
+    offered by Atari 2600 games.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Initializing the environment
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Next, we simply initialize the space invaders environment using the Atari dependency
+    (separate import not necessary) we added earlier to the available `gym` environments:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: We also generate a random seed to consistently initialize the state of the environment
+    so that it has reproduceable experiments. Finally, we define a variable pertaining
+    to the number of actions that can be taken by our agent at any given time.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Building the network
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Thinking about our problem intuitively, we are designing a neural network that
+    takes in a sequence of game states that have been sampled from an environment.
+    At each state of the sequence, we want our network to predict the action with
+    the highest Q-value. Hence, the output of our network will refer to Q-values per
+    action, for each possible game state. Hence, we first define a few convolutional
+    layers with an increasing number of filters and decreasing stride-lengths as the
+    layers progress. All of these convolutional layers are implemented with a **Rectified
+    Linear Unit** (**ReLU**) activation function. Following these, we add a flatten
+    layer to reduce the dimensions of the outputs from our convolutional layers to
+    vector representations.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'These representations are then fed to two densely connected layers that perform
+    the regression of game states against Q-values for the actions that are available:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: Finally, you will notice that our output layer is a densely connected one, with
+    a number of neurons corresponding to our agent's action space (that is, the number
+    of actions it may perform). This layer also has a linear activation function,
+    just like the regression examples we saw previously. This is because our network
+    is essentially performing a sort of a multi-variate regression, where it uses
+    its feature representations to predict the highest Q-value for each action the
+    agent may take at the given input state.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Absence of pooling layers
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Another difference you may have noticed from previous CNN examples is the absence
+    of pooling layers. Previously, we used pooling layers to downsample the activation
+    maps produced by each convolutional layer. As you will recall from Chapter 4, *Convolutional
+    Neural Networks*, these pooling layers helped us to implement the notion of spatial
+    invariance to different types of inputs our CNN. However, when implementing a
+    CNN for our particular use case, we may not want to discard information that''s
+    specific to the spatial location of representations, as this may actually be an
+    integral part of identifying the correct move for our agent:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/2cada956-3eb7-4acf-a749-4faddb16e3fe.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: As you can see in the two almost identical images, the location of the projectile,
+    which is fired by the space invaders, significantly alters the game state for
+    our agent. While the agent is far enough to avoid this projectile in the first
+    image, it may meet its doom by making one wrong move (moving to its right) in
+    the second image. Since we would like it to be able to significantly distinguish
+    between these two states, we avoid the use of pooling layers.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Problems with live learning
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: As we mentioned earlier, our neural network will process a sequence of four
+    frames at a time and regress these inputs to actions with the highest Q-value
+    for each individual state (that is, image) that's sampled from the Atari emulator.
+    However, if we do not shuffle the order in which our network receives each batch
+    of four images, then our network runs into some pretty vexing problems during
+    the learning process.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The reason we do not want our network to learn from consecutive batches of samples
+    is because these sequences are locally correlated. This is a problem since the
+    network parameters, at any given time, will determine the next training examples
+    that are generated by the emulator. Given the Markov assumption, the probability
+    of future game states are dependent on the current game state. Hence, if the current
+    maximizing action dictates our agent to move to the right, then the following
+    training samples in the batch would be dominated by the agent moving right, causing
+    bad and unnecessary feedback loops. Moreover, consecutive training samples are
+    often too similar for the network to effectively learn from them. These issues
+    will likely cause our network's loss to converge to a local (rather than global)
+    minimum during the training process. So, how exactly do we counter this?
+  prefs: []
+  type: TYPE_NORMAL
+- en: Storing experience in replay memory
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The answer lies in the idea of forging a replay memory for our network. Essentially,
+    the replay memory can act as a fixed length *experience* *que* of sorts. It can
+    be used to store the sequential states of the game being played, along with the
+    actions made, reward generated, and the state that's returned to the agent. These
+    experience ques are continuously updated to maintain *n* most recent states of
+    the game. Then, our network will use randomized batches of experience tuples (`state`,
+    `action`, `reward`, and `next state`) that are saved in replay memory to perform
+    gradient decent.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'There are different types of replay memory implementations available in `rl.memory`,
+    the `keras-rl` module. We use the `SequentialMemory` object to accomplish our
+    purpose. This takes two parameters, as shown here:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: The limit parameter denotes the number of entries to be held in memory. Once
+    the limit is exceeded, newer entries will replace older ones. The `window_length`
+    parameter simply refers to the number of training samples per batch.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Due to the random order of the experience tuple batches, the network is less
+    likely to get entrenched in a local minimum and will eventually converge to find
+    optimal weights, representing the optimal policy for a given environment. Furthermore,
+    using non-sequential batches to perform weight updates means that we achieve higher
+    data efficiency, as the same individual image can be shuffled into different batches,
+    contributing to multiple weight updates. Lastly, these experience tuples can even
+    be collected from human gameplay data, rather than the previous moves that were
+    executed by the network.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Other approaches (Schaul et al., 2016: [https://arxiv.org/abs/1511.05952](https://arxiv.org/abs/1511.05952))
+    have implemented a prioritized version of experience replay memory by adding an
+    additional data structure that keeps track of the priority of each transition
+    (*state -> action -> reward -> next-state*) in order to replay important transitions
+    more frequently. The intuition behind this is to make the network learn from its
+    best and worst performances more often, rather than instances where not much learning
+    can occur. While these are some clever approaches that help our model converge
+    to relevant representations, we also want it to surprise us from time to time
+    and explore opportunities it hasn't considered yet. This brings us back to, *The
+    explore-exploit dilemma* that we discussed earlier.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Balancing exploration with exploitation
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: How can we ensure that our agent relies on a good balance of old and new strategies?
+    This problem is made worse through the random initialization of weights for our
+    Q-network. Since the predicted Q-values are a result of these random weights,
+    the model will generate sub-optimal predictions at the initial training epochs,
+    which in turn results in poor Q-value learning. Naturally, we don't want our network
+    to rely too much on strategies it generates at first for given state-action pairs.
+    Just like the dopamine addicted rat, the agent cannot be expected to perform well
+    in the long term if it doesn't explore new strategies and expand its horizons
+    instead of exploiting known strategies. To address this problem, we must implement
+    a mechanism that encourages the agent to try out new actions, ignoring the learned
+    Q-values. Doing so basically allows our learning agent to try out new strategies
+    that may potentially be more beneficial in the long run.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Epsilon-greedy exploration policy
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: This can be achieved by algorithmically modifying the policy that's used by
+    our learning agent to solve its environment. A common approach to this is using
+    an epsilon-greedy exploration strategy. Here, we define a probability (ε). Then,
+    our agent may ignore the learnt Q-values and try a random action with a probability
+    of (1 - ε). Hence, if the epsilon value is set to 0.5, our network will, on average,
+    ignore actions suggested by its learnt Q-Table and do something random. This is
+    quite an exploratory agent. Conversely, a value of 0.001 for epsilon will make
+    the network more consistently rely on the learned Q-values, picking random actions
+    in only one out of a hundred time steps on average.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'A fixed ε value is rarely used as the degree of exploration versus exploitation
+    to implement can differ based on many internal (for example, agents learning rate)
+    and external factors (for example, the degree of randomness versus determinism
+    in a given environment). In the DeepMind paper, the researchers implemented a
+    decaying ε term over time, starting from 1 (that is not relying at all upon the
+    initial random predictions) to 0.1 (relying on predicted Q-values 9 out of 10
+    times):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: Hence, a decaying epsilon ensures that our agent does not rely upon the random
+    predictions at the initial training epochs, only to later on exploit its own predictions
+    more aggressively as the Q-function converges to more consistent predictions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Initializing the deep Q-learning agent
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Now, we have programmatically defined all of the individual components that
+    are necessary to initialize our deep Q-learning agent. For this, we use the imported
+    `DQNAgent` object from `rl.agents.dqn` and defined the appropriate parameters,
+    as shown here:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The preceding parameters are initialized following the original DeepMind paper.
+    Now, we are ready to finally compile our model and initiate the training process.
+    To compile the model, we can simply call the compile method on our `dqn` model
+    object:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: The `compile` method here takes an optimizer and the metric we want to track
+    as arguments. In our case, we choose the `Adam` optimizer with a low learning
+    rate of `0.00025` and track the **Mean Absolute Error** (**MAE**) metric, as shown
+    here.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Training the model
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Now, we can initiate the training session for our deep Q-learning network.
+    We do this by calling the `fit` method on our compiled DQN network object. The
+    `fit` parameter takes the environment being trained on (in our case, the SpaceInvaders-v0)
+    and the number of total game steps (similar to epoch, denoting the total number
+    of game states to sample from the environment) during this training session, as
+    arguments. You may choose to define the optional parameter `visualize` as `True` if
+    you wish to visualize how well your agent is doing as it trains. While this is
+    quite fun—even a tad mesmerizing to observe—it significantly affects training
+    speed, and hence is not practical to have as a default:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: Testing the model
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'We test the model using the following code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: Summarizing the Q-learning algorithm
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Congratulations! You have now achieved a detailed understanding behind the
+    concept of deep Q-learning and have applied these concepts to make a simulated
+    agent incrementally learn to solve its environment. The following pseudocode is
+    provided as a refresher to the whole deep Q-learning process we just implemented:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: Double Q-learning
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Another augmentation to the standard Q-learning model we just built is the
+    idea of Double Q-learning, which was introduced by Hado van Hasselt (2010, and
+    2015). The intuition behind this is quite simple. Recall that, so far, we were
+    estimating our target values for each state-action pair using the Bellman equation
+    and checking how far off the mark our predictions are at a given state, like so:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/560856e1-103a-48e8-a5a8-f305404472cc.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'However, a problem arises from estimating the maximum expected future reward
+    in this manner. As you may have noticed earlier, the max operator in the target
+    equation (*y[t]*) uses the same Q-values to evaluate a given action as the ones
+    that are used to predict a given action for a sampled state. This introduces a
+    propensity for overestimation of Q-values, eventually even spiraling out of control.
+    To compensate for such possibilities, Van Hasselt et al. (2016) implemented a
+    model that decoupled the selection of actions from the evaluation thereof. This
+    is achieved using two separate neural networks, each parametrized to estimate
+    a subset of the entire equation. The first network is tasked with predicting the
+    actions to take at given states, while a second network is used to generate the
+    targets by which the first network''s predictions are evaluated as the loss is
+    computed iteratively. Although the formulation of the loss at each iteration does
+    not change, the target label for a given state can now be represented by the augmented
+    Double DQN equation, as shown here:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/c0f29994-cacf-41c3-9c83-7154ab59cac1.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: As we can see, the target network has its own set of parameters to optimize,
+    (θ-). This decoupling of action selection from evaluation has shown to compensate
+    for the overoptimistic representations that are learned by the naïve DQN. As a
+    consequence, we are able to converge our loss function faster while achieving
+    a more stable learning.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In practice, the target networks weights can also be fixed and slowly/periodically
+    updated to avoid destabilizing the model with bad feedback loops (between the
+    target and prediction). This technique was notably popularized by yet another
+    DeepMind paper (Hunt, Pritzel, Heess et al. , 2016), where the approach was found
+    to stabilize the training process.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The DeepMind paper by Hunt, Pritzel, Heess et al., *Continuous Control with
+    Deep Reinforcement **Learning*, 2016, can be accessed at [https://arxiv.org/pdf/1509.02971.pdf](https://arxiv.org/pdf/1509.02971.pdf).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You may implement the Double DQN through the `keras-rl` module by using the
+    same code we used earlier to train our Space Invaders agent, with a slight modification
+    to the part that defines your DQN agent:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'All we simply have to do is define the Boolean value for `enable_double_dqn`
+    to `True`, and we are good to go! Optionally, you may also want to experiment
+    with the number of warm up steps (that is, before the model starts learning) and
+    the frequency with which the target model is updated. We can further refer the
+    following paper:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Deep Reinforcement Learning with Double Q-learning**: [https://arxiv.org/pdf/1509.06461.pdf](https://arxiv.org/pdf/1509.06461.pdf)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Dueling network architecture
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The last variation of Q-learning architecture that we shall implement is the
+    Dueling network architecture ([https://arxiv.org/abs/1511.06581](https://arxiv.org/abs/1511.06581)).
+    As the name might suggest, here, we figuratively make a neural network duel with
+    itself using two separate estimators for the value of a state and the value of
+    a state-action pair. You will recall from earlier in this chapter that we estimated
+    the quality of a state-action pairs using a single stream of convolutional and
+    densely connected layers. However, we can actually split up the Q-value function
+    into a sum of two separate terms. The reason behind this segregated architecture
+    is to allow our model to separately learn states that may or may not be valuable,
+    without having to specifically learn the effect of each action that''s performed
+    at each state:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/76d2ea1a-a292-4b93-a3c0-a1962a7d8e76.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: At the top of the preceding diagram, we can see the standard DQN architecture.
+    At the bottom, we can see how the Dueling DQN architecture bifurcates into two
+    separate streams, where the state and state-action values are separately estimated
+    without any extra supervision. Hence, Dueling DQNs use separate estimators (that
+    is, densely connected layers) for both the value of being at a state, *V(s)*,
+    as well as the advantage of performing one action over another, at a given state, *A(s,a)*.
+    These two terms are then combined to predict Q-values for given state-action pair,
+    ensuring that our agent chooses optimal actions in the long run. While the standard
+    Q function, *Q(s,a)*, only allowed us to estimate the value of selecting actions
+    for given states, we can now measure both value of states and relative advantage
+    of actions separately. Doing so can be helpful in situations where performing
+    an action does not alter the environment in a relevant enough manner.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Both the value and the advantage function are given in the following equation:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/00e4055e-3390-4e93-a151-d36b8f657edf.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: DeepMind researchers (Wang et al, 2016) tested such an architecture on an early
+    car racing game (Atari Enduro), where the agent is instructed to drive on a road
+    where obstacles may sometimes occur. Researchers noted how the state value stream
+    learns to pay attention to the road and the on-screen score, whereas the action
+    advantage stream would only learn to pay attention when specific obstacles would
+    appear on the game screen. Naturally, it only becomes important for the agent
+    to perform an action (move left or right) once an obstacle is in its path. Otherwise,
+    moving left or right has no importance to the agent. On the other hand, it is
+    always important for our agent to keep their eyes on the road and at the score,
+    which is done by the state value stream of the network. Hence, in their experiments,
+    the researchers show how this architecture can lead to better policy evaluation,
+    especially when an agent is faced with many actions with similar consequences.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We can implement Dueling DQNs using the `keras-rl` module for the very same
+    Space Invaders problem we viewed earlier. All we need to do is redefine our agent,
+    as shown here:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs: []
+  type: TYPE_PRE
+- en: Here, we simply have to define the Boolean argument `enabble_dueling_network`
+    parameter to `True` and specify a dueling type.
+  prefs: []
+  type: TYPE_NORMAL
+- en: For more information on the network architecture and potential benefits of usage,
+    we encourage you to follow up on the full research paper, *Dueling Network Architectures
+    for Deep Reinforcement Learning*, at[ https://arxiv.org/pdf/1511.06581.pdf](https://arxiv.org/pdf/1511.06581.pdf).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Exercise
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Implement standard Q-learning with a different policy (Boltzman) on an Atari
+    environment and examine the difference in performance metrics
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Implement a Double DQN on the same problem and compare the difference in performance
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Implement a Dueling DQN for the same problem and compare the difference in performance
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Limits of Q-learning
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'It is truly remarkable how a relatively simple algorithm as such can give rise
+    to complex strategies that such agents can come up with, given enough training
+    time. Notably, researchers (and now, you too) are able to show how expert strategies
+    may be learned through enough interaction with the environment. In the classic
+    game of breakout, for example (included as an environment in the Atari dependency),
+    you are expected to move a plank at the bottom of the screen to bounce a ball
+    back and break some bricks at the top of the screen. After enough hours of training,
+    a DQN agent can even figure out intricate strategies such as getting the ball
+    stuck on the top side of the screen, scoring the maximum amount of points possible:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/9687c498-c42c-491f-8410-6aa22222b726.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Such intuitive behavior naturally makes you wonder—how far can we take this
+    methodology? What type of environments may we be able to master with this approach,
+    and what are its limits?
+  prefs: []
+  type: TYPE_NORMAL
+- en: Indeed, the power of Q-learning algorithms lies in their ability to solve problems
+    with high-dimensional observation spaces, like images from a game screen. We achieved
+    this using a convolutional architecture, allowing us to correlate state-action
+    pairs with optimal rewards. However, the action spaces that we've concerned ourselves
+    with thus far were mostly discrete and low dimensional. Turning right or left,
+    denotes a discrete action, as opposed to a continuous action, like turning left
+    at an angle. The latter is an example of a continuous action space, as the agent's
+    action of turning to the left depends on the variable denoted by a certain angle,
+    which can take a continuous value. We also did not have that many executable actions
+    to begin with (ranging between 4 and 18 for Atari 2600 games). Other candidate
+    deep reinforcement learning problems, like robotic motion control or optimizing
+    fleet deployment, may require the modeling of very high dimensional and continuous
+    action spaces, where standard DQNs tend to perform poorly. This is simply because
+    DQNs rely on finding actions that maximize the Q-value function, which would require
+    iterative optimization at every step in the case continuous action spaces. Thankfully,
+    other approaches exist for this problem.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Improving Q-learning with policy gradients
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'In our approach so far, we have been iteratively updating our estimates of
+    Q-values for state-action pairs, from which we inferred the optimal policies.
+    However, this becomes an arduous learning task when dealing with continuous action
+    spaces. In the case of robot motion control, for example, our action space is
+    defined by continuous variables like joint positions and angles of the robot.
+    In such cases, estimating the Q-value function becomes impractical as we can assume
+    that the function itself is extremely complicated. So, instead of learning optimal
+    Q-values for each joint position and angle, at each given state, we can try a
+    different approach. What if we could learn a policy directly, without inferring
+    it from iteratively updating our Q-values for state-action pairs? Recall that
+    a policy is simply a trajectory of states, followed by actions performed, reward
+    generated, and the states being returned to the agent. Hence, we can define a
+    set of parameterized policies (parameterized by the weights (θ) of a neural network),
+    where the value of each policy can be defined by the function given here:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/d9a73329-884e-4274-92e5-9013f462ef63.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Here, the value of a policy is represented by the function *J(θ)*, where theta
+    represents our model weights. On the left-hand side, we can define the value of
+    a given policy with the familiar term we saw before, denoting the expected sum
+    of cumulated future rewards. Our objective under this new setup is to find model
+    weights that return the maximum of the policy value function, *J(θ)*, corresponding
+    to the best expected future reward for our agent.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Previously, to find the global minimum of a function, we performed an iterative
+    optimization of the first order derivatives of that function, and took steps that
+    were proportional to the negative of our gradient to update model weights. This
+    is what we call gradient decent. However, since we want to find the maximum of
+    our policy value function, *J(θ)*, we will perform gradient ascent, which iteratively
+    updates model weights that are proportional to the positive of our gradient. Hence,
+    we can get a deep neural network to converge on optimal policies by evaluating
+    trajectories that are generated by a given policy, instead of individually evaluating
+    the quality of state-action pairs. Following this, we can even make actions from
+    favorable policies have a higher probability of being selected by our agent, whereas
+    actions from unfavorable policies can be sampled less frequently, given game states.
+    This is the main intuition behind policy gradient methods. Naturally, a whole
+    new bag of tricks follow this approach, which we encourage you to read up on.
+    One such example is *Continuous Control with Deep Reinforcement Learning,* by,
+    which can be found at [https://arxiv.org/pdf/1509.02971.pdf](https://arxiv.org/pdf/1509.02971.pdf).
+  prefs: []
+  type: TYPE_NORMAL
+- en: An interesting policy gradient implementation to look into could be the Actor
+    Critic model, which can be implemented in continuous action space to solve more
+    complex problems involving high-dimensional action spaces, such as the ones we
+    previously discussed. More information on the Actor Critic model can be found
+    at [https://arxiv.org/pdf/1509.02971.pdf](https://arxiv.org/pdf/1509.02971.pdf).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'This same actor critic concept has been used in different settings for a range
+    of different tasks, such a natural language generation and dialogue modeling,
+    and even playing complex real-time strategy games like StarCraft II, which interested
+    readers are encouraged to explore:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Natural Language Generation and dialogue modeling**: [https://arxiv.org/pdf/1607.07086.pdf](https://arxiv.org/pdf/1607.07086.pdf)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Starcraft II: a new challenge for reinforcement learning**: [https://arxiv.org/pdf/1708.04782.pdf?fbclid=IwAR30QJE6Kw16pHA949pEf_VCTbrX582BDNnWG2OdmgqTIQpn4yPbtdV-xFs](https://arxiv.org/pdf/1708.04782.pdf?fbclid=IwAR30QJE6Kw16pHA949pEf_VCTbrX582BDNnWG2OdmgqTIQpn4yPbtdV-xFs)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this chapter, we covered quite a lot. Not only did we explore a whole new
+    branch of machine learning, that is, reinforcement learning, we also implemented
+    some state-of-the-art algorithms that have shown to give rise to complex autonomous
+    agents. We saw how we can model an environment using the Markov decision process
+    and assess optimal rewards using the Bellman equation. We also saw how problems
+    of credit assignment can be addressed by approximating a quality function using
+    deep neural networks. While doing so, we explored a whole bag of tricks like reward
+    discounting, clipping, and experience replay memory (to name a few) that contribute
+    toward representing high dimensional inputs like game screen images to navigate
+    simulated environments while optimizing a goal.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Finally, we explored some of the advances in the fiend of deep-Q learning, overviewing
+    architectures like double DQNs and dueling DQNs. Finally, we reviewed some of
+    the challenges that are present in making agents successfully navigate high-dimensional
+    action spaces and saw how different approaches, such as policy gradients, may
+    help address these considerations.
+  prefs: []
+  type: TYPE_NORMAL

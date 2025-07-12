@@ -1,0 +1,657 @@
+- en: Building a Machine Vision Mobile App to Classify Flower Species
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this chapter, we are going to use the theoretical knowledge we have learned
+    in previous chapters to create a mobile application that will classify a specific
+    species of flower. By utilizing use your mobile camera and pointing it at a flower,
+    the application will analyze the image and make its best educated guess as to
+    the species of that flower. This is where we put to work the understanding we
+    have gained about the workings of a **convolutional neural network** (**CNN**).
+    We will also learn a bit more about using TensorFlow as well as some tools such
+    as TensorBoard. But before we dive in too deep, let’s talk about a few things
+    first.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Throughout this chapter we use terms that may not be familiar to all, so let’s
+    make sure we’re all on the same page as to what they mean.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this chapter, we will cover the following topics:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: CoreML versus TensorFlow Lite
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: What is MobileNet
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Datasets for image classification
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Creating your own image dataset
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Using TensorFlow to build the model
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Running TensorBoard
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: CoreML versus TensorFlow Lite
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the machine learning world, there are two efforts (as of the time of this
+    writing) taking place in order to improve the mobile AI experience. Instead of
+    offloading AI or ML processing to the cloud and a data center, the faster option
+    would be to process data on the device itself. In order to do this, the model
+    must already be pre-trained, which means that there is a chance that it is not
+    trained for exactly what you are going to use it for.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this space, Apple’s effort (iOS) is called **Core ML**, and Google’s (Android)
+    is called **TensorFlow Lite**. Let’s talk briefly about both.
+  prefs: []
+  type: TYPE_NORMAL
+- en: CoreML
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The CoreML framework from Apple provides a large selection of neural network
+    types. This allows developers to be able to experiment with different designs
+    when developing their apps. Camera and microphone data are just two area which
+    can be leveraged for things like image recognition, natural language processing,
+    and more. There are several pre-trained models that developers can use straight
+    out of the box, and tweak as necessary for their application.
+  prefs: []
+  type: TYPE_NORMAL
+- en: TensorFlow Lite
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: TensorFlow Lite is what is known as a local-device version of TensorFlow, meaning
+    it is designed to run on your mobile device itself. As of the time of this writing
+    it is still in pre-release status, so an exact comparison to CoreML is difficult.
+    We will have to wait and see what the final offering provides. For now, simply
+    be aware there are two options for mobile device-local AI and machine learning.
+  prefs: []
+  type: TYPE_NORMAL
+- en: What is MobileNet?
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Before we dive in too deep, let us first talk about a term you will hear used
+    quite a bit in this chapter, **MobileNets**. What is a MobileNet you might ask?
+    Simply put, it’s an architecture which is designed specifically for mobile and
+    embedded vision-based applications. On such devices there is a lack of computing
+    power available for such processing, which therefore increases the need for a
+    better solution that one used on a desktop environment.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The **MobileNet** architecture was proposed by Google, and briefly:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Uses depth-wise separable convolutions. This significantly reduces the number
+    of parameters when compared to a neural network using normal convolutions with
+    the same depth. The result is what is known as a **light-weight deep neural network**.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '**Depth-wise convolution**, followed by **Pointwise convolution**, replaces
+    the normal convolution process.'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'In order to simplify things, we are going to break down this chapter into the
+    following two sections:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Datasets for Image Classification**: In this section we will explore the
+    various datasets (all of which are available online) that can be used for image
+    classification. We will also address the issue of how to create our own datasets,
+    if necessary.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Using TensorFlow to Build the Model**: In this section we will use TensorFlow
+    to train our classification model. We do this by using a pretrained model called
+    **MobileNet**. MobileNets are a family of mobile-first computer vision models
+    for TensorFlow, designed to maximize accuracy while considering the restricted
+    resources available for an on-device or embedded application.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: In addition, we will look at converting the output model into a `.tflite` format,
+    which can be used within other mobile or embedded devices. TFLite stands for TensorFlow
+    Lite. You can learn more about TensorFlow Lite via any internet search engine.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Datasets for image classification
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: For our flower classification example, we will be using the University of Oxford's **Visual
+    Geometry Group** (**VGG**) image dataset collection. The collection can be accessed
+    at [http://www.robots.ox.ac.uk/~vgg/data/](http://www.robots.ox.ac.uk/~vgg/data/).
+    [](http://www.robots.ox.ac.uk/~vgg/data/)
+  prefs: []
+  type: TYPE_NORMAL
+- en: The VGG is the same department that won previous ImageNet competitions. The
+    pretrained models, such as VGG14 and VGG16, were built by this department and
+    they won in 2014 and 2016, respectively. These datasets are used by the VGG to
+    train and evaluate the models that they build.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The flower dataset can be found in the Fine-Grain Recognition Datasets section
+    of the page, along with textures and pet datasets. Click on Flower Category Datasets,
+    or use the following link to access the flower datasets from VGG, [http://www.robots.ox.ac.uk/~vgg/data/flowers/](http://www.robots.ox.ac.uk/~vgg/data/flowers/).
+    [](http://www.robots.ox.ac.uk/~vgg/data/flowers/)
+  prefs: []
+  type: TYPE_NORMAL
+- en: Here, you can find two datasets, one with 17 different species of flowers, and
+    the other with 102 different species of flowers. You can choose either one based
+    on their ease of use for the tutorial, or based on the kind of processing that
+    is available at your disposal.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using a larger dataset means that the training will take longer, and so will
+    the data processing before training; therefore, we recommend that you choose wisely.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Here is a subset of the images you will find here. As you will see, the folder
+    names match up identically with those we will use a bit later on in this chapter:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/390e5a15-74f2-47e8-801f-91e7d469466f.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Aside from the images we talked about above, here are several additional links
+    that you can use to get image data for similar classification use cases should
+    you ever desire to use them:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**CVonline datasets**: [http://homepages.inf.ed.ac.uk/rbf/CVonline/Imagedbase.htm](http://homepages.inf.ed.ac.uk/rbf/CVonline/Imagedbase.htm)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**CVpapers datasets**: [http://www.cvpapers.com/datasets.html](http://www.cvpapers.com/datasets.html)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Image datasets**: [http://wiki.fast.ai/index.php/Image_Datasets](http://wiki.fast.ai/index.php/Image_Datasets)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Deep learning datasets**: [http://deeplearning.net/datasets/](http://deeplearning.net/datasets/)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**COCO datsets**: [http://cocodataset.org/#home](http://cocodataset.org/#home)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**ImageNet datasets**: [http://www.image-net.org/](http://www.image-net.org/)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Open Images datasets**: [https://storage.googleapis.com/openimages/web/index.html](https://storage.googleapis.com/openimages/web/index.html)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Kaggle datasets**: [https://www.kaggle.com/datasets?sortBy=relevance&group=featured&search=image](https://www.kaggle.com/datasets?sortBy=relevance&group=featured&search=image)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Open datasets**: [https://skymind.ai/wiki/open-datasets](https://skymind.ai/wiki/open-datasets)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Wikipedia**: [https://en.wikipedia.org/wiki/List_of_datasets_for_machine_learning_research#Object_detection_and_recognition](https://en.wikipedia.org/wiki/List_of_datasets_for_machine_learning_research#Object_detection_and_recognition)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Creating your own image dataset using Google images
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Let’s say, for whatever reason, we need to determine what kind of dog a picture
+    is of, but we do not have any pictures readily available on our computer. What
+    can we do? Well, perhaps the easiest approach is to open Google Chrome and search
+    for the images online.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'As an example, let’s say we are interested in Doberman dogs. Just open Google
+    Chrome and search for **doberman** pictures as shown below:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Perform a search for Doberman pictures**: On searching, following the result were
+    obtained:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![](img/49739228-8671-4818-9de8-7aaadbb7b33a.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '**Open the JavaScript console**: You can find the JavaScript Console in Chrome
+    in the top-right menu:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![](img/95960d28-7610-4dc0-9354-dd2383ef520a.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Click on More tools and then Developer tools:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/21a212a0-9ecb-4c29-b2c0-c3ffff13b4c6.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Make sure that you select the Console tab, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/741be916-0f66-4f48-b82f-2c6a18247ca8.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '**Using JavaScript**: Continue to scroll down until you think you have enough
+    images for your use case. Once this is done, go back to the Console tab in Developer
+    tools, and then copy and paste the following script:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: This code snippet collects all the image URLs and saves them to a file called
+    `urls.txt` in your default `Downloads` directory.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Use Python to download the images**: Now, we will use Python to read the
+    URLs of the images from `urls.txt` and download all the images into a folder:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![](img/bfeb9d0e-f904-4a4b-9ab9-f98a96ce1561.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'This can be done easily by following the following steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Open a Python notebook and copy and paste the following code to download the
+    images:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'After importing, start constructing the arguments, and after constructing parsing
+    the arguments is important:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The next step includes grabbing the list of URLs from the input file counting
+    total number of images downloaded:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'During the download process, the exceptions that are thrown need to be handled:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The image paths that are downloaded need to be looped over:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now, decide whether the image should be deleted or not and accordingly initialize:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The image needs to be loaded. Let''s try to do that:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'If we weren''t able to load the image properly, since the image is `None`,
+    then it should be deleted from the disk:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Also, if OpenCV was unable to load the image, it means the image is corrupt
+    and should be deleted:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Give a final check and see whether the image was deleted:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: With that complete, let’s download this notebook as a Python file and name it `image_download.py`.
+    Make sure that you place the `urls.txt` file in the same folder as the Python
+    file that you just created. This is very important.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Next, we need to execute the Python file we just created. We will do so by
+    using the command line as shown here (make sure your `path` variable points to
+    your Python location):'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'By executing this command, the images will be downloaded to the folder named Doberman.
+    Once this has been completed, you should see all the images of the Doberman that
+    you viewed in Google Chrome, like what is shown in the following image:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/06057770-7f65-4faf-9b99-c9c6f2bdbb0c.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Select the required folder for saving the images as shown:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/8e2f30d2-cac4-4cba-8228-62723d73a617.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: That's it we now have a folder full of Doberman images. The same method can
+    be applied to create a folder of any other type of category that we may need.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There may be a number of images that are part of the Google image results that
+    are not desirable. Ensure that you browse through the images and remove any unwanted
+    images.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Alternate approach of creating custom datasets from videos
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: There may be occasions when the images we find via the Internet do not satisfy
+    our requirements or, we may find no images at all. This could be because of the
+    uniqueness of the data, the use case at hand, copyright restrictions, the required
+    resolution, etc. In this case, an alternative approach would be to record a video
+    of the object you need, extract the frames of that video that meet your requirements,
+    and save each frame as an individual image. How would we go about doing that?
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let's say that we have a skin condition that we are unable to find information
+    about online. We need to somehow classify what this skin condition might be. However,
+    in order to do this, we need to have an image of this condition. Accordingly,
+    we could take a video of that skin condition and save the video file to a file.
+    For the purposes of discussion, let’s say that we save the video with the filename `myvideo.mp4`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Once this is complete, we could use the following Python script to break the
+    video into images and save it into a folder. This function will take the path
+    of the video file, break it into frames based on frequency, and save the corresponding
+    images to a specified output location. Here is that function in its entirety:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This function takes the path of the video file, breaks it into frames based
+    on frequency, and saves the corresponding images to a specified output location:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: As mentioned above, this will save every frame of the video in the current folder
+    based on the frequency set. After running this script, you now will have created
+    your image dataset and be able to use the images you need.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Building your model using TensorFlow
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Now that we have seen several methods of obtaining the images we need, or,
+    in the absence of any, creating our own, we will now use TensorFlow to create
+    the classification model for our flower use case:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Creating the folder structure**: To start with, let''s create the folder
+    structure that''s required for our flower classification use case. First, create
+    a main folder called `image_classification`. Within the `image_classification`
+    folder, create two folders: `images` and `tf_files`. The `images` folder will
+    contain the images that are required for model training, and the `tf_files` folder
+    will hold all the generated TensorFlow-specific files during runtime.'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '**Downloading the images**: Next, we need to download the images that are specific
+    to our use case. Using the example of **Flowers**, our images will come from the
+    VGG datasets page we discussed earlier.'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Please feel free to use your own datasets, but make sure that each category
+    is in its own separate folder. Place the downloaded image dataset within the `images`
+    folder.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For example, the complete folder structure will look like this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/2f389c5e-de53-43c8-b807-d68aacb9c7aa.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '**Creating the Python script**: In this step, we will create the TensorFlow
+    code that is required to build our model. Create a Python file named `retrain.py`
+    within the main `image_classification` folder.'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Once this is complete, the following code block should be copied and used.
+    Below we have broken out the process into several steps in order to describe what
+    is taking place:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The following code block is the complete script that goes into `retrain.py`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Next, we need to prepare the images so that they can be trained, validated,
+    and tested:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: The first thing we are going to do is to retrieve the images from the directory
+    path where they are stored. We will use the images to create the model graph using
+    the model that you previously downloaded and installed.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The next step is to bottleneck the array initialization by creating what is
+    known as **bottleneck files**. **Bottleneck** is an informal term used for the
+    layer just before the final output layer that does the actual classification.
+    (TensorFlow Hub calls this an **image feature vector**.) This layer has been trained
+    to output a set of values that's good enough for the classifier to use in order
+    to distinguish between all the classes it's been asked to recognize. This means
+    that it must be a meaningful and compact summary of the images, since it must
+    contain enough information for the classifier to make a good choice in a very
+    small set of values.
+  prefs: []
+  type: TYPE_NORMAL
+- en: It's important that we have bottleneck values for each image. If the bottleneck
+    values aren't available for each image, we will have to create them manually because
+    these values will be required in the future when training the images. It is highly
+    recommended to cache these values in order to speed up processing time later.
+    Because every image is reused multiple times during training, and calculating
+    each bottleneck takes a significant amount of time, it speeds things up to cache
+    these bottleneck values on disk to avoid repeated recalculated. By default, bottlenecks
+    are stored in the `/tmp/bottleneck` directory (unless a new directory was specified
+    as an argument).
+  prefs: []
+  type: TYPE_NORMAL
+- en: When we retrieve the bottleneck values, we will do so based upon the filenames
+    of images that are stored in the cache. If distortions were applied to images,
+    there might be difficulty in retrieving the bottleneck values. The biggest disadvantage
+    of enabling distortions in our script is that the bottleneck caching is no longer
+    useful, since input images are never reused exactly. This directly correlates
+    to a longer training process time, so it is highly recommended this happens once
+    you have a model that you are reasonably happy with. Should you experience problems,
+    we have supplied a method of getting the values for images which have distortions
+    supplied as a part of the GitHub repository for this book.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Please note that we materialize the distorted image data as a NumPy array first.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Next, we need to send the running inference on the image. This requires a trained
+    object detection model and is done by using two memory copies.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Our next step will be to apply distortion to the images. Distortions such as
+    cropping, scaling and brightness are supplied as percentage values which control
+    how much of each distortion is applied to each image. It's reasonable to start
+    with values of 5 or 10 for each of them and then experiment from there to see
+    which/what helps and what does not.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We next need to summarize our model based on accuracy and loss. We will use
+    TensorBoard visualizations to analyze it. If you do not already know, TensorFlow
+    offers a suite of visualization tools called TensorBoard which allows you to visualize
+    your TensorFlow graph, plot variables about the execution, and show additional
+    data like images that pass through it. The following is an example TensorBoard
+    dashboard:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/be6eec08-7056-441f-b2e3-5263c485e200.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Our next step will be to save the model to a file, as well as setting up a directory
+    path to write summaries for the TensorBoard.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'At this point we should point out the `create_model_info` function, that will
+    return the model information. In our example below, we handle both MobileNet and Inception_v3 architectures.
+    You will see later how we handle any other architecture but these:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'If the above argument turns out to be false, this means that we encountered
+    an architecture which we were not expecting. If this happens, we will need to
+    execute the following code block to obtain the result. In this instance we are
+    not dealing with either MobileNet or Inception_V3 and will default to using version
+    1 of MobileNet:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Another important point we should note is that we will need to decode the image
+    JPEG data after processing. The following function, `add_jpeg_decoding`, is a
+    complete code snippet which does this by calling the `tf.image.decode_jpeg` function:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'And here, in all its glory is our `main` function. Basically we do the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Set our logging level to `INFO`
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Prepare the file system for usage
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Create our model information
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Download and extract our data
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: The preceding `retrain.py` file is available for download as part of the assets
+    within this book.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Running TensorBoard
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'To run TensorBoard, use the following command:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: Where `logdir` points to the directory where serialized data is contained. If
+    this directory contains subdirectories which also contain serialized data, TensorBoard
+    will visualize the data from all of those runs. Once TensorBoard is running, navigate
+    your web browser to `localhost:6006` to view the TensorBoard and its associated
+    data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: For those wanting or needing to learn more about TensorBoard, please check out
+    the following tutorial at [https://www.tensorflow.org/tensorboard/r1/summaries](https://www.tensorflow.org/tensorboard/r1/summaries).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this chapter we have accomplished a lot in this small chapter. We began the
+    chapter with understanding the various datasets that are available for image classification,
+    as well as how we could obtain or create images if we could not find any that
+    met our requirements. Next, then divided the chapter into two distinct sections.
+    In the first section we learned about creating our own image dataset. In the second
+    section we learned how to use TensorFlow to build the model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the next chapter, we are going to extend our TensorFlow knowledge even further
+    by using various TensorFlow libraries to build a machine learning model which
+    will predict body damage done to a car.
+  prefs: []
+  type: TYPE_NORMAL

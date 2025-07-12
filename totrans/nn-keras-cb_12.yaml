@@ -1,0 +1,1263 @@
+- en: Applications of a Many-to-One Architecture RNN
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the previous chapter, we learned about the workings of RNN and LSTM. We also
+    learned about sentiment classification, which is a classic many-to-one application,
+    as many words in the input correspond to one output (positive or negative sentiment).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this chapter, we will further our understanding of the many-to-one architecture
+    RNN by going through the following recipes:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Generating text
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Movie recommendations
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Topic-modeling using embeddings
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Forecasting the value of a stock's price
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Generating text
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the sentiment-classification recipes that we performed in [Chapter 11](7a47ef1f-4c64-4f36-8672-6e589e513b16.xhtml),
+    *Building a Recurrent Neural Network*, we were trying to predict a discrete event
+    (sentiment classification). This falls under the many-to-one architecture. In
+    this recipe, we will learn how to implement a many-to-many architecture, where
+    the output would be the next possible 50 words of a given sequence of 10 words.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The strategy that we''ll adopt to generate text is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Import project Gutenberg's *Alice's Adventures in Wonderland* dataset, which
+    can be downloaded from [https://www.gutenberg.org/files/11/11-0.txt](https://www.gutenberg.org/files/11/11-0.txt).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Preprocess the text data so that we bring every word to the same case, and remove
+    punctuation.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Assign an ID to each unique word and then convert the dataset into a sequence
+    of word IDs.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Loop through the total dataset, 10 words at a time. Consider the 10 words as
+    input and the subsequent 11th word as output.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Build and train a model, by performing embedding on top of the input word IDs
+    and then connecting the embeddings to an LSTM, which is connected to the output
+    layer through a hidden layer. The value in the output layer is the one-hot-encoded
+    version of the output.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Make a prediction for the subsequent word by taking a random location of word
+    and consider the historical words prior to the location of the random word chosen.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Move the window of the input words by one from the seed word's location that
+    we chose earlier and the tenth time step word shall be the word that we predicted
+    in the previous step.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Continue this process to keep generating text.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Typical to the need for RNN, we will look at a given sequence of 10 words to
+    predict the next possible word. For this exercise, we will take the Alice dataset
+    to generate words, as follows (the code file is available as `RNN_text_generation.ipynb`
+    in GitHub):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Import the relevant packages and dataset:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'A sample of the input text looks as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/e3436727-b2bd-4f9c-af35-991347215f99.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Normalize the text to remove punctuations and convert it to lowercase:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Assign the unique words to an index so that they can be referenced when constructing
+    the training and test datasets:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Construct the input set of words that leads to an output word. Note that we
+    are considering a sequence of `10` words and trying to predict the *11*^(*th*)
+    word:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'A sample of the `input_words` and `label_words` lists is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/a1db4f29-47c6-403b-a342-3442e1107f62.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Note that `input_words` is a list of lists and the `output_words` list is not.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Construct the vectors of the input and the output datasets:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We are creating empty arrays in the preceding step, which will be populated
+    in the following code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In the preceding code, the first `for` loop is used to loop through all the
+    words in the input sequence of words (`10` words in input), and the second `for`
+    loop is used to loop through an individual word in the chosen sequence of input
+    words. Additionally, given that the output is a list, we do not need to update
+    it using the second `for` loop (as there is no sequence of IDs). The output shapes
+    of `X` and `y` are as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/d6fc2f39-53df-42c7-b878-1a7b062b084c.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Define the architecture of the model:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'A summary of the model is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/1369b6ce-e893-4f4c-8c0c-156ad528671e.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Fit the model. Look at how the output varies over an increasing number of epochs.
+    Generate a random set of sequences of `10` words and try to predict the next possible
+    word. We are in a position to observe how our predictions are getting better over
+    an increasing number of epochs:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the preceding code, we are fitting our model on input and output arrays for
+    one epoch. Furthermore, we are choosing a random seed word (`test_idx` – which
+    is a random number that is among the last 10% of the input array (as `validation_split`
+    is `0.1`) and are collecting the input words at a random location. We are converting
+    the input sequence of IDs into a one-hot-encoded version (thus obtaining an array
+    that is 1 x 10 x `total_words` in shape).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Finally, we make a prediction on the array we just created and obtain the word
+    that has the highest probability. Let''s look at the output in the first epoch
+    and contrast that with output in the *25^(th)* epoch:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/241f2377-e03e-4480-9486-3f2db105aaf5.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Note that the output is always `the` in the first epoch. However, it becomes
+    more reasonable as follows at the end of 50 epochs:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/e2a8dab4-322a-446e-b552-0c8844540497.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The `Generating from seed` line is the collection of predictions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note that while the training loss decreased over increasing epochs, the validation
+    loss has become worse by the end of 50 epochs. This will improve as we train on
+    more text and/or further fine-tune our model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Additionally, this model could further be improved by using a bidirectional
+    LSTM, which we will discuss in *Sequence to Sequence learning* chapter. The output
+    of having a bidirectional LSTM is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/76fac46c-8de1-4a31-a8b5-190b4ba55fa9.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Movie recommendations
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Recommendation systems play a major role in the discovery process for a user.
+    Think of an e-commerce catalog that has thousands of distinct products. Additionally,
+    variants of a product also exist. In such cases, educating the user about the
+    products or events (in case certain products are on sale) becomes the key to increasing
+    sales.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this recipe, we will be learning about building a recommendation system for
+    a database of ratings given by users to movies. The objective of the exercise
+    is to maximize the relevance of a movie to a user. While defining the objective,
+    we should also consider that a movie that is recommended might still be relevant,
+    but might not be watched by the user immediately. At the same time, we should
+    also ensure that all the recommendations are not about the same genre. This is
+    especially applicable in the case of recommendations given out in a retail setting,
+    where we do not want to be recommending the variants of the same product across
+    all the recommendations we are providing.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s formalize our objective and constraints:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Objective**: Maximize the relevance of recommendations to a user'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Constraint**: Increase the diversity of a recommendation and offer a maximum
+    of 12 recommendations to the user'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The definition of relevance can vary from use case to use case and is generally
+    guided by the business principles. In this recipe, let's define relevance narrowly;
+    that is, if the user buys any product that is in the top 12 recommended items
+    for the given user, it is a success.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'With this, let''s go ahead and define the steps that we will adopt to build
+    the model:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Import the data.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Recommend a movie that a user would rate highly—hence, let us train our model
+    based on movies that a user liked in the history. The insight that a user disliked
+    certain movies will be useful into further improving our recommendations. However,
+    let's keep this simple for now.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Keep only the users who have watched more than five movies.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Assign IDs to unique users and movies.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Given that a user's preference might change over time, we need to consider the
+    history of a user where different events in history have different weightages
+    associated with them. Given that is a time series analysis problem now, we will
+    leverage RNN to solve this problem.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Preprocess the data so that it can then passed to an LSTM:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: The input will be the historical five movies watched by a user
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The output is the sixth movie watched by a user
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Build a model that does the following:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Creates embeddings for the input movies
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Passes the embeddings through an LSTM layer
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Passes the LSTM output through a dense layer
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Apply softmax in final layer to come up with a list of movies to recommend
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Now that we have gone through the strategy of various steps to perform, let''s
+    code it up (the code file is available as `Chapter_12_Recommender_systems.ipynb`
+    in GitHub):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Import the data. We''ll be working on a dataset that has the list of users,
+    the ratings provided for different movies by a user, and the corresponding time
+    stamp of when the user has provided the ratings:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'A sample of the dataset looks as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/033e8f33-fbdb-4a5c-b80a-626371a6ca12.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Filter out the data points where the user did not like the movie or the users
+    where the user did not have enough history. In the following code, we are excluding
+    the movies that users provided low ratings for:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In the following code, we are keeping only those users who have more than `5`
+    ratings (a rating value greater than `3`) provided in the history:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Assign IDs to unique `users` and `Movies` so that we use them subsequently:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Preprocess the data so that the input is the last five movies and the output
+    is the sixth movie watched:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Preprocess the `historical5_watched` and the `movie_to_predict` variables so
+    that they can be passed to the model, and then create the train and test datasets:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Build the model:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: Note that, in the final layer, we are adding 1 to the possible activations,
+    as there is no movie with an ID of 0, and the final movie would have been left
+    out had we just set the value to `max(y)`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'A summary of the model is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/82bd4fe6-5261-4651-b339-d7ee590096d0.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Fit the model:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Make predictions on the test data:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Understand the number of data points (users) where the movie watched next after
+    the historical five movies is among the top `12` recommendations:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: We should notice that in 10.4% of the total cases, we have the movie recommended
+    being watched by the user as the immediate next movie.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Taking user history into consideration
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: One of the considerations when sending out the top 12 recommendations that we
+    missed in the previous iteration is that *if a user has already watched a movie,
+    they are less likely to watch the same movie again* (note that this hypothesis
+    does not hold true in a retail setting, where there are a considerable amount
+    of re-orders).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let's go ahead and apply this logic in making our top 12 predictions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'First, we''ll store all the (not just the most recent five) movies that were
+    watched by a user prior to watching the movie that we are trying to predict:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the preceding code, we are filtering all the movies watched by a user.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'If a user has already watched a movie, we will overwrite the probability to
+    a value of zero for that user-movie combination:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In the following code, we are calculating the percent of the total scenario
+    in test data where the user watched a movie among the top 12 recommended movies:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: The preceding results in the recommendations being valid for 12.6% of total
+    users now, up from 10.4% relevance in the previous iteration.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Topic-modeling, using embeddings
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the previous recipe, we learned about generating predictions for movies that
+    a user is likely to watch. One of the limitations of the previous way of generating
+    predictions is that the variety of movie recommendations would be limited if we
+    did not perform further processing on top of the movie predictions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: A variety of recommendations is important; if there were no variety, only certain
+    types of products would be discovered by users.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this recipe, we will group movies based on their similarity and identify
+    the common themes of the movies. Additionally, we will also look into how we can
+    increase the variety of recommendations that can be provided to a user. Having
+    said that, it is highly likely that this strategy will work less in the specific
+    case of movie recommendations, as the variety would be much lower when compared
+    to a retail/e-commerce setting, where the number of categories and substitutes
+    of a product are much higher when compared to movies.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The strategy that we will adopt to group movies based on similarity is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Extract the embedding value of each movie from the model that we built in the
+    Movie recommendations recipe
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: We can also create embeddings for each movie using gensim
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: All the movies watched by a user can be thought of as words in a sentence
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Create a list of lists of word IDs that form a sentence
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Pass the list of lists through the `Word2Vec` method of gensim to extract the
+    word vectors (movie ID vectors)
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Pass the embedded values (vectors) of movies through a k-means clustering process
+    to extract a certain number of clusters
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Identify the optimal number of clusters
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Identify the high probability to buy products (among the products that were
+    not bought in history) in each cluster and re-rank the products based on their
+    probability
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Recommend the top *n* products
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: In this process, one of the variables is the number of clusters to be formed.
+    The greater the number of clusters, the fewer the products in each cluster, and,
+    at the same time, the greater the similarity between each product within a cluster.
+    Essentially, there is a trade-off between the number of points in a group and
+    the similarity of data points within the same cluster.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We can come up with a measure of the similarity of points within a group by
+    calculating the sum of the squared distances of all points with respect to their
+    cluster centers. The number of clusters beyond which the inertia metric does not
+    decrease considerably is the optimal number of clusters.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Now that we have formed a strategy of fetching a variety of products within
+    our recommendation, let's code it up (We'll continue from step 3 of *Movie recommendations*
+    recipe). The code file is available as `Chapter_12_Recommender_systems.ipynb` in
+    GitHub.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Extract the embedding values of each movie using `Word2Vec`.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Create a list of lists of various movies watched by all users:'
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the preceding code, we are filtering all the movies watched by a user and
+    creating a list of movies watched by all users.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Extract the word vectors of each movie:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Extract the `TSNE` values of the movies to have a visual representation of
+    the word embeddings of the movies that we extracted in previous step:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'A visualization of embeddings in 2-Dimensional space is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/cb69b499-e7ba-41a8-b2ea-dd2b11c96e87.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: From the preceding output, we can see that there are clusters of movies that
+    are grouped together (the regions that are thick).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Store the movie ID and movie index values in a dataframe:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Merge the `tsne_df` and `idx2movie` datasets so that we have all the values
+    in a single dataframe:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE25]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Import the `movies` dataset:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE26]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Merge the `TSNE` dataset with the movies data, and drop the unwanted columns:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE27]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Exclude the rows that have an NaN value (we have null values for certain movies,
+    as certain movies occur less frequently, resulting in `Word2Vec` not giving the
+    word vector for rarely occurring words (due to the `min_count` parameter):'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE28]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Identify the optimal number of clusters by understanding the variation of inertia
+    (total sum of squared distance of all points from their respective cluster centers):'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE29]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The variation of inertia for different number of clusters is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/d667c7e1-453a-402c-a79b-1decc6dfa5bb.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: From the preceding curve, we can see that the decrease is inertia not as high
+    as the number of clusters passes `40`. Hence, we shall have `40` as the optimal
+    number of clusters of movies within our dataset.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Validate the cluster results by manually checking for some of the movies that
+    fall in the same cluster, if it makes sense for the movies to be in the same cluster:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE30]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Once you execute the code, you will notice that movies located in `cluster_label`:
+    `0` are primarily Romance and Comedy movies.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Remove the movies that have already been watched by the user:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE31]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'For each user, map the probability of a movie and the cluster number that a
+    movie belongs to so that we extract the movie that has the highest probability
+    within a cluster for a given user. Then recommend the top 12 movies from the resulting
+    top movies within different clusters:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE32]'
+  prefs: []
+  type: TYPE_PRE
+- en: The preceding results in 13.6% of all users watching a movie that is recommended
+    to them.
+  prefs: []
+  type: TYPE_NORMAL
+- en: While the preceding results are only slightly better than the result of 12.6%
+    without having any variety in recommendations, having a variety in recommendations
+    is more likely to be better when we consider not just the next purchase but all
+    future purchases by a user.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There's more...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'While we have looked into generating predictions for a user and also into increasing
+    the variety of predictions that are served to a user, we can further improve the
+    results by considering the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Incorporating the information about the movies the user did not like
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Incorporating the user's demographic information
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Incorporating the details related to the movie, for example the release year
+    and the cast
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Forecasting the value of a stock's price
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: There is a variety of technical analysis that experts perform to come up with
+    buy-and-sell recommendations on stocks. The majority of the technical analysis
+    relies on historical patterns with an assumption that history repeats as long
+    as we normalize for certain events.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Given that what we have been performing so far has also been about making decisions
+    by considering history, let's go ahead and apply the skills we've learned so far
+    to predict the price of a stock.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'However, be extremely careful when relying on algorithmic analysis in applications
+    such as stock-price prediction to make a buy-or-sell decision. The big difference
+    between the other recipes and this one is that, while the decisions made in other
+    recipes are reversible (for example: you can revoke it if a generated text does
+    not look appropriate) or cost money (a bad recommendation means the customer won''t
+    buy the product again), the decisions made in stock-price prediction are irreversible.
+    Once the money is lost, it is not coming back.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: With this in mind, let's go ahead and apply the techniques we've learned so
+    far to predict the price of a stock.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'To predict the price of a stock, let''s apply two strategies:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Predict the stock price solely based on the last five days' stock prices
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Predict the stock price based on a combination of the last five days' stock
+    prices and the latest news about the company of interest
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: For the first analysis, we can prepare the dataset in a way that is very similar
+    to the way we prepared the dataset for LSTM; the second analysis will require
+    a different way of preparing the dataset, as it involves both numeric and text
+    data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The way in which we will process data for the two approaches discussed above
+    is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Last five days'' stock prices only**:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Order the dataset from the oldest to the newest date
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Take the first `5` stock prices as input and the sixth stock price as output
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Slide it across so that in the next data point, the second to sixth data points
+    are the input and the seventh data point is the output, and so on until we reach
+    the final data point:'
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Each of the five data points are the input to the five time steps in an LSTM
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: The sixth data point is the output
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Given that we are predicting a continuous number, the loss function this time
+    will be the *mean squared error* value
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '**Last five days'' stock prices plus news headlines, data about the company**:
+    For this analysis, there are two types of data preprocessing. While the data preprocessing
+    for the last five days'' stock prices remains the same, the data pre-preparation
+    step for the news headlines, data is the additional step that is to be performed
+    in this analysis. Let''s look into how we can incorporate both of them into our
+    model:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Given that these are two data types, let''s have two different models:'
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: One model that takes historical five-day stock-price data.
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Another model that modifies the output of the last five days' stock-price model
+    by either increasing or decreasing the output.
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The second model is a result of the news headlines, dataset. The hypothesis
+    is that positive headlines are likely to increase the stock price value and that
+    negative headlines will reduce the stock value.
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: To keep the problem simple, assume that only the most recent headline prior
+    to the day of the prediction of the stock's value will have an impact on the outcome
+    of the stock value on the day of prediction
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Given that we have two different models, use the functional API so that we combine
+    the effects of both factors
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'We''ll break our approach of solving this into three sections (The code file
+    is available as `Chapter_12_stock_price_prediction.ipynb` in GitHub):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Predict a stock price based on the last five days' stock prices only
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The pitfall of the random train-and-test split
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Assign a higher weight to more recent stock price values
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Combine the last five days' stock price with text data of news article headlines
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The last five days' stock prices only
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'In this recipe, we will predict a stock price based on its last 5 data points
+    only. In the next recipe, we will predict the stock price based on news and historical
+    data:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Import the relevant packages and dataset:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE33]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Prepare the dataset where the input is the last five days'' stock-price values
+    and the output is the stock-price value on the sixth day:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE34]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Reshape the dataset so that it is of the `batch_size`, `time_steps`, `features_per_time_step` form:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE35]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Create the train-and-test datasets:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE36]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Build the model:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE37]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'A summary of the model is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/5800a442-ce90-4d0c-a004-b02a43688d92.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Compile the model so that we define the `loss` function and adjust the learning-rate
+    value:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE38]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Fit the model:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE39]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The preceding results in a mean squared error value of $641 (An average of
+    ~$25 per prediction) on the test dataset. The plot of the predicted versus actual
+    stock price is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE40]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The variation of the predicted and the actual price is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/a2feff03-73e4-4623-93c1-b925100125da.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The pitfalls
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Now that we have predictions that are fairly accurate, and in fact, good predictions,
+    let's dive deep to understand the reason for such good predictions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In our training dataset, we have data points from a long time ago as well as
+    the data points that are very recent. This is a form of leakage, as, at the time
+    of model building, we do not have future stock prices. Due to the way we construct
+    data, we could have the data from December 20 in our training dataset, while December
+    19 could be in the test dataset.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s rebuild our model with the training-and-test datasets demarcated by
+    their corresponding dates:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE41]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The output of the model that we built in the *last 5 days'' stock prices only*
+    section on the new test dataset is as follows (with a test dataset loss of ~57,000):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/117796e9-8284-4993-b262-5909a8774f44.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Note that the resulting actual versus predicted stock-price graph now is much
+    worse when compared to the previous iteration. However, the graph generated in
+    this section is a more realistic scenario data than the graph obtained in *last
+    5 days' stock prices only *section.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now that we have obtained the preceding graph, let''s try to understand the
+    reason the graph might have looked as it did by examining the plot of the variation
+    of stock-price data over time, which is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE42]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'A plot of the variation of the stock-price over time is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/74f903fe-d2e4-415a-b085-4a4c73cc32da.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Note that the price of stock increased slowly at the start and accelerated in
+    the middle while decelerating at the end.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The model did not work out well for the following reasons:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Equal weight is given to errors for predictions made much earlier in the history
+    as well as more recent ones
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: We didn't factor for the trend in deceleration
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Assigning different weights to different time periods
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: We learned that we will be assigning higher weight for the most recent time
+    period and a lower weight for historical time periods.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We can come up with training `weights` as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE43]'
+  prefs: []
+  type: TYPE_PRE
+- en: The preceding code assigns a weight of `0` to the most historical data point
+    and a weight of `1` to the most recent data point. All the intermediate data points
+    will have a weight value between `0` and `1`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now that we have defined `weights`, let''s define our custom loss function,
+    which applies the previously-initialized losses while calculating the squared
+    error loss:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE44]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now that we have initialized `weights` and also defined the custom loss function,
+    let''s supply the input layer and the weight values to the model using the functional
+    API (we are using a functional API as we are passing multiple input while training
+    the model):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE45]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now that we have defined the model, which has the same parameters as in the
+    *last 5 days'' stock prices only *section, but there is an additional input, which
+    is the weights tensor. Let''s compile our model:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE46]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now that we have compiled our model, let''s fit it:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE47]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The model returns a squared error loss of 40,000 on the test dataset, as opposed
+    to the loss of 57,000 from the *The pitfalls* section. Let''s plot the values
+    of predicted versus actual stock prices on the test dataset:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/42c55eae-c592-4663-8ec3-eccb1898150c.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: We now notice that there is a correlation between the predicted and the actual
+    stock price in the most recent history (right-most part of the chart), while the
+    spike in the middle of graph is not being accounted for in the predictions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the next recipe, let's see whether the news headlines can incorporate the
+    spike in middle.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The last five days' stock prices plus news data
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'In the following code, we will incorporate text data about the headlines generated
+    by the company of interest (which is fetched from the open source API provided
+    by the Guardian''s website) along with the last five days'' stock price data.
+    Then we''ll couple the custom loss function, which takes the recency of an event
+    into account:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Import the headlines data from the Guardian website from here: [https://open-platform.theguardian.com/](https://open-platform.theguardian.com/)
+    (note that you would have to apply for your own access key to be able to download
+    the dataset from the website). Download the title and the corresponding date when
+    the title appeared, and then preprocess the date so that it is converted into
+    a date format:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE48]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Join the historical price dataset and the article title dataset by `Date`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE49]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Preprocess the text data to remove the stop-words and punctuation, and then
+    encode the text input just as we did in the sentiment-classification exercise
+    in [Chapter 11](7a47ef1f-4c64-4f36-8672-6e589e513b16.xhtml), *Building a Recurrent
+    Neural Network*:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE50]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Take the last five days'' stock prices and the most recent title (prior to
+    the date of the stock-price prediction) as input. Let''s preprocess our data to
+    get the input and the output values and then prepare the training and test datasets:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'In the following code,  x1 corresponds to the historical stock prices and x2
+    corresponds to the article title on the date of the stock prediction:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE51]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Given that we are passing multiple variables as input (historical stock prices,
+    encoded text data, and weight values), we will be using functional API to build
+    the model:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE52]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Note that we have multiplied the output values of the stock-price model and
+    the text-data model, as the text data is expected to adjust to the output of the
+    historical stock-price model:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE53]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The architecture of the preceding model is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/95795ad5-7d62-4cf3-a38d-2cc879bb6826.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Define the loss function and compile the model:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE54]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Fit the model:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE55]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Plot the actual versus predicted values of stock prices in the test dataset:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE56]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The variation of actual and predicted stock price is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/a804018e-6956-4350-9d12-2428053d76ac.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Note that, in this iteration, the middle portion has a slightly better slope
+    when compared to the no-text data version and also has a slightly lower squared
+    error at 35,000 when compared to the 40,000 value of the previous iteration.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There's more...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: As mentioned at the start of this recipe, be extremely careful when predicting
+    the values of a stock price, as there are a variety of factors that can affect
+    the movement of stock prices, and all of them need to be taken into consideration
+    when making a prediction.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Additionally, you should also notice that while the actual and predicted values
+    seem correlated, there is a small delay in the predicted values line when compared
+    to the actual values line. This delay can considerably change the optimal strategy
+    from a buy decision to a sell decision. Hence, there should be a greater weight
+    for the rows where the movement of a stock price is significant from the previous date—further
+    complicating our loss function.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We could also potentially incorporate more sources of information, such as
+    additional news headlines and seasonality (for example: certain stocks typically
+    fare well during the holiday season) and other macroeconomic factors, when making
+    the predictions.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Finally, we could have scaled the dataset so that the input to the neural network
+    is not a huge number.
+  prefs: []
+  type: TYPE_NORMAL

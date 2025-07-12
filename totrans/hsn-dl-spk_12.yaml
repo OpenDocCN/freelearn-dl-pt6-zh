@@ -1,0 +1,639 @@
+- en: Textual Analysis and Deep Learning
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'In the previous chapter, we became familiar with the core concepts of **Natural
+    Language Processing** (**NLP**) and then we saw some implementation examples in
+    Scala with Apache Spark, and two open source libraries for this framework. We
+    also understood the pros and cons of those solutions. This chapter walks through
+    hands-on examples of NLP use case implementations using DL (Scala and Spark).
+    The following four cases will be covered:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: DL4J
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: TensorFlow
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Keras and TensorFlow backend
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: DL4J and Keras model import
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The chapter covers some considerations regarding the pros and cons for each
+    of those DL approaches in order, so that readers should then be ready to understand
+    in which cases one framework is preferred over the others.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Hands-on NLP with DL4J
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The first example we are going to examine is a sentiment analysis case for movie
+    reviews, the same as for the last example shown in the previous chapter (the *Hands-on
+    NLP with Spark-NLP *section). The difference is that here, we are going to combine
+    Word2Vec ([https://en.wikipedia.org/wiki/Word2vec](https://en.wikipedia.org/wiki/Word2vec))
+    and an RNN model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Word2Vec can be seen as a neural network with two layers only, which expects
+    as input some text content and then returns vectors. It isn't a deep neural network,
+    but it is used to turn text into a numerical format that deep neural networks
+    can understand. Word2Vec is useful because it can group the vectors of similar
+    words together in a vector space. It does this mathematically. It creates, without
+    human intervention, distributed numerical representations of word features. The
+    vectors that represent words are called **neural word embeddings***. W*ord2vec
+    trains words against others that neighbor them in the input text. The way it does
+    it is using context to predict a target word (**Continuous Bag Of Words** (**CBOW**))
+    or using a word to predict a target context (skip-gram). It has been demonstrated
+    that the second approach produces more accurate results when dealing with large
+    datasets. If the feature vector assigned to a word can't be used to accurately
+    predict its context, an adjustment happens to the vector components. Each word's
+    context in the input text becomes the teacher by sending errors back. This way
+    the word vectors that have been estimated similar by the context where they are,
+    are moved closer together.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The dataset used for training and testing is the *Large Movie Review Dataset,*
+    which is available for download at [http://ai.stanford.edu/~amaas/data/sentiment/](http://ai.stanford.edu/~amaas/data/sentiment/)
+    and is free to use. It contains 25,000 highly popular movie reviews for training
+    and another 25,000 for testing.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The dependencies for this example are DL4J NN, DL4J NLP, and ND4J.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Set up the RNN configuration using, as usual, the DL4J `NeuralNetConfiguration.Builder`
+    class, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: This network is made by a Graves LSTM RNN (please go back to [Chapter 6](3b6f47c0-6e17-484b-ad30-b6f92eb0473c.xhtml), *Recurrent
+    Neural Networks*, for more details on it) plus the DL4J—specific RNN output layer
+    `RnnOutputLayer`. The activation function for this output layer is SoftMax.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We can now create the network using the preceding configuration set, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Before starting the training, we need to prepare the training set to make it
+    ready to be used. For this purpose, we are going to use the dataset iterator by
+    Alex Black that can be found among the GitHub examples for DL4J ([https://github.com/deeplearning4j/dl4j-examples/blob/master/dl4j-examples/src/main/java/org/deeplearning4j/examples/recurrent/word2vecsentiment/SentimentExampleIterator.java](https://github.com/deeplearning4j/dl4j-examples/blob/master/dl4j-examples/src/main/java/org/deeplearning4j/examples/recurrent/word2vecsentiment/SentimentExampleIterator.java)).
+    It is in Java, so it has been adapted to Scala and added to the source code examples
+    of this book. It implements the `DataSetIterator` interface ([https://static.javadoc.io/org.nd4j/nd4j-api/1.0.0-alpha/org/nd4j/linalg/dataset/api/iterator/DataSetIterator.html](https://static.javadoc.io/org.nd4j/nd4j-api/1.0.0-alpha/org/nd4j/linalg/dataset/api/iterator/DataSetIterator.html))
+    and it is specialized for the IMDB review datasets. It expects as input a raw
+    IMDB dataset (it could be a training or testing dataset), plus a `wordVectors`
+    object, and then generates the dataset ready to be used for training/test purposes.
+    This particular implementation uses the Google News 300 pre-trained vectors as
+    `wordVectors` objects; it can be freely downloaded in GZIP format from the [https://github.com/mmihaltz/word2vec-GoogleNews-vectors/](https://github.com/mmihaltz/word2vec-GoogleNews-vectors/) GitHub
+    repo. It needs to be unzipped before it can be used. Once extracted, the model
+    can be loaded though the `loadStaticModel` of the `WordVectorSerializer` class ([https://static.javadoc.io/org.deeplearning4j/deeplearning4j-nlp/1.0.0-alpha/org/deeplearning4j/models/embeddings/loader/WordVectorSerializer.html](https://static.javadoc.io/org.deeplearning4j/deeplearning4j-nlp/1.0.0-alpha/org/deeplearning4j/models/embeddings/loader/WordVectorSerializer.html))
+    as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Training and test data can be now prepared through the custom dataset iterator
+    `SentimentExampleIterator`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: Then, we can test and evaluate the model in DL4J and Spark as explained in [Chapter
+    6](3b6f47c0-6e17-484b-ad30-b6f92eb0473c.xhtml), *Recurrent Neural Networks*, [Chapter
+    7](3b6f47c0-6e17-484b-ad30-b6f92eb0473c.xhtml), *Training Neural Networks with
+    Spark*, and [Chapter 8](3b6f47c0-6e17-484b-ad30-b6f92eb0473c.xhtml), *Monitoring
+    and Debugging Neural Network Training*. Please be aware that the Google model
+    used here is pretty big (about 3.5 GB), so take this into account when training
+    the model in this example, in terms of resources needed (memory in particular).
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this first code example, we have used the common API of the DL4J main modules
+    that are typically used for different MNNs in different use case scenarios. We
+    have also explicitly used Word2Vec there. Anyway, the DL4J API also provides some
+    basic facilities specific for NLP built on top of ClearTK ([https://cleartk.github.io/cleartk/](https://cleartk.github.io/cleartk/)),
+    an open source framework for ML, and NLP for Apache UIMA ([http://uima.apache.org/](http://uima.apache.org/)).
+    In the second example that is going to be presented in this section, we are going
+    to use those facilities.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The dependencies for this second example are DataVec, DL4J NLP, and ND4J. While
+    they are properly loaded as transitive dependencies by Maven or Gradle, the following
+    two libraries. Need to be explicitly declared among the project dependencies to
+    skip `NoClassDefFoundError` at runtime:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'A file containing about 100,000 generic sentences has been used as input for
+    this example. We need to load it in our application, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The DL4J NLP library provides the `SentenceIterator` interface ([https://static.javadoc.io/org.deeplearning4j/deeplearning4j-nlp/1.0.0-alpha/org/deeplearning4j/text/sentenceiterator/SentenceIterator.html](https://static.javadoc.io/org.deeplearning4j/deeplearning4j-nlp/1.0.0-alpha/org/deeplearning4j/text/sentenceiterator/SentenceIterator.html))
+    and several implementations for it. In this specific example, we are going to
+    use the `BasicLineIterator` implementation ([https://static.javadoc.io/org.deeplearning4j/deeplearning4j-nlp/1.0.0-alpha/org/deeplearning4j/text/sentenceiterator/BasicLineIterator.html](https://static.javadoc.io/org.deeplearning4j/deeplearning4j-nlp/1.0.0-alpha/org/deeplearning4j/text/sentenceiterator/BasicLineIterator.html))
+    in order to remove white spaces at the beginning and the end of each sentence
+    in the input text, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We need to do the tokenization now in order to segment the input text into
+    single words. For this, we use the `DefaultTokenizerFactory` implementation ([https://static.javadoc.io/org.deeplearning4j/deeplearning4j-nlp/1.0.0-alpha/org/deeplearning4j/text/tokenization/tokenizerfactory/DefaultTokenizerFactory.html](https://static.javadoc.io/org.deeplearning4j/deeplearning4j-nlp/1.0.0-alpha/org/deeplearning4j/text/tokenization/tokenizerfactory/DefaultTokenizerFactory.html))
+    and set as tokenizer a `CommomPreprocessor` ([https://static.javadoc.io/org.deeplearning4j/deeplearning4j-nlp/1.0.0-alpha/org/deeplearning4j/text/tokenization/tokenizer/preprocessor/CommonPreprocessor.html](https://static.javadoc.io/org.deeplearning4j/deeplearning4j-nlp/1.0.0-alpha/org/deeplearning4j/text/tokenization/tokenizer/preprocessor/CommonPreprocessor.html))
+    to remove punctuation marks, numbers, and special characters, and then force lowercase
+    for all the generated tokens, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The model can now be built, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: As mentioned earlier, we are using Word2Vec, so the model is built through the
+    `Word2Vec.Builder` class ([https://static.javadoc.io/org.deeplearning4j/deeplearning4j-nlp/1.0.0-alpha/org/deeplearning4j/models/word2vec/Word2Vec.Builder.html](https://static.javadoc.io/org.deeplearning4j/deeplearning4j-nlp/1.0.0-alpha/org/deeplearning4j/models/word2vec/Word2Vec.Builder.html)),
+    setting as tokenizer factory for the one created previously.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s start the model fitting:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'And save the word vectors in a file when finished, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: The `WordVectorSerializer` utility class ([https://static.javadoc.io/org.deeplearning4j/deeplearning4j-nlp/1.0.0-alpha/org/deeplearning4j/models/embeddings/loader/WordVectorSerializer.html](https://static.javadoc.io/org.deeplearning4j/deeplearning4j-nlp/1.0.0-alpha/org/deeplearning4j/models/embeddings/loader/WordVectorSerializer.html))
+    handles word vector serialization and persistence.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The model can be tested this way:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The produced output is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/e3123b10-3450-4244-9fa8-e00c7c0f457e.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '**GloVe** ([https://en.wikipedia.org/wiki/GloVe_(machine_learning)](https://en.wikipedia.org/wiki/GloVe_(machine_learning))),
+    like Wor2Vec, is a model for distributed word representation, but it uses a different
+    approach. While Word2Vec extracts the embeddings from a neural network that is
+    designed to predict neighboring words, in GloVe the embeddings are optimized directly.
+    This way the product of two-word vectors is equal to the logarithm of the number
+    of times the two words occur near each other. For example, if the words *cat*
+    and *mouse* occur near each other 20 times in a text, then *(vec(cat) * vec(mouse))
+    = log(20)*. The DL4J NLP library also provides a GloVe model implementation, `GloVe.Builder`
+    ([https://static.javadoc.io/org.deeplearning4j/deeplearning4j-nlp/1.0.0-alpha/org/deeplearning4j/models/glove/Glove.Builder.html](https://static.javadoc.io/org.deeplearning4j/deeplearning4j-nlp/1.0.0-alpha/org/deeplearning4j/models/glove/Glove.Builder.html)).
+    So, this example could be adapted for the GloVe model. The same file containing
+    about 100,000 generic sentences used for the Word2Vec example is the input for
+    this new one. The `SentenceIterator` and tokenization don''t change (the same
+    as for the Word2Vec example). What''s different is the model to build, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We can fit the model by invoking its `fit` method, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'After the fitting process completes, we can use model to do several things,
+    such as find the similarity between two words, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Or, find the *n* nearest words to a given one:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The output produced will look like this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/c8400fd5-a95a-4df1-af5f-ab92a0e621f5.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: After seeing these last two examples, you are probably wondering which model,
+    Word2Vec or GloVe, is better. There is no winner; it all depends on the data.
+    It is possible to pick up one model and train it in a way that the encoded vectors
+    at the end become specific for the domain of the use case scenario in which the
+    model is working.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Hands-on NLP with TensorFlow
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'In this section, we are going to use TensorFlow (Python) to do DL sentiment
+    analysis using the same *Large Movie Review Dataset* as for the first example
+    in the previous section. Prerequisites for this example are Python 2.7.x, the
+    PIP package manager, and Tensorflow. The *Importing Python Models in the JVM with
+    DL4J* section in [Chapter 10](3b6f47c0-6e17-484b-ad30-b6f92eb0473c.xhtml), *Deploying
+    on a Distributed System*, covers the details of setting up the required tools.
+    We are also going to use the TensorFlow hub library ([https://www.tensorflow.org/hub/](https://www.tensorflow.org/hub/)),
+    which has been created for reusable ML modules. It needs to be installed through
+    `pip`, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The example also requires the `pandas` ([https://pandas.pydata.org/](https://pandas.pydata.org/))
+    data analysis library, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Import the necessary modules:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Next, we define a function to load all of the files from an input directory
+    into a pandas DataFrame, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Then, we define another function to merge the positive and negative reviews,
+    add a column called `polarity`*,* and do some shuffling, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Implement a third function to download the movie review dataset and use the `load_dataset`
+    function to create the following training and test DataFrames:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: This function downloads the datasets the first time the code is executed. Then,
+    unless you delete them, the following executions get them from the local disk.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The two DataFrames are then created this way:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We can also pretty-print the training DataFrame head to the console to check
+    that everything went fine, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The example output is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/0892372b-9b6d-40d6-a465-3292fffac720.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Now that we have the data, we can define the model. We are going to use the
+    **Estimator** API ([https://www.tensorflow.org/guide/estimators](https://www.tensorflow.org/guide/estimators)),
+    a high-level TensorFlow API that has been introduced in the framework to simplify
+    ML programming. *Estimator* provides some input functions that form the wrapper
+    of the pandas DataFrames. So, we define the following function: `train_input_fn`
+    to train on the whole training set with no limit on training epochs:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'To do prediction on the whole training set execute the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE25]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'And we use `predict_test_input_fn` to do predictions on the test set:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE26]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The TensorFlow hub library provides a feature column that applies a module
+    on a given input text feature whose values are strings, and then passes the outputs
+    of the module downstream. In this example, we are going to use the `nnlm-en-dim128`
+    module ([https://tfhub.dev/google/nnlm-en-dim128/1](https://tfhub.dev/google/nnlm-en-dim128/1)),
+    which has been trained on the English Google News 200B corpus. The way we embed
+    and use this module in our code is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE27]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'For classification purposes, we use a `DNNClassifier` ([https://www.tensorflow.org/api_docs/python/tf/estimator/DNNClassifier](https://www.tensorflow.org/api_docs/python/tf/estimator/DNNClassifier))
+    provided by the TensorFlow hub library. It extends `Estimator` ([https://www.tensorflow.org/api_docs/python/tf/estimator/Estimator](https://www.tensorflow.org/api_docs/python/tf/estimator/Estimator))
+    and is a classifier for TensorFlow DNN models. So the `Estimator` in our example
+    is created this way:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE28]'
+  prefs: []
+  type: TYPE_PRE
+- en: Note that we are specifying `embedded_text_feature_column` as a feature column.
+    The two hidden layers have `500` and `100` nodes respectively. `AdagradOptimizer`
+    is the default optimizer for `DNNClassifier`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The training of the model can be implemented with a single line of code, by
+    invoking the `train` method of our `Estimator`*,* as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE29]'
+  prefs: []
+  type: TYPE_PRE
+- en: Given the size of the training dataset used for this example (25 KB), 1,000
+    steps is equivalent to five epochs (using the default batch size).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'After the training has completed, we can then do predictions for the training
+    dataset, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE30]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'And the test dataset as well, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE31]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Here''s the output of the application, showing the accuracy for both predictions:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/19709820-20cd-46cc-81e6-039c059c3b41.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'We can also do evaluation of the model and, as explained in [Chapter 9](3b6f47c0-6e17-484b-ad30-b6f92eb0473c.xhtml),
+    *Interpreting Neural Network Output*, in the *Evaluation for Classification* section,
+    calculate the confusion matrix in order to understand the distribution of wrong
+    classifications. Let''s define a function to get the predictions first, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE32]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now, create the confusion matrix starting on the training dataset, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE33]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'And, normalize it to have each row sum equals to `1`, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE34]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The output of the confusion matrix on screen will look like this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/1a61cf30-383f-406d-aafe-31d1bff21dd3.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: However, you can also render it in a more elegant way using some chart library
+    available in Python of your choice.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You have noticed that, while this code is compact and doesn't require advanced
+    Python knowledge, it isn't an easy entry point for a starter in ML and DL, as
+    TensorFlow implicitly requires a good knowledge of ML concepts in order to understand
+    its API. Making a comparison with the DL4J API, you can tangibly feel this difference.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Hand-on NLP with Keras and a TensorFlow backend
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: As mentioned in [Chapter 10](3b6f47c0-6e17-484b-ad30-b6f92eb0473c.xhtml), *Deploying
+    on a Distributed System*, in the  *Importing Python Models in the JVM with DL4J*
+    section, when doing DL in Python, an alternative to TensorFlow is Keras. It can
+    be used as a high-level API on top of a TensorFlow backed. In this section, we
+    are going to learn how to do sentiment analysis in Keras, and finally we will
+    make a comparison between this implementation and the previous one in TensorFlow.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We are going to use the exact same IMDB dataset (25,000 samples for training
+    and 25,000 for test) as for the previous implementations through DL4J and TensorFlow.
+    The prerequisites for this example are the same as for the TensorFlow example
+    (Python 2.7.x, the PIP package manager, and Tensorflow), plus of course Keras.
+    The Keras code module has that dataset built in:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE35]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'So, we just need to set the vocabulary size and load the data from there, and
+    not from any other external location, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE36]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'At the end of the download, you can print a sample of the downloaded reviews
+    for inspection purposes, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE37]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The output is shown as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/d6c6c8d4-2558-41b2-bd8c-f261f020c74e.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'You can see that at this stage the reviews are stored as a sequence of integers,
+    IDs that have been preassigned to single words. Also the label is an integer (0
+    means negative, 1 means positive). It is possible anyway to map the downloaded
+    reviews back to their original words by using the dictionary returned by the `imdb.get_word_index()`
+    method, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE38]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![](img/f6aedc98-82c7-44d2-addf-c3a8c3f67bcb.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'In the preceding screenshot, you can see the returned dictionary of the words
+    used in the input reviews. We are going to use an RNN model for this example.
+    In order to feed data to it, all the inputs should have the same length. Looking
+    at the maximum and minimum lengths of the downloaded reviews (following is the
+    code to get this info and its output):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE39]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The output is shown as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/3517618f-f769-4a64-a8e6-e54fb4178429.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'We can see that they don''t have all the same length. So, we need to limit
+    the maximum review length to, let''s say, 500 words by truncating the longer reviews
+    and padding the shorter ones with zeros. This can be done through the `sequence.pad_sequences`
+    Keras function, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE40]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Let''s design the RNN model, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE41]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'It is a simple RNN model, with three layers, embedding, LSTM, and dense, as
+    follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/d5d01892-b8c9-4725-8cc3-0d848814f30e.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The input for this model is a sequence of integer word IDs with a maximum length
+    of `500`, and its output is a binary label (`0` or `1`).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The configuration of the learning process for this model can be done through
+    its `compile` method, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE42]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'After setting up the batch size and number of training epochs, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE43]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We can start the training, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE44]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![](img/478ba6b3-4b25-4568-84a7-955ff745d274.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'When the training completes, we can evaluate the model to assess its level
+    of accuracy using the test dataset, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE45]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![](img/0cf6ea34-cc97-4000-b328-39e87834b7ee.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Looking at the code of this example, you should have noticed that it is more
+    high-level if than the previous example with TensorFlow, and that the focus at
+    development time is mostly on the specific problem model implementation details
+    rather than the ML/DL mechanisms behind it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Hands-on NLP with Keras model import into DL4J
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In [Chapter 10](3b6f47c0-6e17-484b-ad30-b6f92eb0473c.xhtml), *Deploying on a
+    Distributed System*, *Importing Python Models in the JVM with DL4J* section, we
+    learned how to import existing Keras models into DL4J and use them to make predictions
+    or re-train them in a JVM-based environment.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'This applies to the model we implemented and trained in the *Hand-on NLP with
+    Keras and TensorFlow backend* section in Python, using Keras with a TensorFlow
+    backed. We need to modify the code for that example to serialize the model in
+    HDF5 format by doing the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE46]'
+  prefs: []
+  type: TYPE_PRE
+- en: The `sa_rnn.h5` file produced needs to be copied into the resource folder for
+    the Scala project to be implemented. The dependencies for the project are the
+    DataVec API, the DL4J core, ND4J, and the DL4J model import library.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We need to import and transform the Large Movie Review database as explained
+    in section 12.1, in case we want to retrain the model through DL4J. Then, we need
+    to import the Keras model programmatically, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE47]'
+  prefs: []
+  type: TYPE_PRE
+- en: Finally, we can start to do predictions by invoking the `predict` method of
+    `model` (which is an instance of `MultiLayerNetwork`, as usual in DL4J), passing
+    the input data as an ND4J DataSet ([https://static.javadoc.io/org.nd4j/nd4j-api/1.0.0-alpha/org/nd4j/linalg/dataset/api/DataSet.html](https://static.javadoc.io/org.nd4j/nd4j-api/1.0.0-alpha/org/nd4j/linalg/dataset/api/DataSet.html)).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: This chapter closes the explanation of the NLP implementation process with Scala.
+    In this chapter and the previous one, we evaluated different frameworks for this
+    programming language, and the pros and cons of each have been detailed. In this
+    chapter, the focus has been mostly on a DL approach to NLP. For that, some Python
+    alternatives have been presented, and the potential integration of those Python
+    models in a JVM context with the DL4J framework has been highlighted. At this
+    stage, a reader should be able to accurately evaluate what will be the best fit
+    for his/her particular NLP use case.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Starting from the next chapter, we will learn more about convolution and how
+    CNNs apply to image recognition problems. Image recognition will be explained
+    by presenting different implementations using different frameworks, including
+    DL4J, Keras, and TensorFlow.
+  prefs: []
+  type: TYPE_NORMAL

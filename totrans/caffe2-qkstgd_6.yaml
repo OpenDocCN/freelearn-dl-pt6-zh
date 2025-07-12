@@ -1,0 +1,589 @@
+- en: Deploying Models to Accelerators for Inference
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'In [Chapter 3](4481e225-7882-4625-9d42-63ba41e74b4f.xhtml), *Training Networks*,
+    we learned how to train deep neural networks using Caffe2\. In this chapter, we
+    will focus on inference: deploying a trained model in the field to *infer* results
+    on new data. For efficient inference, the trained model is typically optimized
+    for the accelerator on which it is deployed. In this chapter, we will focus on
+    two popular accelerators: GPUs and CPUs, and the inference engines TensorRT and
+    OpenVINO, which can be used to deploy Caffe2 models on them.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this chapter, we will look at the following topics:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Inference engines
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: NVIDIA TensorRT
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Intel OpenVINO
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Inference engines
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Popular DL frameworks, such as TensorFlow, PyTorch, and Caffe, are designed
+    primarily for *training* deep neural networks. They focus on offering features
+    that are more useful for researchers to experiment easily with different types
+    of network structures, training regimens, and techniques to achieve optimum training
+    accuracy to solve a particular problem in the real world. After a neural network
+    model has been successfully trained, practitioners could continue to use the same
+    DL framework for deploying the trained model for inference. However, there are
+    more efficient deployment solutions for inference. These are pieces of inference
+    software that compile a trained model into a computation engine that is most efficient
+    in latency or throughput on the accelerator hardware used for deployment.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Much like a C or C++ compiler, inference engines take the trained model as input
+    and apply several optimization techniques on the graph structure, layers, weights,
+    and formats of the trained neural network. For example, they might remove layers
+    that are only useful in training. The engine might fuse multiple horizontally
+    adjacent layers, or vertically adjacent layers, together for faster computation
+    and a lower number of memory accesses.
+  prefs: []
+  type: TYPE_NORMAL
+- en: While training is typically performed in FP32 (4 bytes floating point), inference
+    engines might offer inference in lower-precision data types such as FP16 (2 bytes
+    floating point) and INT8 (1 byte integer). To achieve this, these engines might
+    convert the weight parameters of the model to lower precision and might use quantization.
+    Using these lower-precision data types typically speeds up inference by a large
+    factor, while degrading the accuracy of your trained networks by a negligible
+    amount.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The inference engines and libraries available right now typically focus on optimizing
+    the trained model for a particular type of accelerator hardware. For example,
+    the NVIDIA TensorRT inference engine (not to be confused with the Google TensorFlow
+    DL framework) focuses on optimizing your trained neural network for inference
+    on NVIDIA graphics cards and embedded devices. Similarly, the Intel OpenVINO inference
+    engine focuses on optimizing trained networks for Intel CPUs and accelerators.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the rest of the chapter, we will look at how to deploy Caffe2 models for
+    inference on GPUs and CPUs, by using TensorRT and OpenVINO as the inference engines.
+  prefs: []
+  type: TYPE_NORMAL
+- en: NVIDIA TensorRT
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: TensorRT is the most popular inference engine for deploying trained models on
+    NVIDIA GPUs for inference. Not surprisingly, this library and its set of tools
+    are developed by NVIDIA and it is available free for download and use. A new version
+    of TensorRT typically accompanies the release of every new NVIDIA GPU architecture,
+    adding optimizations for the new GPU architecture and also support for new types
+    of layers, operators, and DL frameworks.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Installing TensorRT
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: TensorRT installers can be downloaded from the web at [https://developer.nvidia.com/tensorrt](https://developer.nvidia.com/tensorrt).
+    Installation packages are available for x86-64 (Intel or AMD 64-bit CPU) computers,
+    PowerPC computers, embedded hardware such as NVIDIA TX1/TX2, and NVIDIA Xavier
+    systems used in automobiles. Operating systems supported include Linux, Windows,
+    and QNX (a realtime OS used in automobiles).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For Linux, multiple LTS versions of Ubuntu are supported, for example, 14.04,
+    16.04, and 18.04\. Other Linux distributions, such as CentOS/Red Hat are also
+    supported. Every TensorRT package is built for a particular version of CUDA, such
+    as 9.0 or 10.0, for example. A typical installer''s download web page is shown
+    in Figure 6.1*,* as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/00f555a9-fbae-40df-aecf-761f48f3e8db.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 6.1: Installer''s web page for TensorRT version 5.0\. Notice the Installation
+    Guide, packages for Ubuntu, Red Hat, Windows, and also Jetpack for embedded systems
+    and DRIVE for automobiles'
+  prefs: []
+  type: TYPE_NORMAL
+- en: You will need to download the TensorRT installer that matches your hardware,
+    operating system, and installed CUDA version. For example, on my x86-64 notebook
+    running Ubuntu 18.04, I have CUDA 10.0 installed. So, I will download the installer
+    that matches this setup.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Once you have downloaded the installer package, follow the instructions provided
+    in the TensorRT Installation Guide document to install it. You can find this guide
+    as a PDF document on the installer page (see Figure 6.1). Installing typically
+    entails using `sudo dpkg -i` for a package on Ubuntu, or using `yum` on Red Hat.
+    If you downloaded a `.tar.gz` archive, then you can extract it to a location of
+    your choice. No matter how you install it, the TensorRT package includes these
+    components: C++ header files, C++ shared library files, C++ samples, Python library,
+    and Python samples.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using TensorRT
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Using TensorRT for inference typically involves the following three stages:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Importing a pre-trained network or creating a network
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Building an optimized engine from the network
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Inference using execution context of an engine
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: We will examine these three stages in detail in the following sections.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Importing a pre-trained network or creating a network
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Models are trained in DL frameworks, such as Caffe2, Caffe, PyTorch, or TensorFlow.
+    Some practitioners might use their own custom frameworks to train models. The
+    first step is to build a network structure inside TensorRT and load the pre-trained
+    weights from these DL framework models into the layers of the TensorRT network.
+    This process is described in Figure 6.2, as follows*:*
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/291264db-f419-4ec6-a8d3-52dc0b007a4b.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 6.2: How a network can be built in TensorRT'
+  prefs: []
+  type: TYPE_NORMAL
+- en: If you trained a model using popular DL frameworks, then TensorRT provides **parsers**
+    to parse your pre-trained model files and build a network from it. TensorRT provides
+    an ONNX parser named `IONNXConfig` that can be used to load and import your Caffe2
+    pre-trained model file that has been converted to ONNX. You can find information
+    on how to convert a Caffe2 model to ONNX in [Chapter 5](4481e225-7882-4625-9d42-63ba41e74b4f.xhtml),
+    *Working with Other Frameworks*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: TensorRT provides a Caffe parser named `ICaffeParser` that can be used to load
+    and import your Caffe model. Similarly, it also provides a TensorFlow parser named
+    `IUffConfig` to load and import your TensorFlow model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Not all layers and operators from Caffe2, ONNX, or other frameworks might be
+    supported in TensorRT. Also, if you trained a model using your own custom training
+    framework then you cannot use these parsers. To cover such scenarios, TensorRT
+    provides users with the ability to create a network layer by layer. Custom layers
+    that are not supported in TensorRT can be implemented using TensorRT plugins.
+    You would typically need to implement an unsupported layer in CUDA for optimum
+    performance with TensorRT. Examples of all these use cases are depicted in the
+    samples that ship with TensorRT.
+  prefs: []
+  type: TYPE_NORMAL
+- en: No matter which of the preceding processes you follow, you end up with a TensorRT
+    network called `INetworkDefinition`. This can be used in the second stage for
+    optimization.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Building an optimized engine from the network
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Once a network and its weights are represented inside TensorRT, we can then
+    optimize this network definition. This optimization step is performed by a module
+    called the **builder**. The builder should be executed on the same GPU on which
+    you plan to perform inference later. Though models are trained using FP32 precision,
+    you can request the builder to use lower-precision FP16 or INT8 data types that
+    occupy less memory and might have optimized instructions on certain GPUs. This
+    is shown in Figure 6.3, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/ebee6a69-4efd-42ba-98fb-d2a949f7f276.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 6.3: Build process in TensorRT to produce an engine'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The builder tries various optimizations specific to the GPU that you run it
+    on. It tries kernels and data formats that are specific to the GPU architecture
+    and GPU model that you run it on. It times all of these optimization opportunities
+    and picks the optimal candidates. This optimized version of the network that it
+    produces is called an **engine**. This engine can be serialized to a file commonly
+    known as the **PLAN file**.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Inference using execution context of an engine
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'To use an engine for inference in TensorRT, we first need to create a runtime.
+    The runtime can be used to load an engine from a PLAN file after deserializing
+    it. We can then create one or more execution contexts from the runtime and use
+    those for runtime inference. This process is depicted in Figure 6.4,as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/eac11990-42d1-4c94-828a-972f0ba87be4.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 6.4: Process of inference using an engine in TensorRT'
+  prefs: []
+  type: TYPE_NORMAL
+- en: TensorRT API and usage
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: TensorRT provides both a C++ API and a Python API for your use. These APIs can
+    be used to perform all the three stages depicted in the earlier sections. You
+    can look at the samples that are provided along with TensorRT to understand how
+    to write your own C++ and Python programs that do this. For example, the `sampleMNISTAPI`
+    sample that ships with TensorRT shows how to build a simple network to solve the
+    `MNIST` problem (introduced in [Chapter 2](270a3617-74cd-4e64-98f7-eb0c4e3cbcf6.xhtml),
+    *Composing Networks*) and load pre-trained weights into each of the layers.
+  prefs: []
+  type: TYPE_NORMAL
+- en: To use the C++ API, you would essentially include the `NvInfer.h`, and related
+    header files, and compile your program. When you need to link your program, you
+    would need to make sure that the `libnvinfer.so` and other related TensorRT library
+    files are in your `LD_LIBRARY_PATH` environment variable.
+  prefs: []
+  type: TYPE_NORMAL
+- en: TensorRT ships with a tool named `trtexec` that can be used to experiment with
+    an import of a pre-trained model and use it for inference. As an example, we will
+    illustrate how to use our AlexNet ONNX model from [Chapter 5](4481e225-7882-4625-9d42-63ba41e74b4f.xhtml),
+    *Working with Other Frameworks*, for inference in TensorRT.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'First, we need to import our AlexNet ONNX model file (converted from Caffe2
+    protobuf file) and build an optimized engine file from it. This can be done using
+    `trtexec`, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: The `--onnx` option is used to point to the input ONNX file. There are similar
+    `--deploy` and `--uff` options available if you are importing Caffe or TensorFlow
+    models, respectively. The `--output` option is used to specify the name of the
+    final output from the model. There is a similar `--input` option to point out
+    an input to the model. Multiple instances of the `--input` and `--output` options
+    can be used if the model has multiple inputs or outputs. The `--saveEngine` option
+    is used to indicate a file path that the tool will use to serialize the optimized
+    engine to. For more information, please try `./trtexec --help`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Next, we can load the saved optimized engine and then use it for inference,
+    as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: The tool deserializes the PLAN file to an engine, creates a runtime from the
+    engine and then creates an execution context from the runtime. It uses this context
+    to run batches of random inputs and reports the inference runtime performance
+    of this model on the GPU you ran it on. The source code of `trtexec` and all TensorRT
+    samples is available in the TensorRT package. This source code is a good instructional
+    aid to learning how to incorporate TensorRT into your inference application in
+    C++ or Python.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Intel OpenVINO
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: OpenVINO consists of libraries and tools created by Intel that enable you to
+    optimize your trained DL model from any framework and then deploy it using an
+    inference engine on Intel hardware. Supported hardware includes Intel CPUs, integrated
+    graphics in Intel CPUs, Intel's Movidius Neural Compute Stick, and FPGAs. OpenVINO
+    is available for free from Intel.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'OpenVINO includes the following components:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Model optimizer**: A tool that imports trained DL models from other DL frameworks,
+    converts them, and then optimizes them. Supported DL frameworks include Caffe,
+    TensorFlow, MXNet, and ONNX. Note the absence of support for Caffe2 or PyTorch.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Inference engine**: These are libraries that load the optimized model produced
+    by the model optimizer and provide your applications with the ability to run the
+    model on Intel hardware.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Demos and samples**: These simple applications demonstrate the use of OpenVINO
+    and help you integrate it into your application.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: OpenVINO is meant for inference; it provides no features to research new network
+    structures or train neural networks. Using OpenVINO is a big topic by itself.
+    In this book, we will focus on how to install it, test it, and use Caffe2 models
+    with it for inference.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Installing OpenVINO
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this section, we will look at the steps to install and test OpenVINO on Ubuntu.
+    The steps to install and test on other Linux distributions, such as CentOS, and
+    other operating systems, such as Windows, is similar. For guidance on all of these,
+    please refer to the *OpenVINO Installation Guide* suitable for your operating
+    system. It is available online and in the installer.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Installation files of OpenVINO for your operating system or Linux distribution
+    can be downloaded from [https://software.intel.com/en-us/openvino-toolkit](https://software.intel.com/en-us/openvino-toolkit).
+    For example, for Ubuntu it gives me the option of downloading a Customizable Package
+    or a single large Full Package. Figure 6.5 shows these options, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/25f084bd-3ebb-494c-ad6d-294f26a5edab.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 6.5: OpenVINO installer options for download on Ubuntu'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The downloaded file typically has a filename of the form `l_openvino_toolkit_p_<version>.tgz`.
+    Uncompress the contents of this file to a directory and change to that directory.
+    Here you will find installer shell scripts available in two formats: console or
+    GUI. Either of these can be executed as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: Both of these options provide a helpful wizard to enable you to choose where
+    you want to install OpenVINO files and what components of OpenVINO you would like
+    to install. If you run the scripts without `sudo`, they will provide you with
+    an option to install to an `intel` subdirectory inside your home directory. Running
+    with `sudo` helps you install to `/opt/intel`, which is where most Intel tools
+    traditionally get installed.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Figure 6.6 shows the OpenVINO components that can be chosen during installation.
+    At a minimum, I recommend installing the Model Optimizer, Inference Engine, and
+    OpenCV. OpenCV will be needed if you want to read images and feed them to the
+    inference engine. Figure 6.6 is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/42b61e6a-dd30-4801-8031-d00490b83211.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 6.6: OpenVINO components that can be installed using the GUI installer
+    wizard'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'After the main installation, we also need to install some external dependencies
+    of OpenVINO by completing the following these commands:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: If you did not install using `sudo`, you can replace `/opt/intel` in the preceding
+    command with the path where you installed OpenVINO in your home directory.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now we are ready to set up the environment variables needed for OpenVINO. We
+    can do this by using the following command:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We next configure OpenVINO to support the DL frameworks whose models we want
+    to import. We can pull in the configurations for all supported DL frameworks by
+    using the following command:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We are now ready to test if our OpenVINO installation is working. We can do
+    this by running an OpenVINO demo that downloads a *SqueezeNet* model trained using
+    Caffe, optimizes it using the Model Optimizer, and runs it using the Inference
+    Engine on an image of a car, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'On running this, we should be able to see a classification result for the car
+    image. The class with the highest probability score is a sports car, thus confirming
+    that the model inference using OpenVINO is working. This is shown in Figure 6.7,
+    as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/4286ef37-f542-4955-8eca-a9f447fd4298.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 6.7: OpenVINO demo classification results on a sports car image'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Model conversion
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: OpenVINO does not support the Caffe2 model format. However, it does support
+    the popular ONNX representation for models. So, to use a Caffe2 model with OpenVINO
+    we should follow a two-step process.
+  prefs: []
+  type: TYPE_NORMAL
+- en: First, we need to convert our Caffe2 model to the ONNX format. This process
+    is described in detail in [Chapter 5](4481e225-7882-4625-9d42-63ba41e74b4f.xhtml),
+    *Working with Other Frameworks*. After that, we can use the ONNX model thus produced
+    with the OpenVINO Model Optimizer to import, optimize and convert it to the OpenVINO
+    **Intermediate Representation** (**IR**) format.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let's examine this Model Optimizer process with the AlexNet model that we converted
+    to ONNX in [Chapter 5](4481e225-7882-4625-9d42-63ba41e74b4f.xhtml),*Working with
+    Other Frameworks*. We had converted the AlexNet Caffe2 model to produce an `alexnet.onnx`
+    file.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To convert this AlexNet ONNX model to the OpenVINO IR using Model Optimizer,
+    we can use the `mo.py` script as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This conversion process produces three files:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`.bin` file: This file contains the weights of the model. This is the reason
+    why this is typically a large file.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`.xml` file: This is an XML file containing the network structure. Details
+    stored inside this file include metadata about the model, the list of layers,
+    configuration parameters of each layer, and the list of edges between the layers.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`.mapping` file: This is an XML file that has the mapping from the input file
+    layers to the output OpenVINO file layers.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: We only need the `.bin` file and the `.xml` file to use the model with the OpenVINO
+    Inference Engine.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Model inference
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: OpenVINO provides an Inference Engine API in both C++ and Python. This API can
+    be used to create network structures programmatically for your trained Caffe2
+    models. You can then load the weights of each network layer into the OpenVINO
+    network and use that for inference on Intel hardware. If OpenVINO does not currently
+    support the type of network layer or operator that your trained model is using,
+    then you will need to implement that using a plugin layer in OpenVINO. All this
+    effort is worth it because you will benefit from gains in latency and throughput
+    for your Caffe2 trained models once they are running using the OpenVINO Inference
+    Engine.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For most networks, there is an easier alternative: convert your Caffe2 trained
+    model to OpenVINO IR using the OpenVINO Model Optimizer. We looked at how to do
+    this in the previous section. After this step, use the features in OpenVINO Inference
+    Engine to import this IR model automatically for inference. OpenVINO provides
+    many Inference Engine samples that can be used to try this process out.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Remember to run the `/opt/intel/openvino/bin/setupvars.sh` script before you
+    do this. This script sets up the necessary environment variables and settings
+    for OpenVINO use.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Go to the Inference Engine `samples` directory and examine the various samples.
+    There are samples to suit many common use cases. For example, there are samples
+    to test classification models, to test object detection models, to test text detection,
+    to test the latency and throughput performance, and more.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To build all the Inference Engine samples, follow these steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: The Inference Engine samples will be built using CMake. The sample binary files
+    are installed into a directory called `inference_engine_samples_build/intel64/Release`
+    under your home directory.
+  prefs: []
+  type: TYPE_NORMAL
+- en: These samples make it very convenient to quickly try the OpenVINO Inference
+    Engine on an IR model. These samples may use some extra libraries that are installed
+    along with OpenVINO. So, if you find that a sample needs a library (`.so` file)
+    that is missing, you may need to add the path to that library to the `LD_LIBRARY_PATH`
+    environment variable.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'I found that using the following `LD_LIBRARY_PATH` worked for me:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'One of the simplest samples to try is `hello_classification`. This sample takes
+    two inputs: a path to an OpenVINO IR classification model and a path to an image
+    file. It creates an OpenVINO Inference Engine by importing the IR model and running
+    inference on it using the image.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To try the OpenVINO Inference Engine on the IR model we created earlier from
+    our AlexNet Caffe2 model, use the following command:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: We can see that the `hello_classification` sample successfully loaded the IR
+    model into its inference engine and ran classification on the input sunflower
+    image. It reported the ImageNet class 985 (daisy) as the highest score, which
+    is the closest matching class for sunflower among the 1,000 ImageNet classes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: OpenVINO Inference Engine can be used to perform inference in FP16 and also
+    INT8 modes. Please refer to the OpenVINO documentation for details.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'In this chapter, we learned about inference engines and how they are an essential
+    tool for the final deployment of a trained Caffe2 model on accelerators. We focused
+    on two types of popular accelerators: NVIDIA GPUs and Intel CPUs. We looked at
+    how to install and use TensorRT for deploying our Caffe2 model on NVIDIA GPUs.
+    We also looked at the installation and use of OpenVINO for deploying our Caffe2
+    model on Intel CPUs and accelerators.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Many other companies, such as Google, Facebook, Amazon, and start-ups such as
+    Habana and GraphCore, are developing new accelerator hardware for the inference
+    of DL models. There are also efforts such as ONNX Runtime that are bringing together
+    the inference engines from multiple vendors under one umbrella. Please evaluate
+    these options and choose which accelerator hardware and software works best for
+    deployment of your Caffe2 model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the next chapter, we will take a look at Caffe2 at the edge on Raspberry
+    Pi, Caffe2 in the cloud using containers, and Caffe2 model visualization.
+  prefs: []
+  type: TYPE_NORMAL

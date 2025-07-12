@@ -1,0 +1,1434 @@
+- en: Chapter 8. Variational Autoencoders (VAEs)
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Similar to **Generative Adversarial Networks** (**GANs**) that we've discussed
+    in the previous chapters, **Variational Autoencoders** (**VAEs**) [1] belong to
+    the family of generative models. The generator of VAE is able to produce meaningful
+    outputs while navigating its continuous latent space. The possible attributes
+    of the decoder outputs are explored through the latent vector.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In GANs, the focus is on how to arrive at a model that approximates the input
+    distribution. VAEs attempt to model the input distribution from a decodable continuous
+    latent space. This is one of the possible underlying reasons why GANs are able
+    to generate more realistic signals when compared to VAEs. For example, in image
+    generation, GANs are able to produce more realistic looking images while VAEs
+    in comparison generate images that are less sharp.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Within VAEs, the focus is on the variational inference of latent codes. Therefore,
+    VAEs provide a suitable framework for both learning and efficient Bayesian inference
+    with latent variables. For example, VAEs with disentangled representations enable
+    latent code reuse for transfer learning.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In terms of structure, VAEs bear a resemblance to an autoencoder. They are also made
+    up of an encoder (also known as recognition or inference model) and a decoder
+    (also known as a generative model). Both VAEs and autoencoders attempt to reconstruct
+    the input data while learning the latent vector. However, unlike autoencoders,
+    the latent space of VAEs is continuous, and the decoder itself is used as a generative
+    model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the same line of discussions on GANs that we discussed in the previous chapters,
+    the VAEs decoder can also be conditioned. For example, in the MNIST dataset, we're
+    able to specify the digit to produce given a one-hot vector. This class of conditional
+    VAE is called CVAE [2]. VAE latent vectors can also be disentangled by including
+    a regularizing hyperparameter on the loss function. This is called
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Variational Autoencoders (VAEs)](img/B08956_08_001.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: -VAE [5]. For example, within MNIST, we're able to isolate the latent vector
+    that determines the thickness or tilt angle of each digit.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The goal of this chapter is to present:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The principles of VAEs
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: An understanding of the reparameterization trick that facilitates the use of stochastic
+    gradient descent on VAE optimization
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The principles of conditional VAE (CVAE) and![Variational Autoencoders (VAEs)](img/B08956_08_002.jpg)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: -VAE
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: An understanding of how to implement VAEs within the Keras library
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Principles of VAEs
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'In a generative model, we''re often interested in approximating the true distribution
+    of our inputs using neural networks:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Principles of VAEs](img/B08956_08_003.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: (Equation 8.1.1)
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the preceding equation,
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Principles of VAEs](img/B08956_08_004.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: are the parameters determined during training. For example, in the context of
+    the celebrity faces dataset, this is equivalent to finding a distribution that
+    can draw faces. Similarly, in the MNIST dataset, this distribution can generate
+    recognizable handwritten digits.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In machine learning, to perform a certain level of inference, we're interested
+    in finding
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Principles of VAEs](img/B08956_08_005.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: ', a joint distribution between inputs, *x*, and the latent variables, *z*.
+    The latent variables are not part of the dataset but instead encode certain properties
+    observable from inputs. In the context of celebrity faces, these might be facial
+    expressions, hairstyles, hair color, gender, and so on. In the MNIST dataset,
+    the latent variables may represent the digit and writing styles.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Principles of VAEs](img/B08956_08_006.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'is practically a distribution of input data points and their attributes. *P*
+    *θ*(*x*) can be computed from the marginal distribution:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Principles of VAEs](img/B08956_08_007.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: (Equation 8.1.2)
+  prefs: []
+  type: TYPE_NORMAL
+- en: In other words, considering all of the possible attributes, we end up with the
+    distribution that describes the inputs. In celebrity faces, if we consider all
+    the facial expressions, hairstyles, hair colors, gender, the distribution describing
+    the celebrity faces is recovered. In the MNIST dataset, if we consider all of
+    the possible digits, writing styles, and so on, we end up with the distribution
+    of handwritten digits.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The problem is *Equation 8.1.2* is *intractable*. the equation does not have
+    an analytic form or an efficient estimator. It cannot be differentiated with respect
+    to its parameters. Therefore, optimization by a neural network is not feasible.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Using Bayes theorem, we can find an alternative expression for *Equation 8.1.2*:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Principles of VAEs](img/B08956_08_008.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: (Equation 8.1.3)
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*P*(*z*) is a prior distribution over *z*. It is not conditioned on any observations.
+    If *z* is discrete and'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Principles of VAEs](img/B08956_08_009.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: is a Gaussian distribution, then
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Principles of VAEs](img/B08956_08_010.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: is a mixture of Gaussians. If *z* is continuous,
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Principles of VAEs](img/B08956_08_011.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: is an infinite mixture of Gaussians.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In practice, if we try to build a neural network to approximate
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Principles of VAEs](img/B08956_08_012.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: without a suitable loss function, it will just ignore *z* and arrive at a trivial
+    solution
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Principles of VAEs](img/B08956_08_013.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: '='
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Principles of VAEs](img/B08956_08_014.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: . Therefore, *Equation 8.1.3* does not provide us with a good estimate of
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Principles of VAEs](img/B08956_08_015.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: .
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Alternatively, *Equation 8.1.2* can also be expressed as:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Principles of VAEs](img/B08956_08_016.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: (Equation 8.1.4)
+  prefs: []
+  type: TYPE_NORMAL
+- en: However,
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Principles of VAEs](img/B08956_08_017.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: is also intractable. The goal of a VAEs is to find a tractable distribution
+    that closely estimates
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Principles of VAEs](img/B08956_08_018.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: .
+  prefs: []
+  type: TYPE_NORMAL
+- en: Variational inference
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: In order to make
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Variational inference](img/B08956_08_019.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'tractable, VAE introduces the variational inference model (an encoder):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Variational inference](img/B08956_08_020.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: (Equation 8.1.5)
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Variational inference](img/B08956_08_021.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: provides a good estimate of
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Variational inference](img/B08956_08_022.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: . It is both parametric and tractable.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Variational inference](img/B08956_08_023.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: can be approximated by deep neural networks by optimizing the parameters
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Variational inference](img/B08956_08_024.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: .
+  prefs: []
+  type: TYPE_NORMAL
+- en: Typically,
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Variational inference](img/B08956_08_025.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'is chosen to be a multivariate Gaussian:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Variational inference](img/B08956_08_026.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: (Equation 8.1.6)
+  prefs: []
+  type: TYPE_NORMAL
+- en: Both mean,
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Variational inference](img/B08956_08_027.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: ', and standard deviation,'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Variational inference](img/B08956_08_028.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: ', are computed by the encoder neural network using the input data points. The
+    diagonal matrix implies that the elements of *z* are independent.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Core equation
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The inference model
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Core equation](img/B08956_08_029.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: generates latent vector *z* from input *x*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Core equation](img/B08956_08_030.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: is like the encoder in an autoencoder model. On the other hand,
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Core equation](img/B08956_08_031.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: reconstructs the input from the latent code *z*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Core equation](img/B08956_08_032.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: acts like the decoder in an autoencoder model. To estimate
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Core equation](img/B08956_08_033.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: ', we must identify its relationship with'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Core equation](img/B08956_08_034.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: and
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Core equation](img/B08956_08_035.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: .
+  prefs: []
+  type: TYPE_NORMAL
+- en: If
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Core equation](img/B08956_08_036.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: is an estimate of
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Core equation](img/B08956_08_037.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: ', the **Kullback-Leibler** (**KL**) divergence determines the distance between
+    these two conditional densities:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Core equation](img/B08956_08_038.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: (Equation 8.1.7)
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using Bayes theorem,
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Core equation](img/B08956_08_039_.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: (Equation 8.1.8)
+  prefs: []
+  type: TYPE_NORMAL
+- en: in *Equation 8.1.7*,
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Core equation](img/B08956_08_040.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: (Equation 8.1.9)
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Core equation](img/B08956_08_041.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: can be taken out the expectation since it is not dependent on
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Core equation](img/B08956_08_042.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: . Rearranging the preceding equation and recognizing that
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Core equation](img/B08956_08_043.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: ':'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Core equation](img/B08956_08_044.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: (Equation 8.1.10)
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*Equation 8.1.10* is the core of VAEs. The left-hand side is the term'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Core equation](img/B08956_08_045.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: that we are maximizing less the error due to the distance of
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Core equation](img/B08956_08_046.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: from the true
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Core equation](img/B08956_08_047.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: . We can recall that the logarithm does not change the location of maxima (or
+    minima). Given an inference model that provides a good estimate of
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Core equation](img/B08956_08_048.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: ','
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Core equation](img/B08956_08_049.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: is approximately zero. The first term,
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Core equation](img/B08956_08_050.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: ', on the right-hand side resembles a decoder that takes samples from the inference
+    model to reconstruct the input. The second term is another distance. This time
+    it''s between'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Core equation](img/B08956_08_051.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: and the prior
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Core equation](img/B08956_08_052.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: .
+  prefs: []
+  type: TYPE_NORMAL
+- en: The left side of *Equation 8.1.10* is also known as the **variational lower
+    bound** or **evidence lower bound** (**ELBO**). Since the KL is always positive,
+    ELBO is the lower bound of
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Core equation](img/B08956_08_053.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: . Maximizing ELBO by optimizing the parameters
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Core equation](img/B08956_08_054.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: and
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Core equation](img/B08956_08_055.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'of the neural network means that:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Core equation](img/B08956_08_056.jpg) or the inference model is getting better
+    in encoding the attributes of *x* in *z*'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '![Core equation](img/B08956_08_057.jpg) on the right-hand side of *Equation
+    8.1.10* is maximized or the decoder model is getting better in reconstructing
+    *x* from the latent vector *z*'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Optimization
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The right-hand side of *Equation 8.1.10* has two important bits of information
+    about the loss function of VAEs. The decoder term
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Optimization](img/B08956_08_058.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: means that the generator takes *z* samples from the output of the inference
+    model to reconstruct the inputs. Maximizing this term implies that we minimize
+    the **Reconstruction Loss**,
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Optimization](img/B08956_08_059.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: . If the image (data) distribution is assumed to be Gaussian, then MSE can be
+    used. If every pixel (data) is considered a Bernoulli distribution, then the loss
+    function is a binary cross entropy.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The second term,
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Optimization](img/B08956_08_060.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: ', turns out to be straightforward to evaluate. From *Equation 8.1.6*,'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Optimization](img/B08956_08_061.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: is a Gaussian distribution. Typically,
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Optimization](img/B08956_08_062.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'is also a Gaussian with zero mean and standard deviation equal to 1.0\. The
+    KL term simplifies to:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Optimization](img/B08956_08_063.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: (Equation 8.1.11)
+  prefs: []
+  type: TYPE_NORMAL
+- en: Where
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Optimization](img/B08956_08_064.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: is the dimensionality of *z*. Both
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Optimization](img/B08956_08_065.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: and
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Optimization](img/B08956_08_066.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: are functions of *x* computed through the inference model. To maximize
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Optimization](img/B08956_08_067.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: ','
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Optimization](img/B08956_08_068.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: and
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Optimization](img/B08956_08_069.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: . The choice of
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Optimization](img/B08956_08_070.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: stems from the property of isotropic unit Gaussian which can be morphed to an
+    arbitrary distribution given a suitable function. From *Equation 8.1.11*, the
+    **KL Loss**
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Optimization](img/B08956_08_071.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: is simply
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Optimization](img/B08956_08_072.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: .
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: For example, it was previously [6] demonstrated that an isotropic Gaussian could
+    be morphed into a ring-shaped distribution using the function
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Optimization](img/B08956_08_073.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: .
+  prefs: []
+  type: TYPE_NORMAL
+- en: Readers can further explore the theory as presented in Luc Devroye's, *Sample-Based
+    Non-Uniform Random Variate Generation* [7].
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In summary, the VAE loss function is defined as:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Optimization](img/B08956_08_074.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: (Equation 8.1.12)
+  prefs: []
+  type: TYPE_NORMAL
+- en: Reparameterization trick
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: '![Reparameterization trick](img/B08956_08_01.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 8.1.1: A VAE network with and without the reparameterization trick'
+  prefs: []
+  type: TYPE_NORMAL
+- en: On the left side of the preceding figure shows the VAE network. The encoder
+    takes the input *x*, and estimates the mean,
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Reparameterization trick](img/B08956_08_075.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: ', and the standard deviation,'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Reparameterization trick](img/B08956_08_076.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: ', of the multivariate Gaussian distribution of the latent vector *z*. The decoder
+    takes samples from the latent vector *z* to reconstruct the input as'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Reparameterization trick](img/B08956_08_077.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: . This seems straightforward until the gradient updates happen during backpropagation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Backpropagation gradients will not pass through the stochastic **Sampling**
+    block. While it's fine to have stochastic inputs for neural networks, it's not
+    possible for the gradients to go through a stochastic layer.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The solution to this problem is to push out the **Sampling** process as the
+    input as shown on the right side of *Figure 8.1.1*. Then, compute the sample as:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Reparameterization trick](img/B08956_08_078.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: (Equation 8.1.13)
+  prefs: []
+  type: TYPE_NORMAL
+- en: If
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Reparameterization trick](img/B08956_08_079.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: and
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Reparameterization trick](img/B08956_08_080.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: are expressed in vector format, then
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Reparameterization trick](img/B08956_08_081.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: is element-wise multiplication. Using *Equation 8.1.13*, it appears as if sampling
+    is directly coming from the latent space as originally intended. This technique
+    is better known as the **Reparameterization Trick**.
+  prefs: []
+  type: TYPE_NORMAL
+- en: With *Sampling* now happening at the input, the VAE network can be trained using the
+    familiar optimization algorithms such as SGD, Adam, or RMSProp.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Decoder testing
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: After training the VAE network, the inference model including the addition and
+    multiplication operator can be discarded. To generate new meaningful outputs,
+    samples are taken from the Gaussian distribution used in generating
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Decoder testing](img/B08956_08_082.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: '. Following figure shows us how to test the decoder:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Decoder testing](img/B08956_08_02.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 8.1.2: Decoder testing setup'
+  prefs: []
+  type: TYPE_NORMAL
+- en: VAEs in Keras
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The structure of VAE bears a resemblance to a typical autoencoder. The difference
+    is mainly on the sampling of the Gaussian random variables in the reparameterization
+    trick. *Listing* *8.1.1* shows the encoder, decoder, and VAE which are implemented
+    using MLP. This code has also been contributed to the official Keras GitHub repository.
+    For simplicity of the discussion, the latent vector *z* is 2-dim.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The encoder is just a two-layer MLP with the second layer generating the mean
+    and log variance. The use of log variance is for simplicity in the computation
+    of *KL Loss* and reparameterization trick. The third output of the encoder is
+    the sampling of *z* using the reparameterization trick. We should note that in
+    the sampling function,
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![VAEs in Keras](img/B08956_08_083.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: since
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![VAEs in Keras](img/B08956_08_084.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: given that it's the standard deviation of the Gaussian distribution.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The decoder is also a two-layer MLP that takes samples of *z* to approximate
+    the inputs. Both the encoder and the decoder use an intermediate dimension with a size
+    of 512.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The VAE network is simply both the encoder and the decoder joined together.
+    *Figures 8.1.3* to *8.1.5* show the encoder, decoder, and VAE models. The loss
+    function is the sum of both the *Reconstruction Loss* and *KL Loss*. The VAE network
+    has good results on the default Adam optimizer. The total number of parameters
+    of the VAE network is 807,700.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The Keras code for VAE MLP has pretrained weights. To test, we need to run:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: Note
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'The complete code can be found on the following link: [https://github.com/PacktPublishing/Advanced-Deep-Learning-with-Keras](https://github.com/PacktPublishing/Advanced-Deep-Learning-with-Keras).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Listing 8.1.1, `vae-mlp-mnist-8.1.1.py` shows us the Keras code of VAE using
+    MLP layers:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![VAEs in Keras](img/B08956_08_03.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 8.1.3: The encoder models of VAE MLP'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![VAEs in Keras](img/B08956_08_04.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 8.1.4: The decoder model of VAE MLP'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![VAEs in Keras](img/B08956_08_05.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 8.1.5: The VAE model using MLP'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*Figure 8.1.6* shows the continuous space of latent vector after 50 epochs
+    using `plot_results()`. For simplicity, the function is not shown here but can
+    be found in the rest of the code of `vae-mlp-mnist-8.1.1.py`. The function plots
+    two images, the test dataset labels (*Figure 8.1.6*) and the sample generated
+    digits (*Figure 8.1.7*) both as a function of *z*. Both plots demonstrate how
+    the latent vector determines the attributes of the generated digits.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Navigating through the continuous space will always result in an output that
+    bears a resemblance to the MNIST digits. For example, the region of digit 9 is
+    close to the region of digit 7\. Moving from 9 near the center to the left morphs
+    the digit to 7\. Moving from the center downward changes the generated digits
+    from 3 to 8 and finally to 1\. The morphing of the digits is more evident in *Figure
+    8.1.7* which is another way of interpreting *Figure 8.1.6*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In *Figure 8.1.7*, instead of colorbar, the generator output is displayed. The
+    distribution of digits in the latent space is shown. It can be observed that all
+    the digits are represented. Since the distribution is dense near the center, the
+    change is rapid in the middle and slow as the mean values get bigger. We need
+    to remember that *Figure 8.1.7* is a reflection of *Figure 8.1.6*. For example,
+    digit 0 is on the top right quadrant on both figures while digit 1 is on the lower
+    right quadrant.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'There are some unrecognizable digits in *Figure 8.1.7*, especially on the top
+    left quadrant. From the following figure, it can be observed that this region
+    is mostly empty and far away from the center:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![VAEs in Keras](img/B08956_08_06.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 8.1.6: The latent vector mean values for the test dataset (VAE MLP).
+    The colorbar shows the corresponding MNIST digit as a function of z. Color images
+    can be found on the book GitHub repository: https://github.com/PacktPublishing/Advanced-Deep-Learning-with-Keras/tree/master/chapter8-vae.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![VAEs in Keras](img/B08956_08_07.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 8.1.7: The digits generated as a function of latent vector mean values
+    (VAE MLP). For ease of interpretation, the range of values for the mean is similar
+    to Figure 8.1.6.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using CNNs for VAEs
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: In the original paper *Auto-encoding Variational Bayes* [1], the VAE network
+    was implemented using MLP, which is similar to what we covered in the previous
+    section. In this section, we'll demonstrate that using a CNN will result in a
+    significant improvement in the quality of the digits produced and a remarkable
+    reduction in the number of parameters down to 134,165.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*Listing* *8.1.3* shows the encoder, decoder, and VAE network. This code was
+    also contributed to the official Keras GitHub repository. For conciseness, some
+    lines of code that are similar to the MLP are no longer shown. The encoder is
+    made of two layers of CNNs and two layers of MLPs in order to generate the latent
+    code. The encoder output structure is similar to the MLP implementation seen in
+    the previous section. The decoder is made up of one layer of MLP and three layers
+    of transposed CNNs. *Figures 8.1.8* to *8.1.10* show the encoder, decoder, and
+    VAE models. For VAE CNN, RMSprop will result in a lower loss than Adam.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The Keras code for VAE CNN has pre-trained weights. To test, we need to run:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Listing 8.1.3, `vae-cnn-mnist-8.1.2.py` shows us the Keras code of VAE using
+    CNN layers:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![Using CNNs for VAEs](img/B08956_08_08.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 8.1.8: The encoder of VAE CNN'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Using CNNs for VAEs](img/B08956_08_09.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 8.1.9: The decoder of VAE CNN'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Using CNNs for VAEs](img/B08956_08_10.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 8.1.10: The VAE model using CNNs'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Using CNNs for VAEs](img/B08956_08_11.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 8.1.11: The latent vector mean values for the test dataset (VAE CNN).
+    The colorbar shows the corresponding MNIST digit as a function of z. Color images
+    can be found on the book GitHub repository: https://github.com/PacktPublishing/Advanced-Deep-Learning-with-Keras/tree/master/chapter8-vae.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Preceding figure shows the continuous latent space of a VAE using the CNN implementation
+    after 30 epochs. The region where each digit is assigned may be different, but
+    the distribution is roughly the same. Following figure shows us the output of
+    the generative model. Qualitatively, there are fewer digits that are ambiguous
+    as compared to *Figure 8.1.7* with the MLP implementation:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Using CNNs for VAEs](img/B08956_08_12.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 8.1.12: The digits generated as a function of latent vector mean values
+    (VAE CNN). For ease of interpretation, the range of values for the mean is similar
+    to Figure 8.1.11.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Conditional VAE (CVAE)
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Conditional VAE [2] is similar to the idea of CGAN. In the context of the MNIST
+    dataset, if the latent space is randomly sampled, VAE has no control over which
+    digit will be generated. CVAE is able to address this problem by including a condition
+    (a one-hot label) of the digit to produce. The condition is imposed on both the
+    encoder and decoder inputs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Formally, the core equation of VAE in *Equation* *8.1.10* is modified to include
+    the condition *c*:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Conditional VAE (CVAE)](img/B08956_08_085.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: (Equation 8.2.1)
+  prefs: []
+  type: TYPE_NORMAL
+- en: Similar to VAEs, *Equation* *8.2.1* means that if we want to maximize the output
+    conditioned on *c*,
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Conditional VAE (CVAE)](img/B08956_08_086.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: ', then the two loss terms must be minimized:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Reconstruction loss of the decoder given both the latent vector and the condition.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: KL loss between the encoder given both the latent vector and the condition and
+    the prior distribution given the condition. Similar to a VAE, we typically choose![Conditional
+    VAE (CVAE)](img/B08956_08_087.jpg)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: .
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Listing 8.2.1, `cvae-cnn-mnist-8.2.1.py` shows us the Keras code of CVAE using
+    CNN layers. In the code that is highlighted showcases the changes made to support
+    CVAE:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![Conditional VAE (CVAE)](img/B08956_08_13.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 8.2.1: The encoder in CVAE CNN. The input is now made of the concatenation
+    of the VAE input and a conditioning label.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Conditional VAE (CVAE)](img/B08956_08_14.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 8.2.2: The decoder in CVAE CNN. The input is now made of the concatenation
+    of the z sampling and a conditioning label.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Conditional VAE (CVAE)](img/B08956_08_15.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 8.2.3: The CVAE model using a CNN. The input is now made of a VAE input
+    and a conditioning label.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Implementing CVAE requires a few modifications in the code of the VAE. For the
+    CVAE, the VAE CNN implementation is used. *Listing* *8.2.1* highlights the changes
+    made to the original code of VAE for MNIST digits. The encoder input is now a
+    concatenation of original input image and its one-hot label. The decoder input
+    is now a combination of the latent space sampling and the one-hot label of the
+    image it should generate. The total number of parameters is 174, 437\. The codes
+    related to
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Conditional VAE (CVAE)](img/B08956_08_088.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: -VAE will be discussed in the next section of this chapter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There are no changes in the loss function. However, the one-hot labels are supplied
+    during training, testing, and plotting of results. *Figures 8.2.1* to *8.2.3*
+    show us the encoder, decoder, and CVAE models. The role of the conditioning label
+    in the form of a one-hot vector is indicated.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Conditional VAE (CVAE)](img/B08956_08_16.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 8.2.4: The latent vector mean values for the test dataset (CVAE CNN).
+    The colorbar shows the corresponding MNIST digit as a function of z. Color images
+    can be found on the book GitHub repository: https://github.com/PacktPublishing/Advanced-Deep-Learning-with-Keras/tree/master/chapter8-vae.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Conditional VAE (CVAE)](img/B08956_08_17.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 8.2.5: Digits 0 to 5 generated as a function of latent vector mean values
+    and one-hot label (CVAE CNN). For ease of interpretation, the range of values
+    for the mean is similar to Figure 8.2.4.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Conditional VAE (CVAE)](img/B08956_08_18.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 8.2.6: Digits 6 to 9 generated as a function of latent vector mean values
+    and one-hot label (CVAE CNN). For ease of interpretation, the range of values
+    for the mean is similar to Figure 8.2.4.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: In *Figure 8.2.4*, the distribution of mean per label is shown after 30 epochs.
+    Unlike in both *Figures 8.1.6* and *8.1.11* in the previous sections, each label
+    is not concentrated on a region but distributed across the plot. This is expected
+    since every sampling in the latent space should generate a specific digit. Navigating
+    the latent space changes the attribute of that specific digit. For example, if
+    the digit specified is 0, then navigating the latent space will still produce
+    a 0 but the attributes, such as tilt angle, thickness, and other writing style
+    aspects will be different.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'These changes are more clearly shown in *Figures 8.2.5* and *8.2.6*. For ease
+    of comparison, the range of values for the latent vector is the same as in *Figure
+    8.2.4*. Using the pretrained weights, a digit (for example, 0) can be generated
+    by executing the command:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: In *Figures 8.2.5* and *8.2.6*, it can be noticed that the width and roundness
+    (if applicable) of each digit change as *z*[0] is traced from left to right. Meanwhile,
+    the tilt angle and roundness (if applicable) of each digit change as *z*[1] is
+    navigated from top to bottom. As we move away from the center of the distribution,
+    the image of the digit starts to degrade. This is expected since the latent space
+    is a circle.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Other noticeable variations in attributes may be digit specific. For example,
+    the horizontal stroke (arm) for digit 1 becomes visible in the upper left quadrant.
+    The horizontal stroke (crossbar) for digit 7 can be seen in the right quadrants
+    only.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Conditional VAE (CVAE)](img/B08956_08_089.jpg)-VAE: VAE with disentangled
+    latent representations'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In [Chapter 6](ch06.html "Chapter 6. Disentangled Representation GANs"), *Disentangled
+    Representation GANs*, the concept, and importance of the disentangled representation
+    of latent codes were discussed. We can recall that a disentangled representation
+    is where single latent units are sensitive to changes in single generative factors
+    while being relatively invariant to changes in other factors [3]. Varying a latent
+    code results to changes in one attribute of the generated output while the rest
+    of the properties remain the same.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the same chapter, InfoGANs [4] demonstrated to us that in the MNIST dataset,
+    it is possible to control which digit to generate and the tilt and thickness of
+    writing style. Observing the results in the previous section, it can be noticed
+    that the VAE is intrinsically disentangling the latent vector dimensions to a
+    certain extent. For example, looking at digit 8 in *Figure 8.2.6*, navigating
+    *z*[1] from top to bottom decreases the width and roundness while rotating the
+    digit clockwise. Increasing *z*[0] from left to right also decreases the width
+    and roundness while rotating the digit counterclockwise. In other words, *z*[1]
+    controls the clockwise rotation, *z*[0] affects the counterclockwise rotation,
+    and both of them alter the width and roundness.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this section, we'll demonstrate that a simple modification in the loss function
+    of VAE forces the latent codes to disentangle further. The modification is the
+    positive constant weight,
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![-VAE: VAE with disentangled latent representations](img/B08956_08_090.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: ', acting as a regularizer on the KL loss:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![-VAE: VAE with disentangled latent representations](img/B08956_08_091.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: (Equation 8.3.1)
+  prefs: []
+  type: TYPE_NORMAL
+- en: This variation of VAE is called
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![-VAE: VAE with disentangled latent representations](img/B08956_08_092.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: -VAE [5]. The implicit effect of
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![-VAE: VAE with disentangled latent representations](img/B08956_08_093.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: is a tighter standard deviation. In other words,
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![-VAE: VAE with disentangled latent representations](img/B08956_08_094.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: forces the latent codes in the posterior distribution,
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![-VAE: VAE with disentangled latent representations](img/B08956_08_095.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: to be independent.
+  prefs: []
+  type: TYPE_NORMAL
+- en: It is straightforward to implement
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![-VAE: VAE with disentangled latent representations](img/B08956_08_096.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: -VAE. For example, for the CVAE from the previous, the required modification
+    is the extra **beta** factor in `kl_loss`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: CVAE is a special case of
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![-VAE: VAE with disentangled latent representations](img/B08956_08_097.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: -VAE with
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![-VAE: VAE with disentangled latent representations](img/B08956_08_098.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: . Everything else is the same. However, determining the value of
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![-VAE: VAE with disentangled latent representations](img/B08956_08_099.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: requires some trial and error. There must be a careful balance between the reconstruction
+    error and regularization for latent codes independence. The disentanglement is
+    maximized at around
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![-VAE: VAE with disentangled latent representations](img/B08956_08_100.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: . When the value of
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![-VAE: VAE with disentangled latent representations](img/B08956_08_101.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: ', the'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![-VAE: VAE with disentangled latent representations](img/B08956_08_102.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: '-VAE is forced to learn one disentangled representation only while muting the
+    other latent dimension:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![-VAE: VAE with disentangled latent representations](img/B08956_08_19.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 8.3.1: The latent vector mean values for the test dataset ('
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![-VAE: VAE with disentangled latent representations](img/B08956_08_103.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: -VAE with
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![-VAE: VAE with disentangled latent representations](img/B08956_08_104.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: ') Color images can be found on the book GitHub repository: https://github.com/PacktPublishing/Advanced-Deep-Learning-with-Keras/tree/master/chapter8-vae.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*Figures 8.3.1* and *8.3.2* show the latent vector means for'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![-VAE: VAE with disentangled latent representations](img/B08956_08_105.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: -VAE with
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![-VAE: VAE with disentangled latent representations](img/B08956_08_106.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: and
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![-VAE: VAE with disentangled latent representations](img/B08956_08_107.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: . With
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![-VAE: VAE with disentangled latent representations](img/B08956_08_108.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: ', the distribution has a smaller standard deviation when compared to CVAE.
+    With'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![-VAE: VAE with disentangled latent representations](img/B08956_08_109.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: ', there is only the latent code that is learned. The distribution is practically
+    shrunk to 1D with the first latent code *z*[0] ignored by the encoder and decoder:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![-VAE: VAE with disentangled latent representations](img/B08956_08_20.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 8.3.2: The latent vector mean values for the test dataset ('
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![-VAE: VAE with disentangled latent representations](img/B08956_08_110.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: -VAE with
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![-VAE: VAE with disentangled latent representations](img/B08956_08_111.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: ')Color images can be found on the book GitHub repository: https://github.com/PacktPublishing/Advanced-Deep-Learning-with-Keras/tree/master/chapter8-vae.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: These observations are reflected in *Figure 8.3.3*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![-VAE: VAE with disentangled latent representations](img/B08956_08_112.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: -VAE with
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![-VAE: VAE with disentangled latent representations](img/B08956_08_113.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: has two latent codes that are practically independent. *z*[0] determines the
+    tilt of the writing style. Meanwhile, *z*[1] specifies the width and roundness
+    (if applicable) of the digits. For
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![-VAE: VAE with disentangled latent representations](img/B08956_08_114.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: -VAE with
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![-VAE: VAE with disentangled latent representations](img/B08956_08_115.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: ', *z*[0] is muted. Increasing *z*[0] does not alter the digit in a significant
+    way. *z*[1] determines the tilt angle and width of the writing style.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![-VAE: VAE with disentangled latent representations](img/B08956_08_21.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 8.3.3: Digits 0 to 3 generated as a function of latent vector mean values
+    and one-hot label ('
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![-VAE: VAE with disentangled latent representations](img/B08956_08_116.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: -VAE
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![-VAE: VAE with disentangled latent representations](img/B08956_08_117.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: ). For ease of interpretation, the range of values for the mean is similar to
+    Figure 8.3.1.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The Keras code for
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![-VAE: VAE with disentangled latent representations](img/B08956_08_118.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: -VAE has pre-trained weights. To test
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![-VAE: VAE with disentangled latent representations](img/B08956_08_119.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: -VAE with
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![-VAE: VAE with disentangled latent representations](img/B08956_08_120.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'generating digit 0, we need to run:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: Conclusion
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this chapter, we've covered the principles of variational autoencoders (VAEs).
+    As we learned in the principles of VAEs, they bear a resemblance to GANs in the
+    aspect of both attempt to create synthetic outputs from latent space. However,
+    it can be noticed that the VAE networks are much simpler and easier to train compared
+    to GANs. It's becoming clear how conditional VAE and
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Conclusion](img/B08956_08_121.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: -VAE are similar in concept to conditional GAN and disentangled representation
+    GAN respectively.
+  prefs: []
+  type: TYPE_NORMAL
+- en: VAEs have an intrinsic mechanism to disentangle the latent vectors. Therefore,
+    building a
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Conclusion](img/B08956_08_122.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: -VAE is straightforward. We should note however that interpretable and disentangled
+    codes are important in building intelligent agents.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the next chapter, we're going to focus on Reinforcement learning. Without
+    any prior data, an agent learns by interacting with its world. We'll discuss how
+    the agent can be rewarded for correct actions and punished for the wrong ones.
+  prefs: []
+  type: TYPE_NORMAL
+- en: References
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Diederik P. Kingma and Max Welling. *Auto-encoding Variational Bayes*. arXiv
+    preprint arXiv:1312.6114, 2013([https://arxiv.org/pdf/1312.6114.pdf](https://arxiv.org/pdf/1312.6114.pdf)).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Kihyuk Sohn, Honglak Lee, and Xinchen Yan. *Learning Structured Output Representation
+    Using Deep Conditional Generative Models*. Advances in Neural Information Processing
+    Systems, 2015([http://papers.nips.cc/paper/5775-learning-structured-output-representation-using-deep-conditional-generative-models.pdf](http://papers.nips.cc/paper/5775-learning-structured-output-representation-using-deep-conditional-generative-models.pdf)).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Yoshua Bengio, Aaron Courville, and Pascal Vincent. *Representation Learning:
+    A Review and New Perspectives*. IEEE transactions on Pattern Analysis and Machine
+    Intelligence 35.8, 2013: 1798-1828([https://arxiv.org/pdf/1206.5538.pdf](https://arxiv.org/pdf/1206.5538.pdf)).'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Xi Chen and others. *Infogan: Interpretable Representation Learning by Information
+    Maximizing Generative Adversarial Nets*. Advances in Neural Information Processing
+    Systems, 2016([http://papers.nips.cc/paper/6399-infogan-interpretable-representation-learning-by-information-maximizing-generative-adversarial-nets.pdf](http://papers.nips.cc/paper/6399-infogan-interpretable-representation-learning-by-information-maximizing-generative-adversarial-nets.pdf)).'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: I. Higgins, L. Matthey, A. Pal, C. Burgess, X. Glorot, M. Botvinick, S. Mohamed,
+    and A. Lerchner.![References](img/B08956_08_123.jpg)
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '*-VAE: Learning basic visual concepts with a constrained variational framework*.
+    ICLR, 2017([https://openreview.net/pdf?id=Sy2fzU9gl](https://openreview.net/pdf?id=Sy2fzU9gl)).'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Carl Doersch. *Tutorial on variational autoencoders*. arXiv preprint arXiv:1606.05908,
+    2016 ([https://arxiv.org/pdf/1606.05908.pdf](https://arxiv.org/pdf/1606.05908.pdf)).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Luc Devroye. *Sample-Based Non-Uniform Random Variate Generation*. Proceedings
+    of the 18th conference on Winter simulation. ACM, 1986([http://www.eirene.de/Devroye.pdf](http://www.eirene.de/Devroye.pdf)).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL

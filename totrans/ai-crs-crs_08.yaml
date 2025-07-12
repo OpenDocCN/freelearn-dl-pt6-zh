@@ -1,0 +1,762 @@
+- en: '8'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: AI for Logistics – Robots in a Warehouse
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: It's time for the next step on our AI journey. I told you at the beginning of
+    this book that AI has tremendous value to bring to transport and logistics, with
+    self-driving delivery vehicles that speed up logistical processes. They're a huge
+    boost to the economy through the e-commerce industry.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this new chapter, we''ll build an AI for just that kind of application.
+    The model we''ll use for this will, of course, be Q-learning (we''re saving deep
+    Q-learning for the self-driving car). Q-learning is a simple, but powerful, AI
+    model that can optimize the flows of movement in a warehouse, which is the real-world
+    problem you''ll solve here. In order to facilitate this journey, you''ll work
+    on an environment you''re already familiar with: the maze we saw in the previous
+    chapter.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The difference is that, this time, the maze will actually be the warehouse
+    of a business. It could be any business: an e-commerce business, a retail business,
+    or any business that sells products to customers and that has a warehouse to store
+    large amounts of products to be sold.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s have a look again at this maze, now a warehouse:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B14110_08_01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 1: The warehouse'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Inside this warehouse, the products are stored in 12 different locations, labeled
+    by the following letters from **A** to **L**:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B14110_08_02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 2: Locations in the warehouse'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'When orders are placed by customers, a robot moves around the warehouse to
+    collect the products for delivery. That will be your AI! Here''s what it looks
+    like:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B14110_08_03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 3: Warehouse robot'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The 12 locations are all connected to a computer system, which ranks in real
+    time the product collection priorities for these 12 locations. As an example,
+    let''s say that at a specific time, *t*, it returns the following ranking:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B14110_08_04.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 4: Top priority locations'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Location **G** has priority 1, which means it's the top priority, as it contains
+    a product that must be collected and delivered immediately. Our robot must move
+    to location **G** by the shortest route depending on where it is. Our goal is
+    to actually build an AI that will return that shortest route, wherever the robot
+    is.
+  prefs: []
+  type: TYPE_NORMAL
+- en: But we could do even better. Here, locations **K** and **L** are in the top
+    3 priorities. Hence, it would be great to implement an option for our robot to
+    go via some intermediary locations before reaching its final top priority location.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The way the system computes the priorities of the locations is outside the scope
+    of this case study. The reason for this is that there can be many ways, from simple
+    rules or algorithms, to deterministic computations, to machine learning, to compute
+    these priorities. But most of these ways would not be AI as we know it today.
+    What we really want to focus on in this exercise is the core AI, encompassing
+    Reinforcement Learning and Q-learning. We can just say for the purposes of this
+    example that location **G** is the top priority because one of the most loyal
+    platinum-level customers of the company placed an urgent order of a product stored
+    in location **G**, which therefore must be delivered as soon as possible.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In conclusion, our mission is to build an AI that will always take the shortest
+    route to the top priority location, whatever the location it starts from, and
+    have the option to go by an intermediary location which is in the top three priorities.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Building the environment
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'When building an AI, the first thing we always have to do is define the environment.
+    Defining an environment always requires the following three elements:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Defining the states
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Defining the actions
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Defining the rewards
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: These three elements have already been defined in the previous chapter on Q-learning,
+    but let's quickly remind ourselves what they are.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The states
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: The state, at a specific time *t*, is the location where the robot is at that
+    time *t*. However, remember, you have to encode the location names so that our
+    AI can do the math.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'At the risk of disappointing you, given all the crazy hype about AI, let''s
+    remain realistic and understand that Q-learning is nothing more than a bunch of
+    math equations; just like any other AI model. Let''s make the encoding integers
+    start at 0, simply because indexes in Python start at 0:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B14110_08_05.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 5: Location to state mapping'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The actions
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'The actions are the next possible destinations to which the robot can go. You
+    can encode these destinations with the same indexes as the states. Hence, the
+    total list of actions that the AI can perform is the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: The rewards
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Remember, when in a specific location, there are some actions that the robot
+    cannot perform. For example, if the robot is in location **J**, it can perform
+    the actions 5, 8, and 10, but it cannot perform the other actions. You can specify
+    that by attributing a reward of 0 to the actions it cannot perform, and a reward
+    of 1 to the actions it can perform.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'That brings you to building the following matrix of rewards:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B14110_08_06.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 6: Rewards matrix'
+  prefs: []
+  type: TYPE_NORMAL
+- en: AI solution refresher
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'It never hurts to get a little refresher of a model before implementing it!
+    Let''s remind ourselves of the steps of the Q-learning process; this time, adapting
+    it to your new problem. Let''s welcome Q-learning back on stage:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Initialization (first iteration)
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: 'For all pairs of states *s* and actions *a*, the Q-values are initialized to
+    0:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/Image15036.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Next iterations
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: 'At each iteration *t* ≥ 1, the AI will repeat the following steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: It selects a random state ![](img/B14110_08_002.png) from the possible states:![](img/B14110_08_003.png)
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: It performs a random action ![](img/B14110_08_004.png) that can lead to a next
+    possible state, that is, such that ![](img/B14110_08_005.png):![](img/B14110_08_006.png)
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: It reaches the next state ![](img/B14110_08_007.png) and gets the reward ![](img/B14110_08_008.png).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: It computes the temporal difference ![](img/B14110_08_009.png):![](img/B14110_08_010.png)
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: It updates the Q-value by applying the Bellman equation:![](img/B14110_08_011.png)
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: We repeat these steps over 1,000 iterations. Why 1,000? The choice of 1,000
+    comes from my experimentation with this particular environment. I chose a number
+    that's large enough for the Q-values to converge over the training. 100 wasn't
+    large enough, but 1,000 was. Usually, you can just pick a very large number, for
+    example, 5,000, and you will get convergence (that is, the Q-values will no longer
+    update). However, that depends on the complexity of the problem. If you are dealing
+    with a much more complex environment, for example, if you had hundreds of locations
+    in the warehouse, you'd need a much higher number of training iterations.
+  prefs: []
+  type: TYPE_NORMAL
+- en: That's the whole process. Now, you're going to implement it in Python from scratch!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Are you ready? Let's do this.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Implementation
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Alright, let's smash this. But first, try to smash this yourself without me.
+    Of course, this is a journey we'll take together, but I really don't mind if you
+    take some steps ahead of me. The faster you become independent in AI, the sooner
+    you'll do wonders with it. Try to implement the Q-learning process mentioned previously,
+    exactly as it is. It's okay if you don't implement everything; what matters is
+    that you try.
+  prefs: []
+  type: TYPE_NORMAL
+- en: That's enough coaching; no matter how successful you were, let's go through
+    the solution.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'First, start by importing the libraries that you''ll use in this implementation.
+    There''s only one needed this time: the `numpy` library, which offers a practical
+    way of working with arrays and mathematical operations. Give it the shortcut `np`.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: Then, set the parameters of your model. These include the discount factor *γ*
+    and the learning rate ![](img/B14110_08_0311.png), which are the only parameters
+    of the Q-learning model. Give them the values of `0.75` and `0.9` respectively,
+    which I've arbitrarily picked but are usually a good choice. These are decent
+    values to start with if you don't know what to use. However, you'll get the same
+    result with similar values.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: The two previous code sections were simply the introductory sections, before
+    you really start to build your AI model. The next step is to start the first part
+    of our implementation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Try to remember what you have to do now, as a first general step of building
+    an AI.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You build the environment!
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'I just wanted to highlight that, once again; it''s really compulsory. The environment
+    will be the first part of your code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Part 1 – Building the environment
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'Let''s look at the whole structure of this implementation so that you can take
+    a step back already. Your code will be structured in three parts:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Part 1** – Building the environment'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Part 2** – Building the AI solution with Q-learning (training)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Part 3** – Going into production (inference)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Let''s start with part 1\. For that, you define the states, the actions, and
+    the rewards. Begin by defining the states, with a Python dictionary mapping the
+    location''s names (in letters from A to L) into the states (in indexes from 0
+    to 11). Call this dictionary `location_to_state`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Then, define the actions with a simple list of indexes from 0 to 11\. Remember
+    that each action index corresponds to the next location where that action leads
+    to:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: Finally, define the rewards, by creating a matrix of rewards where the rows
+    correspond to the current states ![](img/B14110_08_012.png), the columns correspond
+    to the actions ![](img/B14110_08_013.png) leading to the next state , and the
+    cells contain the rewards ![](img/B14110_08_015.png). If a cell contains a 1,
+    that means the AI can perform the action ![](img/B14110_08_016.png) from the current
+    state, ![](img/B14110_08_018.png) to reach the next state . If a cell ![](img/B14110_08_020.png)
+    contains a 0, that means the AI cannot perform the action ![](img/B14110_08_021.png)
+    from the current state ![](img/B14110_08_022.png) to reach any next state ![](img/B14110_08_023.png).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, you might remember this very important question, the answer of which is
+    at the heart of Reinforcement Learning.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How will you let the AI know that it has to go to that top priority location
+    **G**?
+  prefs: []
+  type: TYPE_NORMAL
+- en: Everything works with the reward.
+  prefs: []
+  type: TYPE_NORMAL
+- en: I must insist, again, that you remember this. If you attribute a high reward
+    to location **G**, then the AI, through the Q-learning process, will learn to
+    catch that high reward in the most efficient way because it is larger than the
+    rewards of getting to the other locations.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Remember this very important rule: the AI, when it is powered by Q-learning
+    (or deep Q-learning, as you''ll soon learn), will always learn to reach the highest
+    reward by the quickest route that does not penalize the AI with negative rewards.
+    That''s why the trick to reach location **G** is simply to attribute it a higher
+    reward than the other locations.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Start by manually putting a high reward, which can be any high number as long
+    as it is larger than 1, inside the cell corresponding to location **G**; location
+    **G** is the top priority location where the robot has to go in order to collect
+    the products.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Since location **G** has encoded index state 6, put a `1000` reward in the cell
+    of row 6 and column 6\. Later on, we will improve your solution by implementing
+    an automatic way of going to the top priority location, without having to manually
+    update the matrix of rewards and leaving it initialized with 0s and 1s just as
+    it should be. For now, here's your matrix of rewards, including the manual update.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: That completes this first part. Now, let's begin the second part of your implementation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Part 2 – Building the AI Solution with Q-learning
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: To build your AI solution, follow the Q-learning algorithm exactly as it was
+    provided previously. If you had any trouble when you tried implementing Q-learning
+    on your own, now is your chance for revenge. Literally, all that's about to follow
+    is only and exactly the same Q-learning process translated into code.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now you've got that in your mind, try coding it on your own again. You can do
+    it!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Congratulations if you tried, no matter how it came out. Next, let's check if
+    you got it right.
+  prefs: []
+  type: TYPE_NORMAL
+- en: First, initialize all the Q-values by creating your matrix of Q-values full
+    of 0s, in which the rows correspond to the current states ![](img/B14110_08_012.png),
+    the columns correspond to the actions ![](img/B14110_08_013.png) leading to the
+    next state ![](img/B14110_08_014.png), and the cells contain the Q-values ![](img/B14110_08_027.png).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: Then implement the Q-learning process with a for loop over 1,000 iterations,
+    repeating the exact same steps of the Q-learning process 1,000 times.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now you''ve reached the first really exciting step of the journey. You''re
+    actually ready to launch the Q-learning process and get your final Q-values. Execute
+    the whole code you''ve implemented so far, and visualize the Q-values with the
+    following simple print statements:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Here''s what I got:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'If you''re working on Spyder in Anaconda, then for more visual clarity you
+    can even check the matrix of Q-values directly in Variable Explorer, by double-clicking
+    on Q. Then, to get the Q-values as integers, you can click on **Format** and enter
+    a float formatting of `%.0f`. You get the following, which is a bit clearer since
+    you can see the indexes of the rows and columns in your Q matrix:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B14110_08_07.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 7: Matrix of Q-values'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now that you have your matrix of Q-values, you're ready to go into production—you
+    can move on to the third part of the implementation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Part 3 – Going into production
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: In other words, you're going into inference mode! In this part, you'll compute
+    the optimal path from any starting location to any ending top priority location.
+    The idea here is to implement a `route` function, that takes as inputs a starting
+    location and an ending location and that returns as output the shortest route
+    inside a Python list. The starting location corresponds to wherever our autonomous
+    warehouse robot is at a given time, and the ending location corresponds to where
+    the robot has to go as a top priority.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Since you''ll want to input the locations with their names (in letters), as
+    opposed to their states (in indexes), you''ll need a dictionary that maps the
+    location states (in indexes) to the location names (in letters). That''s the first
+    thing to do here in this third part, using a trick to invert your previous dictionary,
+    `location_to_state`, since you simply want to get the exact inverse mapping from
+    this dictionary:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: Now, please focus— if the dots haven't perfectly connected in your mind, now
+    is the time when they will. I'll show you the exact steps of how the robot manages
+    to figure out the shortest route.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Your robot is going to go from location **E** to location **G**. Here''s the
+    explanation of exactly how it does that—I''ll enumerate the different steps of
+    the process. Follow along on the matrix of Q-values as I explain:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The AI starts at the starting location **E**.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: The AI gets the state of location **E**, which according to your `location_to_state`
+    mapping is ![](img/B14110_08_028.png).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: On the row of index ![](img/B14110_08_028.png) in our matrix of Q-values, the
+    AI chooses the column that has the maximum Q-value (`703`).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: This column has index 8, so the AI performs the action of index 8, which leads
+    it to the next state ![](img/B14110_08_030.png).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: The AI gets the location of state 8, which according to our `state_to_location`
+    mapping is location **I**. Since the next location is location **I**, **I** is
+    appended to the AI's list containing the optimal path.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Then, starting from the new location **I**, the AI repeats the same previous
+    five steps until it reaches our final destination, location **G**.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'That''s it! That''s exactly what you have to implement. You have to generalize
+    this to any starting and ending locations, and the best way to do that is through
+    a function taking two inputs:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`starting_location`: The location at which the AI starts'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '`ending_location`: The top priority location to which it has to go'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: and returning the optimal route. Since we're talking about a route, you can
+    call that function `route()`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: An important thing to understand inside this `route()` function is that since
+    you don't know how many locations the AI will have to go through between the starting
+    and ending locations, you have to make a `while` loop which will repeat the 5-step
+    process described previously, and that will stop as soon as it reaches the top
+    priority end location.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: Congratulations! Your AI is now ready. Not only does it have the training process
+    implemented, but also the code to run in inference mode. The only thing that's
+    not great so far is that you still have to manually update the matrix of rewards;
+    but no worries, we'll get to that later on. Before we get to that, let's first
+    check that you have an intermediary victory here, and then we can get to work
+    on improvements.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The following is the output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'That''s perfect—I ran the code twice when testing it to go from E to G, which
+    is why you see the two preceding outputs. The two possible optimal paths were
+    returned: one passing by F, and the other one passing by K.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: That's a good start. You have a first version of your AI model that functions
+    well. Now let's improve your AI, and take it to the next level.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You can improve the AI in two ways. Firstly, by automating the reward attribution
+    to the top priority location so that you don't have to do it manually. Secondly,
+    by adding a feature that gives the AI the option to go by an intermediate location
+    before going to the top priority location—that intermediate location should be
+    in the top three priority locations.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In our top priority locations ranking, the second top priority location is location
+    K. Therefore, in order to optimize the warehouse flows, your autonomous warehouse
+    robot must go via location K to collect products on its way to the top priority
+    location G. One way to do this is to have the option to go by an intermediate
+    location in the process of your `route()` function. This is exactly what you'll
+    implement as a second improvement.
+  prefs: []
+  type: TYPE_NORMAL
+- en: First, let's implement the first improvement, the one that automates the reward
+    attribution.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Improvement 1 – Automating reward attribution
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: The way to do this is in three steps.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Step 1**: Go back to the original matrix of rewards, as it was before with
+    only 1s and 0s. Part 1 of the code becomes the following, and will be included
+    in the final code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: '**Step 2**: In part 2 of the code, make a copy (call it `R_new`) of your rewards
+    matrix, inside which the `route()` function can automatically update the reward
+    in the cell of the ending location.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Why do you have to make a copy? Because you have to keep the original matrix
+    of rewards initialized with 1s and 0s for future modifications when you want to
+    go to a new priority location. So, how will the `route()` function automatically
+    update the reward in the cell of the ending location? That''s an easy one: since
+    the ending location is one of the inputs of the `route()` function, then by using
+    your `location_to_state` dictionary, you can very easily find that cell and update
+    its reward to `1000`. Here''s how you do that:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: '**Step 3**: You must include the whole Q-learning algorithm (including the
+    initialization step) inside the `route()` function, right after we make that update
+    of the reward in your copy (`R_new`) of the rewards matrix. In your previous implementation,
+    the Q-learning process happened on the original version of the rewards matrix.
+    Now that original version needs to stay as it is, that is, initialized to 1s and
+    0s only. Therefore, you must include the Q-learning process inside the `route()`
+    function, and make it happen on your copy of the rewards matrix `R_new`, instead
+    of the original rewards matrix `R`. Here''s how you do that:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Perfect; part 2 is now ready! Here''s part 2 of the final code in full:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: If you execute this new code several times with the start and end points of
+    **E** and **G**, you'll get the same two possible optimal paths as before. You
+    can also play around with the `route()` function and try out different starting
+    and ending points. Try it out!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Improvement 2 – Adding an intermediate goal
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Now, let's tackle the second improvement. There are three possible solutions
+    to the problem of adding the option to go by the intermediate location **K**,
+    the second top priority location. When you see them, you'll understand what I
+    meant when I told you that everything in Reinforcement Learning works by the rewards.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Only one of the solutions works from every starting point, but I''d like to
+    give you all three solutions to help reinforce your intuition. To help with that,
+    here''s a reminder of our warehouse layout:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/B14110_08_08.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 8: Locations in the warehouse'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Solution 1**: Give a high reward to the action leading from location **J**
+    to location **K**. This high reward must be larger than 1, and below 1,000\. It
+    must be larger than 1 so that the Q-learning process favors the action leading
+    from **J** to **K**, as opposed to the action leading from **J** to **F**, which
+    has a reward of 1\. It must also be below 1,000 so that the highest reward stays
+    on the top priority location, to make sure the AI ends up there. For example,
+    in your rewards matrix you can give a high reward of `500` to the cell in the
+    row of index 9 and the column of index 10, since that cell corresponds to the
+    action leading from location **J** (state index 9) to location **K** (state index
+    10). That way, your AI robot will always go by location **K** when going from
+    location **E** to location **G**. Here''s how the matrix of rewards would look
+    in that case:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: This solution does not work in every case, and actually only works for starting
+    points **E**, **I**, and **J**. That's because the `500` weight can only affect
+    the decision of the AI as to whether or not it should go from **J** to **K**;
+    it doesn't change how likely it is for the AI to go to **J** in the first place.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Solution 2**: Give a bad reward to the action leading from location **J**
+    to location **F**. This bad reward just has to be below 0\. By punishing this
+    action with a bad reward, the Q-learning process will never favor the action leading
+    from **J** to **F**. For example, in your rewards matrix, you can give a bad reward
+    of `-500` to the cell in the row of index 9 and the column of index 5, since that
+    cell corresponds to the action leading from location **J** (state index 9) to
+    location **F** (state index 5). That way, your autonomous warehouse robot will
+    never go from location **J** to location **F** on its way to location **G**. Here''s
+    how the matrix of rewards would look in that case:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: This solution does not work in every case, and actually only works for starting
+    points **E**, **I**, and **J**. Just as in solution 1, that's because the `-500`
+    weight can only affect the decision of the AI as to whether or not it should go
+    from **J** to **F**; it doesn't change how likely it is for the AI to go to **J**
+    in the first place.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Solution 3**: Make an additional `best_route()` function, taking as inputs
+    the three starting, intermediary, and ending locations, which will call your previous
+    `route()` function twice; the first time from the starting location to the intermediary
+    location, and a second time from the intermediary location to the ending location.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The first two solutions are easy to implement manually, but tricky to implement
+    automatically. It is easy to automatically get the index of the intermediary location
+    via which you want the AI to go, but it's difficult to get the index of the location
+    that leads to that intermediary location, since it depends on the starting location
+    and ending location. If you try to implement either the first or second solution,
+    you'll see what I mean. Besides, solutions 1 and 2 do not work as global solutions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Only solution 3 guarantees that the AI will visit an intermediate location before
+    going to the final location.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Accordingly, we''ll implement solution 3, which can be coded in just two extra
+    lines of code, and which I included in *Part 3 – Going into production*:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Easy, right? Sometimes, the best solutions are the simplest ones. That''s definitely
+    the case here. As you can see, included in Part 3 is the code that runs the ultimate
+    test. This test will be successful if the AI goes through location **K** while
+    taking the shortest route from location **E** to location **G**. To test it, execute
+    this whole new code as many times as you want; you''ll always get the same, expected
+    output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: Congratulations! You've developed a fully functional AI, powered by Q-learning,
+    which solves an optimization problem for logistics. Using this AI robot, we can
+    now go from any location to any new top priority location, while optimizing our
+    paths to collect products in a second priority intermediary location. Not bad!
+    If you get bored with logistics, feel free to imagine yourself back in the maze,
+    and try the `best_route()` function with whatever starting and ending points you
+    would like, so you can see how flexible the AI you've created is. Have fun with
+    it! And, of course, you have the full code available for you on the GitHub page.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: In this chapter, you've implemented a Q-learning solution to a business problem.
+    You had to find the best route to a certain location in your warehouse. Not only
+    have you done that, but you've also implemented additional code that allowed your
+    AI to make as many intermediary stops as you wanted. Based on the obtained rewards,
+    your AI was able to find the best route going through these stops. That was Q-learning
+    for warehouse robots. Now, let's move on to deep Q-learning!
+  prefs: []
+  type: TYPE_NORMAL

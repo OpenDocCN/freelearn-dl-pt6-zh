@@ -1,0 +1,926 @@
+- en: Building Convolutional Neural Networks
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this chapter, we are going to develop a **convolutional neural network** (**CNN**)
+    for an image classification example using DL4J. We will develop the components
+    of our application step by step while we progress through the recipes. The chapter
+    assumes that you have read [Chapter 1](f88b350b-16e2-425b-8425-4631187c7803.xhtml), *Introduction
+    to Deep Learning in Java*, and [Chapter 2](6ac5dff5-cc98-4d52-bc59-1da01b2aeded.xhtml), *Data
+    Extraction, Transformation, and Loading*, and that you have set up DL4J on your
+    computer, as mentioned in [Chapter 1](f88b350b-16e2-425b-8425-4631187c7803.xhtml),
+    *Introduction to Deep Learning in Java*. Let's go ahead and discuss the specific
+    changes required for this chapter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: For demonstration purposes, we will have classifications for four different
+    species. CNNs convert complex images into an abstract format that can be used
+    for prediction. Hence, a CNN would be an optimal choice for this image classification
+    problem.
+  prefs: []
+  type: TYPE_NORMAL
+- en: CNNs are just like any other deep neural network that abstracts the decision
+    process and gives us an interface to transform input to output. The only difference
+    is that they support other types of layers and different orderings of layers.
+    Unlike other forms of input, such as text or CSV, images are complex. Considering
+    the fact that each pixel is a source of information, training will become resource
+    intensive and time consuming for large numbers of high-resolution images.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this chapter, we will cover the following recipes:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Extracting images from disk
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Creating image variations for training data
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Image preprocessing and the design of input layers
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Constructing hidden layers for a CNN
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Constructing output layers for output classification
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Training images and evaluating CNN output
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Creating an API endpoint for the image classifier
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Technical requirements
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Implementation of the use case discussed in this chapter can be found here: [https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/tree/master/04_Building_Convolutional_Neural_Networks/sourceCode](https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/tree/master/04_Building_Convolutional_Neural_Networks/sourceCode).
+  prefs: []
+  type: TYPE_NORMAL
+- en: After cloning our GitHub repository, navigate to the following directory: `Java-Deep-Learning-Cookbook/04_Building_Convolutional_Neural_Networks/sourceCode`.
+    Then, import the `cookbookapp` project as a Maven project by importing `pom.xml`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You will also find a basic Spring project, `spring-dl4j`, which can be imported
+    as a Maven project as well.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We will be using the dog breeds classification dataset from Oxford for this
+    chapter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The principal dataset can be downloaded from the following link:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[https://www.kaggle.com/zippyz/cats-and-dogs-breeds-classification-oxford-dataset](https://www.kaggle.com/zippyz/cats-and-dogs-breeds-classification-oxford-dataset).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To run this chapter''s source code, download the dataset (four labels only)
+    from here:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/raw/master/04_Building%20Convolutional%20Neural%20Networks/dataset.zip](https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/raw/master/04_Building%20Convolutional%20Neural%20Networks/dataset.zip)
+    (it can be found in the `Java-Deep-Learning-Cookbook/04_Building Convolutional
+    Neural Networks/` directory).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Extract the compressed dataset file. Images are kept in different directories.
+    Each directory represents a label/category. For demonstration purposes, we have
+    used four labels. However, you are allowed to experiment with more images from
+    different categories in order to run our example from GitHub.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note that our example is optimized for four species. Experimentation with a
+    larger number of labels requires further network configuration optimization.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To leverage the capabilities of the OpenCV library in your CNN, add the following
+    Maven dependency:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: We will be using the Google Cloud SDK to deploy the application in the cloud. For
+    instructions in this regard, refer to [https://github.com/GoogleCloudPlatform/app-maven-plugin](https://github.com/GoogleCloudPlatform/app-maven-plugin).
+    For Gradle instructions, refer to [https://github.com/GoogleCloudPlatform/app-gradle-plugin](https://github.com/GoogleCloudPlatform/app-gradle-plugin).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Extracting images from disk
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: For classification based on *N* labels, there are *N* subdirectories created in
+    the parent directory. The parent directory path is mentioned for image extraction.
+    Subdirectory names will be regarded as labels. In this recipe, we will extract
+    images from disk using DataVec.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Use `FileSplit` to define the range of files to load into the neural network:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Use `ParentPathLabelGenerator` and `BalancedPathFilter` to sample the labeled
+    dataset and split it into train/test sets:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: How it works...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In step 1, we used `FileSplit` to filter the images based on the file type (PNG,
+    JPEG, TIFF, and so on).
+  prefs: []
+  type: TYPE_NORMAL
+- en: We also passed in a random number generator based on a single seed. This seed
+    value is an integer (`42` in our example). `FileSplit` will be able to generate
+    a list of file paths in random order (random order of files) by making use of
+    a random seed. This will introduce more randomness to the probabilistic decision
+    and thereby increase the model's performance (accuracy metrics).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'If you have a ready-made dataset with an unknown number of labels, it is crucial
+    to calculate `numLabels`. Hence, we used `FileSplit` to calculate them programmatically:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: In step 2, we used **`ParentPathLabelGenerator` **to generate the label for
+    files based on the directory path. Also, `BalancedPathFilter` is used to randomize
+    the order of paths in an array. Randomization will help overcome overfitting issues. `BalancedPathFilter` also
+    ensures the same number of paths for each label and helps to obtain optimal batches
+    for training.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'With `testSetRatio` as `20`, 20 percent of the dataset will be used as the
+    test set for the model evaluation. After step 2, the array elements in `inputSplits` will
+    represent the train/test datasets:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`inputSplits[0]` will represent the train dataset.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`inputSplits[1]` will represent the test dataset.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`NativeImageLoader.ALLOWED_FORMATS` uses `JavaCV` to load images. Allowed image
+    formats are `.bmp`, `.gif`, `.jpg`, `.jpeg`, `.jp2`, `.pbm`, `.pgm`, `.ppm`, `.pnm`,
+    `.png`, `.tif`, `.tiff`, `.exr`, and `.webp`.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`BalancedPathFilter` randomizes the order of file paths in an array and removes
+    them randomly to have the same number of paths for each label. It will also form
+    the paths on the output based on their labels, so as to obtain easily optimal
+    batches for training. So, it is more than just random sampling.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`fileSplit.sample()` samples the file paths based on the path filter mentioned.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: It will further split the results into an array of `InputSplit` objects. Each
+    object will refer to the train/test set, and its size is proportional to the weights
+    mentioned.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Creating image variations for training data
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: We create image variations and further train our network model on top of them
+    to increase the generalization power of the CNN. It is crucial to train our CNN
+    with as many image variations as possible so as to increase the accuracy. We basically
+    obtain more samples of the same image by flipping or rotating them. In this recipe,
+    we will transform and create samples of images using a concrete implementation
+    of `ImageTransform` in DL4J.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Use `FlipImageTransform` to flip the images horizontally or vertically (randomly
+    or not randomly):'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Use `WarpImageTransform` to warp the perspective of images deterministically
+    or randomly:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Use `RotateImageTransform` to rotate the images deterministically or randomly:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Use `PipelineImageTransform` to add image transformations to the pipeline:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: How it works...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'In step 1, if we don''t need a random flip but a specified mode of flip (deterministic),
+    then we can do the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: '`flipMode` is the deterministic flip mode.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`flipMode = 0`: Flips around the *x* axis'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`flipMode > 0`: Flips around the *y* axis'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`flipMode < 0`: Flips around both axes'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'In step 2, we passed in two attributes: `Random(seed)` and `delta`. `delta`
+    is the magnitude in which an image is warped. Check the following image sample
+    for the demonstration of image warping:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/770b3c00-d390-4d41-9b67-8cd238a57618.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: '(Image source: https://commons.wikimedia.org/wiki/File:Image_warping_example.jpg'
+  prefs: []
+  type: TYPE_NORMAL
+- en: License: CC BY-SA 3.0)
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`WarpImageTransform(new Random(seed),delta)` internally calls the following
+    constructor:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: It will assume `dx1=dy1=dx2=dy2=dx3=dy3=dx4=dy4=delta`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Here are the parameter descriptions:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`dx1`: Maximum warping in `x` for the top-left corner (pixels)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`dy1`: Maximum warping in `y` for the top-left corner (pixels)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`dx2`: Maximum warping in `x` for the top-right corner (pixels)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`dy2`: Maximum warping in `y` for the top-right corner (pixels)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`dx3`: Maximum warping in `x` for the bottom-right corner (pixels)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`dy3`: Maximum warping in `y` for the bottom-right corner (pixels)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`dx4`: Maximum warping in `x` for the bottom-left corner (pixels)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`dy4`: Maximum warping in `y` for the bottom-left corner (pixels)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The value of delta will be auto adjusted as per the normalized width/height
+    while creating `ImageRecordReader`. This means that the given value of delta will
+    be treated relative to the normalized width/height specified while creating `ImageRecordReader`.
+    So, let's say we perform 10 pixels of warping across the *x*/*y* axis in an image
+    with a size of 100 x 100\. If the image is normalized to a size of 30 x 30, then
+    3 pixels of warping will happen across the *x*/*y* axis. You need to experiment
+    with different values for `delta` since there's no constant/min/max `delta` value
+    that can solve all types of image classification problems.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In step 3, we used `RotateImageTransform` to perform rotational image transformations
+    by rotating the image samples on the angle mentioned.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In step 4, we added multiple image transformations with the help of `PipelineImageTransform` into
+    a pipeline to load them sequentially or randomly for training purposes. We have
+    created a pipeline with the `List<Pair<ImageTransform,Double>>` type. The `Double`
+    value in `Pair` is the *probability* that the particular element (`ImageTransform`)
+    in the pipeline is executed.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Image transformations will help CNN to learn image patterns better. Training
+    on top of transformed images will further avoid the chances of overfitting.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There's more...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '`WarpImageTransform` under the hood makes an internal call to the JavaCPP method,
+    `warpPerspective()`, with the given properties, `interMode`, `borderMode`, and `borderValue`. JavaCPP is
+    an API that parses native C/C++ files and generates Java interfaces to act as
+    a wrapper. We added the JavaCPP dependency for OpenCV in `pom.xml` earlier. This
+    will enable us to exploit OpenCV libraries for image transformation.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Image preprocessing and the design of input layers
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Normalization is a crucial preprocessing step for a CNN, just like for any feed
+    forward networks. Image data is complex. Each image has several pixels of information.
+    Also, each pixel is a source of information. We need to normalize this pixel value
+    so that the neural network will not overfit/underfit while training. Convolution/subsampling
+    layers also need to be specified while designing input layers for CNN. In this
+    recipe, we will normalize and then design input layers for the CNN.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Create `ImagePreProcessingScaler` for image normalization:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Create a neural network configuration and add default hyperparameters:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Create convolution layers for a CNN using `ConvolutionLayer`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Configure subsampling layers using `SubsamplingLayer`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Normalize activation between layers using `LocalResponseNormalization`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: How it works...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In step 1, `ImagePreProcessingScaler` normalizes the pixels in a specified range
+    of values (0, 1) . We will use this normalizer once we create iterators for the
+    data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In step 2, we have added hyperparameters such as an L2 regularization coefficient,
+    a gradient normalization strategy, a gradient update algorithm, and an activation
+    function globally (applicable for all layers).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In step 3, `ConvolutionLayer` requires you to mention the kernel dimensions
+    (11*11 for the previous code). A kernel acts as a feature detector in the context
+    of a CNN:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`stride`: Directs the space between each sample in an operation on a pixel
+    grid.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`channels`: The number of input neurons. We mention the number of color channels
+    here (RGB: 3).'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`OutGoingConnectionCount`: The number of output neurons.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: In step 4, **`SubsamplingLayer`** is a downsampling layer to reduce the amount
+    of data to be transmitted or stored, and, at the same time, keep the significant
+    features intact. Max pooling is the most commonly used sampling method. `ConvolutionLayer` is
+    always followed by **`SubsamplingLayer`**.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Efficiency is a challenging task in the case of a CNN. It requires a lot of
+    images, along with transformations, to train better. In step 4, `LocalResponseNormalization` improves
+    the generalization power of a CNN. It performs a normalization operation right
+    before performing ReLU activation
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We add this as a separate layer placed between a convolution layer and a subsampling
+    layer:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`ConvolutionLayer` is similar to a feed forward layer, but for performing two-dimensional
+    convolution on images.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**`SubsamplingLayer`** is required for pooling/downsampling in CNNs.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`ConvolutionLayer` and **`SubsamplingLayer`** together form the input layers
+    for a CNN and extract abstract features from images and pass them to the hidden
+    layers for further processing.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Constructing hidden layers for a CNN
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The input layers of a CNN produce abstract images and pass them to hidden layers.
+    The abstract image features are passed from input layers to the hidden layers. If
+    there are multiple hidden layers in your CNN, then each of them will have unique
+    responsibilities for the prediction. For example, one of them can detect lights
+    and dark in the image, and the following layer can detect edges/shapes with the
+    help of the preceding hidden layer. The next layer can then discern more complex
+    objects from the edges/recipes from the preceding hidden layer, and so on.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this recipe, we will design hidden layers for our image classification problem.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Build hidden layers using `DenseLayer`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Add `AddDenseLayer` to the layer structure by calling `layer()`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: How it works...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In step 1, hidden layers are created using `DenseLayer`, which are preceded
+    by convolution/subsampling layers.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In step 2, note that we didn't mention the number of input neurons in hidden
+    layers, since it would be same as the preceding layer's (`SubSamplingLayer`) outgoing
+    neurons.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Constructing output layers for output classification
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: We need to perform image classification using logistic regression (`SOFTMAX`),
+    resulting in probabilities of occurrence for each of the image labels. Logistic
+    regression is a predictive analysis algorithm and, hence, more suitable for prediction
+    problems. In this recipe, we will design output layers for the image classification
+    problem.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Design the output layer using `OutputLayer`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Set the input type using `setInputType()`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: How it works...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In step 1, `nOut()` expects the number of image labels that we calculated using
+    `FileSplit` in an earlier recipe.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In step 2, we have used `setInputType()` to set the convolutional input type. This
+    will trigger computation/settings of the input neurons and add preprocessors (`LocalResponseNormalization`)
+    to handle data flow from the convolutional/subsampling layers to the dense layers.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `InputType` class is used to track and define the types of activations. This
+    is most useful for automatically adding preprocessors between layers, and automatically
+    setting `nIn` (number of input neurons) values. That's how we skipped specifying `nIn` values
+    earlier when configuring the model. The convolutional input type is four-dimensional
+    in shape `[miniBatchSize, channels, height, width]`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Training images and evaluating CNN output
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: We have layer configurations in place. Now, we need to train the CNN to make
+    it suitable for predictions. In a CNN, filter values will be adjusted during the
+    training process. The network will learn by itself how to choose proper filters
+    (feature maps) to produce the best results. We will also see that the efficiency
+    and performance of the CNN becomes a challenging task because of the complexity
+    involved in computation. In this recipe, we will train and evaluate our CNN model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Load and initialize the training data using `ImageRecordReader`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Create a dataset iterator using `RecordReaderDataSetIterator`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Add the normalizer to the dataset iterator:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Train the model by calling `fit()`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Train the model again with image transformations:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Evaluate the model and observe the results:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The evaluation metrics will appear as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/ba5b0d89-60a4-4939-b38f-579bc1a573c0.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Add support for the GPU-accelerated environment by adding the following dependencies:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE25]'
+  prefs: []
+  type: TYPE_PRE
+- en: How it works...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'In step 1, the parameters included are as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`parentPathLabelGenerator`—created during the data extraction stage (see the *Extracting
+    images from disk* recipe in this chapter).'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`channels`—The number of color channels (default = `3` for RGB).'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`ImageRecordReader(imageHeight, imageWidth, channels, parentPathLabelGenerator)`—resize
+    the actual image to the specified size `(imageHeight, imageWidth)` to reduce the
+    data loading effort.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The null attribute in the `initialize()` method is to indicate that we are not
+    training transformed images.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: In step 3, we use `ImagePreProcessingScaler` for min-max normalization. Note
+    that we need to use both `fit()` and `setPreProcessor()` to apply normalization
+    to the data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: For GPU-accelerated environments, we can use `PerformanceListener` instead of
+    `ScoreIterationListener` in step 4 to optimize the training process further. `PerformanceListener`
+    tracks the time spent on training per iteration, while `ScoreIterationListener`reports
+    the score of the network every *N* iterations during training. Make sure that
+    GPU dependencies are added as per step 7.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In step 5, we have trained the model again with the image transformations that
+    were created earlier. Make sure to apply normalization to the transformed images
+    as well.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There's more...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Our CNN has an accuracy of around 50%. We trained our neural network using 396
+    images across 4 categories. For an i7 processor with 8 GB of RAM, it will take
+    15-30 minutes to complete the training. This can vary depending on the applications
+    that are running parallel to the training instance. Training time can also change
+    depending on the quality of the hardware. You will observe better evaluation metrics
+    if you train with more images. More data will contribute toward better predictions.
+    And, of course, it demands extended training time.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Another important aspect is to experiment with the number of hidden layers and
+    subsampling/convolution layers to give you the optimal results. Too many layers
+    could result in overfitting, hence, you really have to experiment by adding a
+    different number of layers to your network configuration. Do not add large values
+    for `stride`*, *or overly small dimensions for the images. That may cause excessive
+    downsampling and will result in feature loss.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We can also try different values for the weights or how weights are distributed
+    across neurons and test different gradient normalization strategies, applying
+    L2 regularization and dropouts. There is no rule of thumb to choose a constant
+    value for L1/L2 regularization or for dropouts. However, the L2 regularization
+    constant takes a smaller value as it forces the weights to decay toward zero.
+    Neural networks can safely accommodate dropout of 10-20 percent, beyond which
+    it can actually cause underfitting. There is no constant value that will apply
+    in every instance, as it varies from case to case:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/059cd7f6-e130-4234-97bb-71913a34d140.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: A GPU-accelerated environment will help decrease the training time. DL4J supports
+    CUDA, and it can be accelerated further using cuDNN. Most two-dimensional CNN
+    layers (such as `ConvolutionLayer` and `SubsamplingLayer`) support cuDNN.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The NVIDIA **CUDA Deep Neural Network** (**cuDNN**) library is a GPU-accelerated
+    library of primitives for deep learning networks. You can read more about cuDNN
+    here: [https://developer.nvidia.com/cudnn](https://developer.nvidia.com/cudnn).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Creating an API endpoint for the image classifier
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: We want to leverage the image classifier as an API to use them in external applications.
+    An API can be accessed externally, and prediction results can be obtained without
+    setting up anything. In this recipe, we will create an API endpoint for the image
+    classifier.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Persist the model using `ModelSerializer`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE26]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Restore the trained model using `ModelSerializer` to perform predictions:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE27]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Design an API method that accepts inputs from users and returns results. An
+    example API method would look like the following:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE28]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Create a URI mapping to service client requests, as shown in the following
+    example:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE29]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Build a `cookbookapp-cnn` project and add the API dependency to your Spring
+    project:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE30]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Create the `generateStringOutput()` method in the service layer to serve API
+    content:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE31]'
+  prefs: []
+  type: TYPE_PRE
+- en: Download and install the Google Cloud SDK: [https://cloud.google.com/sdk/](https://cloud.google.com/sdk/).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Install the Cloud SDK `app-engine-java` component by running the following
+    command on the Google Cloud console:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE32]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Log in and configure Cloud SDK using the following command:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE33]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Add the following dependency for Maven App Engine in `pom.xml`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE34]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Create an `app.yaml` file in your project as per the Google Cloud documentation:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[https://cloud.google.com/appengine/docs/flexible/java/configuring-your-app-with-app-yaml](https://cloud.google.com/appengine/docs/flexible/java/configuring-your-app-with-app-yaml).'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Navigate to Google App Engine and click on the Create Application button:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![](img/03aa855c-b3a4-4bdc-9027-aad8828684f2.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Pick a region and click on Create app:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![](img/cf2b0a73-1c7b-4628-96c3-1c20f1cd9d75.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Select Java and click the Next button:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![](img/91c64ce6-3d2b-498b-9c14-3cb8453e924d.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Now, your app engine has been created at Google Cloud.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Build the spring boot application using Maven:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE35]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Deploy the application using the following command:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE36]'
+  prefs: []
+  type: TYPE_PRE
+- en: How it works...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In step 1 and step 2, we have persisted the model to reuse the model capabilities
+    in API.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In step 3, an API method is created to accept user inputs and return the results
+    from the image classifier.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In step 4, the URI mappings will accept client requests (GET/POST). A GET request
+    will serve the home page at the very beginning. A POST request will serve the
+    end user request for image classification.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In step 5, we added an API dependency to the `pom.xml` file. For demonstration
+    purposes, we build the API JAR file and the JAR file is stored in the local Maven
+    repository. For production, you need to submit your API (JAR file) in a private
+    repository so that Maven can fetch it from there.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In step 6, we are calling the ImageClassifier API at our Spring Boot application
+    service layer to retrieve the results and return them to the controller class.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the previous chapter, we deployed the application locally for demonstration
+    purposes. In this chapter, we have deployed the application in Google Cloud. Steps
+    7 to 16 are dedicated to deployment in Google Cloud.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We have used Google App Engine, although we can set up the same thing in more
+    customized ways using Google Compute Engine or Dataproc. Dataproc is designed
+    to deploy your application in a Spark distributed environment.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Once deployment is successful, you should see something like the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/fa8bb5bd-d9d9-43ff-ae39-b882886b7cf4.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: When you hit the URL (which starts with `https://xx.appspot.com`), you should
+    be able to see the web page (the same as in the previous chapter) where end users
+    can upload images for image classification.
+  prefs: []
+  type: TYPE_NORMAL

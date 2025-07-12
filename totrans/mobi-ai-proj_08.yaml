@@ -1,0 +1,600 @@
+- en: Implementing GANs to Recognize Handwritten Digits
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this chapter, we will build an Android application that detects handwritten
+    numbers and works out what the number is by using adversarial learning. We will
+    use the **Modified National Institute of Standards and Technology** (**MNIST**)
+    dataset for digit classification. We will also look into the basics of **Generative
+    Adversarial Networks** (**GANs**).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this chapter, we will take a closer look at the following topics:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Introduction to GANs
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Understanding the MNIST database
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Building the TensorFlow model
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Building the Android application
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The code for this application can be found at [https://github.com/intrepidkarthi/AImobileapps](https://github.com/intrepidkarthi/AImobileapps).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Introduction to GANs
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: GANs are a class of **machine learning** (**ML**) algorithm that's used in unsupervised
+    ML. They are comprised of two deep neural networks that are competing against
+    each other (so it is termed as adversarial). GANs were introduced at the University
+    of Montreal in 2014 by Ian Goodfellow and other researchers, including Yoshua
+    Bengio.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Ian Goodfellow's paper on GANs can be found at [https://arxiv.org/abs/1406.2661](https://arxiv.org/abs/1406.2661).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'GANs have the potential to mimic any data. This means that GANs can be trained
+    to create similar versions of any data, such as images, audio, or text. A simple
+    workflow of a GAN is shown in the following diagram:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/155fcb59-cb75-46e4-bc93-4aa7fd25d6e7.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The workflow of the GAN will be explained in the following sections.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Generative versus discriminative algorithms
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: To understand GANs, we must know how discriminative and generative algorithms
+    work. Discriminative algorithms try to predict a label and classify the input
+    data, or categorize them to where the data belongs. On the other hand, generative
+    algorithms make an attempt to predict features to give a certain label.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For example, a discriminative algorithm can predict whether an email is spam
+    or not. Here, spam is one of the labels, and the text that''s captured from the
+    message is considered the input data. If you consider the label as *y* and the
+    input as *x*, we can formulate this as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/c4a4b7b1-c903-4e1a-b3ef-9845baa9935e.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: On the other hand, generative algorithms try to guess how likely these input
+    features (*x*, in the previous equation) are. Generative models care about how
+    you get *x*, while discriminative models care about the relation between *x* and
+    *y*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using the MNIST database as an example, the generator will generate images and
+    pass them on to the discriminator. The discriminator will authenticate the image
+    if it is truly from the MNIST dataset. The generator generates images with the
+    hope that it will pass through the discriminator and be authenticated, even though
+    it is fake (as shown in the preceding diagram).
+  prefs: []
+  type: TYPE_NORMAL
+- en: How GANs work
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Based on our example, we will assume that we are passing numbers as inputs:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The generator takes random numbers as inputs and returns an image as the output
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: The output image is passed into the discriminator, and, at the same time, the
+    discriminator receives input from the dataset
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: The discriminator takes in both real and fake input images, and returns probabilities
+    between zero and one (with one representing a prediction of authenticity and zero
+    representing a fake)
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Using the example application we discussed in this chapter, we can use the same
+    steps to pass the user's hand-drawn image as one of the fake images and try to
+    find the probability value of it being correct.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Understanding the MNIST database
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The MNIST dataset consists of 60,000 handwritten digits. It also consists of
+    a test dataset made up of 10,000 digits. While it is a subset of the NIST dataset,
+    all the digits in this dataset are size normalized and have been centered on a
+    28 x 28 pixels sized image. Here, every pixel contains a value of 0-255 with its
+    grayscale value.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The MNIST dataset can be found at [http://yann.lecun.com/exdb/mnist/](http://yann.lecun.com/exdb/mnist/).
+    The NIST dataset can be found at [https://www.nist.gov/srd/nist-special-database-19](https://www.nist.gov/srd/nist-special-database-19).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Building the TensorFlow model
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this application, we will build an MNIST dataset based TensorFlow model that
+    we will use in our Android application. Once we have the TensorFlow model, we
+    will convert it into a TensorFlow Lite model. The step-by-step procedure of downloading
+    the model and building the TensorFlow model is as follows.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Here is the architecture diagram on how our model works. The way to achieve
+    this is explained as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/191be622-af24-4350-abaa-b854ef81eb00.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Using TensorFlow, we can download the MNIST data with one line of Python code,
+    as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: Now, we have the MNIST dataset downloaded. After that, we will read the data,
+    as shown in the previous code.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now, we can run the script to download the dataset. We will run the script
+    from the console, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Once we have the dataset ready, we will add a few variables that we will use
+    in our application, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: We need to define these variables to control the parameters on building the
+    model as required by the TensorFlow framework. This classification process is
+    simple. The number of pixels that exist in a 28 x 28 image is 784\. So, we have
+    a corresponding number of input layers. Once we have the architecture set up,
+    we will train the network and evaluate the results, obtained to understand the
+    effectiveness and accuracy of the model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now, let''s define the variables that we added in the preceding code block.
+    Depending on whether the model is in the training phase or the testing phase,
+    different data will be passed through the classifier. The training process needs
+    labels to be able to match them to current predictions. This is defined in the
+    following variable:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'As the computation-graph evaluation occurs, placeholders will be filled. In
+    the training process, we adjust the values of biases and weights toward increasing
+    the accuracy of our results. To achieve this, we will define the weight and bias
+    parameters, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Once we have variables that can be tuned, we can move on to building the output
+    layer in just one step:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: We have successfully built the output layer of the network with the training
+    data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Training the neural network
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: By optimizing loss, we can get the training process to work. We need to reduce
+    the difference between the actual label value and the network prediction. The
+    term to define this loss is **cross entropy**.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In TensorFlow, cross entropy is provided by the following method:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This method applies softmax to the model''s prediction. Softmax is similar
+    to logistic regression, and produces a decimal between 0 and 1.0\. For example,
+    a logistic regression output of 0.9 from an email classifier suggests a 90% chance
+    of an email being spam and a 10% chance of it not being spam. The sum of all the
+    probabilities is 1.0, as shown with an example in the following table:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/b80b1630-1bd3-4b50-ab7c-da1d0d4e7ce8.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Softmax is implemented through a neural network layer, just before the output
+    layer. The softmax layer must have the same number of nodes as the output layer.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Loss is defined using the `tf.reduce_mean` method, and the `GradientDescentOptimizer()`
+    method is used in training steps to minimize the loss. This is shown in the following
+    code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The `GradientDescentOptimizer` method will take several steps by adjusting
+    the values of *w* and *b* (the weight and bias parameters) in the output. The
+    values will be adjusted until we reduce loss and are closer to a more accurate
+    prediction, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We start the training by initializing the session and the variables, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Based on the parameters of the number of steps (`steps_number`) defined previously,
+    the algorithm will run in a loop. We will then run the optimizer, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'With TensorFlow, we can measure the accuracy of our algorithm and print the
+    accuracy value. We can keep it improving as long as the accuracy level increases
+    and finds the threshold value on where to stop, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Once the training is done, we can evaluate the network''s performance. We can
+    use the training data to measure performance, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'When we run the Python script, the output on the console is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: Now, we have arrived at an accuracy rate of 89.2%. When we try to optimize our
+    results more, the accuracy level reduces; this is where we set have our threshold
+    value to stop the training.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let's build the TensorFlow model for the MNIST dataset. Inside the TensorFlow
+    framework, the scripts that are provided save the MNIST dataset into a TensorFlow
+    (`.pb`) model. The same script is attached to this application's repository.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The code for this application can be found at [https://github.com/intrepidkarthi/AImobileapps](https://github.com/intrepidkarthi/AImobileapps).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We will begin by training the model using the following Python code line:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: We will now run the script to generate our model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The following script helps us export the model by adding some additional parameters:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: The saved model can be found in the time stamped directory under `/./mnist_mode1/`
+    (for example, `/./mnist_model/1536628294/`).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The obtained TensorFlow model will be converted into a TensorFlow Lite model
+    using `toco`, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: Toco is a command-line tool that's used to run the **TensorFlow Lite Optimizing
+    Converter** (**TOCO**), which converts a TensorFlow model into a TensorFlow Lite
+    model. The preceding `toco` command produces `mnist.tflite` as its output, which
+    we will use in our application in the next section.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Building the Android application
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Let''s create the Android application step-by-step with the model that we have
+    built. We will start by creating a new project in Android Studio:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Create a new application in Android Studio:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![](img/04420888-dc76-451a-b2c2-5d0dc5fed348.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Drag the created TensorFlow Lite model to the `assets` folder, along with the
+    `labels.txt` file. We will read the model and label from the assets folder:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![](img/8a178f84-13a2-418e-a617-a881a3e56cae.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The preceding screenshot shows the file structure in the project. If necessary,
+    we can store the model file inside the secondary memory storage as well.
+  prefs: []
+  type: TYPE_NORMAL
+- en: One of the advantages of FreeHandView is that we can create a simple view where
+    users can draw any number of digits. In addition to this, the bar chart on the
+    screen will show the classification of the detected number.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We will use a step-by-step procedure to create the classifier.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Here is the `FreeHandView` constructor method that we will use to draw the
+    digits. We initialize the `Paint` object with the necessary parameters, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The functions of each parameter that was used in the preceding code block are
+    explained as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`mPaint.setAntiAlias(true)`: A helper for `setFlags()`, setting or clearing
+    the `ANTI_ALIAS_FLAG` bit. Antialiasing smooths out the edges of what is being
+    drawn, but it has no impact on the interior of the shape.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`mPaint.setDither(true)`: A helper for `setFlags()`, setting or clearing the
+    `DITHER_FLAG` bit. Dithering affects how colors that are higher precision than
+    the device are down-sampled.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`mPaint.setColor(DEFAULT_COLOR)`: Sets the paint''s color.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`mPaint.setStyle(Paint.Style.STROKE)`: Sets the paint''s style, used for controlling
+    how primitives'' geometries are interpreted (except for `drawBitmap`, which always
+    assumes `Fill`).'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`mPaint.setStrokeJoin(Paint.Join.ROUND)`: Sets the paint''s `Join`.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`mPaint.setStrokeCap(Paint.Cap.ROUND)`: Sets the paint''s `Cap`.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`mPaint.setXfermode(null)`: Sets or clears the transfer mode object.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`mPaint.setAlpha(Oxff)`: A helper to `setColor()`, that only assigns the color''s
+    `alpha` value, leaving its `r`, `g`, and `b` values unchanged.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Inside the `init()` method of the view life cycle, we will initialize the `ImageClassifier`,
+    and pass on the `BarChart` object:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We will use the chart from the following library: [https://github.com/PhilJay/MPAndroidChart](https://github.com/PhilJay/MPAndroidChart).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We will initialize the `BarChart` view, with the *x* axis containing numbers
+    from zero to nine and the *y* axis containing the probability value from 0 to
+    1.0:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: Once we have initialized the `BarChart` view, we will call the `OnDraw()` method
+    of the view life cycle, which applies strokes in accordance with the path of the
+    user's finger movements. The `OnDraw()` method is called as part of the view life
+    cycle method once the `BarChart` view is initialized.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Inside the `OnDraw` method, we will track the finger movement of the user,
+    and the same movements will be drawn on the canvas, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Inside the `onTouchEvent()` method, we can track the user''s finger position
+    using the move, up, and down events and initiate actions based upon that. This
+    is one of the methods in the view''s life cycle that''s used to track events.
+    There are three events that will be triggered when you touch your mobile based
+    on finger movements. In the case of `action_down` and `action_move`, we will handle
+    events to draw the on-hand movement on the view with the initial paint object
+    attributes. When the `action_up` event is triggered, we will save the view into
+    a file, as well as pass the file image to the classifier to identify the digit.
+    After that, we will represent the probability values using the `BarChart` view.
+    These steps are as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Inside the `ACTION_UP` action, there is a `updateBarEntry()` method call. This
+    is where we call the classifier to get the probability of the result. This method
+    also updates the `BarChart` view based on the results from the classifier, as
+    follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'FreeHandView looks like this, along with an empty bar chart:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/ad30f114-27ff-4b55-87b6-1fb2e54beb58.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: With this, we will add the module to recognize the handwritten digits and then
+    classify them.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Digit classifier
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Now, let's write the classifier.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'First, we will load the model file. This method reads the model from the assets
+    folder and loads it into the memory:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now, let''s write the TensorFlow Lite classifier, frame-by-frame. This is the
+    place where we get the results from the digit classifier. Once we have received
+    the saved file image as the user input, the bitmap will be converted into a byte
+    buffer to run the inference on top of the model. Once we have received the output,
+    the time taken to get the results are noted using the `SystemClock` time:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The `runlnference()` method calls the `run` method from`tflite`, as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE25]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Next, let''s start the application from `MainActivity`, where the `barChart` view
+    is initialized. Initialize the `barChart` view on the *x* and *y* axis, along
+    with the following values:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE26]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Initialize FreeHandView to start classifying inside the `OnCreate()` method
+    of `MainActivity`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE27]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'When you reach the probability value of 1.00, the algorithm identifies the
+    digit with 100% accuracy. An example of this is shown here:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![](img/21170abb-5da1-4041-ad38-d5ea86814376.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'There are instances in which the classification decreases the probability with
+    partial matches, as shown in the following screenshot:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![](img/c7b2ae6e-4285-4a5d-94da-05abb224eee7.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'There are also other instances where the probability ends up with multiple
+    partial matches. An example of this is shown in the following screenshot:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![](img/60708fa3-3c98-4444-b041-9d322a25909a.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Any such situation requires more rigorous training of the model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Clicking on the RESET button will clear up the view so that you can draw again.
+    We will implement it using the following lines of code:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE28]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Once you click on the RESET button, the preceding code clears up the FreeHandView
+    area, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/557caf09-525b-4553-8684-893d6776e15f.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: You can also check that the application works properly by writing characters
+    other than digits, and checking the performance of the output on the bar chart.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this section, we learned how the application classifies the different digits
+    that are hand-drawn, and also provides the probability of those digits being correct.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Using this Android application, we can learn how to write a freehand writing
+    classifier using TensorFlow Lite. With more data on handwritten alphabet datasets,
+    we should be able to identify alphabets in any language using GANs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the next chapter, we will build a model for sentiment analysis and build
+    an app on top of it.
+  prefs: []
+  type: TYPE_NORMAL

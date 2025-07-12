@@ -1,0 +1,499 @@
+- en: Interpreting Neural Network Output
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the previous chapter, the ability to use the DL4J UI to monitor and debug
+    a **Multilayer Neural Network** (**MNN**) was fully described. The last part of
+    the previous chapter also explained how to interpret and use the real-time visual
+    results in the UI charts to tune training. In this chapter, we will explain how
+    to evaluate the accuracy of a model after its training and before it is moved
+    to production. Several evaluation strategies exist for neural networks. This chapter
+    covers the principal ones and all their implementations, which are provided by
+    the DL4J API.
+  prefs: []
+  type: TYPE_NORMAL
+- en: While describing the different evaluation techniques, I have tried to reduce
+    the usage of math and formulas as much as possible and keep the focus on the Scala
+    implementation with DL4J and Spark.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this chapter, we will cover the following topics:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Interpreting the output of a neural network
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Evaluation techniques with DL4J, including the following:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Evaluation for classification
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Evaluation for classification in a Spark context
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Other types of evaluation that are supported by DL4J
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Evaluation techniques with DL4J
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: At training time and before deploying a MNN, it is important to know the accuracy
+    of the model and understand its performance. In the previous chapter, we learned
+    that at the end of a training phase, the model can be saved in a ZIP archive.
+    From there, it is possible to run it and test it implementing a custom UI, like
+    that shown in *Figure 8.1* (it has been implemented using the JavaFX features;
+    the example code is part of the source code that's bundled with this book). But
+    more significant strategies can be utilized to perform an evaluation. DL4J provides
+    an API that can be used to evaluate the performance of both binary and multi-class
+    classifiers.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This first section and its subsections cover all the details of doing evaluation
+    for classification (DL4J and Spark), while the next section provides an overview
+    of other evaluation strategies that can be done, all of which rely on the DL4J
+    API.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Evaluation for classification
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The core DL4J class when implementing evaluations is called **evaluation** ([https://static.javadoc.io/org.deeplearning4j/deeplearning4j-nn/0.9.1/org/deeplearning4j/eval/Evaluation.html](https://static.javadoc.io/org.deeplearning4j/deeplearning4j-nn/0.9.1/org/deeplearning4j/eval/Evaluation.html),
+    part of the DL4J NN module).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The dataset that will be used for the example presented in this subsection
+    is the Iris dataset (it is available for download at [https://archive.ics.uci.edu/ml/datasets/iris](https://archive.ics.uci.edu/ml/datasets/iris)).
+    It is a multivariate dataset that was introduced in 1936 by the British statistician
+    and biologist Ronald Fisher ([https://en.wikipedia.org/wiki/Ronald_Fisher](https://en.wikipedia.org/wiki/Ronald_Fisher)).
+    It contains 150 records – 50 samples – from three species of Iris flower (Iris
+    setosa, Iris virginica, and Iris versicolor). Four attributes (features) have
+    been measured from each sample – the length and width of the sepals and petals
+    (in centimeters). The structure of this dataset was used for the example that
+    was presented in [Chapter 4](198c1dc7-bc2a-47e8-9f97-8dbe37b7a2e3.xhtml), *Streaming*,
+    in the *Streaming data with DL4J and Spark* section. Here''s a sample of the data
+    that''s contained in this set:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Typically, for cases of supervised learning like this, a dataset is split into
+    two parts: 70% and 30%. The first part is for the training, while the second is
+    used to calculate the error and modify the network if necessary. This is also
+    the case for this section example – we are going to use 70% of the dataset for
+    the network training and the remaining 30% for evaluation purposes.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The first thing we need to do is get the dataset using a `CSVRecordReader`
+    (the input file is a list of comma-separated records):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now, we need to convert the data that''s going to be used in the neural network:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: Each row of the input file contains five values – the four input features, followed
+    by an integer label (class) index. This means that the labels are the fifth value
+    (`labelIndex` is `4`). The dataset has three classes representing the types of
+    Iris flowers. They have integer values of either zero (setosa), one (versicolor),
+    or two (virginica).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'As we mentioned previously, we split the dataset into two parts – 70% of the
+    data is for training, while the rest is for evaluation:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: The split happens through the `SplitTestAndTrain` class ([https://deeplearning4j.org/api/latest/org/nd4j/linalg/dataset/SplitTestAndTrain.html](https://deeplearning4j.org/api/latest/org/nd4j/linalg/dataset/SplitTestAndTrain.html))
+    of ND4J.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We also need to normalize the input data (for both the training and evaluation
+    sets) using the ND4J `NormalizeStandardize` class ([https://deeplearning4j.org/api/latest/org/nd4j/linalg/dataset/api/preprocessor/NormalizerStandardize.html](https://deeplearning4j.org/api/latest/org/nd4j/linalg/dataset/api/preprocessor/NormalizerStandardize.html))
+    so that we have a zero mean and a standard deviation of one:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We can now configure and build the model (a simple feedforward neural network):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The following screenshot shows a graphical representation of the network for
+    this example:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/3bed52a4-5815-453c-98df-a3fd060bd86e.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'The MNN can be created by starting from the preceding configuration:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The training can be started if we use the portion (70%) of the input dataset
+    that has been reserved for it:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'At the end of training, the evaluation can be done using the reserved portion
+    (30%) of the input dataset:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The value that''s passed to the evaluation class constructor is the number
+    of classes to account for in the evaluation – this is `3` here because we have
+    `3` classes of flowers in the dataset. The `eval` method compares the labels array
+    from the test dataset with the labels that were generated by the model. The result
+    of the evaluation is finally printed to the output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/be1b6651-5593-4f76-9a37-ef49197c5fa1.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: By default, the `stats` method of the `Evaluation` class displays the confusion
+    matrix entries (one entry per line), Accuracy, Precision, Recall, and F1 Score,
+    but other information can be displayed. Let's talk about what these `stats` are.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The **confusion matrix** is a table that is used to describe the performance
+    of a classifier on a test dataset for which the true values are known. Let''s
+    consider the following example (for a binary classifier):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '| **Prediction count = 200** | **Predicted as no** | **Predicted as yes** |'
+  prefs: []
+  type: TYPE_TB
+- en: '| Actual: no | 55 | 5 |'
+  prefs: []
+  type: TYPE_TB
+- en: '| Actual: yes | 10 | 130 |'
+  prefs: []
+  type: TYPE_TB
+- en: 'These are the insights we can get from the preceding matrix:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: There are two possible predicted classes, yes and no
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The classifier made 200 predictions in total
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Out of those 200 cases, the classifier predicted yes 135 times and no 65 times
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: In reality, 140 cases in the sample are yes and 60 are no
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'When this is translated into proper terms, the insights are as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**True positives** (**TP**): These are cases in which yes has been predicted
+    and it is really a yes'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**True negatives** (**TN**): No has been predicted and it is really a no'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**False positives** (**FP**): Yes has been predicted, but really it is a no'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**False negatives** (**FN**): No has been predicted, but really it is a yes'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Let''s consider the following example:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '|  | **Predicted as no** | **Predicted as yes** |'
+  prefs: []
+  type: TYPE_TB
+- en: '| Actual: no | TN | FP |'
+  prefs: []
+  type: TYPE_TB
+- en: '| Actual: yes | FN | TP |'
+  prefs: []
+  type: TYPE_TB
+- en: 'This is done in terms of numbers. A list of rates can be calculated from a
+    confusion matrix. With reference to the code example in this section, they are
+    as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Accuracy**: Represents how often a classifier is correct: *(TP+TN)/total*.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Precision**: Represents how often a classifier is correct when it predicts
+    a positive observation.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Recall**: The average recall for all classes (labels) in the evaluation dataset: *TP/TP+FN*.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**F1 Score**: This is the weighted average of precision and recall. It takes
+    into account both false positives and false negatives: *2 * TP / (2TP + FP + FN)*.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'The `Evaluation` class can also display other information such as the G-measure
+    or the Matthews Correlation Coefficient, and much more. The confusion matrix can
+    be also displayed in its full form:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The preceding command returns the following output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/0a522cc7-b4e8-4dbe-a26f-6f6341dfcc73.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'The confusion matrix can be also accessed directly and converted into CSV format:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The preceding command returns the following output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/cea6aeef-8411-4b1d-be13-4236f9ac291e.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'It can also be converted into HTML:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The preceding command returns the following output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/27fed4c0-2166-4666-a7cf-d674104bd334.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Evaluation for classification – Spark example
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Let's examine another example of evaluation for classification, but in a context
+    where Spark is involved too (distributed evaluation). We are going to complete
+    the example that was presented in [Chapter 5](fbec1d8a-a92f-4899-af0f-11f3d545e0eb.xhtml),
+    *Convolutional Neural Networks*, in the *Hands-on CNN with Spark* section, [Chapter
+    7](3b6f47c0-6e17-484b-ad30-b6f92eb0473c.xhtml), *Training Neural Networks with
+    Spark*, in the *CNN distributed training with Spark and DL4J* section, and [Chapter
+    8](b30120ea-bd42-4cb7-95d9-5ecaa2b7c181.xhtml), *Monitoring and Debugging Neural
+    Network Training*, in the *The DL4J Training UI and Spark* section. Remember that
+    this is an example of handwritten digits image classification that's trained on
+    the `MNIST` dataset.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In these chapters, we used only a portion of the `MNIST` dataset for training
+    purposes, but the downloaded archive also includes a separate directory named
+    `testing`, which contains the portion of the dataset that''s reserved for evaluation
+    purposes. The evaluation dataset also needs to be vectorized, just like the training
+    dataset:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We need to do this before we load it into memory at evaluation time and parallelize
+    it:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Then, the evaluation can be done through the `Evaluation` class, which is what
+    we did for the example in the previous section:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The produced output of the `stas` method of the `Evaluation` class is the same
+    as for any other network implementation that''s trained and evaluated through
+    DL4J. For example:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/7244abfe-90e1-4132-92f4-3ff6806704cd.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'It is also possible to perform multiple evaluations in the same pass using
+    the `doEvaluation` method of the `SparkDl4jMultiLayer` class. This method expects
+    three input parameters: the data to evaluate on (in the form of a `JavaRDD<org.nd4j.linalg.dataset.DataSet>`),
+    an empty `Evaluation` instance, and a integer that represents the evaluation batch
+    size. It returns the populated `Evaluation` object.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Other types of evaluation
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Other evaluations are available through the DL4J API. This section lists them.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'It is possible to evaluate a network performing regression through the `RegressionEvaluation`
+    class ([https://static.javadoc.io/org.deeplearning4j/deeplearning4j-nn/1.0.0-alpha/org/deeplearning4j/eval/RegressionEvaluation.html](https://static.javadoc.io/org.deeplearning4j/deeplearning4j-nn/1.0.0-alpha/org/deeplearning4j/eval/RegressionEvaluation.html),
+    DL4J NN). With reference to the example that we used in the *Evaluation for classification* section,
+    evaluation for regression can be done the following way:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The produced output of the `stats` method includes the MSE, the MAE, the RMSE,
+    the RSE, and the R^2:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/1e5ef8ad-0379-460e-88ff-d21ab98964a1.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '**ROC** (short for **Receiver Operating Characteristic**, [https://en.wikipedia.org/wiki/Receiver_operating_characteristic](https://en.wikipedia.org/wiki/Receiver_operating_characteristic))
+    is another commonly used metric for the evaluation of classifiers. DL4J provides
+    three different implementations for ROC:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`ROC`: [https://deeplearning4j.org/api/1.0.0-beta2/org/deeplearning4j/eval/ROC.html](https://deeplearning4j.org/api/1.0.0-beta2/org/deeplearning4j/eval/ROC.html),
+    the implementation for binary classifiers'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`ROCBinary`: [https://deeplearning4j.org/api/1.0.0-beta2/org/deeplearning4j/eval/ROCBinary.html](https://deeplearning4j.org/api/1.0.0-beta2/org/deeplearning4j/eval/ROCBinary.html),
+    for multi-task binary classifiers'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`ROCMultiClass`: [https://deeplearning4j.org/api/1.0.0-beta2/org/deeplearning4j/eval/ROCMultiClass.html](https://deeplearning4j.org/api/1.0.0-beta2/org/deeplearning4j/eval/ROCMultiClass.html),
+    for multi-class classifiers'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'All of the three preceding classes have the ability to calculate the area under
+    **ROC curve** (**AUROC**), through the `calculateAUC` method, and the area under
+    **Precision-Recall curve** (**AUPRC**), through the `calculateAUPRC` method. These
+    three ROC implementations support two modes of calculation:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Thresholded**: It uses less memory and approximates the calculation of the
+    AUROC and AUPRC. This is suitable for very large datasets.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Exact**: This is the default. It is accurate, but requires more memory. This
+    is not suitable for very large datasets.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: It is possible to export the AUROC and AUPRC in HTML format so that they can
+    be viewed using a web browser. The `exportRocChartsToHtmlFile` method of the `EvaluationTools`
+    class ([https://deeplearning4j.org/api/1.0.0-beta2/org/deeplearning4j/evaluation/EvaluationTools.html](https://deeplearning4j.org/api/1.0.0-beta2/org/deeplearning4j/evaluation/EvaluationTools.html))
+    has to be used to do this export. It expects the ROC implementation to export
+    and a File object (the destination HTML file) as parameters. It saves both curves
+    in a single HTML file.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To evaluate networks with binary classification outputs, the `EvaluationBinary`
+    class ([https://deeplearning4j.org/api/1.0.0-beta2/org/deeplearning4j/eval/EvaluationBinary.html](https://deeplearning4j.org/api/1.0.0-beta2/org/deeplearning4j/eval/EvaluationBinary.html))
+    is used. The typical classification metrics (Accuracy, Precision, Recall, F1 Score,
+    and so on) are calculated for each output. The following is the syntax for this
+    class:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: What about time series evaluation (in the case of RNNs)? It is quite similar
+    to the evaluation approaches for classification that we have described so far
+    in this chapter. For time series in DL4J, the evaluation is performed on all the
+    non-masked time steps in a separate way. But what is masking for RNNs? RNNs require
+    that inputs have a fixed length. Masking is a technique that's used to handle
+    this because it marks missing time steps. The only difference between the other
+    evaluation cases that were presented previously is the optional presence of mask
+    arrays. This means that, in many time series cases, you can just use the `evaluate`
+    or `evaluateRegression` methods of the `MultiLayerNetwork` class – regardless
+    of whether mask arrays should be present, they can be properly handled by those
+    two methods.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'DL4J also provides a way to analyze the calibration of a classifier – the `EvaluationCalibration`
+    class ([https://deeplearning4j.org/api/1.0.0-beta2/org/deeplearning4j/eval/EvaluationCalibration.html](https://deeplearning4j.org/api/1.0.0-beta2/org/deeplearning4j/eval/EvaluationCalibration.html)).
+    It provides a number of tools for this, such as the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The counts of the number of labels and predictions for each class
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The reliability diagram ([http://www.bom.gov.au/wmo/lrfvs/reliability.shtml](http://www.bom.gov.au/wmo/lrfvs/reliability.shtml))
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The residual plot ([http://www.statisticshowto.com/residual-plot/](http://www.statisticshowto.com/residual-plot/))
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Histograms of probabilities for each class
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The evaluation of a classifier using this class is performed in a similar manner
+    to the other evaluation classes. It is possible to export its plots and histograms
+    in HTML format through the `exportevaluationCalibrationToHtmlFile` method of the
+    `EvaluationTools` class. This method expects an `EvaluationCalibration` instance
+    and a file object (the destination HTML file) as arguments.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this chapter, we have learned how to programmatically evaluate a model's
+    efficiency using the different facilities that are provided by the DL4J API. We
+    have now closed the full circle in terms of the implementation, training, and
+    evaluation of MNN using DL4J and Apache Spark.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The next chapter will give us some insight into the deployment of a distribution
+    environment and importing and executing pre-trained Python models, as well as
+    a comparison of DL4J with some alternative DL frameworks for the Scala programming
+    language.
+  prefs: []
+  type: TYPE_NORMAL

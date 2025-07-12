@@ -1,0 +1,948 @@
+- en: Building an ML Model to Predict Car Damage Using TensorFlow
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this chapter, we will build a system that detects the level of damage  that's
+    been done to a vehicle by analyzing photographs using **transfer learning**. A
+    solution like this will be helpful in reducing the cost of insurance claims, as
+    well as making the process simpler for vehicle owners. If the system is implemented
+    properly, in an ideal scenario, the user will upload a bunch of photographs of
+    the damaged vehicle, the photos will go through damage assessment, and the insurance
+    claim will be processed automatically.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There are a lot of risks and challenges involved in implementing a perfect solution
+    for this use case. To start with, there are multiple unknown conditions that could
+    have caused damage to the car. We are not aware of the outdoor environment, surrounding
+    objects, light in the area, and the quality of the vehicle before the incident.
+    Passing through all these hurdles and figuring out a common solution for the problem
+    is challenging. This is a common problem across any computer vision-based scenario.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this chapter, we will cover the following topics:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Transfer learning basics
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Image dataset collections
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Setting up a web application
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Training our own TensorFlow model
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Building a web app that consumes the model
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Transfer learning basics
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: To implement the car damage prediction system, we are going to build our own
+    TensorFlow-based **machine learning** (**ML**) model for the vehicle datasets.
+    Millions of parameters are needed with modern recognition models. We need a lot
+    of time and data to train a new model from scratch, as well as hundreds of **Graphical
+    Processing Units** (**GPUs**) or **Tensor Processing Units** (**TPUs**) that run
+    for hours.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Transfer learning makes this task easier by taking an existing model that is
+    already trained and reusing it on a new model. In our example, we will use the
+    feature extraction capabilities from the **MobileNet** model and train our own
+    classifiers on top of it. Even if we don't get 100% accuracy, this works best
+    in a lot of cases, especially on a mobile phone where we don't have heavy resources.
+    We can easily train this model on a typical laptop for a few hours, even without
+    a GPU. The model was built on a MacBook Pro with a 2.6 GHz Intel i5 processor
+    and 8 GB RAM.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Transfer learning is one of the most popular approaches in deep learning, where
+    a model that's been developed for one task is reused for another model on a different
+    task. Here, pre-trained models are used as a first step in computer vision-based
+    tasks or **natural language processing** (**NLP**) based tasks, provided we have
+    very limited computational resources and time.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In a typical computer vision-based problem, neural networks try to detect edges
+    in their initial level layers, shapes in the middle level layers, and more specific
+    features in the final level layers. With transfer learning, we will use the initial
+    and middle level layers and only retrain the final level layers.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For example, if we have a model that''s trained to recognize an apple from
+    the input image, it could be reused to detect water bottles. In the initial layers,
+    the model has been trained to recognize objects, so we will retrain only the final
+    level layers. In that way, our model will learn what will differentiate water
+    bottles from other objects. This process can be seen in the following diagram:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/72e3df71-eb01-438a-b39c-4ccd737203f9.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Typically, we need a lot of data to train our model, but most of the time we
+    will not have enough relevant data. That is where transfer learning comes into
+    the picture, and is where you can train your model with very little data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: If your old classifier was developed and trained using TensorFlow, you can reuse
+    the same model to retrain a few of the layers for your new classifier. This will
+    work perfectly, but only if the features that were learned from the old task are
+    more generic in nature. For example, you can't reuse a model that was developed
+    for a text classifier on an image classification-based task. Also, the input data
+    size should match for both the models. If the size doesn't match, we need to add
+    an additional preprocessing step to resize the input data accordingly.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Approaches to transfer learning
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Let''s look into different approaches to transfer learning. There could be
+    different names given to the approaches, but the concepts remain the same:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Using a pre-trained model**: There are a lot of pre-trained models out there
+    to satisfy your basic deep learning research. In this book, we have used a lot
+    of pre-trained models from where we derive our results.'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '**Training a model for reuse**: Let''s assume that you want to solve problem
+    A, but you don''t have enough data to achieve the results. To solve this issue,
+    we have another problem, B, where we have enough data. In that case, we can develop
+    a model for problem B, and use the model as a starting point for problem A. Whether
+    we need to reuse all the layers or only a few layers is dependent on the type
+    of problem that we are solving.'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '**Feature ex****traction**: With deep learning, we can extract the features
+    of the dataset. Most of the time, the features are handcrafted by the developers.
+    Neural networks have the ability to learn which features you have to pass on,
+    and which ones you don''t. For example, we will only use the initial layers to
+    detect the right representation of features, but we will not use the output because
+    it might be more specific to one particular task. We will simply feed the data
+    into our network and use one of the immediate middle level layers as the output
+    layer.'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: With this, we will start building our model using TensorFlow.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Building the TensorFlow model
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Building your own custom model requires following a step-by-step procedure.
+    To begin, we are going to use the TensorFlow Hub to feed images using pre-trained
+    models.
+  prefs: []
+  type: TYPE_NORMAL
+- en: To learn more about TensorFlow Hub, please refer to [https://www.tensorflow.org/hub](https://www.tensorflow.org/hub).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Installing TensorFlow
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'While writing this book, TensorFlow r1.13 was available. Revision 2.0.0 is
+    also available on the alpha stage, but we will stay with a stable version. The
+    TensorFlow Hub has a dependency on the TensorFlow library that can be installed
+    with `pip`, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: When the `tensorflow` library is installed, we need to start collecting our
+    image dataset before the training process starts. We need to look into a lot of
+    things before we begin our training.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Training the images
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this section, we will collect the images and keep them organized under their
+    respective folder categories.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'A few common steps for choosing your own dataset of images are as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: First of all, you need at least 100 photos of each image category that you want
+    to recognize. The accuracy of your model is directly proportional to the number
+    of images in the set.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: You need to make sure that you have more relevant images in the image set. For
+    example, if you have taken an image set with a single color background let's say
+    all the objects in the images have a white background and are shot indoors and
+    users are trying to recognize objects with distracting backgrounds (for example,
+    colorful backgrounds shot outdoors), this won't result in better accuracy.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Choose images with a variety of backgrounds. For example, if you are picking
+    images with only two background colors, then your prediction will have a preference
+    toward those two colors, rather than the object in the image.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Try to split bigger categories into smaller divisions. For example, instead
+    of animal, you might use cat, dog, or tiger.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Make sure that you select all the input images that contain the objects that
+    you are trying to recognize. For example, if you have a dog-recognizing app, we
+    wouldn't use cars, buildings, or mountains as input images. In that case, it is
+    better to have a separate classifier for the unrecognizable images.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Ensure that you label images properly. For example, labeling a flower as jasmine
+    might have the whole plant in the picture or a person behind it. The accuracy
+    of our algorithm will differ when there are distracting objects in the input images.
+    Let's say you have taken a few food item images from Google Images. These images
+    have reusable permissions, so always ensure that you have this when collecting
+    images for your model. You can do this by searching any keyword from Google Images
+    and filter the images based on labelled for reuse usage rights. You can find this
+    option by clicking on tools beneath the search bar.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: We have collected a few images from the internet for educational purposes in
+    this chapter. This is discussed in further detail in the next section.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Building our own model
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Here, we are going to build our own ML model using TensorFlow to analyze the
+    damage level of the vehicle. We need to be careful in picking the dataset that
+    will play a crucial part in the damage evaluation phase. Here are the steps that
+    we are going to follow in order to build the model:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Find the image dataset of the damaged vehicles.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Categorize the images based on their damage levels. First, we need to identify
+    that the object in the picture is actually a car. To do that, we need to have
+    two categories of image sets that do and do not have cars in them. Then, we need
+    to have three more categories to find the damage level of the cars categorized
+    under high, medium, or low levels. Make sure that you have at least 1,000+ images
+    under each of the five categories. Once the dataset is ready, we are ready to
+    train our model.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: We will train our model using TensorFlow.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: We will build a web application to analyze the damage level of the vehicle.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Update the result.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Retraining with our own images
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: We will now use the `retrain.py` script in our project directory.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Download this script using `curl`, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: There are a few parameters that have to be passed to the training script and
+    looked into before the training starts.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Once our dataset is ready, we need to look into improving the results. We can
+    do this by altering the number of steps in the learning process.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The simplest way to do this is by using the following code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: The rate of accuracy improvement slows down when the number of steps increases,
+    and the accuracy will stop improving beyond a certain point. You can experiment
+    with this and decide what works best for you.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Architecture
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'MobileNet is a smaller, low-power, low-latency model that''s designed to meet
+    the constraints of mobile devices. In our application, we have picked the following
+    architecture from the MobileNet datasets as one of the parameters, as shown in
+    the following code, for while we build the model, which has a better accuracy
+    benchmark:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The power and latency of the network grows with the number of **Multiply-Accumulates**
+    (**MACs**), which measure the number of fused multiplication and addition operations,
+    as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/6155f1ac-e985-414e-b7db-c94dd8fa8b2d.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: You can download the model from [https://github.com/tensorflow/models/tree/master/research/slim/nets/mobilenet](https://github.com/tensorflow/models/tree/master/research/slim/nets/mobilenet).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Distortions
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: We can improve the results by giving tough input images during training. Training
+    images can be generated by cropping, brightening, and deforming the input images
+    randomly. This will help in generating an effective training dataset.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'However, there is a disadvantage of enabling distortion here, since bottleneck
+    caching is not useful. Consequently, the input images are not reused, increasing
+    the training time period. There are multiple ways to enable distortion, as shown
+    here:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: This won't be useful in all cases. For example, it won't be helpful in a digit
+    classifier system, since flipping and distorting the image won't make sense when
+    it comes to producing a possible output.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Hyperparameters
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: We can try a few more parameters to check whether additional parameters will
+    help to improve results.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Specify them in the form that''s given in the following bullet points. The
+    hyperparameters are explained as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`--learning_rate`: This parameter controls the updates to the final layer while
+    training. If this value is small, the training will take more time. This may not
+    always help when it comes to improving accuracy.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`--train_batch_size`: This parameter helps with controlling the number of images
+    that are examined during training to estimate the final-layer updates. Once the
+    images are ready, the script splits them into three different sets. The largest
+    set is used in training. This division is mainly useful for preventing the model
+    from recognizing unnecessary patterns in the input images. If a model is trained
+    using a certain background pattern, it won''t give a proper result when it faces
+    images with new backgrounds because it remembers unnecessary information from
+    the input images. This is known as **overfitting**.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`--testing_percentage` and `--validation_percentage` flags: To avoid overfitting,
+    we keep 80% of the data inside the main training set. Of this data, 10% is then
+    used to run validation during the training process and the final 10% is used to
+    test the model.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`--validation_batch_size`: We can see that the accuracy of validation fluctuates
+    between iterations.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: If you are new to this, you can run default values without making any changes
+    to these parameters. Let's jump into building our model. For this, we need the
+    training image data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Image dataset collection
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: For our experiment, we need the datasets for cars in good condition as well
+    as in damaged condition. If you have a data source that adheres to the privacy
+    policy, then this is a good place to start. Otherwise, we need to find a way to
+    build our model on top of a dataset. There are multiple datasets that are publicly
+    available. We need to start building our dataset if there is no existing reference
+    of a similar data model because this could be a time-consuming task as well as
+    an important step toward getting better results.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We are going to use a simple Python script to download images from Google. Just
+    make sure that you filter images that can be reused. We don't encourage using
+    pictures with non-reusable licenses.
+  prefs: []
+  type: TYPE_NORMAL
+- en: With the Python script, we will pull out and save the images from Google, and
+    then we will use a library to do the same task. This step is one of the most basic
+    steps for building any ML model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We will use a Python library called **Beautiful Soup** to scrap images from
+    the internet.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Introduction to Beautiful Soup
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Beautiful Soup is a Python library that's used to pull data out of HTML and
+    XML files. It is useful with projects that involve scraping. With this library,
+    we can navigate, search, and modify the HTML and XML files.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This library parses anything you feed in and does tree traversal work on the
+    data. You can ask the library to find all the links whose URLs match `google.com`,
+    find all the links with class bold URLs, or find all the table headers with bold
+    text.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'There are a few features that makes it useful, and they are as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Beautiful Soup provides us with some simple methods and Pythonic idioms to navigate,
+    search, and modify a parse tree, which is a toolkit that is used to dissect a
+    document and then extract what you need. We need less code to write an application.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Beautiful Soup automatically converts incoming documents into Unicode and outgoing
+    documents into UTF-8\. Unless the document doesn't specify anything about encoding
+    and Beautiful Soup isn't able to detect any, we don't have to think about encoding.
+    Then, we will have to specify only the original encoding.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Beautiful Soup can be used on top of popular Python parsers, such as `lxml`
+    ([https://lxml.de/](https://lxml.de/)) and `html5lib` ([https://github.com/html5lib/](https://github.com/html5lib/)),
+    and lets you try various parsing strategies or trade speed for flexibility.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Beautiful Soup saves you time by extracting the information you need and so
+    makes your job easier.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Here is the simple version of the code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Setting the user-agent to avoid 403 error code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Pass the number of images you want to pull out. By default google provides
+    100 images:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Saving all the downloaded images along with its extension, as shown in the
+    following code block:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Change number of images parameter here. By default it is set to 1, as shown
+    in following code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Save the script as a Python file and then run the code by executing the following
+    command:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: Google image scraping with a better library, including more configurable options.
+    We will use [https://github.com/hardikvasa/google-images-download](https://github.com/hardikvasa/google-images-download).
+  prefs: []
+  type: TYPE_NORMAL
+- en: This is a command line Python program that's used to search for keywords or
+    key phrases on Google Images, and optionally download images to your computer.
+    You can also invoke this script from another Python file.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This is a small and ready-to-run program. No dependencies are required for it
+    to be installed if you only want to download up to 100 images per keyword. If
+    you want more than 100 images per keyword, then you will need to install the `Selenium`
+    library, along with **ChromeDriver**. Detailed instructions are provided in the
+    *Troubleshooting* section.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You can use a library with more useful options.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'If you prefer command line-based installation, use the following code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Alternatively, you can install the library through `pip`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'If installed via `pip` or using a **command language interpreter** (**CLI**),
+    use the following command:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'If downloaded via the UI from `github.com`, unzip the downloaded file, go to
+    the `google_images_download` directory, and use one of the following commands:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'If you want to use this library from another Python file, use this command:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: You can either pass the arguments directly from the command, as shown in the
+    following examples, or you can pass it through a config file.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You can pass more than one record through a config file. The following sample
+    consists of two sets of records. The code will iterate through each of the records
+    and download images based on the arguments that are passed.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The following is a sample of what a config file looks like:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: Examples
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'If you are calling this library from another Python file, the following is
+    the sample code from Google:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'If you are passing arguments from a config file, simply pass the `config_file`
+    argument with the name of your **JSON** file:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The following is a simple example of using keywords and limit arguments:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Using suffix keywords allows you to specify words after the main keyword. For
+    example, if the keyword is `car` and the suffix keywords are `red` and `blue`,
+    then it will first search for a red car and then a blue car:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'To use the short-hand command, use the following code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'To download images with specific image extension, or formats, use the following
+    code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'To use color filters for the images, use the following code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'To use non-English keywords for image searches, use the following code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'To download images from the Google Images link, use the following code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE25]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'To save images in a specific main directory (instead of in `Downloads`), use
+    the following code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE26]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'To download one single image within the image URL, use the following code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE27]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'To download images with size and type constraints, use the following code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE28]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'To download images with specific usage rights, use the following code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE29]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'To download images with specific color types, use the following code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE30]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'To download images with specific aspect ratios, use the following code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE31]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'To download images that are similar to the image in the image URL that you
+    provided (known as a reverse image search), use the following code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE32]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'To download images from a specific website or domain name for a given keyword,
+    use the following code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE33]'
+  prefs: []
+  type: TYPE_PRE
+- en: The images will be downloaded to their own sub-directories inside the main directory
+    (either the one you provided or in `Downloads`) in the same folder you are in.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, we need to start preparing our dataset.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Dataset preparation
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: We need to build four different datasets. For  car damage detection, we will
+    think about all the possible inputs. It could be a car in good condition, or a
+    car with different damage levels, or it could be an unrelated image of a car.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We will do the same as shown in the following screenshots:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/3e462e68-395a-4695-822d-8bfb139e9001.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Here is the dataset to identify heavily damaged cars:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE34]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Here are some sample pictures that were captured for heavily damaged cars that
+    are red:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/bd32cffc-c38c-44d6-a8c1-063d1ca5623a.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Here are some sample pictures that were captured for heavily damaged cars that
+    are blue:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/35715172-9404-41d5-9fa0-fcd066f68962.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'We also have another set of images for cars with slightly less damage:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE35]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Here are some sample pictures that were captured for dented cars that are red:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/d7311d72-0cb5-46c0-8ff6-be07fa51b7e1.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Here are some sample pictures that were captured for dented cars that are blue:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/e734ec97-4ad5-46ba-a45e-bb5070a9b8c3.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'The following command can be used to retrieve a dataset for normal cars without
+    any damage applied to them:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE36]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Here are some sample pictures that have been captured for cars that are red:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/1f2f86a4-57d8-488f-b6c5-527c5e76b905.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Here are some sample pictures that have been captured for cars that are blue:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/a0f7a6b5-c7c8-4c31-b52d-4aa8d34ca420.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'The following command can be used to retrieve random objects that aren''t cars:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE37]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Here are some sample pictures that have been captured for bikes:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/1190176f-354a-409a-955b-3d1cde7e9751.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Here are some sample pictures that have been captured for flights:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/5707db31-bdf6-4b65-8f52-28af4fbb343f.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Once we have 500 images for each dataset, it's time to do some training. In
+    ideal conditions, we should have at least 1,000 images for each dataset.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The main issue we will face here is in removing the noise data. For our example,
+    we are going to do that manually. There are a few sample images that we have listed
+    here that could be noise, and don''t provide valid input so that we can build
+    the data model:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/c882ff8e-5bae-45bf-8cab-56de998bc6e6.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Once we have all the image datasets ready, we can move on to our top four categories.
+    Right now, all the images are separated by colors and categories, as shown in
+    the following screenshot:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/fa51d73a-9148-4428-bfea-bc12de51692d.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'We will group them into `damaged car`, `car with dent`, `car`, and `not a car`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/9fdc8aec-4e65-47a3-a5ae-82556b39d479.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Running the training script
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'With all the parameter-related details discussed, we can start the training
+    with the downloaded script:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE38]'
+  prefs: []
+  type: TYPE_PRE
+- en: Based on our processor's capability, as well as the number of images we have,
+    the script might take longer for training. For me, it took more than 10 hours
+    for 50 different car categories containing 10,000 images each. Once the script
+    has completed, we will get the TensorFlow model in its output.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Setting up a web application
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: We will use the **Flask** framework to build a simple application to detect
+    the car's damage.
+  prefs: []
+  type: TYPE_NORMAL
+- en: To learn more about Flask, please refer to [https://www.fullstackpython.com/flask.html](https://www.fullstackpython.com/flask.html).
+  prefs: []
+  type: TYPE_NORMAL
+- en: We are not going to go deeper into Flask basics here. Instead, we are simply
+    adding our model with an existing file upload example from Flask.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The file''s structure is shown in the following screenshot:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/b4e1b059-5fba-4642-a47a-815e114ef66e.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Here is a list of the contents in `app.py`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE39]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Next code block helps us with printing the output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE40]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'After printing the image path, go through the following code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE41]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The while loop starts from here:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE42]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Disable TensorFlow compilation warnings:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE43]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Once `image_data` is given as the input to the graph, we then receive the first
+    prediction:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE44]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The controller Python files are lined in frontend HTML files:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE45]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In continuation with the previous script, let''s Bootstrap the core JavaScript:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE46]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'You can pull the rest of the file''s content directly from the GitHub repository.
+    Once the complete file structure is ready, you can run the application from the
+    command line, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE47]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now, launch your browser with `http://localhost:5000/`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/70376108-e081-4f77-985a-fdc6d7e28fe1.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The following are a few screenshots from the application.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Here is the home page after running the application:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/900aed2c-449d-4a99-8f6e-f12f7d17c09c.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Here is the screen after uploading the image:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/fa01449b-871f-418b-b211-b2e022243fc1.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Here is a screenshot showing an image of a car with low level damage
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/6df28f3f-8d2a-40d8-b8a9-8d0dc8300130.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The data in the preceding screenshot may not be accurate, since our dataset
+    size is very small.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The following is a screenshot showing an image of the car prediction model
+    that does not show a car:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/16421a34-bccf-4996-821e-a67347a7d33d.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this chapter, we have seen how we can build a model from scratch and train
+    it using TensorFlow.
+  prefs: []
+  type: TYPE_NORMAL
+- en: With this knowledge, we can start building more Android and iOS-based applications
+    in the upcoming chapters.
+  prefs: []
+  type: TYPE_NORMAL

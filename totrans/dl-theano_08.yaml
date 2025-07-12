@@ -1,0 +1,680 @@
+- en: Chapter 8. Translating and Explaining with Encoding – decoding Networks
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Encoding-decoding techniques occur when inputs and outputs belong to the same
+    space. For example, image segmentation consists of transforming an input image
+    into a new image, the segmentation mask; translation consists of transforming
+    a character sequence into a new character sequence; and question-answering consists
+    of replying to a sequence of words with a new sequence of words.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To address these challenges, encoding-decoding networks are networks composed
+    of two symmetric parts: an encoding network and a decoding network. The encoder
+    network encodes the input data into a vector, which will be used by the decoder
+    network to produce an output, such as a *translation*, an *answer* to the input
+    question, an *explanation*, or an *annotation* of an input sentence or an input
+    image.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: An encoder network is usually composed of the first layers of a network of the
+    type of the ones presented in the previous chapters, without the last layers for
+    dimensionality reduction and classification. Such a truncated network produces
+    a multi-dimensional vector, named *features*, that gives an *internal state representation*
+    to be used by the decoder to produce the output representation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'This chapter decomposes into the following key concepts:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Sequence-to-sequence networks
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Application to machine translation
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Application to chatbots
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Deconvolutions
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Application to image segmentation
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Application to image captioning
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Refinements in decoding techniques
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Sequence-to-sequence networks for natural language processing
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Rule-based systems are being replaced by end-to-end neural networks because
+    of their increase in performance.
+  prefs: []
+  type: TYPE_NORMAL
+- en: An end-to-end neural network means the network directly infers all possible
+    rules by example, without knowing the underlying rules, such as syntax and conjugation;
+    the words (or the characters) are directly fed into the network as input. The
+    same is true for the output format, which can be directly the word indexes themselves.
+    The architecture of the network takes care of learning the rules with its coefficients.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The architecture of choice for such end-to-end encoding-decoding networks applied
+    to **Natural Language Processing** (**NLP**), is the **sequence-to-sequence network**,
+    displayed in the following figure:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Sequence-to-sequence networks for natural language processing](img/00116.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Word indexes are converted into their continuous multi-dimensional values in
+    the embedded space with a lookup table. This conversion, presented in [Chapter
+    3](part0040_split_000.html#164MG1-ccdadb29edc54339afcb9bdf9350ba6b "Chapter 3. Encoding
+    Word into Vector"), *Encoding Word into Vector* is a crucial step to encode the
+    discrete word indexes into a high dimensional space that a neural network can
+    process.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Then, a first stack of LSTM is run on the input word embeddings, to encode the
+    inputs and produce the thought vector. A second stack of LSTM is initiated with
+    this vector as an initial internal state, and is expected to produce the next
+    word for each word in the target sentence.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'At the core, is our classical step function for the LSTM cell, with input,
+    forget, output, and cell gates:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: A simple closure is better than a class. There are not enough methods and parameters
+    to go for a class. Writing classes impose to add lots of `self`. Before all variables,
+    an `__init__` method.
+  prefs: []
+  type: TYPE_NORMAL
+- en: To reduce computational cost, the full stack of layers is built into a one-step
+    function and the recurrency is added to the top of the full stack step function
+    that the output of the last layer produces for each timestep. Some other implementations
+    have every layer independently recurrent, which is a lot less efficient (more
+    than two times slower).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'On top of the *X* input, a mask variable, `m`, stops the recurrency when set
+    to zero: hidden and cell states are kept constant when there is no more data (mask
+    value is zero). Since the inputs are processed in batches, sentences in each batch
+    can have different lengths and, thanks to the mask, all sentences in a batch can
+    be processed in parallel with the same number of steps, corresponding to the maximal
+    sentence length. The recurrency stops at a different position for each row in
+    the batch.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The reason for a closure of a class is because the model cannot be applied
+    directly to some symbolic input variables as in previous examples: indeed, the
+    model is applied to the sequences inside a recurrency loop (with the scan operator).
+    For this reason, in many high level deep learning frameworks, each layer is designed
+    as a module that exposes a forward/backward method, to be added in various architectures
+    (parallel branches and recurrency), as in this example.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The full stack step function of the encoder/decoder to be placed inside their
+    respective recurrency loop can be designed as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: The first part is the conversion of the input to the embedding space. The second
+    part is the stack of LSTM layers. For the decoder (when `target_voca_size != 0`),
+    a linear layer is added to compute the output.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now that we have our encoder/decoder step function, let's build the full encoder-decoder
+    network.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'First, the encoder-decoder network has to encode the input into the internal
+    state representation:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: To encode the input, the encoding stack step function is run recurrently on
+    each word.
+  prefs: []
+  type: TYPE_NORMAL
+- en: When `outputs_info` is composed of three variables, the scan operator considers
+    that the output of the scan operation is composed of three values.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'These outputs come from the encoding stack step function and correspond to:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The output of the stack
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The hidden states of the stack, and
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The cell states for the stack, for each step/word of the input sentence
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: In `outputs_info`, `None` indicates to consider that the encoder will produce
+    three outputs, but only the last two will be fed back into the step function (`h0
+    -> h_` and `C0 -> C_`).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Given that sequences point to two sequences, the step function for the scan
+    operation has to handle four arguments.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Then, once the input sentence has been encoded into a vector, the encoder-decoder
+    network decodes it:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: The last states `hS[-1]`, `CS[-1]]` of the encoder network are fed as initial
+    hidden and cell states of the decoder network.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Computing the log likelihood on top of the output is the same as in the previous
+    chapter on sequences.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For evaluation, the last predicted word has to be fed into the input of the
+    decoder to predict the next word, which is a bit different from training, where
+    input and output sequences are known:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Sequence-to-sequence networks for natural language processing](img/00117.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'In this case, `None` in `outputs_info` can be replaced with an initial value,
+    `prediction_start`, the `start` token. Since it is not `None` anymore, this initial
+    value will be fed into the step function of the decoder, as long as it is with
+    `h0` and `C0`. The scan operator considers that there are three previous values
+    to feed into the decoder function (and not two as before) at each step. Since
+    the `decoderInputs` is removed from the input sequences, the number of arguments
+    to the decoder stack step function remains four: the previous predicted output
+    value is used in place of the fed input value. That way, the same decoder function
+    can be used for both training and prediction:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: The non-sequence parameter, `valid_data.idx_stop`, indicates to the decoder
+    step function that it is in prediction mode, meaning the input is not a word index,
+    but its previous output (requires finding the max index).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Also in prediction mode, one sentence at a time is predicted (batch size is
+    `1`). The loop is stopped when the `end` token is produced, thanks to the `theano.scan_module.until`
+    output in the decoder stack step function, and does not need to decode further
+    words.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Seq2seq for translation
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '**Sequence-to-sequence** (**Seq2seq**) networks have their first application
+    in language translation.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: A translation task has been designed for the conferences of the **Association
+    for Computational Linguistics** (**ACL**), with a dataset, WMT16, composed of
+    translations of news in different languages. The purpose of this dataset is to
+    evaluate new translation systems or techniques. We'll use the German-English dataset.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'First, preprocess the data:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Train the `Seq2seq` network:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: At first glance, you notice the GPU time for one epoch is *445.906425953*, hence
+    ten times faster than on the CPU (*4297.15962195*).
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Once trained, translate your sentences in English to German, loading the trained
+    model :'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Seq2seq for chatbots
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: A second target application of sequence-to-sequence networks is question-answering,
+    or chatbots.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For that purpose, download the Cornell Movie--Dialogs Corpus and preprocess
+    it:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: This corpus contains a large metadata-rich collection of fictional conversations
+    extracted from raw movie scripts.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Since source and target sentences are in the same language, they use the same
+    vocabulary, and the decoding network can use the same word embedding as the encoding
+    network:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The same commands are true for `chatbot` dataset:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: Improving efficiency of sequence-to-sequence network
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'A first interesting point to notice in the chatbot example is the reverse ordered
+    input sequence: such a technique has been shown to improve results.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For translation, it is very common then to use a bidirectional LSTM to compute
+    the internal state as seen in [Chapter 5](part0060_split_000.html#1P71O2-ccdadb29edc54339afcb9bdf9350ba6b
+    "Chapter 5. Analyzing Sentiment with a Bidirectional LSTM"), *Analyzing Sentiment
+    with a Bidirectional LSTM*: two LSTMs, one running in the forward order, the other
+    in the reverse order, run in parallel on the sequence, and their outputs are concatenated:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Improving efficiency of sequence-to-sequence network](img/00118.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Such a mechanism captures better information given future and past.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Another technique is the *attention mechanism* that will be the focus of the
+    next chapter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Lastly, *refinement techniques* have been developed and tested with two-dimensional
+    Grid LSTM, which are not very far from stacked LSTM (the only difference is a
+    gating mechanism in the depth/stack direction):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Improving efficiency of sequence-to-sequence network](img/00119.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Grid long short-term memory
+  prefs: []
+  type: TYPE_NORMAL
+- en: The principle of refinement is to run the stack in both orders on the input
+    sentence as well, sequentially. The idea behind this formulation is to have the
+    encoder network revisit or re-encode the sentence, after having encoded it in
+    the forward direction, and implicitly capture some time patterns. Also, note that
+    the 2D-grid gives more possible interactions for this re-encoding, re-encoding
+    the vector at each prediction step, using previously outputted words as an orientation
+    for the next predicted word. All this improvement is linked to a bigger computational
+    capacity, in **O(n m)** for this re-encoder network (*n* and *m* represent the
+    length of input and target sentences), while being of **O(n+m)** for the encoder-decoder
+    network.
+  prefs: []
+  type: TYPE_NORMAL
+- en: All these techniques decrease perplexity. When the model is trained, consider
+    also using the **beam search algorithm** that will keep track of the top-N possible
+    predictions with their probabilities, instead of one, at each time step, to avoid
+    the possibility that one bad prediction ranking at first position could lead to
+    further erroneous predictions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Deconvolutions for images
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the case of images, researchers have been looking for decoding operations
+    acting as the inverse of the encoding convolutions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The first application was the analysis and understanding of convolutional networks,
+    as seen in [Chapter 2](part0026_split_000.html#OPEK1-ccdadb29edc54339afcb9bdf9350ba6b
+    "Chapter 2. Classifying Handwritten Digits with a Feedforward Network"), *Classifying
+    Handwritten Digits with a Feedforward Network*, composed of convolutional layers,
+    max-pooling layers and rectified linear units. To better understand the network,
+    the idea is to visualize the parts of an image that are most discriminative for
+    a given unit of a network: one single neuron in a high level feature map is left
+    non-zero and, from that activation, the signal is retro-propagated back to the
+    2D input.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To reconstruct the signal through the max pooling layers, the idea is to keep
+    track of the position of the maxima within each pooling region during the forward
+    pass. Such architecture, named **DeConvNet** can be shown as:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Deconvolutions for images](img/00120.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Visualizing and understanding convolutional networks
+  prefs: []
+  type: TYPE_NORMAL
+- en: The signal is retro-propagated to the position that had the maximal value during
+    the forward pass.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To reconstruct the signal through the ReLU layers, three methods have been
+    proposed:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*Back-propagation* retro-propagates only to the positions that have been positive'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Backward DeconvNet* retro-propagates only the positive gradients'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Guided back-propagation* retro-propagates only to a position that satisfies
+    both previous conditions, positive input during forward pass and positive gradient'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'The methods are illustrated in the following figure:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Deconvolutions for images](img/00121.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'The retro-propagation from the first layers gives various sorts of filter:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Deconvolutions for images](img/00122.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'However, from higher layers in the network, the guided back-propagation gives
+    much better results:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Deconvolutions for images](img/00123.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'It is also possible to condition the back-propagation on an input image, that
+    will activate more than one neuron, from which the retro-propagation will be applied,
+    to get a more precise input visualization:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Deconvolutions for images](img/00124.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'The back-propagation can also be applied to the original input image rather
+    than a blank one, a process that has been named **Inceptionism** by Google research,
+    when retro-propagation is used to augment the output probability:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Deconvolutions for images](img/00125.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'But the main purpose of deconvolution is for scene segmentation or image semantic
+    analysis, where the deconvolution is replaced by a learned upsampling convolution,
+    such as in the **SegNet network**:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Deconvolutions for images](img/00126.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'SegNet: A deep convolutional encoder-decoder architecture for image segmentation'
+  prefs: []
+  type: TYPE_NORMAL
+- en: At every step in the deconvolution process, lower input features are usually
+    concatenated to the current features for upsampling.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The **DeepMask network** takes a mixed approach, deconvolutioning only the
+    patches containing the objects. For that purpose, it is trained on input patches
+    of 224x224 containing the objects (+/- 16 pixels in translation) instead of the
+    full image:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Deconvolutions for images](img/00127.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Learning to segment object candidates
+  prefs: []
+  type: TYPE_NORMAL
+- en: The convolutions of the encoder (VGG-16) network have a downsampling of factor
+    16, leading to a feature map of 14x14.
+  prefs: []
+  type: TYPE_NORMAL
+- en: A joint learning trains two branches, one for segmentation, one for scoring
+    if the object is present, centered, and at the right scale in the patch.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The branch of interest is the semantic branch that upsamples to a 56x56 segmentation
+    map of the object in the patch from the 14x14 feature map. To upsample, is possible
+    if:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: A fully connected layer, meaning that each position in the upsampled map depends
+    on all features and has the global picture to predict the value
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: A convolution (or locally connected layer), reducing the number of parameters,
+    but also predicting each position score with a partial view
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: A mixed approach, consisting of two linear layers with no non-linearity between
+    them, in a way to perform a dimensionality reduction, as presented in the preceding
+    figure
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The output mask is then upsampled back to the original patch dimensions 224x224
+    by a simple bilinear upsampling layer.
+  prefs: []
+  type: TYPE_NORMAL
+- en: To deal with the full input image, fully connected layers can be transformed
+    into convolutions with a kernel size equal to the fully connected layer input
+    size and the same coefficients, so that the network becomes fully convolutional,
+    with stride 16, when applied to the full image.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'As sequence-to-sequence networks have been refined with a bidirectional reencoding
+    mechanism, the **SharpMask** approach improves the sharpness of the upsampling
+    deconvolutional process using the input convolutional features at the equivalent
+    scale:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Deconvolutions for images](img/00128.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Learning to refine object segments
+  prefs: []
+  type: TYPE_NORMAL
+- en: While the SegNet approach only learns to deconvolve from an up-sampled map produced
+    by keeping track of the max pooling indices, the SharpMask approach directly reuses
+    the input feature maps, a very usual technique for coarse-to-finegrained approaches.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Lastly, bear in mind that it is possible to improve the results one step further
+    with the application of a **Conditional Random Fields** (**CRF**) post-processing
+    step, either for one-dimensional inputs such as texts, or two-dimensional inputs
+    such as segmentation images.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Multimodal deep learning
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: To open the possible applications further, the encoding-decoding framework can
+    be applied with different modalities, such as, for example, for image captioning.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Image captioning consists of describing the content of the image with words.
+    The input is an image, naturally encoded into a thought vector with a deep convolutional
+    network.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The text to describe the content of the image can be produced from this internal
+    state vector with the same stack of LSTM networks as a decoder, as in Seq2seq
+    networks:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Multimodal deep learning](img/00129.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Further reading
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Please refer to the following topics for better insights:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*Sequence to Sequence Learning with Neural Networks*, Ilya Sutskever, Oriol
+    Vinyals, Quoc V. Le, Dec 2014'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Learning Phrase Representations using RNN Encoder–Decoder for Statistical
+    Machine Translation*, Kyunghyun Cho, Bart van Merrienboer, Caglar Gulcehre, Dzmitry
+    Bahdanau, Fethi Bougares, Holger Schwenk, Yoshua Bengio, Sept 2014'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Neural Machine Translation by Jointly Learning to Align and Translate*, Dzmitry
+    Bahdanau, Kyunghyun Cho, Yoshua Bengio, May 2016'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*A Neural Conversational Model*, Oriol Vinyals, Quoc Le, July 2015'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Fast and Robust Neural Network Joint Models for Statistical Machine Translation*,
+    Jacob Devlin, Rabih Zbib, Zhongqiang Huang,Thomas Lamar, Richard Schwartz, John
+    Mkahoul, 2014'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*SYSTRAN''s Pure Neural Machine Translation Systems*, Josep Crego, Jungi Kim,
+    Guillaume Klein, Anabel Rebollo, Kathy Yang, Jean Senellart, Egor Akhanov, Patrice
+    Brunelle, Aurelien Coquard, Yongchao Deng, Satoshi Enoue, Chiyo Geiss, Joshua
+    Johanson, Ardas Khalsa, Raoum Khiari, Byeongil Ko, Catherine Kobus, Jean Lorieux,
+    Leidiana Martins, Dang-Chuan Nguyen, Alexandra Priori, Thomas Riccardi, Natalia
+    Segal, Christophe Servan, Cyril Tiquet, Bo Wang, Jin Yang, Dakun Zhang, Jing Zhou,
+    Peter Zoldan, 2016'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Blue: a method for automatic evaluatoin of machine translation,* Kishore Papineni,
+    Salim Roukos, Todd Ward, and Wei-Jing Zhu, 2002'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: ACL 2016 translation task
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Chameleons in imagined conversations: A new approach to understanding coordination
+    of linguistic style in dialogs*, Cristian Danescu-NiculescuMizil and Lillian Lee2011
+    at: [https://research.googleblog.com/2015/06/inceptionism-going-deeper-into-neural.html](https://research.googleblog.com/2015/06/inceptionism-going-deeper-into-neural.html)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Semantic Image Segmentation with Deep Convolutional Nets and Fully Connected
+    CRFs*, Liang-Chieh Chen, George Papandreou, Iasonas Kokkinos, Kevin Murphy, Alan
+    L., Yuille 2014'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*SegNet: A Deep Convolutional Encoder-Decoder Architecture for Image Segmentation*,
+    Vijay Badrinarayanan, Alex Kendall, Roberto Cipolla, Oct 2016'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*R-FCN: Object Detection via Region-based Fully Convolutional Networks*, Jifeng
+    Dai, Yi Li, Kaiming He, Jian Sun2016'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Learning to segment object candidates*, Pedro O. Pinheiro, Ronan Collobert,
+    Piotr Dollar, June 2015'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Learning to refine object segments*, Pedro O. Pinheiro, Tsung-Yi Lin, Ronan
+    Collobert, Piotr Dollàr, Mar 2016'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Visualizing and Understanding Convolutional Networks*, Matthew D Zeiler, Rob
+    Fergus, Nov 2013'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Show and tell: A Neural Image Caption Generator*, Oriol Vinyals, Alexander
+    Toshev, Samy Bengio, Dumitru Erhan, 2014'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'As for love, head-to-toe positions provide exciting new possibilities: encoder
+    and decoder networks use the same stack of layers but in their opposite directions.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Although it does not provide new modules to deep learning, such a technique
+    of *encoding-decoding* is quite important because it enables the training of the
+    networks 'end-to-end', that is, directly feeding the inputs and corresponding
+    outputs, without specifying any rules or patterns to the networks and without
+    decomposing encoding training and decoding training into two separate steps.
+  prefs: []
+  type: TYPE_NORMAL
+- en: While image classification was a one-to-one task, and sentiment analysis a many-to-one
+    task, encoding-decoding techniques illustrate many-to-many tasks, such as translation
+    or image segmentation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the next chapter, we'll introduce an *attention mechanism* that provides
+    the ability for encoder-decoder architecture to focus on some parts of the input
+    in order to produce a more accurate output.
+  prefs: []
+  type: TYPE_NORMAL

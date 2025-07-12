@@ -1,0 +1,115 @@
+- en: 'Appendix B: Image Data Preparation for Spark'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: CNNs are among the main topics of this book. They are used in lots of practical
+    applications of image classification and analysis. This Appendix explains how
+    to create a `RDD<DataSet>` to train a CNN model for image classification.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Image preprocessing
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The approach described in this section, image preprocessing into batches of
+    files, relies on the ND4J `FileBatch` class ([https://static.javadoc.io/org.nd4j/nd4j-common/1.0.0-beta3/org/nd4j/api/loader/FileBatch.html](https://static.javadoc.io/org.nd4j/nd4j-common/1.0.0-beta3/org/nd4j/api/loader/FileBatch.html)),
+    which is available starting from the 1.0.0-beta3 release of that library. This
+    class can store the raw content of multiple files in byte arrays (one per file),
+    including their original paths. A `FileBatch` object can be stored to disk in
+    ZIP format. This can reduce the number of disk reads that are required (because
+    of fewer files) and network transfers when reading from remote storage (because
+    of the ZIP compression). Typically, the original image files that are used to
+    train a CNN make use of an efficient (in terms of space and network) compression
+    format (such as JPEG or PNG). But when it comes to a cluster, there is the need
+    to minimize disk reads due to latency issues with remote storage. Switching to
+    one file read/transfer will be faster compared to `minibatchSize` remote file
+    reads.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Doing image preprocessing into batches comes with the following limitation
+    in DL4J – the class labels need to be provided manually. Images should reside
+    in directories whose names are their corresponding labels. Let''s look at an example
+    – assuming that we have three classes, that is, car, truck, and motorbike, the
+    image directory structure should be as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: The names of the image files don't matter. All that matters is that the subdirectories
+    of the root directory have the names of the classes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Strategies
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Two strategies are possible for preprocessing images before we starting training
+    on a Spark cluster. The first strategy is about preprocessing the images locally
+    by using the `SparkDataUtils` class of `dl4j-spark`. For example:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: In this example, `sourceDir` is the root directory of the local images, `destDir`
+    is the local directory where the preprocessed images will be saved, and `batchSize`
+    is the number of images to put into a single `FileBatch` object. The `createFileBatchesLocal`
+    method is responsible for the import. Once all of the images have been preprocessed,
+    the content of the destination, `dir`, can be copied/moved to a cluster for training
+    purposes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The second strategy is about preprocessing the images using Spark. In those
+    cases where the original images are stored in a distributed filesystem, such as
+    HDFS, or a distributed object storage, such as S3, the `SparkDataUtils` class
+    is still used, but a different method, `createFileBatchesLocal`, which expects
+    a SparkContext among its arguments, has to be invoked. Here''s an example:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: In this case, the original images are stored in HDFS (the location is specified
+    through `sourceDirectory`) and the preprocessed images are saved in HDFS as well
+    (in a location specified through `destinationDirectory`). Before starting the
+    preprocessing, the `SparkUtils` class of dl4j-spark has to be used to create a
+    `JavaRDD<String>` (`filePaths`) of the source images paths. The `SparkDataUtils.createFileBatchesSpark`
+    method takes `filePaths`, the destination HDFS path (`destinationDirectory`),
+    the number of images (`batchSize`) to put into a single `FileBatch` object, and
+    the SparkContext (`sparkContext`) as input. The training can start once all of
+    the images have been preprocessed by Spark.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Training
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Whatever preprocessing strategy (local or Spark) has been chosen, here is how
+    training using Spark happens.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'First, you create the SparkContext, set up the `TrainingMaster`*, *and build
+    the neural network model using the following instances:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'After this, a data loader needs to be created, as in the following example:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: The input images have a resolution 64 x 64 pixels (`imageHeightWidth`) and three
+    channels (RGB, `imageChannels`). 0-255 valued pixels are scaled by the loader
+    through a range of 0-1 through the `ImagePreProcessingScaler` class ([https://deeplearning4j.org/api/latest/org/nd4j/linalg/dataset/api/preprocessor/ImagePreProcessingScaler.html](https://deeplearning4j.org/api/latest/org/nd4j/linalg/dataset/api/preprocessor/ImagePreProcessingScaler.html)).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The training can then start, as in the following example:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE

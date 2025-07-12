@@ -1,0 +1,1652 @@
+- en: Debugging/Testing a Game with DRL
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: While the ML-Agents framework provides powerful capabilities for building AI
+    agents for your games, it also provides automation for debugging and testing.
+    The development of any complex software needs to be tied to extensive product
+    testing and review by talented quality assurance teams. Testing every aspect,
+    every possible combination, and every level can be extremely time-consuming and
+    expensive. Therefore, in this chapter, we will look at using ML-Agents as an automated
+    way to test a simple game. As we change or modify the game, our automated testing
+    system can inform us of any issues or possible changes that may have broken the
+    test. We can also take this further with ML-Agents, for instance, to evaluate
+    training performance.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The following is a brief summary of what we will cover in this chapter:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Introducing the game
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Setting up ML-Agents
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Overriding the Unity input system
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Testing through imitation
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Analyzing the testing process
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: In this chapter, we will assume that you have sound knowledge of the ML-Agents
+    toolkit and are somewhat familiar with the Unity game engine. You should also
+    have a good grasp of reward functions and the use of imitation learning with ML-Agents.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the next section, we will start by downloading and importing the game; we
+    will teach ML-Agents to play in the following section. This should be considered
+    an advanced chapter, even for experienced users of Unity. Therefore, if you are
+    relatively new to Unity and/or C#, just take your time and slowly work through
+    the exercises. By the end of this chapter, if you have completed all the exercises,
+    you should be on your way to being a Unity pro.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Introducing the game
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The game that we are going to look at is a demo sample asset that is free and
+    is an excellent example of a typical game. The game that we'll test will use discrete
+    control mechanics and a first-person perspective, like the games that we have
+    looked at in the past. The technique that we will show you here is how to map/hack
+    into a game's controller so that it can be powered by ML-Agents. Using this technique
+    should allow you to attach ML-Agents to any existing game, although different
+    controllers, such as third-person or top-down, may require a slightly altered
+    approach.
+  prefs: []
+  type: TYPE_NORMAL
+- en: If you consider yourself an experienced Unity user and have your own project
+    that uses an FPS system, then you should go ahead and try to adapt this sample
+    to your own game or example.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You will generally find a lack of good sample game projects for Unity, due to
+    a somewhat questionable technique called **asset flipping**. Essentially, some
+    developers will take a sample project and quickly skin it as their own game, and
+    then resell it. This practice has primarily been frowned upon in the Unity community,
+    since it generally casts this excellent game engine in a negative light. The quick
+    games, meant only as samples, are often of very poor quality and are unsupported,
+    not to mention that these developers only use the free license, which means that
+    these poorly designed games are also shipped with *Made with Unity*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We want to illustrate how ML-Agents can be incorporated into a working game
+    for testing, debugging, and/or as an AI enhancement. Let''s start by importing
+    the base project and setting up the game to run in the editor. Along the way,
+    we may have to tweak a few things in order to get things working, but that is
+    our intent. Open up the Unity editor and follow the exercises in the next section
+    to set up the base game project:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Create a new project called `HoDLG` (or another name of your preference). Wait
+    for the empty project to load. Again, if you feel qualified, use your own project.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: From the menu, select **Window** | **Asset Store**.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: In the search pane, type `ms vehicle system` and hit *Enter* or click on the
+    **Search** button. We are going to look at a free asset called MS Vehicle System,
+    which has a fun little environment that we can play with. It is often difficult
+    to find free environments such as this (for the reasons mentioned earlier), but,
+    generally, well-made commercial (not free) asset packages will provide good demo
+    environments such as this one. Unity has a number of tutorial environments as
+    well, but they tend to become dated quickly, and they may not always upgrade that
+    easily.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Click on the **MS Vehicle System** card and wait for the asset page to load,
+    as shown in the following screenshot:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![](img/aa902239-3d00-4e57-939c-641ab0ebc9d0.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Selecting the asset package to download
+  prefs: []
+  type: TYPE_NORMAL
+- en: Click on the **Download** button to download the asset, and then click on **Import** to
+    import the asset into the project. Follow the import dialogues to import all of
+    the assets into the project.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Locate the **MainScene** scene in the **Assets** | **MSVehicleSystem (FreeVersion)**
+    folder, and open it.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Press **Play** to run the scene in the editor, and use the controls to drive
+    the vehicles around. Notice how you can switch vehicles and camera controls. When
+    you are done testing (playing), stop the scene by pressing Play.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Type `canvas` in the **Hierarchy** filter field and just select all of the
+    **Canvas** objects in the scene, as shown in the following screenshot:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![](img/6e52faec-5f44-4a39-bb26-713ad7259648.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Disabling the Canvas UI in the scene
+  prefs: []
+  type: TYPE_NORMAL
+- en: That will disable the UI in the scene; we won't need it for testing, and in
+    this case, it isn't important. If this were a real game, there might have been
+    more colorful visuals to denote scores, and you could always add those, of course.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Click on the **X** beside the filter input to clear it and return the scene
+    to normal.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Play the scene again, and explore several areas. Look for an area that you
+    think may make a suitable goal; remember, don''t make it too difficult initially.
+    The following is an example of a spot that might make an interesting goal; see
+    whether you can find the location:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![](img/f8abf3a5-19a8-47f9-8264-d3f789676eb1.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Finding a good place for our goal
+  prefs: []
+  type: TYPE_NORMAL
+- en: Even if you can't find the specific spot, locate an area that is difficult to
+    get to. That way, the agent will have to explore the level extensively in order
+    to find the goal (or goals). In our case, we will drop random goal squares on
+    to the level and encourage the agent to look for those. That way, we can also
+    map out areas that get explored by how often it happens, and then determine how
+    to cover other areas for testing. Before we get to that, we will add ML-Agents,
+    in the next section.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Setting up ML-Agents
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: At the time of writing this book, ML-Agents is developed and shipped as a GitHub
+    project. It is likely that as the product matures, it will be shipped as its own
+    asset package, but currently, it is not.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Therefore, we first need to export ML-Agents as an asset package. Open up a
+    new Unity Editor session to an ML-Agents or Unity SDK project, and follow these
+    steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Locate the **ML-Agents** folder in the **Project** window, and select it.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: From the menu, select **Assets** | **Export Package**.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Be sure that all of the folder contents are highlighted, as shown in the following **Exporting
+    package** dialog excerpt:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![](img/b0e71209-a84b-4603-a5b9-cd22fc46c741.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Exporting ML-Agents as an asset package
+  prefs: []
+  type: TYPE_NORMAL
+- en: Be sure to uncheck the **Include dependencies** checkbox, as shown in the preceding
+    excerpt. As long as you have the proper root folder selected, all of the dependencies
+    that we need should get packaged.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Click on the **Export...** button in the dialog, and then choose and save the
+    asset file to a location that you will easily be able to find later.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Open the Unity Editor to the project that we started in the last exercise.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: From the menu, select **Assets** | **Import Package** | **Custom Package**.
+    Locate the package that we just exported and import it into the new test project.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Locate the project window and create a new folder called `HoDLG` in the **Asset**s
+    root, and, then, inside that new folder, create new folders called `Brains`, `Prefabs`**,**
+    and `Scripts`, as shown in the following screenshot:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![](img/7a2bb1e2-4fdc-41c6-9c95-d2172533ab80.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Creating new project folders
+  prefs: []
+  type: TYPE_NORMAL
+- en: Creating these folders is the standard way of laying the foundation for a new
+    asset, example, or project. You can now close the old ML-Agents Unity SDK project,
+    as we no longer need it.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Now that we have ML-Agents imported and the foundations laid for our test game,
+    we can move on to adding the learning parts of ML-Agents for testing.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Introducing rewards to the game
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The scene currently has no well-defined goal. There are plenty of open worlds
+    and exploration-style games where the goal is very loosely defined. For our purposes,
+    however, we only really want the agent to test-play the whole game level, and
+    hopefully identify any game flaws or perhaps strategies that we never foresaw.
+    Of course, that doesn't mean that if the car-driving agents became good, we could
+    also use them as game opponents. The bottom line is that our agent needs to learn,
+    and it does that through rewards; therefore, we need to make some reward functions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s first define a reward function for our goal, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/c2eb3510-7177-41b7-aa6d-4c6b6b0a0871.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'It''s pretty simple; whenever the agent encounters a goal, they will score
+    a reward of 1 . Now, to avoid the agent taking too long, we will also introduce
+    a standard step reward, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/e34c7aa3-2241-40ba-bb05-ec2f0e823134.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: This means that we apply a step reward of -1 divided by the maximum number of
+    steps, per agent action. This is quite standard (our Hallway agent used it, for
+    instance), so there is nothing new here. So, our reward functions will be quite
+    simple, which is good.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In many cases, your game may have well-defined goals that you can use to give
+    rewards with. A driving game, for example, would have a clear goal that we could
+    map for our agent. In this case, in our open-world game, it makes sense to add
+    goals for the agent to locate. How you implement your reward structure does matter,
+    of course, but use what makes sense for your situation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: With the reward functions defined, it is time to introduce the concept of a
+    goal into our game. We want to keep this system somewhat generic, so we will build
+    a goal deployment system into a new object called `TestingAcademy`. That way,
+    you can take this academy and drop it into any similar FPS or third-person controlled
+    worlds, and it will work the same.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**First-person shooter** (**FPS**) refers to a type of game, but also a type
+    of control/camera system. We are interested in the latter, since it is the method
+    by which we control our car.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Open the editor to the new combined project, and follow the next exercise to
+    build the `TestingAcademy` object:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Click in the **Hierarchy** window, and from the menu, select **GameObject**
+    | **Create Empty**. Name the new object `TestingAcademy`.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Locate and click inside the HoDLG | **Scripts** folder, and then open the **Create**
+    sub-menu in the **Project** window.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: From the **Create** menu, select **C# Script**. Rename the script `TestingAcademy`.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Open the new **TestingAcademy** script and enter the following code:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: All of the code for this chapter's exercise is included in the `Chapter_12_Code.assetpackage` included
+    with the book's source code.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This code defines our class and imports by using the required namespaces. Then,
+    we define our own namespace, `Packt.HoDLG`,and the class is extended from `Academy`,
+    an ML-Agents base class. Next comes the declaration of several variables for defining
+    the goal deployment cube. Think of this as a virtual cube in space that will spawn
+    the goals. The idea is to let physics do the rest and let the goal just drop to
+    the ground.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '**Namespaces** are optional in Unity, but it is highly recommended to put your
+    code within a namespace in order to avoid most naming issues, which can be a common
+    problem if you are using many assets or if you find yourself modifying existing
+    assets, as we are doing here.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Next, we will define the standard `Academy` class setup method, `InitializeAcademy`.
+    This method is called automatically, and is shown as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This method is called as a part of the ML-Agents setup, and it essentially
+    starts the whole SDK. By adding the `Academy` (`TestingAcademy`), we will effectively
+    be enabling ML-Agents. Next, we will add the final method, called when the academy
+    is reset at the end of all of the agent episodes, as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: This code just spawns the goals randomly within the virtual cube bounds. Before
+    it does this, however, it first clears the old goals by using the `Destroy` method. `Destroy` removes
+    an object from the game. Then, the code loops again and creates new goals at random
+    locations within the virtual cube. The line that actually creates the goal in
+    the game is highlighted and uses the `Instantiate` method. `Instantiate` creates
+    an object in the game at the specified location and rotation.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Save the file and return to the editor. Don't worry about any compiler errors
+    at this time. If you are writing the code from scratch, you will be missing some
+    types, which we will define later.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: With the new `TestingAcademy` script created, we can move on to adding the component
+    to the game object and setting up the academy in the next section.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Setting up TestingAcademy
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'With the `TestingAcademy` script created, it is time to add it to the game
+    object via the following steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Drag the new **TestingAcademy** script file from the **Scripts** folder and
+    drop it on to the **TestingAcademy** object in the **Hierarchy** window. This
+    will add the component to the object. We want to create a few other components
+    before we complete the academy.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Click in the **Hierarchy** window, and in the menu, select **Game Object | 3D
+    Object | Cube**. Rename the new object `goal`.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Select the object and change the **Tag** to `goal`. Then, swap its material
+    by clicking on the **Target** icon and selecting the **v46**, or another flashy
+    material of your choice, as shown in the following screenshot:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![](img/2564018c-e40d-4aa1-b3de-98711659f027.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Swapping the goal object's materials
+  prefs: []
+  type: TYPE_NORMAL
+- en: With the **goal** object selected from the menu, select **Component | Physics
+    | Rigidbody**. This will add a physics system component called a Rigidbody. By
+    adding the **Rigidbody** to the object, we allow it to be controlled by the physics
+    system.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Drag and drop the **goal** object into the **HoDLG | Prefabs** folder in the
+    **Project** window. This will turn the goal object into a **Prefab**. Prefabs are
+    self-contained objects that contain their own hierarchies. A prefab can contain
+    an entire scene, or just one object, as we have here.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Select and delete the **goal** object from the **Hierarchy** window. In the
+    future, we will programmatically instantiate the **goal** from the Academy by
+    using its Prefab.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Click inside the **HoDLG | Brains** folder, and click to open the **Create**
+    menu. From the menu, select **ML-Agents | LearningBrain**. Name the new brain
+    **`TestingLearningBrain`**, and then create a new player brain called `TestingPlayerBrain`.
+    Don't worry about configuring the brains just yet.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Select the **TestingAcademy** object in the **Hierarchy** window, and then
+    update the values of the **Testing Academ**y component, as shown in the following
+    screenshot:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![](img/dbe7dab4-44b7-4ff5-8719-59c79fa884d0.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Setting up TestingAcademy
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Notice that we are setting up the following properties in the **TestingAcademy**
+    script:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '**Brains**: TestingLearningBrain'
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Max Steps**: 3000'
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Goal**: Goal set by dragging the prefab from the folder'
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Num Goals**: 3 (number of goals dropped from the box)'
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Goal Size**: (50, 50, 50) (determines maximum bounds of the goal box)'
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Goal Center**:  (85, 110, -37) (the center point of the goal box)'
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: You may be tempted to run the project at this point; you can if you have just
+    downloaded the code, but hold off until we define the `TestingAgent` in the next
+    section.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Scripting the TestingAgent
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Of course, our testing (or however far we want to take this simulation) won''t
+    do much without an agent to interact with the environment and learn. In the next
+    exercise, we will define the script that describes the `TestingAgent` component:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Click inside the **HoDLG | Scripts** folder, and click on the **Create** button
+    to open the menu.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: From the menu, select **C# Script** and name the script `TestingAgent`.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Open the script in your editor and start to script it with the following code:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: This starts our class; this time, it's extended from `Agent`, another base class.
+    Then, we define some base fields for setting variables and recording the agent's
+    start position and rotation.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Next, we move on to define the `InitializeAgent` method. This method is called
+    once, to set up the agent and make sure that the action lengths are the same;
+    we will get to that shortly. We remember the position/rotation from which the
+    agent started, so that we can restore it later. The code is as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Next, we define an empty method called `CollectObservations`. This is typically
+    where the agent observes the environment; since we plan to use visual observations,
+    we can leave this empty. The code is as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Next, we define another required method: `AgentAction`. This is the method
+    where we add the negative step reward and move the agent, as shown in the following
+    code snippet:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: The code here is what deciphers the actions from the brain and injects them
+    back into a new class (which we will build shortly), called `TestingInput`. `TestingInput`
+    is a helper class that we will use to override the input system of the game.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Save the script, and, again, ignore any compiler errors. Again, we have a new
+    dependency, `TestingInput`, that we will define shortly.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: With the new script in hand, we can begin to set up the `TestingAgent` component
+    in the next section.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Setting up the TestingAgent
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Now, the system that we are building here is fairly generic, and it''s intended
+    to be used in multiple environments. Keep that in mind as we set things up, especially
+    if some concepts seem a bit abstract. Open up the editor, and let''s add the `TestingAgent`
+    script to an object:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Select **Vehicle1**, **Vehicle3**, **Vehicle4,** and **Vehicle5** in the scene,
+    and disable them. We currently only want to give our agent the ability to drive,
+    and not to switch vehicles; therefore, we only need the default **Vehicle2**.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Select the **TestingAgent** script from the **HoDLG | Scripts** folder and drag
+    it on to the **Vehicle2** object. This will add the **TestingAgent** component
+    to our **Vehicle2**, and will make it an agent (well, almost).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Open **Vehicle2 | Cameras** in the **Hierarchy** window and choose the view
+    that you want the agent to use. We will select **Camera2** for this exercise,
+    but the options for each of the five cameras are shown in the following screenshot:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![](img/57b066fb-c719-4455-bab5-3f7d8ee20693.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Selecting the visual observation camera to use as an input to the agent
+  prefs: []
+  type: TYPE_NORMAL
+- en: The best options are either **Camera1** or **Camera5**, as shown in the preceding
+    screenshot. Note that the cameras are ordered in reverse, with 1 starting at the
+    far right, not the left. Of course, that leaves plenty of opportunity to play
+    with other visual input in the future.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Select **Vehicle2** and drag the selected **TestingPlayerBrain** and **Camera1**
+    into the required slots, as shown in the following screenshot:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![](img/9cba63e4-8356-405a-abc5-bca34bf77309.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Setting up the TestingAgent component
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You will also need to define additional properties, which are summarized as
+    follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '**Brain**: TestingPlayerBrain.'
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Camera 1**: Click on **Add Camera** to add a new camera, and then select
+    **Camera1** from the **Vehicle2** cameras.'
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Decision Frequency**: `10` (this determines how often the agent makes decisions;
+    `10` is a good starting point for this game. It will vary, and you will likely
+    have to tune it to your needs)'
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Axis Action:** 2:'
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Element 0**: Vertical (denotes the axis we will be overriding to allow the
+    agent to control the game. We will get more into axis descriptions shortly)'
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Element 1**: Horizontal (same as the preceding)'
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Save the project and the scene, and, again, ignore any compiler errors.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: That completes the set up of the `TestingAgent`; as you can see, there isn't
+    a whole lot of configuration or code required to get this running. In the future,
+    you will likely see more advanced ways of testing/debugging or building agents
+    this way. For now, however, we need to complete our example by injecting into
+    the Unity input system, which we will do in the next section.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Overriding the Unity input system
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: One of Unity's most compelling features is its ability to be cross-platform
+    across any system, and with that comes several helpful layers of abstraction that
+    we can use to inject our code into. However, the game in question needs to be
+    following the Unity best practices in order to make this injection easy. That
+    isn't to say that we couldn't do it by overriding the game's input system; it
+    just wouldn't be as easy.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Before we get into describing how the injection works, let's take a step back
+    and look at the best practices for using the Unity input system. Over the years,
+    the Unity input system has evolved from a simple query that the device uses for
+    inputs to the more cross-platform system that it uses now. However, many developers,
+    including Unity itself, still use input methods that query a particular key code,
+    for instance. The best practice is to define a set of axes (input channels) that
+    define the input for the game.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We can easily see how it is currently defined in the game by following this
+    exercise:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: From the editor menu, select **Edit | Project Settings**.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Select the Input tab and then expand **Axes | Horizontal** and **Axes | Vertica**l,
+    as shown in the following screenshot:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![](img/17cdd21e-d1c3-4ddf-b67e-d9e1c386136a.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Inspecting the Input Axes settings
+  prefs: []
+  type: TYPE_NORMAL
+- en: The **Vertical** and **Horizontal** axes define the input that will be used
+    to control the game. By defining them in this tab, we can control the input across
+    platforms by querying the axes. Notice that the axis input allows us to define
+    both the button and joystick (touch) input. The output of a query to the input
+    system with `getAxis` returns a value from `-1` to `+1`, or continuous output.
+    This means that we can take any discrete form of input, such as a keystroke, and
+    immediately convert it to a continuous value automatically. For example, if a
+    user presses the *W* key, the input system coverts that to a positive 1 value
+    on the **Vertical Axis**, and conversely, a press on the *S* key generates a negative
+    1 value, again on the **Vertical Axis. **Likewise, the *A* and *D* keys control
+    the Horizontal Axis.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: As you have seen in a few chapters in this book, using the .6 version of ML-Agents,
+    the current discrete action solution is not nearly as good as the continuous action.
+    Therefore, it will be our preference going forward.
+  prefs: []
+  type: TYPE_NORMAL
+- en: At this point, you may be wondering why we used discrete actions at all; that
+    is a good question. It remains to be seen how Unity will handle this dichotomy
+    in the future. In the next section, we will look at how to inject into the input
+    system.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Building the TestingInput
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'We are going to use a pattern called a **Singleton** in order to implement
+    a class that we can access from anywhere in our code, much like the input class
+    from Unity that is currently used. Unity has the benefit of making the input completely
+    static, but for our purposes, we will use the well-defined scripting version.
+    Open the editor and follow the next exercise to build the `TestingInput` script
+    and object:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Select the **HoDLG | Scripts** folder and open the **Create** menu.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'From the **Create** menu, select **C# Script**. Name the new script `Singleton`.
+    This script is the standard pattern script from [http://wiki.unity3d.com/index.php/Singleton](http://wiki.unity3d.com/index.php/Singleton);
+    the script is shown as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: Enter the preceding code, or just use the code downloaded from the book's source.
+    A singleton allows us to define one thread-safe instance of a specific class that
+    all of the objects can refer to. A typical static class will not be thread-safe,
+    and may cause corruption or memory issues.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Create a new script called `TestingInput` in the **HoDLG | Scripts** folder
+    and open it for editing.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'We will start the class with the following code:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Notice the highlighted line, and how we declare the class to extend from the
+    type `Singleton` that wraps the type `TestingInput`. This form of recursive typing,
+    which uses generics, is perfect for the singleton. Don''t worry if this is a little
+    unclear; the only thing that you need to remember is that we can now access the
+    instance of this class from anywhere in our code. Notice that we mentioned an
+    instance and not a class, meaning that we can also persist the state within our
+    `TestingInput` class. The variables that we declare here, `axes` and `isPlayer`,
+    are either set in the editor or defined in the `Start` method, as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: Inside the `Start` method, we define a `Dictionary` to hold the axis and values
+    that we want this component to override. This allows us to control which input
+    we want to override. Then, we build the collection of name/value pairs.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Next, we will define a couple methods that will allow us to both mimic and set
+    the axis values of our input system. Unity has no direct way to set the value
+    of an axis. Currently, the `Input` system queries the hardware directly in order
+    to read the input state, and provides no way to override this for testing. While
+    this is a feature that has long been requested by the community, it remains to
+    be seen whether it will ever be implemented.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'We then enter a `setAxis` and `getAxis` method, as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: That completes the script; if you have been adding the code as you go, save
+    the file and return to Unity. At this point, you should see no compiler errors,
+    as all of the required types should be present and accounted for.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: That sets up the `TestingInput` script; now, we need to move on to the next
+    section to add it to the scene.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Adding TestingInput to the scene
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Singletons can be called from anywhere and everywhere, and they actually don''t
+    need a game object in the scene. However, by adding the object to the scene, we
+    become more self-aware of the required dependency, as it allows us to set required
+    parameters for a particular scene. Open the Unity editor and follow the next exercise
+    to add the `TestingInput` component to the scene:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Click in the **Hierarchy** window, and from the menu, select **Game Object |
+    Create Empty**.  Rename the object `TestingInput`.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Drag the **TestingInput** script from the **HoDLG | Scripts** folder in the
+    **Project** window to the new **TestingInput** object in the **Hierarchy** window.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Select the **TestingInput** object, and then set the required **Axes**, as
+    shown in the following screenshot:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![](img/f0dd7e42-d971-4217-b1b1-031c898e42d1.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Setting the axes to override
+  prefs: []
+  type: TYPE_NORMAL
+- en: We need to define two Axes that we want to override. In this case, we are only
+    overriding the **Vertical** (*S* and *W*) and **Horizontal** (*A* and *D*) keys.
+    You could, of course, override any axis that you wanted, but in this case, we
+    are only overriding two.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Save the project and the scene.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: At this point, you can't really run the project, since the actual input system
+    isn't overriding anything just yet. We complete that final injection in the next
+    section.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Overriding the game input
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'At this point, we have a complete testing system in place; we just need to
+    complete the last parts of the injection. This bit of surgery can require a keen
+    eye and a little digging through code. Fortunately, there are some good, clear
+    indicators that you can use to spot places for injection. Open the editor and
+    follow the next steps to complete the injection:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Select the **Control** object in the **Hierarchy** window.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Locate the **MS Scene Controller Free** component in the **Inspector** window
+    and use the **Context** menu to open the script in your code editor.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Locate the following block of code, around line **286** (about halfway in),
+    as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: This is where the game is querying the `GetAxis` method, in order to return
+    the values of the respective input axis. As we have discussed, we are only interested
+    in the vertical and horizontal axes for this example. You can, of course, override
+    other axes, as you see fit.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Modify the lines where the `verticalInput` and `horizontalInput` are being
+    set, as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: Notice that we call `TestingInput.Instance`, in order to access the singleton
+    instance of our class. This allows us to query that class for the current input
+    values. The `TestingInput` object can now be the source of truth (as far as this
+    class is concerned), with respect to the input.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Previously, we quickly went over the agent code that sets the input, but here
+    it is again for reference:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: Notice the highlighted line in the `TestingAgent` `MoveAgent` method. This is
+    where we override the input by the agent and inject the values back into the game.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Save the code and return to the editor. Make sure to fix any compiler issues
+    now.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Unfortunately, we are still unable to run the scene, as we have one last configuration
+    step to tend to. In the next section, we will complete the configuration by setting
+    up the brains.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Configuring the required brains
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The last piece of the puzzle is to configure the brains that we quickly built
+    earlier. ML-Agents requires that the brains be configured with the required input
+    and observation space, in order to work correctly. We will set up the `TestingPlayerBrain`
+    and `TestingLearningBrain` in the next exercise:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Open the Unity editor and select **TestingLearningBrain** from the **HoDLG |
+    Brains** folder to open it in the **Inspector**.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Set the **Brain** parameters, as shown in the following screenshot:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![](img/9bbd5fff-4871-4cf5-8f8c-e4d6a90c86c5.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Setting the parameters for the TestingPlayerBrain
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'There are several parameters to set; they are summarized as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '**Visual Observations**: `84` x `84` and no grayscale'
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Vector Action**:'
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Space Type**: Continuous'
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Space Size**: `2`'
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Action Descriptions:**'
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Size**: `2`'
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Element 0**: Vertical'
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Elem****ent 1**: Horizontal'
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Axis Continuous Player Actions**:'
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Size**: `2`'
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Vertical:**'
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Axis**: Vertical'
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Index**: `0`'
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Scale**: `1`'
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Horizontal:**'
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Axis**: Horizontal'
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Index**: `1`'
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Scale**: `1`'
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Select **TestingLearningBrain** and configure it the same, but for learning,
+    as shown in the following screenshot:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![](img/79c20b13-8e7e-4d7d-a10f-092cd9df7118.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Configuring the TestingLearningBrain
+  prefs: []
+  type: TYPE_NORMAL
+- en: The configuration for the learning brain is much simpler, but it is also still
+    required, even when running the sample in player mode (which, if you recall, it
+    is set up to do).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Save the scene and project. Finally, we have completed our required configuration.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Press Play to run the scene and play the game in player mode. We are controlling
+    the game through the ML-Agents system. After a few seconds, you should see some
+    goals drop nearby.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Control the vehicle and drive into a goal, as shown in the following screenshot:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![](img/d7deecda-a6e9-4fa3-b19c-ae6c617db3b3.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Driving into the goals
+  prefs: []
+  type: TYPE_NORMAL
+- en: When you are done playing, stop the game.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Now that we are able to play the game through ML-Agents by using a configured
+    player brain, we will switch to a learning brain and let an agent take control
+    in the next section.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Time for training
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'However we decide to use this platform, whether for training or testing, we
+    now need to do the last brain configuration step, in order to set any custom hyperparameters
+    that we may decide to use for training. Open a Python/Anaconda console and prepare
+    it for training, and then follow these steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Open the `trainer_config.yaml` file located in the `ML-Agents/ml-agents/config`
+    folder.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'We will add a new configuration section to the config file, modeled after one
+    of the other visual environments. Add the new configuration, as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: Notice that we added the word `brain`, in order to differentiate it from the
+    other brains. This brain is modeled after the `VisualHallwayBrain` that we spent
+    some time exploring previously. Keep in mind, however, that we are running a continuous
+    action problem now, and this can affect some parameters.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Save the file and return to the Unity editor.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Locate the `TestingAcademy` object, swap its `Brains` for a `TestingLearningBrain`,
+    and set it to `Control`, as you have done so many times before.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Save the scene and project and return to the Python/Anaconda console.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Start a training/learning/testing session by running the following command:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: Watch the training session and the agent play the game. The agent will run,
+    and depending on how long you train, it may become good at finding the goals.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: At this point, you can let the agent go and just run through your level on its
+    own, exploring. However, what we want to do is control or nudge the testing agent
+    to the right path by using imitation learning, which we will discuss in the next
+    section.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Testing through imitation
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: At this point in your learning, you have learned several strategies that we
+    can apply to help our testing agent learn and find the goals. We can use curiosity
+    or curriculum learning fairly easily, and we will leave that as an exercise for
+    the reader. What we want is a way to control some of the testing process, and
+    we don't really want our agent to randomly test everything (at least not at this
+    stage). Sure, there are places where completely random testing works well. (By
+    the way, this random form of testing is called **monkey testing**, because it
+    resembles a monkey just mashing keys or input.) However, in a space such as our
+    game, exploring every possible combination could take a very long time. Therefore,
+    the best alternative is to capture player recordings and use them for our testing
+    agent as a source for imitation learning.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'With everything set up and with our ability to now route the input events through
+    ML-Agents, we can capture player input in the form that an agent needs to learn
+    from. Let''s open a backup Unity and set up the scene to capture player recordings,
+    as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Select the **Vehicle2** object in the **Hierarchy** window. Recall that this
+    is where the **TestingAgent** script is attached.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Use the **Add Component** button at the bottom of the **Inspector** window to
+    add a **Demonstration Recorder** component to the agent.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Set the **Demonstration Recorde**r to **Record** and the **Demonstration Nam**e
+    to **Testing**, and change the brain to **TestingPlayerBrain**, as shown in the
+    following screenshot:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![](img/b373980c-c6b3-4d82-b764-440aafaa5907.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Adding a Demonstration Recorder to the agent
+  prefs: []
+  type: TYPE_NORMAL
+- en: Select the **TestingAcademy** object, and make sure to disable the **Control**
+    option on the **Brain**. We want the player to control the agent when recording.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Press Play and run the game. Use the *WASD* controls keys on your keyboard to
+    drive the vehicle over the goals. Play for a little while, in order to generate
+    a decent recording.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: When you are done, check the `Assets` folder for a new folder called `Demonstrations`
+    that contains your `Testing.demo` recording file.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Now, with the player recording in play, we can set up and run the agent, using
+    imitation learning to test the level.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Configuring the agent to use IL
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'We have already run through the process of setting up and running an offline
+    **imitation learning (IL)** session, but let''s review the process in the next
+    exercise:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Open the Unity editor to the same project and locate the **Vehicle2** object
+    containing the agent.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Switch the agent's brain from **TestingPlayerBrain** to **TestingLearningBrain**.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Select the **TestingAcademy** and enable the **Control** property on the **Testing
+    Academy | Brains** component property.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Save the scene and project.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Open the `config/offline_bc_config.yaml` file in a text or code editor.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Add the following section (a modified copy of `HallwayLearning`):'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: Save the file when you are done editing it.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Open a Python/Anaconda console that is ready for training, and enter the following
+    command:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: Note a couple of modifications, highlighted in bold. After the training starts,
+    watch the agent drive the car in the same manner that you trained it (or at least,
+    it will try to).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Let the agent play the game, and watch how well it performs and/or gets into
+    trouble.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: This demo/game is quite stable and is not prone to any obvious issues, which
+    makes testing it for obvious issues difficult. However, hopefully, you can appreciate
+    that if this type of system is implemented very early in a game, even just for
+    testing, it provides the ability to quickly find bugs and other issues. Of course,
+    currently, our only method to identify any issues is to watch the agent play,
+    which doesn't save us any time. What we need is a way to track agent activity
+    and determine whether (and when) the agent finds itself in trouble. Fortunately,
+    we can easily add this form of tracking by adding analytics, which we will cover
+    in the next section.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Analyzing the testing process
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'One of the key features that ML-Agents is currently missing is extra training
+    analytics (beyond what is provided by the console and TensorBoard). A key feature
+    that could be crucial (and which is not difficult to add) is training analytics.
+    This could be implemented with the Unity Analytics service that is free to try
+    with all games. Since this isn''t a current feature in ML-Agents, it is one that
+    we will add in the next exercise, by adding our own training analytics system:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Open the Unity editor, and from the menu, select **Window | General | Services**.
+    This will open a new window called **Services**, usually over the top of the **Inspector**
+    window.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Click on the **Analytics** service in the newly opened **Services** window.
+    You will need to progress through a couple of screens, asking for your preferences
+    and acknowledgment, as shown in the following screenshot:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![](img/0795c6b9-6ccc-4b03-be81-671aea78d558.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Setting up analytics for your project
+  prefs: []
+  type: TYPE_NORMAL
+- en: Click on the button to enable **Google Analytics**. Then, select the **Discover**
+    player insights switch, and you will be prompted to press **Play** in your editor.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Press **Play** in the editor, and let the game run for only a few seconds.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Return to the Services window and the Analytics page, and at the top, you should
+    see a button called **Go to Dashboard**. Click on the button, as shown in the
+    following screenshot:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![](img/bb50c421-7aaf-490f-b646-481a2653da5c.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Exploring your data using the dashboard
+  prefs: []
+  type: TYPE_NORMAL
+- en: This will open your default web browser to your project analytics page, and
+    you should see some events, such as **appStart** and **appStop**.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: That completes the setup of the analytics service, and, as you have seen, it
+    is quite easy. However, as with everything, we need to customize some of the reporting
+    data that we will send to the analytics service. You will learn how to send your
+    own custom analytics in the next section.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Sending custom analytics
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: If you have used the analytics service previously, you may have your own best
+    practices for how to track your game usage; if so, feel free to use that. The
+    method that we will present here is intended as a start for how you can go about
+    setting up and sending custom analytics for training, or even for tracking player
+    usage.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s begin by opening the Unity editor and following the next exercise:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Create a new C# script called `TestingAnalytics` in the `HoDLG` `Scripts` folder.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Open and edit the `TestingAnalytics` script in your editor, and enter the following
+    code:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: All this code does is collect the current position of the goals and how close
+    they are to the agents. That is what we care about currently. Also, notice that
+    we made this a **public property,** so that it can be called like a method, and
+    not just a field. This will be important later on.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Save the file and return to the editor. Confirm that there are no compiler errors.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Create a new empty game object in the scene, and call it `TestingAnalytics`.
+    Drag the new `TestingAnalytics` script on to the object to set it as a scene component.
+    While the class is a singleton, we still want to add it as a dependency in the
+    scene (essentially, as a reminder). However, there is another trick that we can
+    also use to program prefabs.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Drag the **TestingAnalytics** object into the **HoDLG | Prefabs** folder. This
+    will make the object a prefab, which is now accessible by all of the other prefabs.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Double-click on the **goal** prefab located in the **HoDLG | Prefabs** folder
+    to open the object in its own mini editor.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Use the **Add Component** button to add an **Analytics Event Tracker** component
+    to the object and configure it, as shown in the following screenshot:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![](img/bd606824-cf59-4713-8e4a-ff3a3779be99.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Setting up the Analytics Event Tracker
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Configure the component as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '**When**: Lifecycle'
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Lifecycle Event**: On Destroy'
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Send Event:**'
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Name**: Goal Destroyed Event'
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Parameters: 1/10:**'
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Name**: Status'
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Value**: Dynamic'
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Object: TestingAnalytics (Prefab)'
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Method**: CurrentGameState'
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Switch the scene back to the player mode by altering the Academy and Agent configuration.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Save the scene and the project.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Run the scene by pressing **Play**, and drive over a goal. As you hit the goal,
+    check the **Analytics** dashboard and note how the event is tracked.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: At this stage, the analytics only report when a goal is destroyed, and they
+    report how close each agent is to a goal. So, for one agent and three goals, they
+    would report three distances when a goal was destroyed by driving over it or when
+    the object was reset. By following these stats, you can generally view how each
+    agent testing session is going overall, for better or for worse. Of course, you
+    can add any manner of analytics that you want; it is easy to get carried away.
+    Who knows; in the future, Unity may offer a self-testing platform driven by ML-Agents
+    that provides testing analytics.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We are coming to the end of another chapter, and, of course, we are approaching
+    your favorite section, Exercises.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Exercises
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The exercises in this chapter are a mix of working with ML-Agents and building
+    your own testing analysis platform. As such, choose one or two exercises that
+    make sense for you to complete on your own from the following list:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Configure the **TestingAgent** to use a different camera for its visual observation
+    input.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Enable **Curiosity Learning** on the agent's brain.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Set up the **TestingAgent** to control a different vehicle.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Set up the **TestingAgent** to run on another vehicle and let ML-Agents control
+    both of the agents simultaneously.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Add additional tracking analytics custom events for the agents. Perhaps track
+    the distance that the agent travels versus its lifetime. This will provide a speed
+    factor that can also denote the agent's efficiency. An agent that hits a goal
+    quicker will have a better speed factor.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Enable online imitation learning by adding a second vehicle with a learning
+    agent. If you need to, go back and review the setup of the tennis scene.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Set up the Academy to use curriculum learning. Perhaps allow the virtual goal
+    deployment box to grow in size over training iterations (by 10%, or some other
+    factor). This will allow the goals to disperse farther and make it more difficult
+    for the agent to find.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Modify the visual observation input that the brains are using to `184` x `184`,
+    the new standard, and see what effect this has on agent training.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Modify the visual observation convolutional encoding network, as we did in [Chapter
+    7](9b7b6ff8-8daa-42bd-a80f-a7379c37c011.xhtml), *Agents and the Environment*,
+    to use more layers and/or different filtering.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Apply this testing framework to your own game. Be sure to also add the analytics,
+    so that you can track training and player usage.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: These exercises are more involved than those in the previous chapters, since
+    this is a big and important chapter. In the next section, we will review what
+    you learned and covered in this chapter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Of all the chapters in this book, this may be the most useful if you are in
+    the process of developing your own game. Game testing is one of those things that
+    requires so much time and attention, it has to be up for some form of automation.
+    While it makes sense for DRL to work well in this area for almost any game, it
+    remains to be seen whether that is one of the niches for this new learning phenomena.
+    One thing that's for sure, however, is that ML-Agents is more than capable of
+    working as a testing harness, and we are sure that it will only get better over
+    time.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this chapter, we looked at building a generic testing platform, powered by
+    ML-Agents, that we can use to test any game automatically. We first looked at
+    each of the components that we needed to adapt, the academy and the agent, and
+    how they could be generalized for testing. Then, we looked at how we could inject
+    into the Unity input system and use our `TestingAgent` to override the game's
+    input and learn how to control it on its own. After that, we looked at how to
+    better set up our testing by using offline IL and recording a demo file that we
+    could use to train the agent later. Finally, in order to see how well our testing
+    was doing, we added analytics and customized them to our needs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The next chapter will be our final chapter and our last discussion of deep learning
+    for games; appropriately enough, we will look at what the future holds for ML-Agents
+    and DRL.
+  prefs: []
+  type: TYPE_NORMAL

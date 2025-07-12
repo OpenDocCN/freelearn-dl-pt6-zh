@@ -1,0 +1,986 @@
+- en: Building Multi-Agent Environments
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: With our single-agent experiences under our belt, we can move on to the more
+    complex but equally entertaining world of working in multi-agent environments,
+    training multiple agents to work in the same environment in a co-operative or
+    competitive fashion. This also opens up several new opportunities for training
+    agents with adversarial self-play, cooperative self-play, competitive self-play,
+    and more. The possibilities become endless here, and this may be the true holy
+    grail of AI.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this chapter, we are going to cover several aspects of multi-agent training
+    environments and the main section topics are highlighted here:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Adversarial and cooperative self-play
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Competitive self-play
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Multi-brain play
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Adding individuality with intrinsic rewards
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Extrinsic rewards for individuality
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: This chapter assumes you have covered the three previous chapters and completed
+    some exercises in each. In the next section, we begin to cover the various self-play
+    scenarios.
+  prefs: []
+  type: TYPE_NORMAL
+- en: It is best to start this chapter with a new clone of the ML-Agents repository.
+    We do this as a way of cleaning up our environment and making sure no errant configuration
+    was unintentionally saved. If you need help with this, then consult one of the
+    earlier chapters.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Adversarial and cooperative self-play
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The term *self-play* can, of course, mean many things to many people, but in
+    this case, we mean the brain is competing (adversarial) or cooperating with itself
+    by manipulating multiple agents. In the case of ML-Agents, this may mean having
+    a single brain manipulating multiple agents in the same environment. There is
+    an excellent example of this in ML-Agents, so open up Unity and follow the next
+    exercise to get this scene ready for multi-agent training:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Open the SoccerTwos scene from the Assets | ML-Agents | Examples | Soccer |
+    Scenes folder. The scene is set to run, by default, in player mode, but we need
+    to convert it back to learning mode.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Select and disable all the SoccerFieldTwos(1) to SoccerFieldTwos(7) areas. We
+    won't use those yet.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Select and expand the remaining active SoccerFieldTwos object. This will reveal
+    the play area with four agents, two marked RedStriker and BlueStriker and two
+    marked RedGoalie and BlueGoalie.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Inspect the agents and set each one''s brain to StrikerLearning or GoalieLearning
+    as appropriate, as shown here:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![](img/bad9504b-6031-4dc7-89a1-6a0fdeccacb9.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Setting the learning brains on the agents
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We have four agents in this environment being controlled by brains that are
+    both cooperating with and competing against each other. To be honest, this example
+    is brilliant and demonstrates incredibly well the whole concept of cooperative
+    and competitive self-play. If you are still struggling with some concepts, consider
+    this diagram, which shows how this is put together:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![](img/7d798d2c-a983-47a0-9e7f-123947814e6d.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The SoccerTwos brain architecture
+  prefs: []
+  type: TYPE_NORMAL
+- en: As we can see, we have two brains controlling four agents: two strikers and
+    two goalies. The striker's job is to score against the goalie, and, of course,
+    the goalie's job is to block goals.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Select the Academy and set the Soccer Academy | Brains | Control enabled for
+    both brains, as shown:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![](img/bd97dcc4-28e4-4857-9f62-ae7795aeb202.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Setting the Brains to control in the Academy
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Also, note the Striker, Goalie Reward, and Punish settings at the bottom of
+    the Soccer Academy component. It is important to also note the way the `reward`
+    functions for each brain. The following are the `reward` functions described mathematically
+    for this sample:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![](img/94d69f7e-74b3-4fd0-a481-a2a0c8a5cd95.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '![](img/e5e35e1a-b4c1-4fed-9ffd-7a88b020fdeb.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '![](img/d2aec05a-effa-4726-9bd9-3543994fc124.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '![](img/bb21059d-f367-4c9f-9c51-386c18dbd594.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: That means, when a goal is scored, each of the four agents gets a reward based
+    on its position and team. Thus, if red scored, the Red Striker would get a `+1`
+    reward, the Blue Striker a `-0.1` reward, the Red Goalie a `+0.1` reward, and
+    the poor Blue Goalie a `-1` reward. Now, you may think this could cause overlap,
+    but remember that each agent's view of a state or an observation will be different.
+    Thus, the reward will be applied to the policy for that state or observation.
+    In essence, the agent is learning based on its current view of the environment,
+    which will change based on which agent is sending that observation.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Save the scene and project when you are done editing.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: That sets up our scene for multi-agent training using two brains and four agents,
+    using both competitive and cooperative self-play. In the next section, we complete
+    the external configuration and start training the scene.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Training self-play environments
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Training these types of self-play environments opens up further possibilities
+    for not only enhanced training possibilities but also for fun gaming environments.
+    In some ways, these types of training environments can be just as much fun to
+    watch, as we will see at the end of this chapter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For now, though, we are going to jump back and continue setting up the configuration
+    we need to train our SoccerTwos multi-agent environment in the next exercise:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Open the `ML-Agents/ml-agents/config/trainer_config.yaml` file and inspect
+    the `StrikerLearning` and `GoalieLearning` config sections, as shown:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: The obvious thought is that the brains should have a similar configuration,
+    and you may start that way, yes. However, note that even in this example the `batch_size`
+    parameter is set differently for each brain.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Open a Python/Anaconda window and switch to your ML-Agents virtual environment
+    and then launch the following command from the `ML-Agents/ml-agents` folder:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Press Play when prompted, and you should see the following training session
+    running:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![](img/d39dccad-9782-46dd-b092-b65d37365fab.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The SoccerTwos scene running in training mode
+  prefs: []
+  type: TYPE_NORMAL
+- en: As has been said, this can be a very entertaining sample to watch, and it trains
+    surprisingly quickly.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Open up the Python/Anaconda console after some amount of training, and note
+    how you are getting stats on two brains now, StrikerLearning and GoalieLearning,
+    as shown in the following screenshot:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![](img/38567196-c47a-438e-b8de-42f02e49ade0.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Console output showing stats from two brains
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note how StrikerLearning and GoalieLearning are returning opposite rewards to
+    each other. This means, in order for these agents to be trained, they must balance
+    their mean reward to 0 for both agents. As the agents train, you will notice their
+    rewards start to converge to 0, the optimum reward for this example.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Let the sample run to completion. You can easily get lost watching these environments,
+    so you may not even notice the time go by.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: This example showed how we can harness the power of multi-agent training through
+    self-play to teach two brains how to both compete and cooperate at the same time.
+    In the next section, we look at multiple agents competing against one another
+    in self-play.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Adversarial self-play
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'In the previous example, we saw an example of both cooperative and competitive
+    self-play where multiple agents functioned almost symbiotically. While this was
+    a great example, it still tied the functionality of one brain to another through
+    their reward functions, hence our observation of the agents being in an almost
+    rewards-opposite scenario. Instead, we now want to look at an environment that
+    can train a brain with multiple agents using just adversarial self-play. Of course,
+    ML-Agents has such an environment, called Banana, which comprises several agents
+    that randomly wander the scene and collect bananas. The agents also have a laser
+    pointer, which allows them to disable an opposing agent for several seconds if
+    they are hit. This is the scene we will look at in the next exercise:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Open the Banana scene from the Assets | ML-Agents | Examples | BananaCollectors
+    | Scenes folder.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Select and disable the additional training areas RLArea(1) to RLArea(3).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Select the five agents (Agent, Agent(1), Agent(2), Agent(3), Agent(4)) in the
+    RLArea.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Swap the Banana Agent | Brain from BananaPlayer to BananaLearning.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Select the Academy and set the Banana Academy | Brains | Control property to
+    Enabled.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Select the Banana Agent component (Script) in the editor, and open it in your
+    code editor of choice. If you scroll down to the bottom, you can see the `OnCollisionEnter`
+    method as shown:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Reading the preceding code, we can summarize our `reward` functions to the
+    following:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![](img/069ca155-ee9c-4ff0-a01a-2cff13ed6d22.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '![](img/27024412-a985-427d-a522-a5586088562c.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: This simply means the agents only receive a reward for eating bananas. Interestingly,
+    there is no reward for disabling an opponent with a laser or by being disabled.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Save the scene and the project.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Open a prepared Python/Anaconda console and start training with the following
+    command:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Press Play in the editor when prompted, and watch the action unfold as shown
+    in the next screenshot:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![](img/e5e1b177-d51f-40c2-abed-6be4a9549669.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The Banana Collector agents doing their work
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let the scene run for as long as you like.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: This scene is an excellent example of how agents learn to use a secondary game
+    mechanic that returns no rewards, but, like the laser, is still used to immobilize
+    adversarial collectors and obtain more bananas, all while only receiving rewards
+    for eating only bananas. This example shows some of the true power of RL and how
+    it can be used to find secondary strategies in order to solve problems. While
+    this is a very entertaining aspect and fun to watch in a game, consider the grander
+    implications of this. RL has been shown to optimize everything from networking
+    to recommender systems using **adversarial self-play**, and it will be interesting
+    to see what this method of learning is capable of accomplishing in the near future.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Multi-brain play
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'One of the truly great things about the ML-Agents kit is the ability to add
+    multiple agents powered by multiple brains quickly. This in turns gives us the
+    ability to build more complex game environments or scenarios with fun agents/AI
+    to play both with and against. Let''s see how easy it is to convert our soccer
+    example to let the agents all use individual brains:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Open up the editor to the SoccerTwos scene we looked at earlier.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Locate the `Brains` folder for the example at Assets | ML-Agents | Examples
+    | Soccer | Brains.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Click the Create menu in the upper right corner of the window and from the
+    Context menu, and select ML-Agents | Learning Brain:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![](img/5529ce20-f7be-4dcf-910c-89567b1b8c23.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Creating a new learning brain
+  prefs: []
+  type: TYPE_NORMAL
+- en: Name the new brain `RedStrikerLearning`.  Create three more new brains named
+    `RedGoalieLearning`, `BlueGoalieLearning`, and `BlueStrikerLearning` in the same
+    folder.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Select RedStrikerLearning. Then select and drag the StrikerLearning brain and
+    drop it into the Copy Brain Parameters from slot:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![](img/895d4ef3-1d95-41ae-90d8-6b2bd63ae8c5.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Copying brain parameters from another brain
+  prefs: []
+  type: TYPE_NORMAL
+- en: Do this for BlueStrikerLearning, copying parameters from StrikerLearning. Then
+    do the same for the RedGoalieLearning and BlueGoalieLearning, copying parameters
+    from GoalieLearning.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Select the RedAgent in the Hierarchy window and set the Agent Soccer | Brain
+    to RedStrikerLearning. Do this for each of the other agents, matching the color
+    with a position.  BlueGoalie **->** BlueGoalieLearning.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Select Academy and remove all the current Brains from the Soccer Academy |
+    Brains list. Then add all the new brains we just created back into the list using
+    the Add New button and set them to Control:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![](img/becf9e28-691c-454c-b52d-cbac98e3881e.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Adding the new brains to Academy
+  prefs: []
+  type: TYPE_NORMAL
+- en: Save the scene and the project. Now, we just swapped the example from using
+    two concurrent brains in self-play mode to be individual agents on teams.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Open a Python/Anaconda window set up for training and launch with it the following:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: Let the training run and note how the agents start off playing just as well
+    as they did previously. Take a look at the console output as well. You will see
+    it now reports for four agents, but the agents are still somewhat symbiotic, as
+    the red striker is opposite the blue goalie. However, they now train much more
+    slowly, due in part to each brain seeing only half the observations now. Remember
+    that we had both striker agents feeding to a single brain previously, and, as
+    we learned, this additional input of state can expedite training substantially.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: At this point, we have four agents with four individual brains playing a game
+    of soccer. Of course, since the agents are still training symbiotically by sharing
+    a reward function, we can't really describe them as individuals. Except, as we
+    know, individuals who play on teams are often influenced by their own internal
+    or intrinsic reward system. We will look at how the application of intrinsic rewards
+    can make this last exercise more interesting in the next section.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Adding individuality with intrinsic rewards
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: As we learned in [Chapter 9](ae184eca-6c9d-456e-a72b-85274ddcc10c.xhtml), *Rewards
+    and Reinforcement Learning*, intrinsic reward systems and the concept of agent
+    motivation is currently implemented as just **curiosity learning** in ML-Agents.
+    This whole area of applying intrinsic rewards or motivation combined with RL has
+    wide applications to gaming and interpersonal applications such as **servant agents**.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In the next exercise, we are going to add intrinsic rewards to a couple of
+    our agents and see what effect this has on the game. Open up the scene from the
+    previous exercise and follow these steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Open up the `ML-Agents/ml-agents/config/trainer_config.yaml` file in a text
+    editor. We never did add any specialized configuration to our agents, but we are
+    going to rectify that now and add some extra configurations.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Add the following four new brain configurations to the file:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Note how we have also enabled `use_curiosity: true` on the `BlueGoalieLearning`
+    and `RedStrikerLearning` brains. You can copy and paste most of this from the
+    original `GoalieLearning` and `StrikerLearning` brain configurations already in
+    the file; just pay attention to the details.'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Save the file when you are done editing.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Open your Python/Anaconda console and start training with the following command:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: Let the agents train for a while, and you will notice that, while they do appear
+    to work more like individuals, their training ability is still subpar, while any
+    improvement we do see in training is likely the cause of giving a couple of agents
+    curiosity.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: This ability to add individuality to an agent with intrinsic rewards or motivation
+    will certainly mature as DRL does for games and other potential applications and
+    will hopefully provide other intrinsic reward modules that may not be entirely
+    focused on learning. However, intrinsic rewards can really do much to encourage
+    individuality, so in the next section, we introduce extrinsic rewards to our modified
+    example.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Another excellent application of transfer learning would be the ability to add
+    intrinsic reward modules after agents have been trained on general tasks.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Extrinsic rewards for individuality
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: We have looked extensively at external or extrinsic rewards for several chapters
+    now and how techniques can be used to optimize and encourage them for agents.
+    Now, it may seem like the easy way to go in order to modify an agent's behavior
+    is by altering its extrinsic rewards or in essence its reward functions. However,
+    this can be prone to difficulties, and this can often alter training performance
+    for the worse, which is what we witnessed when we added **Curriculum Learning**
+    (**CL**) to a couple of agents in the previous section. Of course, even if we
+    make the training worse, we now have a number of techniques up our sleeves such
+    as **Transfer Learning** (**TL**), also known as** Imitation Learning** (**IL**);
+    **Curiosity**; and CL, to help us correct things.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In the next exercise, we are going to look to add further individuality to
+    our agents by adding additional extrinsic rewards. Open up the previous exercise
+    example we were just working on and follow along:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: From the menu, select Window | Asset Store.  This will take you to the Unity
+    Asset Store, which is an excellent resource for helper assets. While most of these
+    assets are paid, honestly, the price compared to comparable developer tools is
+    minimal, and there are several free and very excellent assets that you can start
+    using to enhance your training environments. The Asset Store is one of the best
+    and worst things about Unity, so if you do purchase assets, be sure to read the
+    reviews and forum posts. Any good asset will typically have its own forum if it
+    is developer-focused, artistic assets much less so.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: In the search bar, enter `toony tiny people` and press the *Enter* key or click
+    the Search button. This will display the search results.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: We would like to thank **Polygon Blacksmith** for their support in allowing
+    us to distribute their Toony Tiny People Demo asset with the book's source. Also,
+    their collection of character assets is very well done and simple to use. The
+    price is also at an excellent starting point for some of the larger asset packages
+    if you decide you want to build a full game or enhanced demo.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Select the result called Toony Tiny People Demo by Polygon Blacksmith and select
+    it. It will appear as shown in this screenshot:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![](img/b1f3ba55-d605-4c21-828c-7cdf29d5f0a4.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The Toony Tiny People Demo asset from Polygon Blacksmith
+  prefs: []
+  type: TYPE_NORMAL
+- en: Click the red Download button and, after the asset has downloaded, the button
+    will change to Import, as shown in the preceding screenshot. Click the Import
+    button to import the assets.  When you are prompted by the Import dialog, make
+    sure everything is selected and click Import.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: These types of low polygon or toon assets are perfect for making a simple game
+    or simulation more entertaining and fun to watch. It may not seem like much, but
+    you can spend a lot of time watching these training sims run, and it helps if
+    they look appealing.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Select and expand all the agent objects in Hierarchy. This includes RedStriker,
+    BlueStriker, RedGoalie, and BlueGoalie.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Open the Assets | TooyTinyPeople | TT_demo | prefabs folder in the Project window.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Select and drag the TT_demo_Female prefab from the preceding folder and drop
+    it into the RedStriker agent object in the Hierarchy window. Select the cube object
+    just beneath the agent and disable it in the inspector. Continue to do this for
+    the other agents according to the following list:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: TT_demo_female -> RedStriker
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: TT_demo_male_A -> BlueStriker
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: TT_demo_police -> BlueGoalie
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: TT_demo_zombie -> RedGoalie
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'This is further demonstrated in this screenshot:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/13987114-bc54-4b7a-9fc1-4b3716e8b4ec.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Setting the new agent bodies
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Make sure to also reset the new agent model''s Transform Position and Orientation
+    to `[0,0,0]`, as shown in the following screenshot:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![](img/362c8dbb-4f85-4fc3-bbde-1b2f2d0de4f9.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Resetting the orientation and position of dragged prefabs
+  prefs: []
+  type: TYPE_NORMAL
+- en: Save the scene and project.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: At this point, you can run the scene in training and watch the new agent models
+    move around, but there isn't much point. The agents will still act the same, so
+    what we need to do next is set additional extrinsic rewards based on some arbitrary
+    personality, which we will define in the next section.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Creating uniqueness with customized reward functions
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: We managed to have some success in making our agents unique by adding intrinsic
+    rewards, although the results may have been not as unique as we would have liked.
+    This means we now want to look at modifying the agents' extrinsic rewards in the
+    hopes of making their behavior more unique and ultimately more entertaining for
+    the game.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The best way for us to start doing that is to look at the `SoccerTwos` reward
+    functions we described earlier; these are listed here, for reference:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/8360374e-f459-4fef-98dd-3b11264f0636.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '![](img/e943d6d7-592f-48e8-8bf4-1ec5798f5f5b.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '![](img/594438d5-58dc-40fe-b993-cdf625b439ae.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '![](img/97c31523-231f-4211-aece-29c95edcb586.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'What we want to do now is apply some individualistic modification to the rewards
+    function based on the current character. We will do this by simply chaining the
+    functions with a modification based on the character type, as shown:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/03fb39c9-5222-466c-a90a-b30d4e4c340c.png)  or  ![](img/7be32220-52f5-4067-a9a1-d9731f2d59dc.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '![](img/a2547f6b-3e83-4ce3-abb7-a9405f5ef26b.png)  or  ![](img/33de502b-245d-4659-9715-41af693970b9.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '![](img/fd164fb9-7793-492c-a371-3bfac8a77c08.png) or  ![](img/b540589a-8861-490a-8476-253b634e98b7.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '![](img/dd76d52b-c033-4888-856b-f5e6384f4440.png) or  ![](img/ef696a36-6623-4c61-bb89-57805927aac0.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: All we are doing here with these reward functions is simply modifying the reward
+    value by some personality modification. For the girl, we give her a bonus of 1.25
+    x the rewards, reflecting that she may be excited. The boy is less excited, so
+    we modify his rewards by .95 times, which reduces them slightly. The policeman,
+    who is always calm and in control, remains constant with no rewards modifications. 
+    Finally, we introduce a bit of a wildcard, the half-dead zombie. In order to characterize
+    it as half-dead, we also decrease all of its rewards by half as well.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You could, of course, modify these functions in any way you please, according
+    to your game mechanics, but it is important to note that the effect of the personality
+    modification you are applying could hinder training. Be sure to take a mental
+    note of that as we get into training this example as well.
+  prefs: []
+  type: TYPE_NORMAL
+- en: A girl, a boy, a zombie, and a policeman enter the soccer field.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now that we understand the new reward functions, we want to add to our example
+    that it is time to open Unity and code them. This example will require some slight
+    modifications to the C# files, but the code is quite simple and should be readily
+    understood by any programmer with experience of a C-based language.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Open up Unity to the scene we were modifying in the previous example, and follow
+    the next exercise:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Locate the RedStriker  agent in the Hierarchy window and select it.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: From Inspector, click the gear icon beside the Agent Soccer component and, from
+    the Context menu, select Edit Script.  This will open the script and solution
+    in your editor.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Add a new `enum` called `PersonRole` at the top of the file right after the
+    current `enum AgentRole` and as shown in the code:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: This creates a new role, for, in essence, the personality we want to apply to
+    each brain.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Add another new variable to the class, as shown:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'That adds the new `PersonRole` to the agent. Now we want to also add the new
+    type to the setup by adding a single line to the `InitializeAgent`  method, shown
+    here:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'You should likely see an error now in the line. That is because we also need
+    to add the new `personRole` property to `PlayerState`. Open the `PlayerState`
+    class and add the property as shown:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'You should now be in the `SoccerFieldArea.cs` file.  Scroll to the `RewardOrPunishPlayer`
+    method and modify it as shown:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'What we are doing here is injecting another reward function, `RewardOrPunishPerson`,
+    in order to add our extrinsic personality rewards. Next, add a new `RewardOrPunishPerson` method,
+    as shown:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: That code does exactly what our earlier customized reward functions do. When
+    you are done editing, save all your files and return to the Unity editor. If there
+    are any errors or compiler warnings, they will be shown in the console. If you
+    need to go back and fix any (red) error issues, do so.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: As you can see, with very little code, we are able to add our extrinsic personality
+    rewards. You could, of course, enhance this system in any number of ways and even
+    make it more generic and parameter-driven. In the next section, we look to put
+    all this together and get our agents training individually.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Configuring the agents' personalities
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'With all the code set up, we can now continue back in the editor and set up
+    the agents to match the personality we want to apply to them. Open up the editor
+    again, and follow the next exercise to apply the personalities to the agents and
+    start training:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Select RedStriker in Hierarchy and set the Agent Soccer | Person Role parameter
+    we just created to Girl, as shown:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![](img/54e3b787-d936-453c-8103-5aa2c5fd599d.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Setting the personalities on each of the agents
+  prefs: []
+  type: TYPE_NORMAL
+- en: Update all the agents with the relevant personality that matches the model we
+    assigned earlier: BlueStriker-> Boy, BlueGoalie -> Police, and RedGoalie -> Zombie, as
+    shown in the preceding screenshot.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Save the scene and project.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Now, at this point, if you wanted it to be more detailed, you may want to go
+    back and update each of the agent brain names to reflect their personalities,
+    such as GirlStrikerLearning or PoliceGoalieLearning, and you can omit the team
+    colors. Be sure to also add the new brain configuration settings to your `trainer_config.yaml`
+    file.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Open your Python/Anaconda training console and start training with the following
+    command:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now, this can be very entertaining to watch, as you can see in the following
+    screenshot:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![](img/c9e87060-970f-4b74-91d6-0add4c847e12.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Watching individual personalities play soccer
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note how we kept the team color cubes active in order to show which team each
+    individual agent is on.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Let the agents train for several thousand iterations and then open the console;
+    note how the agents now look less symbiotic. In our example, they are still paired
+    with each other, since we only applied a simple linear transformation to the rewards.
+    You could, of course, apply more complex functions that are non-linear and not
+    inversely related that describe some other motivation or personality for your
+    agents.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Finally, let''s open up TensorBoard and look at a better comparison of our
+    multi-agent training. Open another Python/Anaconda console to the `ML-Agents/ml-agents`
+    folder you are currently working in and run the following command:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Use your browser to open the TensorBoard interface and examine the results.
+    Be sure to disable any extra results and just focus on the four brains in our
+    current training run. The three main plots we want to focus on are shown merged
+    together in this diagram:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![](img/702bce1d-2467-4a1a-b68e-dbc70a022b67.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: TensorBoard Plots showing results of training four brains
+  prefs: []
+  type: TYPE_NORMAL
+- en: As you can see from the TensorBoard results, the agents are not training very
+    well. We could enhance that, of course, by adding additional training areas and
+    feeding more observations in order to train the policy. However, if you look at
+    the **Policy Loss** plot, the results show the agents' competition is causing
+    minimal policy change, which is a bad thing this early in training. If anything,
+    the zombie agent appears to be the agent learning the best from these results.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There are plenty of other ways you can, of course, modify your extrinsic reward
+    function in order to encourage some behavioral aspect in multi-agent training
+    scenarios. Some of these techniques work well and some not so well. We are still
+    in the early days of developing this tech and best practices still need to emerge.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the next section, we look to further exercises you can work on in order to
+    reinforce your knowledge of all the material we covered in this chapter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Exercises
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'As always, try at least one or two of the following exercises on your own for
+    your own enjoyment and learning:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Open the BananaCollectors example Banana scene and run it in training mode.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Modify the BananaCollectors | Banana scene so that it uses five separate learning
+    brains and then run it in training mode.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Modify the reward functions in the last SoccerTwos exercise to use exponential
+    or logarithmic functions.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Modify the reward function in the last SoccerTwos exercise to use non-inverse
+    related and non-linear functions. This way, the mean modifying the positive and
+    negative rewards is different for each personality.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Modify the SoccerTwos scene with different characters and personalities. Model
+    new rewards functions as well, and then train the agents.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Modify the BananaCollectors example Banana scene to use the same personalities
+    and custom reward functions as we did with the SoccerTwos example.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Do exercise 3 with the BananaCollectors example.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Do exercise 4 with the BananaCollectors example.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Do exercise 5 with the BananaCollectors example.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Build a new multi-agent environment using one of the current samples as a template
+    or create your own.  This last exercise could very likely turn into your very
+    own game.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: You may have noticed by now that as we progress through the book, the exercises
+    become more time-consuming and difficult. Please try for your own personal benefit
+    to complete at least a couple of the exercises.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this chapter, we explored a world of possibilities with multi-agent training
+    environments. We first looked at how we could set up environments using self-play,
+    where a single brain may control multiple brains that both compete and cooperate
+    with one another. Then we looked at how we could add personality with intrinsic
+    rewards in the form of curiosity using the ML-Agents curiosity learning system. Next,
+    we looked at how extrinsic rewards could be used to model an agent's personality
+    and influence training. We did this by adding a free asset for style and then
+    applied custom extrinsic rewards through reward function chaining. Finally, we
+    trained the environment and were entertained by the results of the boy agent solidly
+    thrashing the zombie; you will see this if you watch the training to completion.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the next chapter, we will look at another novel application of DRL for debugging
+    and testing already constructed games.
+  prefs: []
+  type: TYPE_NORMAL

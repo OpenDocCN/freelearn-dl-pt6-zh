@@ -1,0 +1,433 @@
+- en: Monitoring and Debugging Neural Network Training
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The previous chapter focused on training **Multilayer Neural Networks** (**MNNs**),
+    and presenting code examples for CNNs and RNNs in particular. This chapter describes
+    how monitoring a network can be done while training is in progress and how to
+    use this monitoring information to tune a model. DL4J provides UI facilities for
+    monitoring and tuning purposes, and will be the centerpiece of this chapter. These
+    facilities also work in a training context with DL4J and Apache Spark. Examples
+    for both situations (training using DL4J only and DL4J with Spark) will be presented.
+    A list of potential baseline steps or tips for network training will also be discussed.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Monitoring and debugging neural networks during their training phases
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Between [Chapter 5](fbec1d8a-a92f-4899-af0f-11f3d545e0eb.xhtml), *Convolutional
+    Neural Networks*, and [Chapter 7](3b6f47c0-6e17-484b-ad30-b6f92eb0473c.xhtml),
+    *Training Neural Networks with Spark*, a full example was presented regarding
+    a CNN model's configuration and training. This was an example of image classification.
+    The training data that was used came from the `MNIST` database. The training set
+    contained 60,000 examples of handwritten digits, with each image labeled by an
+    integer. Let's use the same example to show the visual facilities that are provided
+    by DL4J for monitoring and debugging a network at training time.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'At the end of training, you can programmatically save the generated model as
+    a ZIP archive and throw the `writeModel` method of the `ModelSerializer` class
+    ([https://static.javadoc.io/org.deeplearning4j/deeplearning4j-nn/0.9.1/org/deeplearning4j/util/ModelSerializer.html](https://static.javadoc.io/org.deeplearning4j/deeplearning4j-nn/0.9.1/org/deeplearning4j/util/ModelSerializer.html)):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The generated archive contains three files:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`configuration.json`: The model configuration in JSON format'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`coefficients.bin`: The estimated coefficients'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`updaterState.bin`: The historical states for updaters'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'It is possible to implement a standalone UI using, for example, the JavaFX
+    ([https://en.wikipedia.org/wiki/JavaFX](https://en.wikipedia.org/wiki/JavaFX))
+    features of the JDK to test the model that is built after training a network.
+    Check out the following screenshot:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/511f951b-e0af-43b9-b2b7-a91a2b157649.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 8.1: The test UI for the handwritten digit classification CNN example'
+  prefs: []
+  type: TYPE_NORMAL
+- en: However, this is almost useless for monitoring purposes, where you would like
+    to check in the current network status and the progress of its training in real
+    time. The DL4J training UI, which we will go into the details of in the next two
+    sections of this chapter, fulfills all of your monitoring needs. The implementation
+    details of the test UI, as shown in the preceding screenshot, will be described
+    in the next chapter, which discusses network evaluation – this implementation
+    will make more sense after you've read this.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 8.1.1 The DL4J training UI
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The DL4J framework provides a web user interface to visualize the current network
+    status and progress of training in real time. It is used to understand how to
+    tune a neural network. In this section, we are going to examine a use case with
+    CNN training where only DL4J is involved. The next section will show the differences
+    between when the training is done through both DL4J and Spark.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The first thing we need to do is add the following dependency to the project:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: Then, we can start adding the necessary code.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s initialize the backend for the UI:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Configure the information that is generated for the network during its training:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In the preceding example, we have chosen to store the information in memory.
+    It is also possible to store it on disk so that it can be loaded for later use:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Add a listener ([https://deeplearning4j.org/api/latest/org/deeplearning4j/ui/stats/StatsListener.html](https://deeplearning4j.org/api/latest/org/deeplearning4j/ui/stats/StatsListener.html))
+    so that you can collect information from the network while it is training:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Finally, to allow for visualization, attach the `StatsStorage` ([https://deeplearning4j.org/api/latest/org/deeplearning4j/ui/storage/InMemoryStatsStorage.html](https://deeplearning4j.org/api/latest/org/deeplearning4j/ui/storage/InMemoryStatsStorage.html))
+    instance to the backend:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'By running the application as soon as the training starts (the `fit` method
+    is executed), it is possible to access the UI through a web browser at the following
+    URL:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The default listening port is `9000`. It is possible to choose a different
+    port through the `org.deeplearning4j.ui.port` system property, for example:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The landing page of the UI is the Overview page:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/e7faec0f-5f28-41db-9868-790981d5dff3.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 8.2: The Overview page of the DL4J UI'
+  prefs: []
+  type: TYPE_NORMAL
+- en: As we can see in the preceding screenshot, you can see four different sections.
+    On the top left of the page there's the Score vs. Iteration chart. It presents
+    the loss function for the current minibatch. On the top right, there's information
+    about the model and its training. On the bottom left, there is a chart presenting
+    the ratio of parameters to update (by layer) for all networks in Weights vs. Iteration.
+    The values are displayed as logarithm base 10\. On the bottom right, there is
+    a chart presenting the standard deviations of updates, gradients, and activations.
+    For this last chart, the values are displayed as logarithm base 10 too.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Another page of the UI is the Model page:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/710eef5e-3912-4676-8ba0-493957a80ec0.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 8.3: The Model page of the DL4J UI'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'It shows a graphical representation of the neural network. By clicking on a
+    layer in the graph, detailed information about it is given:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/ed5dd8ab-f2d5-4f8f-af8b-7c36e07ac4b8.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 8.4: Single layer details in the Model page of the DL4J UI'
+  prefs: []
+  type: TYPE_NORMAL
+- en: On the right-hand side section of the page, we can find a table containing the
+    details for the selected layer and a chart presenting the update to parameter
+    ratio for this layer (as per the Overview page). Scrolling down, we can also find
+    in the same section, other charts presenting the layer activations over time,
+    histograms of parameters, and updates for each parameter type and the learning
+    Rate vs. Time.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The third page of the UI is the System page:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/d4b7e368-4574-4ff4-8813-0da2d6a5b5cd.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 8.5: The System page of the DL4J UI'
+  prefs: []
+  type: TYPE_NORMAL
+- en: It presents system information (JVM and off-heap memory utilization percentages,
+    hardware, and software details) for each of the machines where the training is
+    happening.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The left menu of the UI presents a fourth item, Language, which lists all of
+    the supported language translations for this UI:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/20efa761-15e5-42cc-9a77-c2c0087e1b2d.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 8.6: The list of supported languages for the DL4J UI'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 8.1.2 The DL4J training UI and Spark
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The DL4J UI can also be used when training and including Spark into the tech
+    stack. The main difference with a case where only DL4J is involved is as follows:
+    some conflicting dependencies require that UI and Spark are running on different
+    JVMs. There are two possible alternatives:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Collect and save the relevant training stats at runtime, and then visualize
+    them offline later.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Execute the DL4J UI and use the remote UI functionality in separate JVMs (servers).
+    The data is then uploaded from the Spark master to the UI server.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Let's take a look at how to implement an alternative to *Step 1*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s reference the CNN example we presented in [Chapter 5](fbec1d8a-a92f-4899-af0f-11f3d545e0eb.xhtml),
+    *Convolutional Neural Networks*, in the *Hands-on CNN with Spark* section, once
+    the Spark network has been created:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We need to create a `FileStatsStorage` object so that we can save the results
+    to a file and set a listener for the Spark network:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Later, we can load and display the saved data offline by implementing the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: Now, let's explore an alternative to *Step 2*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'As we mentioned previously, the UI server needs to run on a separate JVM. From
+    there, we need to start the UI server:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Then, we need to enable the remote listener:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The dependency that we need to set is the same one (DL4J UI) that we used for
+    the example we presented in the *The DL4J training UI* section:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In the Spark application (we are still referring to the CNN example we presented
+    in [Chapter 5](fbec1d8a-a92f-4899-af0f-11f3d545e0eb.xhtml), *Convolutional Neural
+    Networks*), after the Spark network has been created, we need to create an instance
+    of `RemoteUIStatsStorageRouter` ([https://static.javadoc.io/org.deeplearning4j/deeplearning4j-core/0.9.1/org/deeplearning4j/api/storage/impl/RemoteUIStatsStorageRouter.html](https://static.javadoc.io/org.deeplearning4j/deeplearning4j-core/0.9.1/org/deeplearning4j/api/storage/impl/RemoteUIStatsStorageRouter.html)),
+    which asynchronously posts all updates to the remote UI and finally sets it as
+    a listener for the Spark network:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: '`UI_HOST_IP` is the IP address of the machine where the UI server is running
+    and `UI_HOST_PORT` is the listening port of the UI server.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To avoid dependency conflicts with Spark, we need to add to the dependency
+    list for this application, and not the full DL4J UI model:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: Choosing the alternative to *Step 2*, the monitoring of the network happens
+    in real-time during training and not offline after the training execution has
+    completed.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The DL4J UI pages and content are the same as those shown for the scenario of
+    network training without Spark (*The DL4J training UI* section of this chapter).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 8.1.3 Using visualization to tune a network
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Now, let's look at how we can interpret the visual results presented in the
+    DL4J UI and use them to tune a neural network. Let's start from the Overview page.
+    The Model Score vs. Iteration chart, which presents the loss function for the
+    current minibatch, should go down over time (as shown in the example in *Figure
+    8.2*). Regardless of whether the observed score should increase consistently,
+    the learning rate is likely set too high. In this case, it should be reduced until
+    the scores become more stable. Observing increasing scores could also be indicative
+    of other issues, such as incorrect data normalization. On the other hand, if the
+    score is flat or decreases very slowly, this means that the learning rate may
+    be too low or that optimization is difficult. In this second case, training should
+    be tried again using a different updater.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In the example presented in the *The DL4J training UI* section, the Nesterov''s
+    momentum updater was used (see *Figure 8.4*) and came up with good results (see
+    *Figure 8.2*). You can change the updater through the `updater` method of the
+    `NeuralNetConfiguration.Builder` class:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: Some noise in this line chart should be expected, but if the scores vary quite
+    significantly between runs, this is a problem. The root cause could be one of
+    the issues that we mentioned previously (learning rate, normalization) or data
+    shuffling. Also, setting the minibatch size to a very small number of examples
+    can also contribute in terms of noise for this chart – this might also lead to
+    optimization difficulties.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Other important information that's useful for understanding how to tune a neural
+    network during training comes from combining some details from the Overview and
+    Model pages. The mean magnitude for parameters (or updates) is the average of
+    their absolute values at a given time step. At training runtime, the ratio of
+    mean magnitudes is provided by the Overview page (for the overall network) and
+    the Model page (for a given layer). We can use these ratio values when selecting
+    a learning rate. The general rule, which applies to most part of the networks
+    (not all of them, but it is always a good starting point) is that the ratio should
+    be around 0.001 (1:1000), which in the *log[10]* chart (like those in the Overview
+    and Model pages) corresponds to -3\. When the ratio diverges significantly from
+    this value, it means that the network parameters may be too unstable or that they
+    may change too slowly to learn useful features. By adjusting the learning rate
+    for the overall network or one or more layers, it is possible to change the ratio
+    of mean magnitudes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, let's explore other useful information from the Model page that could help
+    a lot during the tuning process.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The Layer Activations chart of the Model page (see the following diagram) can
+    be used to detect vanishing or exploding activations. This chart should ideally
+    stabilize over time. A good standard deviation for activations is between 0.5
+    and 2.0.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Values significantly outside of this range indicate that some problem in terms
+    of lack of data normalization, high learning rate, or poor weight initialization
+    is happening:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/f92605b4-e75e-4f27-9df9-9f87cdd7d38b.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 8.7: The Layer Activations chart of the Model page'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The Layer Parameters Histogram chart for the weight and biases of the Model
+    page (see the following diagram), which is displayed for the most recent iteration
+    only, provides other usual insights:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/a4514051-af05-4a15-8848-4d13083c5e7e.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 8.8: The Layer Parameters Histogram chart (weights)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: After some time, during the training process, these histograms for weights should
+    assume an approximately Gaussian normal distribution, while for biases, they generally
+    start at 0 and then usually end up being approximately Gaussian. Parameters that
+    are diverging toward +/- infinity may be a good sign of too high a learning rate
+    or insufficient regularization on the network. Biases becoming very large means
+    that the distribution of classes is very imbalanced.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The Layer Updates Histogram chart for weight and biases of the Model page (see
+    the following diagram), which is displayed for the most recent iteration only
+    for the Layer Parameters Histogram, provides other usual information too:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/0b11ae09-d3ef-4dc5-9f44-95f32b1ec88a.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 8.9: The Layer Updates Histogram chart (weights)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: This is the same as the parameter graphs – after some time, they should assume
+    an approximately Gaussian normal distribution. Very large values indicate exploding
+    gradients in the network. In those cases, the root cause could be in weight initialization,
+    input or labels data normalization, or the learning rate.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this chapter, we have learned about the details of the UI that DL4J provides
+    for the monitoring and tuning purposes of a neural network at training time. We
+    have also learned how to use the UI when training with DL4J and when Apache Spark
+    is part of the game too. Finally, we understood what useful insights we could
+    obtain from the charts that are presented in the DL4J UI pages to spot potential
+    issues and some ways to remedy them.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The next chapter focuses on how to evaluate a neural network so that we can
+    understand the accuracy of a model. Different evaluation techniques will be presented
+    before we dive into practical examples of implementation through the DL4J API
+    and the Spark API.
+  prefs: []
+  type: TYPE_NORMAL

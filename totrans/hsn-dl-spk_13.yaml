@@ -1,0 +1,711 @@
+- en: Convolution
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The previous two chapters have covered real use case implementation of NLP
+    done through RNNs/LSTMs in Apache Spark. In this and the following chapter, we
+    are going to do something similar for CNNs: we are going to explore how they can
+    be used in image recognition and classification. This chapter in particular covers
+    the following topics:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: A quick recap on what convolution is, from both the mathematical and DL perspectives
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The challenges and strategies for object recognition in real-world problems
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'How convolution applies to image recognition and a walk-through of hands-on
+    practical implementations of an image recognition use case through DL (CNNs) by
+    adopting the same approach, but using the following two different open source
+    frameworks and programming languages:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Keras (with a TensorFlow backend) in Python
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: DL4J (and ND4J) in Scala
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Convolution
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '[Chapter 5](fbec1d8a-a92f-4899-af0f-11f3d545e0eb.xhtml), *Convolutional Neural
+    Networks*, covered the theory behind CNNs, and convolution of course has been
+    part of that presentation. Let''s do a recap of this concept from a mathematical
+    and practical perspective before moving on to object recognition. In mathematics,
+    convolution is an operation on two functions that produces a third function, which
+    is the result of the integral of the product between the first two, one of which
+    is flipped:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/40f744d1-b124-4366-b7a9-e4e3b99513a4.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Convolution is heavily used in 2D image processing and signal filtering.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To better understand what happens behind the scenes, here''s a simple Python
+    code example of 1D convolution with NumPy ([http://www.numpy.org/](http://www.numpy.org/)):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This produces the following result:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/5543edab-f7f9-41ec-ad54-c2ba7fd928ec.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Let''s see how the convolution between the `x` and `y` arrays produces that
+    result. The first thing the `convolve` function does is to horizontally flip the
+    `y` array:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`[1, -2, 2]` becomes `[2, -2, 1]`'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Then, the flipped `y` array slides over the `x` array:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/28dfda6e-a187-41a7-a2c5-4d899b4dd754.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: That's how the `result` array `[ 1  0  1  2  3 -2 10]` is generated.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '2D convolution happens with a similar mechanism. Here''s a simple Python code
+    example with NumPy:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This time, the SciPy ([https://www.scipy.org/](https://www.scipy.org/)) `signal.convolve2d`
+    function is used to do the convolution. The result of the preceding code is as
+    follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/e61da606-2f9b-4d33-840c-9658d42569af.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'When the flipped matrix is totally inside the input matrix, the results are
+    called `valid` convolutions. It is possible to calculate the 2D convolution, getting
+    only the valid results this way, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This will give output as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/7e17957f-f56d-4d09-823e-9100dcc1239e.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Here''s how those results are calculated. First, the `w` array is flipped:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/dcc92c16-742f-4472-8959-e64f4532b799.png) becomes ![](img/a8f37131-695b-44d2-822e-ae0ebdf2bc11.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Then, the same as for the 1D convolution, each window of the `a` matrix is
+    multiplied, element by element, with the flipped `w` matrix, and the results are
+    finally summed as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/77311521-ca82-42ee-b893-4c1877dcedc5.png)    *(1 x -1) + (0 x 3) +
+    (0 x 2) + (-1 x 1) = **-2***'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/e6c864b0-1bca-4d37-894d-f4c9471a8cad.png)    *(3 x -1) + (1 x 0) +
+    (-1 x 2) + (1 x 1) = **-4***'
+  prefs: []
+  type: TYPE_NORMAL
+- en: And so on.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Object recognition strategies
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'This section presents different computational techniques used in implementing
+    the automated recognition of objects in digital images. Let''s start by giving
+    a definition of object recognition. In a nutshell, it is the task of finding and
+    labeling parts of a 2D image of a scene that correspond to objects inside that
+    scene. The following screenshot shows an example of object recognition performed
+    manually by a human using a pencil:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/4cc4dd9a-cc15-443d-94b4-439444a02389.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 13.1: An example of manual object detection'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The image has been marked and labeled to show fruits recognizable as a banana
+    and a pumpkin. This is exactly the same as what happens for calculated object
+    recognition; it can be simply thought of as the process of drawing lines and outlining
+    areas of an image, and finally attaching to each structure a label corresponding
+    to the model that best represents it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'A combination of factors, such as the semantics of a scene context or information
+    present in the image, must be used in object recognition. Context is particularly
+    important when interpreting images. Let''s first have a look at the following
+    screenshot:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/1b8e0b43-cf2f-40f6-82eb-727ab48b7242.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 13.2: Object in isolation (no context)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'It is nearly impossible to identify in isolation the object in the center of
+    that image. Let''s have a look now at the following screenshot, where the same
+    object appears in the position as it had in the original image:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/93026019-5f1b-47e6-809e-65501ef207f1.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 13.3: The object from figure 13.2 in its original context'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Providing no further information, it is still difficult to identify that object,
+    but not as difficult as for *Figure 13.2*. Given context information that the
+    image in the preceding screenshot is a circuit board, the initial object is more
+    easily recognized as a polarized capacitor. Cultural context plays a key role
+    in enabling the proper interpretation of a scene.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s now consider a second example (shown in the following screenshot), a
+    consistent 3D image of a stairwell:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/b09f73bd-f417-4f95-a7e1-11367ab01c0d.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 13.4: A consistent 3D image showing a stairwell'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'By changing the light in that image, the final result could make it harder
+    for the eye (and also a computer) to see a consistent 3D image (as shown in the
+    following screenshot):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/c7131e66-53d6-46e4-b912-0c45380910f9.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 13.5: The result of applying a different light to the image in figure
+    13.4'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Compared with the original image (*Figure 13.3*) its brightness and contrast
+    have been modified (as shown in the following screenshot):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/6bc78e8e-316f-4388-9c29-fcf3c04657eb.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 13.6: The image in figure 13.3 with changed brightness and contrast'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The eye can still recognize three-dimensional steps. However, using different
+    brightness and contrast values to the original image looks as shown in following
+    screenshot:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/f85f93fe-1ea7-412c-b1e7-b0a55ab6495f.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 13.7: The image in figure 13.3 with different brightness and contrast'
+  prefs: []
+  type: TYPE_NORMAL
+- en: It is almost impossible to recognize the same image. What we have learned is
+    that although the retouched image in the previous screenshot retains a significant
+    part of the important visual information in the original one (*Figure 13.3*),
+    the images in *Figure 13.4* and the preceding screenshot became less interpretable
+    because of the 3D details that have been removed by retouching them. The examples
+    presented provide evidence that computers (like human eyes) need appropriate context
+    models in order to successfully complete object recognition and scene interpretation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Computational strategies for object recognition can be classified based on their
+    suitability for complex image data or for complex models. Data complexity in a
+    digital image corresponds to its signal-to-noise ratio. An image with semantic
+    ambiguity corresponds to complex (or noisy) data. Data consisting of perfect outlines
+    of model instances throughout an image is called simple. Image data with poor
+    resolution, noise, or other kinds of anomalies, or with easily confused false
+    model instances, is referred to as complex. Model complexity is indicated by the
+    level of detail in the data structures in an image, and in the techniques required
+    to determine the form of the data. If a model is defined by a simple criterion
+    (such as a single shape template or the optimization of a single function implicitly
+    containing a shape model), then no other context may be needed to attach model
+    labels to a given scene. But, in cases where many atomic model components must
+    be assembled or some way hierarchically related to establish the existence of
+    the desired model instance, complex data structures and non-trivial techniques
+    are required.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Based on the previous definitions, object recognition strategies can then be
+    classified into four main categories, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Feature vector classification**: This relies on a trivial model of an object''s
+    image characteristics. Typically, it is applied only to simple data.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Fitting model to photometry**: This is applied when simple models are sufficient
+    but the photometric data of an image is noisy and ambiguous.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Fitting model to symbolic structures**: Applied when complex models are required,
+    but reliable symbolic structures can be accurately inferred from simple data.
+    These approaches look for instances of objects by matching data structures that
+    represent relationships between globally object parts.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Combined strategies**: Applied when both data and desired model instances
+    are complex.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The implementation of the available API to build and train CNNs for object recognition
+    provided by the major open source frameworks detailed in this book have been done
+    keeping these considerations and strategies in mind. While those APIs are very
+    high-level, the same mindset should be taken when choosing the proper combination
+    of hidden layers for a model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Convolution applied to image recognition
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this section, we are now going hands-on by implementing an image recognition
+    model, taking into account the considerations discussed in the first part of this
+    chapter. We are going to implement the same use case using two different frameworks
+    and programming languages.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Keras implementation
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The first implementation of object recognition we are going to do is in Python
+    and involves the Keras framework. To train and evaluate the model, we are going
+    to use a public dataset called CIFAR-10 ([http://www.cs.toronto.edu/~kriz/cifar.html](http://www.cs.toronto.edu/~kriz/cifar.html)).
+    It consists of 60,000 (50,000 for training and 10,000 for testing) small (32 x
+    32 pixels) color images divided into 10 classes (airplane, automobile, bird, cat,
+    deer, dog, frog, horse, ship, and truck). These 10 classes are mutually exclusive.
+    The CIFAR-10 dataset (163 MB) is freely downloadable from [http://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz](http://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The prerequisites for this implementation are Python 2.7.x, Keras, TensorFlow
+    (it is used as the Keras backend), NumPy, and `scikit-learn` ([http://scikit-learn.org/stable/index.html](http://scikit-learn.org/stable/index.html)),
+    an open source tool for ML. [Chapter 10](1066b0d4-c2f3-44f9-9cc4-d38469d72c3f.xhtml),
+    *Deploying on a Distributed System*, covers the details to set up the Python environment
+    for Keras and TensorFlow. `scikit-learn` can be installed as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'First of all, we need to import all of the necessary NumPy, Keras, and `scikit-learn` namespaces
+    and classes, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now, we need to load the CIFAR-10 dataset. No need to download it separately;
+    Keras provides a facility to download it programmatically, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: The `load_data` function downloads it the first time it is executed. Successive
+    runs will use the dataset already downloaded locally.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We initialize the `seed` with a constant value, in order to ensure that the
+    results are then reproducible, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The pixel values for the input datasets are in the range 0 to 255 (for each
+    of the RGB channels). We can normalize this data to a range from 0 to 1 by dividing
+    the values by `255.0`, then doing the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We can hot encode the output variables to transform them into a binary matrix
+    (it could be a one-hot encoding, because they are defined as vectors of integers
+    in the range between 0 and 1 for each of the 10 classes), as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Let''s start the model implementation. Let''s start by implementing a simple
+    CNN first, verify its accuracy level and, if the case, we will go to make the
+    model more complex. The following is a possible first implementation:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'You can see the model layer details at runtime in the console output before
+    the training starts (see the following screenshot):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/0ec53bf4-5723-433c-bf95-a12a27ca5ffa.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The model is a `Sequential` model. As we can see from the preceding output,
+    the input layer is convolutional, with 32 feature maps of size 3 x 3 and a **Rectified
+    Linear Unit** (**ReLU**) activation function. After applying a 20% dropout to
+    the input to reduce overfitting, the following layer is a second convolutional
+    layer with the same characteristics as the input layer. Then, we set a max pooling
+    layer of size 2 x 2\. After it, there is a third convolutional layer with 64 feature
+    maps of size 3 x 3 and a ReLU activation function, and a second max pooling layer
+    of size 2 x 2 is set. After this second max pooling, we put a flattened layer
+    and apply a 20% dropout, before sending the output to the next layer, which is
+    a fully connected layer with 512 units and a ReLU activation function. We apply
+    another 20% dropout before the output layer, which is another fully-connected
+    layer with 10 units and a softmax activation function.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We can now define the following training properties (number of epochs, learning
+    rate, weight decay, and optimizer, which for this specific case has been set as
+    a **Stochastic Gradient Descent** (**SGD**):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Configure the training process for the model, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The training can be now started, using the CIFAR-10 training data, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'When it completes, the evaluation can be done using the CIFAR-10 test data,
+    as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The accuracy of this model is around `75%`, as can be seen in the following
+    screenshot:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/ab1124af-18fb-4c99-9c6c-795166d338f6.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Not a great result then. We have executed the training on 25 epochs, which
+    is a small number. So, the accuracy will improve when training for a greater number
+    of epochs. But, let''s see first whether things can be improved by making changes
+    to the CNN model, making it deeper. Add two extra imports, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The only change to the code implemented previously is for the network model.
+    Here''s the new one:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Basically, what we have done is to repeat the same pattern, each one with a
+    different number of feature maps (32, 64, and 128). The advantage of adding layers
+    is that each of them will learn features at different levels of abstraction. In
+    our case, training a CNN to recognize objects, we can check that the first layer
+    trains itself to recognize basic things (for example, the edges of objects), the
+    next one trains itself to recognize shapes (which can be considered as collections
+    of edges), the following layer trains itself to recognize collections of shapes
+    (with reference to the CIFAR-10 dataset, they could be legs, wings, tails, and
+    so on), and the following layer learns higher-order features (objects). Multiple
+    layers are better because they can learn all the intermediate features between
+    the input (raw data) and the high-level classification:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/0f26b44d-ca4c-4fdf-917d-5911f867b7e9.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Running the training again and doing the evaluation for this new model, the
+    result, is `80.57%`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/45d9b0f4-7b69-4730-83a1-2f9e53d2fb5c.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'This is a sensible improvement compared to the previous model, and considering
+    that we are still running 25 epochs only. But, let''s see now if we can improve
+    more by doing image data augmentation. Looking at the training dataset, we can
+    see that the objects in the images change their position. Typically, in a dataset,
+    images have a variety of conditions (different brightness, orientation, and so
+    on). We need to address these situations by training a neural network with additional
+    modified data. Consider the following simple example, a training dataset of car
+    images with two classes only, Volkswagen Beetle and Porsche Targa. Assume that
+    all of the Volkswagen Beetle cars are aligned to the left, such as in the following
+    screenshot:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/6aa90be6-7d08-4d19-9a87-489635148c0e.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 13.8: Volkswagen Beetle training image'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'However, all of the Porsche Targa cars are aligned to the right, such as in
+    the following screenshot:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/26cb8adb-cec1-41c0-bf25-d81bc5b345f5.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 13.9: Porsche Targa training image'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'After completing the training and reaching a high accuracy (90 or 95%), feeding
+    the model with an image such as the following screenshot:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/804ed180-0143-44c5-8588-4590f5b151fe.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 13.10: Volkswagen Beetle input image'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'There is a concrete risk that this car is classified as a Porsche Targa. In
+    order to prevent situations such as this, we need to reduce the number of irrelevant
+    features in the training dataset. With reference to this car example, one thing
+    we can do is to horizontally flip the training dataset images, so that they face
+    the other way. After training the neural network again on this new dataset, the
+    performance of the model is more likely to be what is expected. Data augmentation
+    could happen offline (which is suitable for small datasets) or online (which is
+    suitable for large datasets, because transformations apply on the mini-batches
+    that feed the model). Let''s try the programmatic online data augmentation of
+    the training dataset for the latest implementation of a model for this section''s
+    example, using the `ImageDataGenerator` class from Keras, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'And the using it when fitting the model, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'One more thing to do before starting the training is to apply a kernel regularizer
+    ([https://keras.io/regularizers/](https://keras.io/regularizers/)) to the convolutional
+    layers of our model, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: Regularizers allow us to apply penalties (which are incorporated into the loss
+    function) on layer parameters during network optimization.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'After these code changes, train the model with a still relatively small number
+    of epochs (64) and basic image data augmentation. The following screenshot shows
+    that the accuracy improves to almost 84%:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/941edd1f-b724-4338-8b23-102e12c4aea4.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: By training for a greater number of epochs, the accuracy of the model could
+    increase up to around 90 or 91%.
+  prefs: []
+  type: TYPE_NORMAL
+- en: DL4J implementation
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The second implementation of object recognition we are going to do is in Scala
+    and involves the DL4J framework. To train and evaluate the model, we are still
+    going to use the CIFAR-10 dataset. The dependencies for this project are a DataVec
+    data image, DL4J, NN, and ND4J, plus Guava 19.0 and Apache commons math 3.4.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'If you look at the CIFAR-10 dataset download page (see the following screenshot),
+    you can see that there are specific archives available for the Python, MatLab,
+    and C programming languages, but not for Scala or Java:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/9af22061-e703-445e-9694-c9380aee9369.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 13.11: The CIFAR-10 dataset download page'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'There''s no need to separately download and then convert the dataset for our
+    Scala application; the DL4J dataset library provides the `org.deeplearning4j.datasets.iterator.impl.CifarDataSetIterator`
+    iterator to get the training and test datasets programmatically, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The `CifarDataSetIterator` constructor expects three arguments: the number
+    of batches, the number of samples, and a Boolean to specify whether the dataset
+    is for training (`true`) or test (`false`).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We can now define the neural network. We implement a function to configure
+    the model, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'All the exact same considerations as for the model implemented in the *Keras
+    implementation* section apply here. So, we are skipping all the intermediate steps
+    and directly implementing a complex model, as shown in following screenshot:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/e8ac8a7f-f58c-462c-b4d9-5b4caf1b7734.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 13.12: The graphical representation of the model for this section''s
+    example'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'These are the details of the model:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '| **Layer type** | **Input size** | **Layer size** | **Parameter count** |
+    **Weight init** | **Updater** | **Activation function** |'
+  prefs: []
+  type: TYPE_TB
+- en: '| Input Layer |  |  |  |  |  |  |'
+  prefs: []
+  type: TYPE_TB
+- en: '| Convolution | 3 | 64 | 3,136 | XAVIER_UNIFORM | Adam | ReLU |'
+  prefs: []
+  type: TYPE_TB
+- en: '| Convolution | 64 | 64 | 65,600 | XAVIER_UNIFORM | Adam | ReLU |'
+  prefs: []
+  type: TYPE_TB
+- en: '| Subsampling (max pooling) |  |  |  |  |  |  |'
+  prefs: []
+  type: TYPE_TB
+- en: '| Convolution | 64 | 96 | 98,400 | XAVIER_UNIFORM | Adam | ReLU |'
+  prefs: []
+  type: TYPE_TB
+- en: '| Convolution | 96 | 96 | 147,552 | XAVIER_UNIFORM | Adam | ReLU |'
+  prefs: []
+  type: TYPE_TB
+- en: '| Convolution | 96 | 128 | 110,720 | XAVIER_UNIFORM | Adam | ReLU |'
+  prefs: []
+  type: TYPE_TB
+- en: '| Convolution | 128 | 128 | 147,584 | XAVIER_UNIFORM | Adam | ReLU |'
+  prefs: []
+  type: TYPE_TB
+- en: '| Convolution | 128 | 256 | 131,328 | XAVIER_UNIFORM | Adam | ReLU |'
+  prefs: []
+  type: TYPE_TB
+- en: '| Convolution | 256 | 256 | 262,400 | XAVIER_UNIFORM | Adam | ReLU |'
+  prefs: []
+  type: TYPE_TB
+- en: '| Subsampling (max pooling) |  |  |  |  |  |  |'
+  prefs: []
+  type: TYPE_TB
+- en: '| Dense | 16,384 | 1,024 | 16,778,240 | XAVIER | Adam | Sigmoid |'
+  prefs: []
+  type: TYPE_TB
+- en: '| Dropout | 0 | 0 | 0 |  |  | Sigmoid |'
+  prefs: []
+  type: TYPE_TB
+- en: '| Dense | 1,024 | 1,024 | 1,049,600 | XAVIER | Adam | Sigmoid |'
+  prefs: []
+  type: TYPE_TB
+- en: '| Dropout | 0 | 0 | 0 |  |  | Sigmoid |'
+  prefs: []
+  type: TYPE_TB
+- en: '| Output | 1,024 | 10 | 10,250 | XAVIER | Adam | Softmax |'
+  prefs: []
+  type: TYPE_TB
+- en: 'Let''s then initialize the model, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Then, start the training, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Finally, evaluate it, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs: []
+  type: TYPE_PRE
+- en: The neural network we have implemented here has quite a large number of hidden
+    layers, but, following the suggestions from the previous section (adding more
+    layers, doing data augmentation, and training for a bigger number of epochs) would
+    drastically improve the accuracy of the model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The training of course can be done with Spark. The changes needed to the preceding
+    code are, as detailed in [Chapter 7](3b6f47c0-6e17-484b-ad30-b6f92eb0473c.xhtml),
+    *Training Neural Networks with Spark*, related to Spark context initialization,
+    training data parallelization, `TrainingMaster` creation, and training execution
+    using a `SparkDl4jMultiLayer` instance, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs: []
+  type: TYPE_PRE
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: After a recap of the concept of convolution and the classification of object
+    recognition strategies, in this chapter, we have been implementing and training
+    CNNs for object recognition using different languages (Python and Scala) and different
+    open source frameworks (Keras and TensorFlow in the first case, DL4J, ND4J, and
+    Apache Spark in the second) in a hands-on manner.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the next chapter, we are going to implement a full image classification web
+    application which, behind the scenes, uses a combination of Keras, TensorFlow,
+    DL4J, ND4J, and Spark.
+  prefs: []
+  type: TYPE_NORMAL

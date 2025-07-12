@@ -1,0 +1,1004 @@
+- en: Chapter 6. Disentangled Representation GANs
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: As we've explored, GANs can generate meaningful outputs by learning the data distribution.
+    However, there was no control over the attributes of the outputs generated. Some
+    variations of GANs like **Conditional GAN** (**CGAN**) and **Auxiliary Classifier
+    GAN** (**ACGAN**), as discussed in the previous chapter are able to train a generator
+    that is conditioned to synthesize specific outputs. For example, both CGAN and
+    ACGAN can induce the generator to produce a specific MNIST digit. This is achieved
+    by using both a 100-dim noise code and the corresponding one-hot label as inputs.
+    However, other than the one-hot label, we have no other ways to control the properties
+    of generated outputs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: For a review on CGAN and ACGAN, please see [Chapter 4](ch04.html "Chapter 4. Generative
+    Adversarial Networks (GANs)"), *Generative Adversarial Networks (GANs),* and [Chapter
+    5](ch05.html "Chapter 5. Improved GANs"), *Improved GANs*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this chapter, we will be covering the variations of GANs that enable us to
+    modify the generator outputs. In the context of the MNIST dataset, apart from
+    which number to produce, we may find that we want to control the writing style.
+    This could involve the tilt or the width of the desired digit. In other words,
+    GANs can also learn disentangled latent codes or representations that we can use
+    to vary the attributes of the generator outputs. A disentangled code or representation
+    is a tensor that can change a specific feature or attribute of the output data
+    while not affecting the other attributes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In the first section of this chapter, we will be discussing **InfoGAN**: *Interpretable
+    Representation Learning by Information Maximizing Generative Adversarial Nets*
+    [1], an extension to GANs. InfoGAN learns the disentangled representations in
+    an unsupervised manner by maximizing the mutual information between the input
+    codes and the output observation. On the MNIST dataset, InfoGAN disentangles the writing
+    styles from digits dataset.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the following part of the chapter, we'll also be discussing the **Stacked
+    Generative Adversarial Networks** or **StackedGAN** [2], another extension to
+    GANs. StackedGAN uses a pretrained encoder or classifier in order to aid in disentangling
+    the latent codes. StackedGAN can be viewed as a stack of models, with each being
+    made of an encoder and a GAN. Each GAN is trained in an adversarial manner by
+    using the input and output data of the corresponding encoder.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In summary, the goal of this chapter is to present:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The concepts of disentangled representations
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The principles of both InfoGAN and StackedGAN
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Implementation of both InfoGAN and StackedGAN using Keras
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Disentangled representations
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The original GAN was able to generate meaningful outputs, but the downside
+    was that it couldn''t be controlled. For example, if we trained a GAN to learn
+    the distribution of celebrity faces, the generator would produce new images of
+    celebrity-looking people. However, there is no way to influence the generator
+    on the specific attributes of the face that we want. For example, we''re unable
+    to ask the generator for a face of a female celebrity with long black hair, a
+    fair complexion, brown eyes, and whose smiling. The fundamental reason for this
+    is because the 100-dim noise code that we use entangles all of the salient attributes
+    of the generator outputs. We can recall that in Keras, the 100-dim code was generated
+    by random sampling of uniform noise distribution:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: If we are able to modify the original GAN, such that we were able to separate
+    the code or representation into entangled and disentangled interpretable latent
+    codes, we would be able to tell the generator what to synthesize.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Following figure shows us a GAN with an entangled code and its variation with
+    a mixture of entangled and disentangled representations. In the context of the
+    hypothetical celebrity face generation, with the disentangled codes, we are able
+    to indicate the gender, hairstyle, facial expression, skin complexion and eye
+    color of the face we wish to generate. The *n–dim* entangled code is still needed
+    to represent all the other facial attributes that we have not disentangled like
+    the face shape, facial hair, eye-glasses, as just three examples. The concatenation
+    of entangled and disentangled codes serves as the new input to the generator.
+    The total dimension of the concatenated code may not be necessarily 100:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Disentangled representations](img/B08956_06_01.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 6.1.1: The GAN with the entangled code and its variation with both entangled
+    and disentangled codes. This example is shown in the context of celebrity face
+    generation.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Looking at preceding figure, it appears that GANs with disentangled representations
+    can also be optimized in the same way as a vanilla GAN can be. This is because
+    the generator output can be represented as:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Disentangled representations](img/B08956_06_001.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: (Equation 6.1.1)
+  prefs: []
+  type: TYPE_NORMAL
+- en: The code
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Disentangled representations](img/B08956_06_002.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'is made of two elements:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Incompressible entangled noise code similar to GANs *z* or noise vector.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Latent codes, *c**1*,*c**2*,…,*c**L*, which represent the interpretable disentangled
+    codes of the data distribution. Collectively all latent codes are represented
+    by *c*.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'For simplicity, all the latent codes are assumed to be independent:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Disentangled representations](img/B08956_06_003.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: (Equation 6.1.2)
+  prefs: []
+  type: TYPE_NORMAL
+- en: The generator function
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Disentangled representations](img/B08956_06_004.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: is provided with both the incompressible noise code and the latent codes. From
+    the point of view of the generator, optimizing
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Disentangled representations](img/B08956_06_005.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: is the same as optimizing *z*. The generator network will simply ignore the constraint
+    imposed by the disentangled codes when coming up with a solution. The generator
+    learns the distribution
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Disentangled representations](img/B08956_06_006.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: . This will practically defeat the objective of disentangled representations.
+  prefs: []
+  type: TYPE_NORMAL
+- en: InfoGAN
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: To enforce the disentanglement of codes, InfoGAN proposed a regularizer to the
+    original loss function that maximizes the mutual information between the latent
+    codes *c* and
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![InfoGAN](img/B08956_06_007.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: ':'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![InfoGAN](img/B08956_06_008.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: (Equation 6.1.3)
+  prefs: []
+  type: TYPE_NORMAL
+- en: The regularizer forces the generator to consider the latent codes when it formulates
+    a function that synthesizes the fake images. In the field of information theory,
+    the mutual information between latent codes *c* and
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![InfoGAN](img/B08956_06_009.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'is defined as:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![InfoGAN](img/B08956_06_010.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: (Equation 6.1.4)
+  prefs: []
+  type: TYPE_NORMAL
+- en: Where *H*(*c*) is the entropy of the latent code *c* and
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![InfoGAN](img/B08956_06_011.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: is the conditional entropy of *c,* after observing the output of the generator,
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![InfoGAN](img/B08956_06_012.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: . Entropy is a measure of uncertainty of a random variable or an event. For
+    example, information like, *the sun rises in the east*, has low entropy. Whereas,
+    *winning the jackpot in the lottery* has high entropy.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In *Equation 6.1.4*, maximizing the mutual information means minimizing
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![InfoGAN](img/B08956_06_013.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: or decreasing the uncertainty in the latent code upon observing the generated
+    output. This makes sense since, for example, in the MNIST dataset, the generator
+    becomes more confident in synthesizing the digit 8 if the GAN sees that it observed
+    the digit 8.
+  prefs: []
+  type: TYPE_NORMAL
+- en: However, it is hard to estimate
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![InfoGAN](img/B08956_06_014.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: since it requires knowledge of the posterior
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![InfoGAN](img/B08956_06_015.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: ', which is something that we don''t have access to. The workaround is to estimate
+    the lower bound of mutual information by estimating the posterior with an auxiliary
+    distribution *Q*(*c|x*). InfoGAN estimates the lower bound of mutual information
+    as:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![InfoGAN](img/B08956_06_016.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: (Equation 6.1.5)
+  prefs: []
+  type: TYPE_NORMAL
+- en: In InfoGAN, *H*(*c*) is assumed to be a constant. Therefore, maximizing the
+    mutual information is a matter of maximizing the expectation. The generator must
+    be confident that it has generated an output with the specific attributes. We
+    should note that the maximum value of this expectation is zero. Therefore, the
+    maximum of the lower bound of the mutual information is *H*(*c*). In InfoGAN,
+    *Q*(*c*|*x*) for discrete latent codes can be represented by *softmax* nonlinearity.
+    The expectation is the negative `categorical_crossentropy` loss in Keras.
+  prefs: []
+  type: TYPE_NORMAL
+- en: For continuous codes of a single dimension, the expectation is a double integral
+    over *c* and *x*. This is due to the expectation that samples from both disentangled
+    code distribution and generator distribution. One way of estimating the expectation
+    is by assuming the samples as a good measure of continuous data. Therefore, the
+    loss is estimated as *c* log *Q*(*c*|*x*).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To complete the network of InfoGAN, we should have an implementation of *Q*(*c*|*x*).
+    For simplicity, the network *Q* is an auxiliary network attached to the second
+    to last layer of the discriminator. Therefore, this has a minimal impact on the
+    training of the original GAN. Following figure shows InfoGAN network diagram:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![InfoGAN](img/B08956_06_02.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 6.1.2: A network diagram showing the discriminator and generator training
+    in InfoGAN'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Following table shows the loss functions of InfoGAN as compared to the original
+    GAN. The loss functions of InfoGAN differ from the original GAN by an additional
+    term
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![InfoGAN](img/B08956_06_017.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: where
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![InfoGAN](img/B08956_06_018.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: is a small positive constant. Minimizing the loss function of InfoGAN translates
+    to minimizing the loss of the original GAN and maximizing the mutual information
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![InfoGAN](img/B08956_06_019.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: .
+  prefs: []
+  type: TYPE_NORMAL
+- en: '| Network | Loss Functions | Number |'
+  prefs: []
+  type: TYPE_TB
+- en: '| --- | --- | --- |'
+  prefs: []
+  type: TYPE_TB
+- en: '| GAN | ![InfoGAN](img/B08956_06_020.jpg)![InfoGAN](img/B08956_06_021.jpg)
+    | 4.1.14.1.5 |'
+  prefs: []
+  type: TYPE_TB
+- en: '| InfoGAN | ![InfoGAN](img/B08956_06_022.jpg)![InfoGAN](img/B08956_06_023.jpg)For
+    continuous codes, InfoGAN recommends a value of![InfoGAN](img/B08956_06_024.jpg).
+    In our example, we set![InfoGAN](img/B08956_06_025.jpg). For discrete codes, InfoGAN
+    recommends![InfoGAN](img/B08956_06_026.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Table 6.1.1: A comparison between the loss functions of GAN and InfoGAN'
+  prefs: []
+  type: TYPE_NORMAL
+- en: . | 6.1.16.1.2 |
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'If applied on the MNIST dataset, InfoGAN can learn the disentangled discrete
+    and continuous codes in order to modify the generator output attributes. For example,
+    like CGAN and ACGAN, the discrete code in the form of a 10-dim one-hot label will
+    be used to specify the digit to generate. However, we can add two continuous codes,
+    one for controlling the angle of writing style and another for adjusting the stroke
+    width. Following figure shows the codes for the MNIST digit in InfoGAN. We retain
+    the entangled code with a smaller dimensionality to represent all other attributes:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![InfoGAN](img/B08956_06_03.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 6.1.3: The codes for both GAN and InfoGAN in the context of MNIST dataset'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Implementation of InfoGAN in Keras
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: To implement InfoGAN on MNIST dataset, there are some changes that need to be
+    made in the base code of ACGAN. As highlighted in following listing, the generator
+    concatenates both entangled (*z* noise code) and disentangled codes (one-hot label
+    and continuous codes) to serve as input. The builder functions for the generator
+    and discriminator are also implemented in `gan.py` in the `lib` folder.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'The complete code is available on GitHub:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[https://github.com/PacktPublishing/Advanced-Deep-Learning-with-Keras](https://github.com/PacktPublishing/Advanced-Deep-Learning-with-Keras)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Listing 6.1.1, `infogan-mnist-6.1.1.py` shows us how the InfoGAN generator
+    concatenates both entangled and disentangled codes to serve as input:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: The preceding listing shows the discriminator and *Q*-Network with the original
+    default GAN output. The three auxiliary outputs corresponding to discrete code
+    (for one-hot label) `softmax` prediction and the continuous codes probabilities
+    given the input MNIST digit image are highlighted.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Listing 6.1.2, `infogan-mnist-6.1.1.py`. InfoGAN discriminator and *Q*-Network:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: '*Figure 6.1.4* shows the InfoGAN model in Keras. Building the discriminator
+    and adversarial models also requires a number of changes. The changes are on the
+    loss functions used. The original discriminator loss function `binary_crossentropy`,
+    the `categorical_crossentropy` for discrete code, and the `mi_loss` function for
+    each continuous code comprise the overall loss function. Each loss function is
+    given a weight of 1.0, except for the `mi_loss` function which is given 0.5 corresponding
+    to ![Implementation of InfoGAN in Keras](img/B08956_06_027.jpg) for the continuous
+    code.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*Listing 6.1.3* highlights the changes made. However, we should note that by
+    using the builder function, the discriminator is instantiated as:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The generator is created by:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![Implementation of InfoGAN in Keras](img/B08956_06_04.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 6.1.4: The InfoGAN Keras model'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Listing 6.1.3, `infogan-mnist-6.1.1.py` shows us the mutual Information loss
+    function as used in building the InfoGAN discriminator and adversarial networks:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: As far as the training is concerned, we can see that InfoGAN is similar to ACGAN
+    except that we need to supply *c* for the continuous code. *c* is drawn from normal
+    distribution with a standard deviation of 0.5 and mean of 0.0\. We'll use randomly
+    sampled labels for the fake data and dataset class labels for the real data to
+    represent discrete latent code. Following listing highlights the changes made
+    on the training function. Similar to all previous GANs, the discriminator and
+    generator (through adversarial) are trained alternately. During adversarial training,
+    the discriminator weights are frozen. Sample generator output images are saved
+    every 500 interval steps by using the `gan.py plot_images()` function.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Listing 6.1.4, `infogan-mnist-6.1.1.py` shows us how the training function
+    for InfoGAN is similar to ACGAN. The only difference is that we supply continuous
+    codes sampled from a normal distribution:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: Generator outputs of InfoGAN
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Similar to all previous GANs that have been presented to us, we''ve trained
+    InfoGAN for 40,000 steps. After the training is completed, we''re able to run
+    the InfoGAN generator to generate new outputs using the model saved on the `infogan_mnist.h5`
+    file. The following validations are conducted:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Generate digits 0 to 9 by varying the discrete labels from 0 to 9\. Both continuous
+    codes are set to zero. The results are shown in *Figure 6.1.5*. We can see that
+    the InfoGAN discrete code can control the digits produced by the generator:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: to
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Examine the effect of the first continuous code to understand which attribute
+    has been affected. We vary the first continuous code from -2.0 to 2.0 for digits
+    0 to 9\. The second continuous code is set to 0.0\. *Figure 6.1.6* shows that
+    the first continuous code controls the thickness of the digit:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Similar to the previous step, but instead focusing more on the second continuous
+    code. *Figure 6.1.7* shows that the second continuous code controls the rotation
+    angle (tilt) of the writing style:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '![Generator outputs of InfoGAN](img/B08956_06_06.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 6.1.5: The images generated by the InfoGAN as the discrete code is varied
+    from 0 to 9\. Both continuous codes are set to zero.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Generator outputs of InfoGAN](img/B08956_06_07.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 6.1.6: The images generated by InfoGAN as the first continuous code
+    is varied from -2.0 to 2.0 for digits 0 to 9\. The second continuous code is set
+    to zero. The first continuous code controls the thickness of the digit.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Generator outputs of InfoGAN](img/B08956_06_08.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 6.1.7: The images generated by InfoGAN as the second continuous code
+    is varied from -2.0 to 2.0 for digits 0 to 9\. The first continuous code is set
+    to zero. The second continuous code controls the rotation angle (tilt) of the
+    writing style.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: From these validation results, we can see that apart from the ability to generate
+    MNIST looking digits, InfoGAN expanded the ability of conditional GANs such as CGAN
+    and ACGAN. The network automatically learned two arbitrary codes that can control
+    the specific attributes of the generator output. It would be interesting to see
+    what additional attributes could be controlled if we increased the number of continuous
+    codes beyond 2.
+  prefs: []
+  type: TYPE_NORMAL
+- en: StackedGAN
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the same spirit as InfoGAN, StackedGAN proposes a method for disentangling
+    latent representations for conditioning generator outputs. However, StackedGAN
+    uses a different approach to the problem. Instead of learning how to condition
+    the noise to produce the desired output, StackedGAN breaks down a GAN into a stack
+    of GANs. Each GAN is trained independently in the usual discriminator-adversarial
+    manner with its own latent code.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*Figure 6.2.1* shows us how StackedGAN works in the context of the hypothetical
+    celebrity face generation. Assuming that the *Encoder* network is trained to classify
+    celebrity faces.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The *Encoder* network is made of a stack of simple encoders, *Encoder* *i* *where
+    i = 0 … n - 1* corresponding to *n* features. Each encoder extracts certain facial
+    features. For example, *Encoder*[0] may be the encoder for hairstyle features,
+    *Features*1\. All the simple encoders contribute to making the overall *Encoder*
+    perform correct predictions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The idea behind StackedGAN is that if we would like to build a GAN that generates
+    fake celebrity faces, we should simply invert the *Encoder*. StackedGAN are made
+    of a stack of simpler GANs, GAN[i] where i = 0 … *n* - 1 corresponding to *n*
+    features. Each GAN[i] learns to invert the process of its corresponding encoder,
+    *Encoder* [i]. For example, *GAN*[0] generates fake celebrity faces from fake
+    hairstyle features which is the inverse of the *Encoder*[0] process.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Each *GAN* [i] uses a latent code, *z* [i], that conditions its generator output.
+    For example, the latent code, *z*[0], can alter the hairstyle from curly to wavy.
+    The stack of GANs can also act as one to synthesize fake celebrity faces, completing
+    the inverse process of the whole *Encoder*. The latent code of each *GAN*[i],
+    *z* [i], can be used to alter specific attributes of fake celebrity faces:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![StackedGAN](img/B08956_06_09.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 6.2.1: The basic idea of StackedGAN in the context of celebrity faces
+    generation. Assuming that there is a hypothetical deep encoder network that can
+    perform classification on celebrity faces, a StackedGAN simply inverts the process
+    of the encoder.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Implementation of StackedGAN in Keras
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The detailed network model of StackedGAN can be seen in the following figure.
+    For conciseness, only two encoder-GANs per stack are shown. The figure may initially
+    appear complex, but it is just a repetition of an encoder-GAN. Meaning that if
+    we understood how to train one encoder-GAN, the rest uses the same concept. In
+    the following section, we assume that the StackedGAN is designed for the MNIST
+    digit generation:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Implementation of StackedGAN in Keras](img/B08956_06_10.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 6.2.2: A StackedGAN is made of a stack of an encoder and GAN. The encoder
+    is pre-trained to perform classification. *Generator*[1], *G*[1], learns to synthesize
+    *f*[1][f] features conditioned on the fake label, *y* [f], and latent code, *z*[1][f].
+    *Generator*[0], *G*[0], produces fake images using both the fake features, *f*[1][f]
+    and latent code, *z*[0][f].'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'StackedGAN starts with an *Encoder*. It could be a trained classifier that
+    predicts the correct labels. The intermediate features vector, *f*[1][r], is made
+    available for GAN training. For MNIST, we can use a CNN-based classifier similar
+    to what we discussed in [Chapter 1](ch01.html "Chapter 1. Introducing Advanced
+    Deep Learning with Keras"), *Introducing Advanced Deep Learning with Keras*. Following
+    figure shows the *Encoder* and its network model implementation in Keras:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Implementation of StackedGAN in Keras](img/B08956_06_11.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 6.2.3: The encoder in StackedGAN is a simple CNN-based classifier'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*Listing* *6.2.1* shows the Keras code for preceding figure. It is similar
+    to the CNN-based classifier in [Chapter 1](ch01.html "Chapter 1. Introducing Advanced
+    Deep Learning with Keras"), *Introducing Advanced Deep Learning with Keras* except
+    that we use a `Dense` layer to extract the 256-dim feature. There are two output
+    models, *Encoder*[0] and *Encoder*[1]. Both will be used to train the StackedGAN.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The *Encoder*[0] output, *f*[0][r], is the 256-dim feature vector that we want
+    *Generator*[1] to learn to synthesize. It is available as an auxiliary output
+    of *Encoder*[0], *E*[0]. The overall *Encoder* is trained to classify MNIST digits,
+    *x* [r]. The correct labels, *y* [r], are predicted by *Encoder*[1], *E*[1]. In
+    the process, the intermediate set of features, *f*[1]*r*, is learned and made
+    available for *Generator*[0] training. Subscript *r* is used to emphasize and
+    distinguish real data from fake data when the GAN is trained against this encoder.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Listing 6.2.1, `stackedgan-mnist-6.2.1.py` shows encoder implementation in
+    Keras:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: '| Network | Loss Functions | Number |'
+  prefs: []
+  type: TYPE_TB
+- en: '| --- | --- | --- |'
+  prefs: []
+  type: TYPE_TB
+- en: '| GAN | ![Implementation of StackedGAN in Keras](img/B08956_06_028.jpg)![Implementation
+    of StackedGAN in Keras](img/B08956_06_029.jpg) | 4.1.14.1.5 |'
+  prefs: []
+  type: TYPE_TB
+- en: '| StackedGAN | ![Implementation of StackedGAN in Keras](img/B08956_06_030.jpg)![Implementation
+    of StackedGAN in Keras](img/B08956_06_031.jpg)![Implementation of StackedGAN in
+    Keras](img/B08956_06_032.jpg)![Implementation of StackedGAN in Keras](img/B08956_06_033.jpg)![Implementation
+    of StackedGAN in Keras](img/B08956_06_034.jpg)where ![Implementation of StackedGAN
+    in Keras](img/B08956_06_035.jpg) are weights and![Implementation of StackedGAN
+    in Keras](img/B08956_06_036.jpg) | 6.2.16.2.26.2.36.2.46.2.5 |'
+  prefs: []
+  type: TYPE_TB
+- en: 'Table 6.2.1: A comparison between the loss functions of GAN and StackedGAN.
+    ~*p* [data] means sampling from the corresponding encoder data (input, feature
+    or output).'
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: Given the *Encoder* inputs (*x*[r]) intermediate features (*f*1*r*) and labels
+    (*y* *r*), each GAN is trained in the usual discriminator–adversarial manner.
+    The loss functions are given by *Equation* *6.2.1* to *6.2.5* in *Table 6.2.1*.
+    Equations *6.2.1* and *6.2.2* are the usual loss functions of the generic GAN.
+    StackedGAN has two additional loss functions, **Conditional** and **Entropy**.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The conditional loss function,
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Implementation of StackedGAN in Keras](img/B08956_06_037.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'in *Equation 6.2.3*, ensures that the generator does not ignore the input,
+    *f*[i+1], when synthesizing the output, *f*[i], from input noise code *z*[i].
+    The encoder, *Encoder*[i], must be able to recover the generator input by inverting
+    the process of the generator, *Generator*[i]. The difference between the generator
+    input and the recovered input using the encoder is measured by *L2* or Euclidean
+    distance **Mean Squared Error** (**MSE**). *Figure 6.2.4* shows the network elements
+    involved in the computation of ![Implementation of StackedGAN in Keras](img/B08956_06_038.jpg):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Implementation of StackedGAN in Keras](img/B08956_06_12.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 6.2.4: A simpler version of Figure 6.2.3 showing only the network elements
+    involved in the computation of ![Implementation of StackedGAN in Keras](img/B08956_06_039.jpg)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The conditional loss function, however, introduces a new problem for us. The
+    generator ignores the input noise code, *z* *i* and simply relies on *f* [i+1].
+    Entropy loss function,
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Implementation of StackedGAN in Keras](img/B08956_06_40.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: in *Equation* *6.2.4*, ensures that the generator does not ignore the noise
+    code, *z* *i*. The *Q*-Network recovers the noise code from the output of the
+    generator. The difference between the recovered noise and the input noise is also
+    measured by *L2* or the MSE. Following figure shows the network elements involved
+    in the computation of
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Implementation of StackedGAN in Keras](img/B08956_06_041.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: ':'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Implementation of StackedGAN in Keras](img/B08956_06_13.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 6.2.5: A simpler version of Figure 6.2.3 only showing us the network
+    elements involved in the computation of'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Implementation of StackedGAN in Keras](img/B08956_06_042.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: The last loss function is similar to the usual GAN loss. It's made of a discriminator
+    loss
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Implementation of StackedGAN in Keras](img/B08956_06_043.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: and a generator (through adversarial) loss
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Implementation of StackedGAN in Keras](img/B08956_06_044.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: '. Following figure shows us the elements involved in the GAN loss:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Implementation of StackedGAN in Keras](img/B08956_06_14.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 6.2.6: A simpler version of Figure 6.2.3 showing only the network elements
+    involved in the computation of'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Implementation of StackedGAN in Keras](img/B08956_06_045.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: and
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Implementation of StackedGAN in Keras](img/B08956_06_46.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: In *Equation* *6.2.5*, the weighted sum of the three generator loss functions
+    is the final generator loss function. In the Keras code that we will present,
+    all the weights are set to 1.0, except for the entropy loss which is set to 10.0\.
+    In *Equation 6.2.1* to *Equation 6.2.5*, *i* refers to the encoder and GAN group
+    id or level. In the original paper, the network is first trained independently
+    and then jointly. During independent training, the encoder is trained first. During
+    joint training, both real and fake data are used.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The implementation of the StackedGAN generator and discriminator in Keras requires
+    few changes to provide auxiliary points to access the intermediate features. *Figure
+    6.2.7* shows the generator Keras model. *Listing 6.2.2* illustrates the function
+    that builds two generators (`gen0` and `gen1`) corresponding to *Generator*0 and
+    *Generator*[1]. The `gen1` generator is made of three `Dense` layers with label
+    and the noise code *z*1*f* as inputs. The third layer generates the fake *f*[1]*f*
+    feature. The `gen0` generator is similar to other GAN generators that we''ve presented
+    and can be instantiated using the generator builder in `gan.py`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The `gen0` input is *f*[1] features and the noise code *z*[0]. The output is
+    the generated fake image, *x*[*f*]:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Implementation of StackedGAN in Keras](img/B08956_06_15.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 6.2.7: A StackedGAN Generator model in Keras'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Listing 6.2.2, `stackedgan-mnist-6.2.1.py` shows us generator implementation
+    in Keras:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: '*Figure 6.2.8* shows the discriminator Keras model. We provide the functions
+    to build *Discriminator*[0] and *Discriminator*[1] (`dis0` and `dis1`).The `dis0`
+    discriminator is similar to a GAN discriminator except for the feature vector
+    input and the auxiliary network *Q*[0] that recovers *z*[0]. The builder function
+    in `gan.py` is used to create `dis0`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The `dis1` discriminator is made of a three-layer MLP as shown in *Listing*
+    *6.2.3*. The last layer discriminates between the real and fake *f*[1]. *Q*[1]
+    network shares the first two layers of `dis1`. Its third layer recovers *z*[1]:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Implementation of StackedGAN in Keras](img/B08956_06_16.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 6.2.8: A StackedGAN Discriminator model in Keras'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Listing 6.2.3, `stackedgan-mnist-6.2.1.py` shows the *Discriminator*[1] implementation
+    in Keras:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: With all builder functions available, StackedGAN is assembled in *Listing* *6.2.4*.
+    Before training StackedGAN, the encoder is pretrained. Note that we already incorporated
+    the three generator loss functions (adversarial, conditional, and entropy) in
+    the adversarial model training. The *Q*-Network shares some common layers with
+    the discriminator model. Therefore, its loss function is also incorporated in
+    the discriminator model training.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Listing 6.2.4, `stackedgan-mnist-6.2.1.py`. Building StackedGAN in Keras:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Finally, the training function bears a resemblance to a typical GAN training
+    except that we only train one GAN at a time (that is, *GAN*[1] then *GAN*[0]).
+    The code is shown in *Listing* *6.2.5*. It''s worth noting that the training sequence
+    is:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*Discriminator*[1] and *Q*[1] networks by minimizing the discriminator and
+    entropy losses'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '*Discriminator*[0] and *Q*[0] networks by minimizing the discriminator and
+    entropy losses'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '*Adversarial*[1] network by minimizing the adversarial, entropy, and conditional
+    losses'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '*Adversarial*[0] network by minimizing the adversarial, entropy, and conditional
+    losses'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Listing 6.2.5, `stackedgan-mnist-6.2.1.py` shows us training the StackedGAN
+    in Keras:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: Generator outputs of StackedGAN
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: After training the StackedGAN for 10,000 steps, the *Generator*[0] and *Generator*[1]
+    models are saved on files. Stacked together, *Generator*[0] and *Generator*[1]
+    can synthesize fake images conditioned on label and noise codes, *z*[0] and *z*[1].
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The StackedGAN generator can be qualitatively validated by:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Varying the discrete labels from 0 to 9 with both noise codes, *z*[0] and *z*[1]
+    sampled from a normal distribution with a mean of 0.5 and standard -deviation
+    of 1.0\. The results are shown in *Figure 6.2.9*. We''re able to see that the
+    StackedGAN discrete code can control the digits produced by the generator:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: to
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Varying the first noise code, *z*[0], as a constant vector from -4.0 to 4.0
+    for digits 0 to 9 as shown as follows. The second noise code, *z*[0], is set to
+    zero vector. *Figure 6.2.10* shows that the first noise code controls the thickness
+    of the digit. For example, for digit 8:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Varying the second noise code, *z*[1], as a constant vector from -1.0 to 1.0
+    for digits 0 to 9 shown as follows. The first noise code, *z*[0], is set to zero
+    vector. *Figure 6.2.11* shows that the second noise code controls the rotation
+    (tilt) and to a certain extent the thickness of the digit. For example, for digit
+    8:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '![Generator outputs of StackedGAN](img/B08956_06_17.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 6.2.9: Images generated by StackedGAN as the discrete code is varied
+    from 0 to 9\. Both ![Generator outputs of StackedGAN](img/B08956_06_047.jpg) and
+    ![Generator outputs of StackedGAN](img/B08956_06_048.jpg) have been sampled from
+    a normal distribution with zero mean and 0.5 standard deviation.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Generator outputs of StackedGAN](img/B08956_06_18.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 6.2.10: Images generated by using a StackedGAN as the first noise code,
+    *z*[0], varies from constant vector -4.0 to 4.0 for digits 0 to 9\. *z*[0] appears
+    to control the thickness of each digit.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Generator outputs of StackedGAN](img/B08956_06_19.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 6.2.11: The images generated by StackedGAN as the second noise code,
+    *z*[1], varies from constant vector -1.0 to 1.0 for digits 0 to 9\. *z*[1] appears
+    to control the rotation (tilt) and the thickness of stroke of each digit.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*Figures 6.2.9* to *6.2.11* demonstrate that the StackedGAN has provided additional
+    control on the attributes of the generator outputs. The control and attributes
+    are (label, which digit), (*z*0, digit thickness), and (*z*1, digit tilt). From
+    this example, there are other possible experiments that we can control such as:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Increasing the number of elements of the stack from the current 2
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Decreasing the dimension of codes *z*0 and *z*1, like in InfoGAN
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Following figure shows the differences between the latent codes of InfoGAN
+    and StackedGAN. The basic idea of disentangling codes is to put a constraint on
+    the loss functions such that only specific attributes are affected by a code.
+    Structure-wise, InfoGAN are easier to implement when compared to StackedGAN. InfoGAN
+    is also faster to train:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Generator outputs of StackedGAN](img/B08956_06_20.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 6.2.12: Latent representations for different GANs'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Conclusion
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this chapter, we've discussed how to disentangle the latent representations
+    of GANs. Earlier on in the chapter, we discussed how InfoGAN maximizes the mutual
+    information in order to force the generator to learn disentangled latent vectors.
+    In the MNIST dataset example, InfoGAN uses three representations and a noise code
+    as inputs. The noise represents the rest of the attributes in the form of an entangled
+    representation. StackedGAN approaches the problem in a different way. It uses
+    a stack of encoder-GANs to learn how to synthesize fake features and images. The
+    encoder is first trained to provide a dataset of features. Then, the encoder-GANs
+    are trained jointly to learn how to use the noise code to control attributes of
+    the generator output.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the next chapter, we will embark on a new type of GAN that is able to generate
+    new data in another domain. For example, given an image of a horse, the GAN can perform
+    an automatic transformation to an image of a zebra. The interesting feature of
+    this type of GAN is that it can be trained without supervision.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Reference
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Xi Chen and others. *InfoGAN: Interpretable Representation Learning by Information
+    Maximizing Generative Adversarial Nets*. Advances in Neural Information Processing
+    Systems, 2016([http://papers.nips.cc/paper/6399-infogan-interpretable-representation-learning-by-information-maximizing-generative-adversarial-nets.pdf](http://papers.nips.cc/paper/6399-infogan-interpretable-representation-learning-by-information-maximizing-generative-adversarial-nets.pdf)).'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Xun Huang and others. *Stacked Generative Adversarial Networks*. IEEE Conference
+    on Computer Vision and Pattern Recognition (CVPR). Vol. 2, 2017([http://openaccess.thecvf.com/content_cvpr_2017/papers/Huang_Stacked_Generative_Adversarial_CVPR_2017_paper.pdf](http://openaccess.thecvf.com/content_cvpr_2017/papers/Huang_Stacked_Generative_Adversarial_CVPR_2017_paper.pdf)).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL

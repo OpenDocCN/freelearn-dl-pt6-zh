@@ -1,0 +1,787 @@
+- en: Composing Networks
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this chapter, we will learn about Caffe2 operators and how we can compose
+    networks using these operators. To learn how to use operators, we will start off
+    by building a simple computation graph from scratch. After that, we will solve
+    a real computer vision problem called MNIST (by building a genuine neural network
+    with trained parameters) and use it for inference.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'This chapter covers the following topics:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Introduction to Caffe2 operators
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The difference between operators and layers
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: How to use operators to compose a network
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Introduction to the MNIST problem
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Composing a network for the MNIST problem
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Inference through a Caffe2 network
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Operators
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In Caffe2, a neural network can be thought of as a directed graph, where the
+    nodes are operators and the edges represent the flow of data between operators.
+    Operators are the basic units of computation in a Caffe2 network. Every operator
+    is defined with a certain number of inputs and a certain number of outputs. When
+    the operator is executed, it reads its inputs, performs the computation it is
+    associated with, and writes the results to its outputs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: To obtain the best possible performance, Caffe2 operators are typically implemented
+    in C++ for execution on CPUs and implemented in CUDA for execution on GPUs. All
+    operators in Caffe2 are derived from a common interface. You can see this common
+    interface defined in the `caffe2/proto/caffe2.proto` file in the Caffe2 source
+    code.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The following is the Caffe2 operator interface found in my `caffe2.proto` file:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: The preceding code snippet is a definition in the **Google Protocol Buffers**
+    (**ProtoBuf**) format. ProtoBuf is used by applications that need a mechanism
+    to serialize and deserialize structured data. ProtoBuf's serialization and deserialization
+    mechanisms are supported in most popular languages and across most popular platforms.
+    Caffe2 uses ProtoBuf so that all of its structures, such as operators and networks,
+    can be accessed easily through many programming languages, across different operating
+    systems and CPU architectures.
+  prefs: []
+  type: TYPE_NORMAL
+- en: From the preceding operator definition, we can see that an operator in Caffe2
+    is defined to have `input` and, `output` blobs and has a `name`, a `type`, a `device`
+    that it executes on (such as CPU or GPU), an execution `engine`, and other information.
+  prefs: []
+  type: TYPE_NORMAL
+- en: One of the compelling features of Caffe2 is that it has a large collection of
+    hundreds of operators that are already defined and optimized for you. The advantage
+    of this is that you have a large catalog of operators to compose your own networks
+    with and there is a high probability that networks you borrow from elsewhere will
+    be supported fully in Caffe2\. This reduces the need for you to define your own
+    operators. You can find a comprehensive list of Caffe2 operators and their documentation
+    in the Caffe2 operators catalog at [https://caffe2.ai/docs/operators-catalogue.html](https://caffe2.ai/docs/operators-catalogue.html).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example – the MatMul operator
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'As an example of a Caffe2 operator, consider the **MatMul** operator, which
+    can be used to perform **matrix multiplication**. This linear algebra operation
+    is hugely important in deep learning and lies at the heart of the implementation
+    of important types of neural network layers, such as fully connected and convolution
+    layers. (We will study these layers later in this chapter and in [Chapter 3](3c2dd7d3-b762-49a3-a5d6-0b791eadadb2.xhtml),
+    *Training Networks*, respectively.) The matrix multiplication operation is depicted
+    in Figure 2.1:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/819e1c45-1973-4989-a6e5-8c7e5f30b1bc.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 2.1: Matrix multiplication'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'If we look up the MatMul operator in the Caffe2 operators catalog, we find
+    the documentation shown in Figure 2.2:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/85026d02-25c7-447c-87a4-2c992d9e495b.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 2.2: Documentation of the MatMul operator in Caffe2'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In the documentation of the MatMul operator in *Figure 2.2*, we can see a description
+    of what the operator does. In the Interface section, we see that it has two inputs:
+    2D matrices A and B, of sizes M×K and K×N, respectively. It performs matrix multiplication
+    of A and B, and produces a single 2D matrix C, of size M×N. We can also see that
+    it has some optional arguments to specify if either or both A and B have an exclusive
+    axis and are transposed matrices. Finally, we also see that the Caffe2 documentation
+    helpfully points us to the actual C++ source code that defines the `MatMul` operator.
+    The documentation of all operators in Caffe2 has the following useful structure:
+    definition, inputs, outputs, optional arguments, and a pointer to the source code.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Having learned the definition of the `MatMul` operator, here is a code snippet
+    to create a model and add a `MatMul` operator to it:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the preceding code, we first create a model named `"MatMul model"` using
+    the `ModelHelper` class of the Caffe2 `model_helper` module. A **model** is the
+    structure used to hold a network, and the **network** is a directed graph of operators.
+    `model_helper` is a high-level Caffe2 Python module, and its `ModelHelper` class
+    can be used to create and manage models easily. The `model` object we created
+    previously holds a network definition in its `net` member.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We add a `MatMul` operator to this model by calling the `MatMul` method on the
+    model's network definition. Note the two arguments to the `MatMul` operator. The
+    first argument is a list consisting of the names of the two matrices that need
+    to be multiplied. Here, `"A"` and `"B"` are the names of blobs that hold the matrix
+    elements in the Caffe2 workspace. (We will learn about the Caffe2 workspace later
+    in this chapter.) Similarly, the second argument, `"C"`, indicates the output
+    matrix blob in the workspace.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Difference between layers and operators
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Older deep learning frameworks, such as Caffe, did not have operators. Instead,
+    their basic units of computation were called **layers**. These older frameworks
+    chose the name *layer* inspired by the layers in neural networks.
+  prefs: []
+  type: TYPE_NORMAL
+- en: However, contemporary frameworks, such as Caffe2, TensorFlow, and PyTorch, prefer
+    to use the term *operator* for their basic units of computation. There is a subtle
+    difference between operators and layers. A layer in older frameworks, such as
+    Caffe, was composed of both the computation function of that layer and the trained
+    parameters of that layer. In contrast to this, an operator in Caffe2 only holds
+    the computation function. Both the trained parameters and the inputs are external
+    to the operator and need to be fed to it explicitly.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example – a fully connected operator
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'To illustrate the difference between layers and operators, consider the **fully
+    connected** (**FC**) operator in Caffe2\. The fully connected layer is the most
+    traditional layer in neural networks. Early neural networks were mostly composed
+    of an input layer, one or more fully connected layers, and an output layer:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/f57894a0-1e4c-4c06-81dd-9a6630a1769b.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 2.3: Interface documentation of the FC operator from the Caffe2 operators''
+    catalog'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Input X to an FC operator is expected to be of size M×K. Here, M is the batch
+    size. This means that if we fed 10 different inputs to the neural network as a
+    **batch**, M would be the batch size value, 10\. Hence, each input actually appears
+    as a vector of size 1×K to this operator. We can see that, unlike the `MatMul`
+    operator introduced earlier, which had no trained parameters, the FC operator
+    has inputs that are trained parameters: W and b. The trained parameter W is a
+    2D matrix of size K×N of weight values, and the trained parameter b is a 1D vector
+    of bias values. The FC operator computes the output Y as X×W+b. This means that
+    each input vector of size 1×K produces an output of size 1×N after being processed
+    by this operator. And indeed, this explains the fully connected layer''s name:
+    each of the 1×K inputs is fully connected to each of the 1×N outputs:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/d54f3fd3-68a1-4e18-9832-157c8919903b.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 2.4: Difference between the Caffe layer and the Caffe2 operator'
+  prefs: []
+  type: TYPE_NORMAL
+- en: In older frameworks such as Caffe, the weight and bias trained parameters of
+    the fully connected layer were stored along with the layer. In contrast, in Caffe2,
+    the FC operator does not store any parameters. Both the trained parameters and
+    the inputs are fed to the operator. *Figure 2.4* shows the difference between
+    a Caffe layer and Caffe2 operator, using the fully connected layer as an example.
+    Since most deep learning literature still refers to these entities as layers,
+    we will use the words *layer* and *operator* interchangeably throughout the rest
+    of this book.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Building a computation graph
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'In this section, we will learn how to build a network in Caffe2 using `model_helper`.
+    (`model_helper` was introduced earlier in this chapter.) To maintain the simplicity
+    of this example, we use mathematical operators that require no trained parameters.
+    So, our network is a computation graph rather than a neural network because it
+    has no trained parameters that were learned from training data. The network we
+    will build is illustrated by the graph shown in Figure 2.5:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/eb8244e8-c488-453c-bf1f-ac9bc71f22a9.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 2.5: Our simple computation graph with three operators'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'As you can see, we provide two inputs to the network: a matrix, **A**, and
+    a vector, **B**. A `MatMul` operator is applied to **A** and **B** and its result
+    is fed to a `Sigmoid` function, designated by **σ** in Figure 2.5\. The result
+    of the `Sigmoid` function is fed to a `SoftMax` function. (We will learn a bit
+    more about the `Sigmoid` and `SoftMax` operators next in this section.) Output
+    **E** of the `Sigmoid` function is the output of the network.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Here is the Python code to build the preceding graph, feed it inputs, and obtain
+    its output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This program can be broken down into four stages:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Initializing Caffe2
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Composing the model network
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Adding input blobs to the workspace
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Running the model's network in the workspace and obtaining the output
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: You could use a similar structure in your own programs that compose a network
+    and use it for inference.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let's examine the Python code of each of these stages in detail.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Initializing Caffe2
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Before we call any Caffe2 methods, we need to import the Caffe2 Python modules
+    that we might need:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'First, import the `workspace` and `module_helper` modules:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: This step also imports the `numpy` module so that we can create matrices and
+    vectors easily in our program. **NumPy** is a popular Python library that provides
+    multi-dimensional arrays (including vectors and matrices) and a large collection
+    of mathematical operations that can be applied to such arrays.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Next, initialize the default Caffe2 workspace using this call:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: The workspace is where all the data is created, read from, and written to in
+    Caffe2\. This means that we will use the workspace to load our inputs, the trained
+    parameters of our network, intermediate results between operators, and the final
+    outputs from our network. We also use the workspace to execute our network during
+    inference.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We created the default workspace of Caffe2 earlier. We could create other workspaces
+    with unique names too. For example, to create a second workspace and switch to
+    it, execute the following code: `workspace.SwitchWorkspace("Second Workspace",
+    True)`'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Composing the model network
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'We use the `ModelHelper` class (described earlier in this chapter) to create
+    an empty model name it `Math model`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Next, we add our first operator, `MatMul`, to the network of this model:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: The `MatMul` operator was described earlier in this chapter. We indicate the
+    names of the input blobs `["A", "B"]` and output blob `"C"` in the call. A **blob**
+    is an N-dimensional array with a name, and it holds values of the same type. For
+    example, we could represent a matrix of floating point values as a two-dimensional
+    blob. A blob differs from most Python data structures, such as `list` and `dict`,
+    because all the values in it have to be of the same data type (such as `float`
+    or `int`). All input data, output data, and trained parameters used in neural
+    networks are stored as blobs in Caffe2.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We have not yet created these blobs in the workspace. We are adding the operator
+    to the network and informing Caffe2 that blobs of these names will be available
+    in the workspace by the time the network is actually used.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'After that, we add our next operator, `Sigmoid`, to the network:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: Sigmoid operator
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The `Sigmoid` operator implements the **Sigmoid function**. This function is
+    popular in neural networks, and is also known as the **logistic function**. It
+    is defined as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/f4c4fc53-e1db-45cf-a21a-048fd26572bf.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 2.6 shows a plot of this function:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/9ff419f8-cc9c-4386-bb2c-d0c0c42c460e.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 2.6: A plot of the Sigmoid function'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`Sigmoid` is a non-linear function that is typically used in neural networks
+    as an activation function. An **activation function** is a common layer that is
+    introduced between one or more sequences of layers. It converts its input into
+    an activation, which decides whether a neuron in the following layer is activated
+    (or fired) or not. Activation functions typically introduce non-linear characteristics
+    into a network.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note how the Sigmoid looks like the letter *S*. It looks like a smoothed step
+    function, and its outputs are bounded by 0 and 1\. So, for example, it could be
+    used to classify any input value to determine whether it belongs to a class (value
+    **1.0**) or not (value **0.0**).
+  prefs: []
+  type: TYPE_NORMAL
+- en: The Sigmoid function in Caffe2 is an **elementwise operator**. This means that
+    it is applied individually to each element of the input. In our preceding code
+    snippet, we are informing Caffe2 that this operator that we added to the network
+    will take an input blob of name `"C"` from the workspace and write its output
+    to blob `"D"` in the workspace.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'As a final and third operator, we add the `Softmax` operator to the network:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: Softmax operator
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The `Softmax` operator implements the **SoftMax function**. This function takes
+    a vector as input and normalizes the elements of the vector in a probability distribution.
+    It is defined on each element of a vector as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/50468955-feae-4b46-8d76-bc2adad2cadb.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The output values of a `SoftMax` function have nice properties. Every output
+    value ![](img/0d596984-ff51-4b0e-92f7-90409504d308.png) is bounded by ![](img/502a1524-8112-4aac-8832-921a38ed97a3.png),
+    and all the values of the output vector total 1\. Due to these characteristics,
+    this function is typically used as the last layer in a neural network used for
+    classification.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the preceding code snippet, we added a `Softmax` operator to the network
+    that will use a blob named `"D"` as input and write output to a blob named `"E"`.
+    The `axis` parameter is used to indicate the axis along which the input N-dimensional
+    array is split apart and coerced into a 2D array. Typically, `axis=1` is used
+    to indicate that the first axis of the blob is the batch dimension and that the
+    rest should be coerced into a vector. Since we are using a single input in our
+    example, we use `axis=0` here to indicate that the entire input should be coerced
+    into a 1D vector for `Softmax`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Adding input blobs to the workspace
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Our model is now ready. We now initialize our two input blobs, `A` and `B`,
+    to this model to a linear distribution of values using NumPy:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: Note how we are specifying that all the values in these arrays will be of the
+    floating point data type. This is indicated in NumPy using `np.float32`. The NumPy
+    `reshape` function is used to convert the one-dimensional array of values into
+    matrices of sizes ![](img/08dbd3e7-7e05-4a90-b2ca-cdf8f44610b2.png), and ![](img/79bb9ad4-05a5-4668-a43e-ebb67899f202.png),
+    respectively.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Since we will perform inference on the network in Caffe2, we need to set the
+    input blobs into the workspace. **Inference** is the act of passing inputs to
+    a trained neural network and *inferring*, or obtaining, the output from it. The
+    act of setting a blob into the workspace with a name and its values is called
+    **feeding** in Caffe2.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Feeding our input blobs is executed using `FeedBlob` calls, shown as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the preceding code snippet, we fed tensors `A` and `B` into our workspace
+    and named those blobs `"A"` and `"B"` respectively.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Running the network
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'We built a network and we have its inputs ready in the workspace. We are now
+    ready to perform inference on the network. In Caffe2, this is called a **run**.
+    We perform a run on the network in the workspace as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'After the run is done, we can extract or fetch the output blob from the workspace
+    and print our input and output blobs for reference:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'When this computation graph code is executed, it should produce an output like
+    the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: You can work through the matrix multiplication, Sigmoid, and SoftMax layers
+    of this graph with inputs `A` and `B` and see that `E` does indeed have the correct
+    output values.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Building a multilayer perceptron neural network
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this section, we introduce the MNIST problem and learn how to build a **MultiLayer
+    Perceptron** (**MLP**) network using Caffe2 to solve it. We also learn how to
+    load pretrained parameters into the network and use it for inference.
+  prefs: []
+  type: TYPE_NORMAL
+- en: MNIST problem
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The **MNIST problem** is a classic image classification problem that used to
+    be popular in machine learning. State-of-the-art methods can now achieve greater
+    than 99% accuracy in relation to this problem, so it is no longer relevant. However,
+    it acts as a stepping stone for us to learn how to build a Caffe2 network that
+    solves a real machine learning problem.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The MNIST problem lies in identifying the handwritten digit that is present
+    in a grayscale image of size 28 x 28 pixels. These images are from the MNIST database,
+    a modified version of a scanned document dataset that was originally shared by
+    the **National Institute of Standards and Technology** (**NIST**), hence the name
+    **modified NIST** (**MNIST**). Examples from this dataset are shown in Figure
+    2.7:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/e1c8295a-6dca-4a6d-968d-14fac3b6f1b0.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 2.7: A random sample of 10 images each digit from 0 to 9, in the MNIST
+    dataset'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note how some of the handwritten digits could be difficult for even humans to
+    classify.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Every image in the MNIST dataset contains a single handwritten digit, between
+    0 and 9\. The grayscale values in each image are normalized and the handwritten
+    digit is centered in the image. This makes MNIST a good dataset for beginners
+    since we do not need to do any image cleaning, preprocessing, or augmentation
+    operations before using it for inference or training. (Such operations are typically
+    required if we are using other image datasets.) Typically, 60,000 images from
+    this dataset are used as training data, and a separate set of 10,000 images is
+    used for testing.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Building a MNIST MLP network
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: To solve the MNIST problem, we will create a neural network known as a **MultiLayer
+    Perceptron** (**MLP**). This is the classic name given to neural networks that
+    have an input layer, an output layer, and one or more hidden layers between them.
+    An MLP is a type of **feedforward neural network** because its network is a **directed
+    acyclic graph** (**DAG**); that is, it does not have cycles.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The Python code to create the MLP network described in this section, to load
+    pretrained parameters into it, and use it for inference, can be found in the `mnist_mlp.py`
+    file that accompanies this book. In the sections that follow, we dissect this
+    code and try to understand it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Initializing global constants
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Our Python Caffe2 code for a MNIST MLP network begins by initializing some
+    MNIST constants:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: There are `10` (`MNIST_DIGIT_NUM`) digits in the MNIST dataset (0-9) that we
+    want to identify. And the dimensions of every MNIST image are 28 x 28 pixels (`MNIST_IMG_HEIGHT`,
+    `MNIST_IMG_WIDTH`).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Composing network layers
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The following is a diagram of the MNIST MLP network we will build:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/51643eef-76db-447d-9822-d7112b0c0303.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 2.8: Our MNIST MLP network comprising an input layer, three pairs of
+    FC and ReLU layers, and a final SoftMax layer'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We will build a simple feedforward neural network composed of three pairs of
+    fully connected layers and ReLU activation layers. Each pair of layers is connected
+    to the output of its previous pair of layers. The output of the third pair of
+    fully connected and ReLU activation layers is passed through a SoftMax layer to
+    get the output classification values of the network. This network structure is
+    depicted in Figure 2.8.
+  prefs: []
+  type: TYPE_NORMAL
+- en: To build this network, we first initialize a model using `ModelHelper`, just
+    like in our earlier computation graph example. We then use the **Brew** API to
+    add the layers of the network.
+  prefs: []
+  type: TYPE_NORMAL
+- en: While using raw operator calls as in our computation graph example is possible,
+    using Brew is far more preferable if we are building real neural networks. This
+    is because the `helper` functions in Brew make it very easy to initialize parameters
+    for each layer and pick a device for each layer. Doing the same using operator
+    methods would require multiple calls with several parameters.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'A typical call to a Brew `helper` function to add a layer would require these
+    parameters:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: A model containing the network where we are adding this layer
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The name of the input blob or previous layer
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The name of this layer
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The dimensions of input to this layer
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The dimensions of output from this layer
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'We begin by adding the first pair of fully connected and ReLU layers using
+    the following code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: Notice that, in this pair of layers, the input is of the `MNIST_IMG_PIXEL_NUM`
+    dimensions, and the output is of the `MNIST_IMG_PIXEL_NUM * 2` dimensions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ReLU layer
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The following figure shows the ReLU function:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/d48373ca-b384-4dc5-9557-78d0e10885da.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 2.9: The ReLU function'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We introduced an activation layer called Sigmoid while building the computation
+    graph. Here, we use another popular activation layer called **Rectified Linear
+    Unit** (**ReLU**). This function can be seen in *Figure 2.9*, and is defined as
+    follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/ba3eaef3-60b9-4180-9640-0686426cb246.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'We add a second and a third pair of layers named (`"fc_layer_1"`, `"relu_layer_1"`)
+    and (`"fc_layer_2"`, `"relu_layer_2"`), respectively, using the following code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: The second pair takes in `MNIST_IMG_PIXEL_NUM * 2`-sized input and outputs `MNIST_IMG_PIXEL_NUM
+    * 2`. The third pair takes in `MNIST_IMG_PIXEL_NUM * 2` and outputs `MNIST_IMG_PIXEL_NUM`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'When solving a classification problem using a neural network, we typically
+    need a probability distribution over the classes. We add a SoftMax layer to the
+    end of our network to achieve this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: Notice how the `brew.softmax` method does not need to be told the input and
+    output dimensions explicitly when that information can be obtained from the input
+    it is connected to. This is one of the advantages of using Brew methods.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Set weights of network layers
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: After composing the network, we now incorporate the pretrained weights of the
+    layers into the network. These weights were obtained by training this network
+    on the MNIST training data. We will learn how to train a network in the next chapter.
+    In this chapter, we focus on loading those pretrained weights into our network
+    and performing inference.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note that, of the three types of layer we use in this network, only the fully
+    connected layers need pretrained weights. We have stored the weights as NumPy
+    files for ease of loading. They can be loaded from disk using the NumPy `load`
+    method. These values are set in the workspace using the `workspace.FeedBlob` method
+    by specifying the layer name to which they belong.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The code snippet to achieve this is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: Running the network
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: So we have built a network and we have initialized its layers with pretrained
+    weights. We are now ready to feed it input and execute an inference through the
+    network to get its output.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We could feed input images one by one to our network and obtain the output classification
+    results. However, doing this in production systems would not utilize the computation
+    resources of the CPU or GPU effectively and would result in a low throughput for
+    inference. So, almost all deep learning frameworks allow users to feed a batch
+    of input data to a network, for both inference and training purposes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To illustrate feeding a batch of input images, we have the `mnist_data.npy`
+    file, which holds the data for a batch of 64 MNIST images. We read this batch
+    from the file and set it as the data blob in the workspace so that it acts as
+    the input to the network:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We execute inference on the network by calling the `workspace.RunNetOnce` method
+    with the network as input:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We fetch the output blob of the network from the workspace and, for each of
+    the 64 inputs, we determine which MNIST digit class has the highest confidence
+    value; that is what the network believes was the digit in the MNIST image:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'When we execute this script, we obtain outputs like the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs: []
+  type: TYPE_PRE
+- en: This means that the network thinks that the first input image had the digit
+    5, the second one had 7, and so on.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this chapter, we learned about Caffe2 operators and how they differ from
+    layers used in older deep learning frameworks. We built a simple computation graph
+    by composing several operators. We then tackled the MNIST machine learning problem
+    and built an MLP network using Brew helper functions. We loaded pretrained weights
+    into this network and used it for inference on a batch of input images. We also
+    introduced several common layers, such as matrix multiplication, fully connected,
+    Sigmoid, SoftMax, and ReLU.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We learned about performing inference on our networks in this chapter. In the
+    next chapter, we will learn about training and how to train a network to solve
+    the MNIST problem.
+  prefs: []
+  type: TYPE_NORMAL

@@ -1,0 +1,1622 @@
+- en: Sequence-to-Sequence Learning
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'In the previous chapters, we learned about RNN applications, where there are
+    multiple inputs (one each in each time step) and a single output. However, there
+    are a few more applications where there are multiple inputs, and also multiple
+    time steps—machine translation for example, where there are multiple input words
+    in a source sentence and multiple output words in the target sentence. Given the
+    multiple inputs and multiple outputs, this becomes a multi-output RNN-based application—essentially,
+    a sequence to sequence learning task. This calls for building our model architecture
+    differently to what we have built so far, which we will learn about in this chapter.
+    In this chapter, we are going to learn about the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Returning sequences from a network
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: How bidirectional LSTM helps in named entity extraction
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Extract intent and entities to build a chatbot
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Functioning of an encoder decoder network architecture
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Translating a sentence form English to French using encoder decoder architecture
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Improving the translations by using an attention mechanism
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Introduction
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the previous chapters, we learned that the LSTM, or even the RNN, returns
+    results from the last time step (hidden state values from the last time step are
+    passed on to the next layer). Imagine a scenario where the output is five dimensions
+    in size where the five dimensions are the five outputs (not softmax values for
+    five classes). To further explain this idea, let's say we are predicting, not
+    just the stock price on the next date, but the stock prices for the next five
+    days. Or, we want to predict not just the next word, but a sequence of the next
+    five words for a given combination of input sequence.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This situation calls for a different approach in building the network. In the
+    following section, we will look into multiple scenarios of building a network
+    to extract the outputs in different time steps.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Scenario 1**: Named entity extraction'
+  prefs: []
+  type: TYPE_NORMAL
+- en: In named entity extraction, we are trying to assign a label for each word that
+    is present in a sentence—whether it is related to a person or place or not. Hence,
+    it becomes a problem of one-to-one mapping between the input word and the output
+    classes of it being a name or not. While it is a one-to-one mapping between input
+    and output, there are cases where surrounding words play a role in deciding whether
+    the considered input(s) is a named entity or not. For example, the word *new* in
+    itself might not be a named entity. However, if *new* is accompanied by *york*,
+    then we know that it is a named entity. Thus, it is a problem where the input
+    time steps play a role in determining whether a word is a named entity or not,
+    even though in a majority of the cases, there might exist a one-to-one mapping
+    between inputs and outputs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Additionally, this is a sequence returning problem as we are assigning the output
+    sequence of the named entity or not based on the input sequence of words. Given
+    that, this is a problem where there is a one-to-one connection between inputs,
+    and also the inputs in surrounding time steps playing a key role in determining
+    the output. The traditional LSTM we have learned about so far would work, as long
+    as we are ensuring that words in both directions of the time step influence the
+    output. Thus, a bidirectional LSTM comes in handy in solving such problems.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The architecture of a bidirectional LSTM looks as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/94365b7c-707e-40a3-91cf-6d910224b71e.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Note that, in the preceding diagram, we have modified the traditional LSTM by
+    having the inputs connecting to each other in the opposite direction too, and
+    thus, ensuring that information flows from both directions. We will learn more
+    about how bidirectional LSTM works and how it is to be applied in a later section.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Scenario 2**: Text summarization'
+  prefs: []
+  type: TYPE_NORMAL
+- en: A text summarization task would require a different architecture to what we
+    discussed previously as we would typically be in a position to generate a summary
+    from text only after finishing reading the whole of the input sentence (input
+    text/review in this case).
+  prefs: []
+  type: TYPE_NORMAL
+- en: This calls for encoding all the input into a vector, and then generating output
+    based on the encoded vector of input. Additionally, given that there are multiple
+    outputs (multiple words) for a given sequence of words in a text, it becomes a
+    multi output generation problem, and thus, another scenario that can leverage
+    the multi-input multi-output power of an RNN.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s look at how we can potentially architect the model to arrive at a solution:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/8b95da24-105a-44a0-95b4-f7013121e0f0.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Note that, in the preceding architecture, we encode all the input text into
+    the vector that is produced at the ending word of the input sequence, and that
+    encoded vector is passed as an input to the decoder sequence. More information
+    on how to build this network will be provided in a later section of this chapter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Scenario 3**: Machine translation'
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the previous scenario, we encoded the input into a vector, and hopefully,
+    the vector also incorporates the word order. But, what if we explicitly provide
+    a mechanism through a network where the network is able to assign a different
+    weightage of an input word located at a given position, depending on the position
+    of the word we are decoding? For example, if the source and target words are aligned
+    similarly, that is, both languages have similar word order, then the word that
+    comes at the start of source language has very little impact on the last word
+    of target language, but has a very high impact in deciding the first word in the
+    target language.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Attention mechanism looks as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/436d46d9-15db-42f7-9905-f830e190e66a.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Note that the attention vector (in the middle) is influenced by both the input
+    encoded vector and the hidden state of output values. More on how the attention
+    mechanism can be leveraged will be discussed in a .
+  prefs: []
+  type: TYPE_NORMAL
+- en: With this intuition of the reasons for different encoder decoder architectures,
+    let's dive into understanding more about generating sequences of outputs in Keras.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Returning sequences of outputs from a network
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: As we discussed in the previous section, there are multiple ways of architecting
+    a network to generate sequences of outputs. In this section, we will learn about
+    the encoder decoder way of generating outputs, and also about the one-to-one mapping
+    of inputs to outputs network on a toy dataset so that we have a strong understanding
+    of how this works.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s define a sequence of inputs and a corresponding sequence of outputs,
+    as follows (the code file is available as `Return_state_and_sequences_working_details.ipynb`
+    in GitHub):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: We can see that there are two time steps in an input and that there is a corresponding
+    output to the input.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'If we were to solve this problem in a traditional way, we would define the
+    model architecture as in the following code. Note that we are using a functional
+    API as in the later scenario, we will be extracting multiple outputs, along with
+    inspecting intermediate layers:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![](img/41ed74e0-5c52-4375-8fb3-a94922771671.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Note that, in the preceding scenario, the LSTM is fed data that is of the shape
+    (`batch_size`, time steps, features per time step). Given that the LSTM is not
+    returning a sequence of outputs, the output of the LSTM is one value at the hidden
+    layer (as the number of units in the LSTM is one).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Given that the output is two dimensional, we shall add a dense layer that takes
+    the hidden layer output and extracts `2` values from it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s go ahead and fit the model, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now that we have the output, let''s go ahead and validate the results as we
+    did in previous chapter (note that, this is exactly the same code as what we had
+    in the previous chapter—and the explanations of it are provided in the *Building
+    an LSTM from scratch in Python* section of [Chapter 11](7a47ef1f-4c64-4f36-8672-6e589e513b16.xhtml), *Building
+    a Recurrent Neural Network*):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The output of `final_output` is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: You should note that the preceding `final_output` that is generated is exactly
+    the same as what we saw in the `model.predict` output.
+  prefs: []
+  type: TYPE_NORMAL
+- en: One of the drawbacks of generating output this way is that, in cases where the
+    output of time *step 1* is definitely not dependent on time *step 2*, we are making
+    it hard for the model to come up with a way of segregating the influence of time
+    *step 2* value on time *step 1* as we are taking the hidden layer output from
+    time *step 2* (which is a combination of input value at time *step 1* and time
+    *step 2*).
+  prefs: []
+  type: TYPE_NORMAL
+- en: We can get around this problem by extracting hidden layer values from each time
+    step and then passing it to the dense layer.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Returning sequences of hidden layer values at each time step**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In the following code, we will understand how returning sequences of hidden
+    layer values at each time step works:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Notice that the two changes in code that we have done are as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Changing the value of the `return_sequences` parameter to `True`
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'The dense layer, giving a value of `1` as output:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '![](img/a0f4c974-43dd-4375-8968-774c5e1e97d0.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Notice that, because we have extracted the output of the hidden layer value
+    at each time step (where the hidden layer has one unit), the output shape of LSTM
+    is (batch size, time steps, 1).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Additionally, because there is one dense layer connecting the LSTM output to
+    the final output for each of the time steps, the output shape remains the same.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s go ahead and fit the model, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The predicted values are as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The preceding execution will give the following output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: Similar to the previous section, we shall validate our results by performing
+    a forward pass of input through weights and then match our predicted values.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We shall extract the output of the first time step as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'You should notice that the `final_output_1` value matches with the predicted
+    value at the first time step. Similarly, let''s go ahead and validate predictions
+    on second time step:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: You should notice that this returns the exact same value as the `model.predict` value
+    of second time step.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now that we understand the `return_sequences` parameter in our network, let
+    us go ahead and learn about another parameter called `return_state`. We know that
+    the two outputs of a network are hidden layer values (which is the also output
+    of LSTM in the final time step when `return_sequences` is `False` and output of
+    LSTM in each time step when `return_sequences` is `True`) and cell state values.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `return_state` helps in extracting the cell state value of a network.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Extracting the cell state is useful when the input text is encoded into a vector
+    and we pass, not only the encoded vector, but also the final cell state of the
+    input encoder to the decoder network (more on this in the *Encoder decoder architecture
+    for machine translation *section).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In the following section, let''s understand how `return_state` works. Note
+    that it is only for us to understand how the cell states are generated at each
+    time step, as in practice, we would use the output of this step (hidden layer
+    value and cell state value) as an input to the decoder:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In the preceding code, we set the `return_state` parameter to `True` as well.
+    Notice the output of the LSTM now:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`lstm1`: Hidden layer at each time step (as `return_sequences` is `True` in
+    the preceding scenario)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`state_h`: Hidden layer value at the final time step'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`state_c`: Cell state value at the final time step'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Let''s go ahead and predict values, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We will get the following values:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'You should see that there are three arrays of outputs, as we discussed previously:
+    hidden layer value sequences, final hidden layer value, and the cell state value
+    in the order.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s validate the numbers, as we arrived at previously:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The value of `hidden_layer_1` in the preceding calculation is `-0.2569`, which
+    is what we obtained from the `model.predict` method:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: The values of `hidden_layer_2` and `input_t1_cell4` are `-0.6683` and `-0.9686`,
+    respectively.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You will notice that the outputs are exactly the same as what we have seen in
+    the predict function.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In the case of a bidirectional network, where we are incorporating the hidden
+    layer values as we calculate them from both sides, we code it as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: Note that, in a bidirectional LSTM, there are two outputs for the final hidden
+    state, one when the input time steps are considered from left to right, and another
+    when the input time steps are considered from right to left. In a similar manner,
+    we have two possible cell state values.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Typically, we would concatenate the resulting hidden states to a single vector,
+    and also the cell states into another concatenated single vector.
+  prefs: []
+  type: TYPE_NORMAL
+- en: For brevity, we are not validating the outputs of bidirectional LSTM in this
+    book. However, you can check the validations in the accompanying Jupyter Notebook
+    of this chapter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Building a chatbot
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: A chatbot is helpful in a scenario where the bot automates some of the more
+    common queries. This is very useful in a practical scenario, especially in cases
+    where you would have to just look up the result from a database or query an API
+    to obtain the result that the query is about.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Given this, there are potentially two ways that you can design a chatbot, as
+    follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Convert the unstructured user query into a structured format:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Query from the database based on the converted structure
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Generate responses based on the input text
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: For this exercise, we will be adopting the first approach, as it is more likely
+    to give predictions that can be tweaked further before presenting them to the
+    user. Additionally, we will also understand the reason why we might not want to
+    generate responses based on input text after we go through the machine translation
+    and text summarization case studies.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Converting a user query into a structured format involves the following two
+    steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Assign entities to each word in a query
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Understand the intent of query
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Named entity recognition is one of the applications that has multiple use cases
+    across industries. For example, where does the user want to travel to? Which product
+    is a user considering to purchase? And so on. From these examples, it might occur
+    that named entity recognition is a simple lookup from a dictionary of existing
+    city names or product names. However, think of a scenario where a user says *I
+    want to travel from Boston to Seattle*. In this case, while the machine understands
+    that both *Boston* and *Seattle* are city names, we are not in a position to resolve
+    which is the *from* city and which is the *to* city.
+  prefs: []
+  type: TYPE_NORMAL
+- en: While we can add some heuristics like a name that has a *to* before it is the
+    *to city* and the other is the *from city*, it is not scalable as we replicate
+    this process across multiple such examples. Neural networks come in handy in that
+    scenario, where there is a less dependency on us to hand-tune the features. We
+    shall let the machine take care of the feature engineering part to give us the
+    output.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: With the preceding intuition, let's go ahead and define our approach in solving
+    this problem for a dataset that has user queries related to airlines.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Objective**: Extract the various entities from a query and also the intent
+    of the query.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Approach**:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We shall find a dataset that has the labels of query and the entity that each
+    word within the query belongs to:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: If we do not have a labeled dataset, we shall manually annotate the entities
+    within a query for a reasonable number of examples, so that we can train our model
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Given that the surrounding words can have an impact on the given word's classification
+    into one or the other class, let's use the RNN-based technique to solve this problem
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Additionally, given that the surrounding word could be either on the left or
+    the right side of given word, we shall use a bidirectional RNN to solve the problem
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Preprocess the input dataset so that it could be fed into the multiple time
+    steps of an RNN
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: One-hot-encode the output dataset so that we can optimize the model
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Build the model that returns the entities that each word within a query belongs
+    to
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Similarly, build another model that extracts the intent of a query
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Let''s code up the approach we defined previously, as follows (the code file
+    is available as `Intent_and_entity_extraction.ipynb` in GitHub):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Import the datasets, as shown in the following code:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Load the training dataset:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The preceding code gives the following output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/05d0278c-db84-4685-817d-f16a1f3dd349.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Note that the samples in the attached dataset is the user query, slot is the
+    entity a word belongs to, and intent is the overall intent of the query.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Apply IDs to each of the words in query, slot, and intent:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'A sample of IDs for token (words in vocabulary), slots (entity of a word),
+    and intent is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/176a3d2e-003c-4b7a-b8ec-fb5a2a0cea62.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Finally, the query, slots, and intent are converted into ID values, as follows
+    (where we report the output of the first query, intent, and slots):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/340d4444-f66e-435e-af01-a205b4b24886.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'A sample of query, intent, and entities corresponding to the words in query
+    is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![](img/c5a633a2-8dd1-41bc-bf74-c6e032c8af78.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Query is the statement at the top in the preceding screenshot. Slots represent
+    the type of object each word belongs to. Note that `O` represents an object, and
+    every other entity name is self-descriptive. Additionally, there are a total of
+    23 possible classes of intents that describe the query at an overall level.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In the following code, we are converting the total data into a list of lists
+    where each list corresponds to one query in the dataset:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'A sample of tokens, intent, and query are as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/ac4fb687-0852-40b5-98b4-b9716ee3dff6.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Create the indexed inputs and outputs:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The preceding code gives us a list of final queries and targets as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/e318c431-d86c-4258-8a57-42afef0e49c2.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Now, we are converting each **input** sentence into a corresponding list of
+    IDs of constituent words:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In the following code, we are converting each **output** word into its constituent
+    word IDs:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE25]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE26]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Pad the input and one-hot-encode the output:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE27]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In the following code, we are deciding the maximum length of the query before
+    padding the input:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE28]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the preceding code, we are deciding the maximum length of the query before
+    padding the input—which happens to be `48`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In the following code, we are padding the input and output with a max length
+    of `50`, as there is no input query that is beyond `48` words in length (which
+    is the `max(length_sent)`):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE29]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In the following code, we are converting the output into a one-hot-encoded
+    version:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE30]'
+  prefs: []
+  type: TYPE_PRE
+- en: We have a total of `124` classes, as there are a total `123` unique classes
+    and the word index starts with `1`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Build, train, and test the dataset, as well as the model:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE31]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In the preceding code, we are splitting the dataset into train and test datasets:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE32]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE33]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'A summary of the model is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/083bf99b-1860-45af-a90a-5537a1108d2a.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Note that, in the preceding code, we have a bidirectional LSTM, and hence, the
+    hidden layer has 200 units (as the LSTM layer has 100 units).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Compile and fit the model, as shown follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE34]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The preceding code results in a model that is 95% accurate in identifying the
+    right entity for a given word within a query:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/69930f68-e78b-4661-9ec4-0ed72bf4c79e.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: From the preceding output, we can see that our accuracy in assigning the right
+    entity to each word is >95%.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Intent extraction
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Now that we have built a model that has a good accuracy in predicting the entities
+    within a query, let's go ahead and find the intent of the query.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We will be reusing most of the variables that we initialized in the previous
+    model:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Convert the intent of each query into an ID:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE35]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Extract the one-hot-encoded version of the intents:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE36]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Build the model, as shown in the following code:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE37]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE38]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE39]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE40]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The preceding code results in a model that has an accuracy of 90% in identifying
+    the right intent of a query in the validation dataset:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/7653b79e-d64e-4f58-a465-ed0c04bfb805.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Putting it all together
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the previous section, we built two models, where the first model predicts
+    the entities in a query and the second model extracts the intent of queries.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this section, we will define a function that takes a query and converts
+    it into a structured format:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Preprocess the new input text so that it can be passed to the model:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE41]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Pre-process the input text to convert it into a list of word IDs:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE42]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE43]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The preceding results in processed input text as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/f247e339-2e03-4054-96d4-1e0073daf1c6.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Now, we''ll predict the intent of the preceding list:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE44]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The preceding code results in the intent of the query being about a flight,
+    as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/6b2208a9-fac9-4df0-88bf-75c54c8f2dff.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Extract the entities related to words in a query:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE45]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![](img/aaae4594-3625-403a-8025-1476f985fb32.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: From the preceding code, we can see that the model has correctly classified
+    a word into the right entity.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now that we have the entities and intent identified, we can have a pre-defined
+    SQL query (or API) whose parameters are filled by the extracted entities, and
+    each intent could potentially have a different API/SQL query to extract information
+    for the user.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Machine translation
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: So far, we have seen a scenario where the input and output are mapped one-to-one.
+    In this section, we will look into ways in which we can construct architectures
+    that result in mapping all input data into a vector, and then decoding it into
+    the output vector.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We will be translating an input text in English into text in French in this
+    case study.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The architecture that we will be defining to perform machine translation is
+    as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Take a labeled dataset where the input sentence and the corresponding translation
+    in French is available
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Tokenize and extract words that are frequent in each of the English and French
+    texts:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: To identify the frequent words, we will count the frequency of each word
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The words that constitute the top 80% of total cumulative frequency of all words
+    are considered the frequent words
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: For all the words that are not among the frequent words, replace them with an
+    unknown (`unk`) symbol
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Assign an ID to each word
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Build an encoder LSTM that fetches the vector of the input text
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Pass the encoded vector through dense layer so that we extract the probabilities
+    of decoded text at each time step
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Fit a model to minimize the loss at the output
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: There could be multiple model architectures that can help in translating the
+    input text. We will go through a few of them in the following sections (the code
+    file is available as `Machine_translation.ipynb` in GitHub).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Preprocessing the data
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'To pass the input and output data to our model, we would have to preprocess
+    the datasets as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Import the relevant packages and dataset:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE46]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE47]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE48]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Given that there are more than 140,000 sentences in the dataset, let''s consider
+    only the first 50,000 sentence-translation pairs to build the model:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE49]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Convert the input and output text into lower case and also remove the punctuation:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE50]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Add start and end tokens to the output sentences (French sentences). We add
+    these so that the start and end tokens are helpful in the encoder decoder architecture.
+    The reason why this will be helpful will be provided in the *Encoder decoder architecture
+    for machine translation* section:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE51]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'A sample of the data looks as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/b5773770-4057-4fec-a4af-4d033094e420.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Identify the frequent words. We define a word as frequent if it is among the
+    words that have a frequency that constitutes 80% of the total frequency of all
+    words:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE52]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE53]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The preceding code, extracts the number of English words that cumulatively
+    constitute 80% of total English words in input:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE54]'
+  prefs: []
+  type: TYPE_PRE
+- en: The preceding code, extracts the number of French words that cumulatively constitute
+    80% of total French words in output.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Filter out the less frequent words. If a word is not among the frequent words,
+    we shall replace it with an unknown word—`unk`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE55]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The preceding code takes a sentence as input, extracts the unique words, and
+    if a word does not exist among the more frequent English words (`final_eng_words`),
+    then it shall be replaced by `unk`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE56]'
+  prefs: []
+  type: TYPE_PRE
+- en: The preceding code takes a sentence as input, extracts the unique words, and
+    if a word does not exist among the more frequent French words (`final_fr_words`),
+    then it shall be replaced by `unk`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For example, on a random sentence with frequent words and also infrequent words,
+    the output looks as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE57]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![](img/7e4f6d3b-1d82-4d60-bf15-dffc91a1ba42.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '[PRE58]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the preceding code, we are replacing all the English and French sentences
+    based on the functions we defined previously.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Assign ID to each word across both English (input) and French (output) sentences:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Store the list of all unique words in data (English and French sentences):'
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE59]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE60]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Create a dictionary of input words and their corresponding index:'
+  prefs:
+  - PREF_OL
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE61]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Extract the maximum length of input and target sentences so that all of the
+    sentences can have the same size:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE62]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE63]'
+  prefs: []
+  type: TYPE_PRE
+- en: Now that we have preprocessed the datasets, let's try out multiple architectures
+    on the dataset to compare their performance.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Traditional many to many architecture
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this architecture, we will embed each input word into a 128 dimensional vector,
+    resulting in an output vector of shape (`batch_size, 128, 17`). We want to do
+    this because, in this version, we want to test out the scenario where the input
+    data has 17 time steps and the output dataset also has 17 time steps.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We shall connect each input time step to the output time step through an LSTM,
+    and then perform a softmax on top of the predictions:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Create input and output datasets. Note that we have `decoder_input_data` and
+    `decoder_target_data`. For now, let us create `decoder_input_data` as the word
+    ID corresponding to the target sentence words. The `decoder_target_data` is the
+    one-hot-encoded version of the target data for all words after the `start` token:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE64]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Note that we are adding a `+1` to `num_decodder_tokens`, as there is no word
+    corresponding to index `0` in the dictionary we created in *step 7b* of the previous
+    section:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE65]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the preceding code, we are looping through the input text and target text
+    to replace a sentence that is in English or French to its corresponding word IDs
+    in English and French.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Furthermore, we are one-hot-encoding the target data in the decoder so that
+    we can pass it to the model. Additionally, given that all sentences have the same
+    length now, we are replacing the values of the target data with one at the 89th
+    index (as `89` belongs to the end index) after the sentence length is exceeded
+    in the `for` loop:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE66]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the preceding code, we are replacing the value of zero in the decoder input
+    data with 89 (as 89 is the ending token and zero does not have any word associated
+    with it in the word indices that we created).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Note that the shapes of the three datasets that we created are as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE67]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The following is the output of the preceding code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE68]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Build and fit the model, as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE69]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![](img/5b1c05e4-823c-4fae-8955-1d164f10ebdd.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '[PRE70]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE71]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![](img/58c5e0ac-b3aa-4bf6-a6cb-0800b766d9dd.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Note that the accuracy number coming from the model could be misleading as it
+    counts the `end` token in its accuracy measure as well.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Calculate the number of words that were correctly translated:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE72]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the preceding code, we are making a prediction on test data (which is the
+    last 5% of total dataset as the validation split is 5%).
+  prefs: []
+  type: TYPE_NORMAL
+- en: From the preceding code, we can see that ~19% of the total words were correctly
+    translated.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Many to hidden to many architecture
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: One of the drawbacks of the previous architecture was that we had to artificially
+    increase the number of time steps in input to 17, even though we knew that the
+    input has a maximum of eight time steps where there was some input.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this architecture, let''s go ahead and build a model that extracts hidden
+    state value at the last time step of input. Furthermore, it replicates the hidden
+    state value 17 times (as there are 17 time steps in the output). It passes the
+    replicated hidden time steps through a Dense layer to finally extract the probable
+    classes in output. Let''s code the logic as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Redo the creation of input and output datasets so that we have eight time steps
+    in the input and 17 in the output. This is different from the previous iteration
+    as the input had 17 time steps in that versus eight in the current version:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE73]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Build the model. Note that the `RepeatVector` layer replicates the output of
+    the bidirectional layer''s output 17 times:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE74]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'A summary of model is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/0049d9b6-60e5-4351-a51d-7281e266f1c8.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Compile and fit the model:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE75]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![](img/4d726ed2-1d9e-488d-8982-4608468389d6.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Calculate the % of total words that are correctly translated:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE76]'
+  prefs: []
+  type: TYPE_PRE
+- en: The preceding results in an accuracy of 19%, which is almost on par compared
+    to the previous iteration.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The preceding is expected, as we tend to lose considerable amounts of information
+    when all the input time steps' information is stored only in the last hidden layer
+    value.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Additionally, we are not making use of the cell state that contains considerable
+    amounts of information about what needs to be forgotten in which time step.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Encoder decoder architecture for machine translation
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'There are two potential logical enhancements to the architecture we defined
+    in the previous section:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Make use of the information present in the cell state while generating translations
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Make use of the previously translated words as an input in predicting the next
+    word
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: The second technique is called **Teacher Forcing**. Essentially, by giving the
+    previous time step's actual value as input while generating the current time step,
+    we are tuning the network faster, and practically more accurately.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The strategy that we''ll adopt to build a machine translation system using
+    the encoder decoder architecture is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We have two decoder datasets while preparing input and output datasets:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The `decoder_input_data` combined with `encoder_input_data` is the input and
+    `decoder_target_data` is the output
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The `decoder_input_data` starts with the `start` word
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: When we are predicting the first word in the decoder, we are using the input
+    set of words, converting them into a vector, which then gets passed through a
+    decoder model that has `start` as input. The expected output is the first word
+    after `start` in output
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: We proceed in a similar manner, where the actual first word in the output is
+    the input, while predicting the second word
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: We'll calculate the accuracy of model based on this strategy
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: With this, let us go ahead and build the model on the input and output datasets
+    that we already prepared in the previous section (*step 1* of many to hidden to
+    many architecture of the previous section remains the same). The code file is
+    available as `Machine_translation.ipynb` in GitHub.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Build the model, as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE77]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Prepare the encoder model:'
+  prefs:
+  - PREF_OL
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE78]'
+  prefs: []
+  type: TYPE_PRE
+- en: Note that we are using a functional API since we are extracting the intermediate
+    layers of the encoder network and will be passing multiple datasets as input (encoder
+    input data and decoder input data).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Prepare the decoder model:'
+  prefs:
+  - PREF_OL
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE79]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Build the model, as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE80]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![](img/7d7eed63-bb60-43d2-a998-0b25454011cf.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Fit the model, as shown in the following code:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE81]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![](img/920127b1-562b-4a64-b5eb-b5100a0d54fd.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Calculate the % of words that are accurately transcribed:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE82]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE83]'
+  prefs: []
+  type: TYPE_PRE
+- en: Note that we have correctly translated 44% of the total words in this scenario.
+  prefs: []
+  type: TYPE_NORMAL
+- en: However, note that we should not be using `decoder_input_data` while calculating
+    accuracy on the test dataset, as we do not have access to this during a real-time
+    scenario.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This calls for us to use the predicted word in the previous time step as the
+    decoder input word for the current time step, as follows.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We will re-initialize the `decoder_input_data` as `decoder_input_data_pred`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE84]'
+  prefs: []
+  type: TYPE_PRE
+- en: Note that, in the preceding code, the word index 284 corresponds to the start
+    word. We are passing the start word as the first word in the decoder input and
+    predicting the word with the highest probability in the next time step.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Once we predict the second word, we update `decoder_input_word_pred`, predict
+    the third word, and continue until we encounter the stop word.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now that we have modified our predicted translated words, let us calculate
+    the accuracy of our translation:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE85]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE86]'
+  prefs: []
+  type: TYPE_PRE
+- en: The preceding results in 46% of all words that are correctly translated through
+    this method.
+  prefs: []
+  type: TYPE_NORMAL
+- en: While there is a considerable improvement in the accuracy of translation from
+    the previous methods, we are still not taking the intuition that words that are
+    at the start in the source language are quite likely to be at the start, even
+    in the target language, that is, the word alignment is not taken into consideration.
+    In the next section, we will look into solving the problem of word alignment.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Encoder decoder architecture with attention for machine translation
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the previous section, we learned that we could increase the accuracy of translation
+    by enabling the teacher forcing technique, where the actual word in the previous
+    time step of target was used as an input to the model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this section, we will extend this idea further and assign weightage to the
+    input encoder based on how similar the encoder and decoder vectors are at each
+    time step. This way, we are enabling that certain words have a higher weightage
+    in the encoder's hidden vector, depending on the time step of the decoder.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: With this, let's look at how we can build the encoder decoder architecture,
+    along with the attention mechanism. The code file is available as `Machine_translation.ipynb` in
+    GitHub.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Build the encoder, as shown in the following code:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE87]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Build the decoder, as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE88]'
+  prefs: []
+  type: TYPE_PRE
+- en: Note that, in the preceding code, we have not finalized the decoder architecture.
+    We have only extracted the hidden layer values at the decoder.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Build the attention mechanism. The attention mechanism will be based on how
+    similar the encoder hidden vector and the decoder hidden vector are at each time
+    step. Based on this similarity (softmax performed to give a weight value that
+    sums up to one across all possible input time steps), we assign weightage to the
+    encoder vector, as follows.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Passing the encoder decoder vectors through an activation and dense layer so
+    that we achieve further non-linearity before taking the dot product (a measure
+    of similarity—cosine similarity) between the vectors:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE89]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Identify the weightage that is to be given to the input time steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE90]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Calculate the weighted encoder vector, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE91]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Combine the decoder and weighted encoder vector:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE92]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Connect the combination of decoder and weighted encoded vector to output layer:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE93]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Compile and fit the model, shown in the following code:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE94]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'A plot of architecture is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/05ba35a2-0d0a-4d38-aad8-640520b67267.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '[PRE95]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![](img/ca8e9bfd-b064-4ba3-8414-c9b80eda03ec.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Once you fit the model, you will notice that the validation loss in this model
+    is slightly better than the previous iteration.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Calculate the accuracy of translation in a similar way to what we did in the
+    previous section:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE96]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE97]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE98]'
+  prefs: []
+  type: TYPE_PRE
+- en: The preceding code results in 52% of total words that are correctly translated,
+    which is an improvement from the previous iteration.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now that we have built a translation system that has a reasonable accuracy,
+    let us inspect a few translations in the test dataset (the test dataset is the
+    last 5% of the total dataset as we specified the `validation_split` to be 5%),
+    as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE99]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Extract the predicted translations in terms of words:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE100]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The output of the preceding code after converting English sentence to French 
+    is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE101]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Extract the actual translations in terms of words:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE102]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The output of the preceding code is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE103]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We see that the predicted translation is fairly close to the original translation.
+    In a similar manner, let us explore a few more translations on the validation
+    dataset:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '| **Original translation** | **Predicted translation** |'
+  prefs: []
+  type: TYPE_TB
+- en: '| *jétais tellement occupée la unk unk end* | *jétais tellement occupé pour
+    plus unk end* |'
+  prefs: []
+  type: TYPE_TB
+- en: '| *je ne fais que ce unk me dit end* | *je viens fais que ce unk me fait end*
+    |'
+  prefs: []
+  type: TYPE_TB
+- en: '| *jai unk de faire la unk end* | *je unk de unk la unk end* |'
+  prefs: []
+  type: TYPE_TB
+- en: 'From the preceding table, we can see that there is a decent translation, however
+    there are a few areas of potential improvement:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Accounting for word similarities:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Words like *je* and *j'ai* are fairly similar, and so they should not be penalized
+    heavily, even though it is decreasing the accuracy metric
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Reducing the number of `unk` words:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: We have reduced the number of `unk` words to reduce the dimensionality of our
+    dataset
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: We can potentially work on high dimensional data when we collect a larger corpus
+    and work on a machine with industrial scale configuration
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL

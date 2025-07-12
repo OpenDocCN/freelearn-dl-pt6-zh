@@ -1,0 +1,611 @@
+- en: Image Classification
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the previous chapter, after a quick recap on the concept of convolution,
+    we learned more about the strategies for object recognition and more implementation
+    details through examples in Python (Keras) and Scala (DL4J). This chapter covers
+    the implementation of a full image classification web application or web service.
+    The goal here is to show you how to apply the concepts from the previous chapter
+    to an end-to-end classification system.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The steps to complete this goal are as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Pick up a proper Keras (with TensorFlow backend) pre-trained CNN model
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Load it and test it in DL4J (and Spark)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Understand how to retrain the Python model on Apache Spark
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Implement an image classification web application that uses it
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Implement an alternative image classification web service that uses it
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: All of the open source technologies that we have come across in the previous
+    chapters of this book while learning to use DL scenarios are involved in the implementation
+    process that's explained here.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Implementing an end-to-end image classification web application
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Using all of the things that we learned about in the previous chapters of this
+    book, we should now be able to implement a real-world web application that allows
+    users to upload an image and then properly classify it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Picking up a proper Keras model
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'We are going to use an existing, pre-trained Python Keras CNN model. Keras
+    applications ([https://keras.io/applications/](https://keras.io/applications/))
+    are a set of DL models that are available as part of the framework with pre-trained
+    weights. Among those models is VGG16, a 16-layer CNN that was implemented by the
+    Visual Geometry Group at the University of Oxford in 2014\. This model is compatible
+    with a TensorFlow backend. It has been trained on the ImageNet database ([http://www.image-net.org/](http://www.image-net.org/)).
+    The ImageNet dataset is an excellent training set for general image classification,
+    but it isn''t suitable for facial recognition model training. Here is the way
+    you can load and use the VGG16 model in Keras. We are using a TensorFlow backend.
+    Let''s import the model:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Then, we need to import the other necessary dependencies (including NumPy and
+    Pillow):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now, we can create an instance of the model:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: The pre-trained weights are automatically downloaded the first time we run this
+    application. Successive runs will pick up the weights from the local `~/.keras/models/`
+    directory.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Here''s the model architecture:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/4dec12d6-3628-42c8-9da5-50ed04ec9345.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'We can test the model by loading an image:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We can then prepare it to be passed as input to the model (by transforming
+    the image pixels into a NumPy array and preprocessing it):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Then, we can make predictions:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Finally, we save the model configuration (in JSON format):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We can also save the weights of the model that we want to import into DL4J:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Then, we pass the following image into the model as input:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/0d17d699-4fe3-495d-8af8-24915b71bb35.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The image is correctly classified as a tabby cat, with a likelihood of almost
+    64%.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Importing and testing the model in DL4J
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In [Chapter 10](1066b0d4-c2f3-44f9-9cc4-d38469d72c3f.xhtml), *Deploying on a
+    Distributed System*, we learned how to import a pre-trained Keras model into DL4J.
+    Let's apply the same process here.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The dependencies for the Scala project are DL4J DataVec, NN, model import, zoo,
+    and ND4J plus Apache common math 3.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The first thing we need to do is copy the model configuration (from the `vgg-16.json` file)
+    and weights (from the `vgg-16.h5` file) into the resource folder of the project.
+    Then, we can load them through the `importKerasModelAndWeights` method of the
+    `KerasModelImport` class:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: The third argument to pass to the method is a Boolean; if `false`, this means
+    that the pre-trained model has been imported to do inference only and won't be
+    re-trained.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s test the model using the image in the preceding screenshot. We need
+    to copy it into the resource directory for the application. Then, we can load
+    it and resize it to be the required size (224 × 224 pixels):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: For this, we are using the `NativeImageLoader` class ([https://jar-download.com/javaDoc/org.datavec/datavec-data-image/1.0.0-alpha/org/datavec/image/loader/NativeImageLoader.html](https://jar-download.com/javaDoc/org.datavec/datavec-data-image/1.0.0-alpha/org/datavec/image/loader/NativeImageLoader.html))
+    of the DataVec Image API.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Then, we need to transform the image into an NDArray and preprocess it:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Afterwards, we need to do inference through the model:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'To consume the result in a human readable format, we use the `org.deeplearning4j.zoo.util.imagenet.ImageNetLabels`
+    class, which is available in the DL4J zoo library. The input for the `decodePredictions`
+    method of this class is the array of the NDArray that''s returned from the `output`
+    method of the model:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The following screenshot shows the output of the preceding code. It presents
+    the prediction results (in descending order) for the uploaded image. According
+    to the model, the highest probability (around 53.3%) is that the main subject
+    in the input picture is a tabby cat (which is the correct one):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/043c9836-e850-4181-b971-7b41f3c87ebc.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: You should have noticed that, once the model has been imported, the steps to
+    load an image and make an inference through the DL4J API are the same as for the
+    example in Keras that we presented in the previous section.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'After the model has been tested, it is a good practice to save it through the
+    `ModelSerializer` class:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: Then, we can load it through the same class because it is less expensive in
+    terms of resource usage than loading from Keras.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Re-training the model in Apache Spark
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: To improve the accuracy of the Keras VGG16 pre-trained model that we have considered
+    for the use case of this chapter, we could also decide to retrain it and apply
+    all of the best practices we have learned from the previous chapter (running more
+    epochs, image augmentation, and so on). Once the model has been imported into
+    DL4J, its training can be done exactly the same way it was explained in [Chapter
+    7](3b6f47c0-6e17-484b-ad30-b6f92eb0473c.xhtml), *Training Neural Networks with
+    Spark* (training with DL4J and Apache Spark). After loading, an instance of `org.deeplearning4j.nn.graph.ComputationGraph`
+    is created, so the exact same principles for training multilayer networks apply
+    here.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For completeness of information, you have to know that it is possible to train
+    Keras models in parallel mode on Apache Spark, too. This can be done through the
+    `dist-keras` Python framework ([https://github.com/cerndb/dist-keras/](https://github.com/cerndb/dist-keras/)),
+    which was created for **Distributed Deep Learning** (**DDL**). The framework can
+    be installed through `pip`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'It requires TensorFlow (this will be used as a backend) and the following variables
+    to be set:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: Let's have a quick look at the typical flow for distributed training with `dist-keras`.
+    The following code isn't a complete working example; the goal here is to make
+    you aware of how data parallelism training could be set.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'First, we need to import all of the required classes for Keras, PySpark, Spark
+    MLLib, and `dist-keras`. We will import Keras first:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Then, we can import PySpark:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Then, we import Spark MLLib:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Finally, we import `dist-keras`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We then need to create the Spark configuration, like so:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We can then use this to create a `SparkSession`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The dataset is now as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs: []
+  type: TYPE_PRE
+- en: We can use this dataset to perform data preprocessing and normalization using
+    the API provided by the Spark core and Spark MLLib (the strategy depends on the
+    nature of the dataset, so it doesn't make sense to present some code here). Once
+    this phase has been completed, we can define our model using the Keras API.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Here''s an example with a simple `Sequential` model:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Finally, you can start the training process by choosing one of the multiple
+    optimization algorithms that''s available with `dist-keras`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Sequential trainer
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: ADAG
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Dynamic SDG
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: AEASGD
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: AEAMSGD
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: DOWNPOUR
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Ensemble training
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Model averaging
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'While those later in this list are more performant, the first one, `SingleTrainer`,
+    which is typically used as a benchmarking `trainer`, could be a good `trainer`
+    choice in situations where a dataset is too big to fit in memory. Here''s a code
+    example of training with `SingleTrainer`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs: []
+  type: TYPE_PRE
+- en: Implementing the web application
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Let's go back to our main task and start implementing a web application that
+    allows users to upload an image, and then use the serialized VGG16 model to make
+    an inference on it. Several frameworks exist for the JVM to implement web applications.
+    In this case, to minimize our efforts, we are going to use SparkJava ([http://sparkjava.com/](http://sparkjava.com/),
+    not to be confused with Apache Spark), a micro framework for JVM programming languages,
+    which has being implemented to keep rapid prototyping in mind. Compared to other
+    web frameworks, it has a minimal boilerplate. SparkJava isn't for web applications
+    only; it is possible to implement the REST API in very few lines of code (it will
+    also be used in the next section to implement our image classification web service).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We have to add SparkJava to the dependencies list of the Java project for the
+    web app:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE25]'
+  prefs: []
+  type: TYPE_PRE
+- en: The reference version for this example is `2.7.2` (the latest at the time of
+    writing this book).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In its simplest implementation, a SparkJava web application can be made of
+    a single line of code in the `main` method:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE26]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Running the application, the `hello` page is accessible from a web browser
+    at the following URL:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE27]'
+  prefs: []
+  type: TYPE_PRE
+- en: '`4567` is the default port for SparkJava web apps.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The main building block of a SparkJava application is a route. A route is made
+    up of three pieces: a verb (`get`, `post`, `put`, `delete`, `head`, `trace`, `connect`,
+    and `options` are the available verbs), a path (`/hello` in the preceding code
+    example), and a callback (`request` or `response`). The SparkJava API also includes
+    classes for sessions, cookies, filters, redirection, and custom errors handling.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s start implementing our web application. The other dependencies for the
+    project are DL4J core, DataVec, NN, model import and zoo, and ND4J. We need to
+    add the DL4J serialized model (the `Vgg-16.zip` file) to the resources of the
+    project. The model can then be loaded programmatically through the `ModelSerializer`
+    class:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE28]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We need to create a directory where the images from the users will be uploaded:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE29]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The next step is the creation of the form where users can upload an image.
+    In SparkJava, it is possible to use custom styles for web pages. In this example,
+    we are going to add the responsive Foundation 6 framework ([https://foundation.zurb.com/](https://foundation.zurb.com/)),
+    CSS. We add the minimal Foundation CSS library (`foundation-float.min.css`) in
+    a subdirectory called `public` of the resource folder of the project. This way,
+    the web application can access it within its classpath. The registration of the
+    static file''s location can be done programmatically:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE30]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The Foundation CSS and any other static CSS files can be registered in the
+    header of the pages. Here''s the method that has been implemented for this example:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE31]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We now implement a method called `buildUploadForm` that returns the HTML content
+    for it:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE32]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We then use this when defining the route to the upload page:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE33]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We can now define the `post` request:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE34]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We do this to handle the image upload and classification. In the body of this
+    `post` request, we have to take the following actions:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Upload the image file to the `upload` directory
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Convert the image to NDArray
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Delete the file (there's no need to keep it in the web server disk after the
+    conversion)
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Preprocess the image
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Do an inference
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Display the results
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'When translated into Java, this is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE35]'
+  prefs: []
+  type: TYPE_PRE
+- en: You will notice that the image preparation and the inference part that's done
+    through DL4J is the exact same as for the standalone application.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'After starting the application, it will be accessible at the following URL:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE36]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'It is possible to programmatically set up a different listening port:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE37]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The following screenshot shows the upload page layout:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/04332b95-57a3-44fc-bfc5-ee17830ec73c.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'The following screenshot shows us uploading the required image:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/9026c652-8ee6-417f-afef-21b458a182b5.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'The results for this are as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/0cf3cf17-6a52-4762-b774-6a55a5974cd0.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Implementing a web service
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: As we mentioned in the previous section, SparkJava can be used to quickly implement
+    a REST API. The example web application we implemented in the previous section
+    is monolithic, but looking back at its source code, we can notice how easily it
+    would be to separate the frontend from the backend and move this to a REST API.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The frontend client presenting a form for image submission could be implemented
+    with any web frontend framework. The client would then make a call to a REST service
+    that's implemented through SparkJava, which performs the inference with the VGG16
+    model and finally returns the prediction results in JSON format. Let's see how
+    easy it is to implement this service, starting from the existing code for the
+    web application.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The web service is a Java class with the main method as an entry point. Let''s
+    define a custom listening port:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE38]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now that we''ve done this, we need to define the `upload` endpoint:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE39]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We need to move the code that was part of the original `post` body into the
+    `uploadFile` method (the only difference is the returned value, which is the prediction
+    content only and not the full HTML content):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE40]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'After running the application, you can test it with a simple `curl` ([https://curl.haxx.se/](https://curl.haxx.se/))
+    command:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE41]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The output will be as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/228ec6e2-a872-41d9-8a70-049fdf144063.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'If we want to return the output in JSON format, this is the only change to
+    the web service code that we have to perform:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE42]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We just need to create an instance of `com.google.gson.Gson` and pass it as
+    the last argument to the `post` method. The output from our example will be as
+    follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/6751468a-ed0b-4424-91ea-12c955d7bdba.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this chapter, we have implemented our first end-to-end image classification
+    web application by putting together several open source frameworks that we got
+    familiar with throughout the previous chapters of this book. The readers should
+    now have all of the knowledge of the building blocks to start working on their
+    DL models or applications using Scala and/or Python and DL4J and/or Keras or TensorFlow.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This chapter ends the hands-on section of this book. The next and final chapter
+    will discuss the future of DL and AI, with particular focus on DL4J and Apache
+    Spark.
+  prefs: []
+  type: TYPE_NORMAL

@@ -1,0 +1,713 @@
+- en: Chapter 4. Generative Adversarial Networks (GANs)
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this chapter, we'll be investigating **Generative Adversarial Networks**
+    (**GAN**s) [1], the first of three artificial intelligence algorithms that we'll
+    be looking at. GANs belong to the family of generative models. However, unlike
+    autoencoders, generative models are able to create new and meaningful outputs
+    given arbitrary encodings.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this chapter, the working principles of GANs will be discussed. We'll also
+    review the implementations of several early GANs within Keras. While later on
+    the chapter, we'll be demonstrating the techniques needed to achieve stable training.
+    The scope of this chapter covers two popular examples of GAN implementations,
+    **Deep Convolutional GAN** (**DCGAN**) [2] and **Conditional GAN** (**CGAN**)
+    [3].
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In summary, the goal of this chapter is to:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Introduce the principles of GANs
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: How to implement GANs such as DCGAN and CGAN in Keras
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: An overview of GANs
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Before we move into the more advanced concepts of GANs, let's start by going
+    over GANs, and introducing the underlying concepts of them. GANs are very powerful;
+    this simple statement is proven by the fact that they can generate new celebrity
+    faces that are not of real people by performing latent space interpolations.
+  prefs: []
+  type: TYPE_NORMAL
+- en: A great example of the advanced features of GANs [4] can be seen with this YouTube video
+    ([https://youtu.be/G06dEcZ-QTg](https://youtu.be/G06dEcZ-QTg)). The video, which
+    shows how GANs can be utilized to produce realistic faces just shows how powerful
+    they can be. This topic is much more advanced than anything we've looked at before
+    in this book. For example, the above video is something that can't be accomplished
+    easily by autoencoders, which we covered in [Chapter 3](ch03.html "Chapter 3. Autoencoders"),
+    *Autoencoders*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: GANs are able to learn how to model the input distribution by training two competing
+    (and cooperating) networks referred to as **generator** and **discriminator**
+    (sometimes known as **critic**). The role of the generator is to keep on figuring
+    out how to generate fake data or signals (this includes, audio and images) that
+    can fool the discriminator. Meanwhile, the discriminator is trained to distinguish
+    between fake and real signals. As the training progresses, the discriminator will
+    no longer be able to see the difference between the synthetically generated data
+    and the real ones. From there, the discriminator can be discarded, and the generator
+    can now be used to create new realistic signals that have never been observed
+    before.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The underlying concept of GANs is straightforward. However, one thing we'll find is that
+    the most challenging aspect is how do we achieve stable training of the generator-discriminator
+    network? There must be a healthy competition between the generator and discriminator
+    in order for both networks to be able to learn simultaneously. Since the loss
+    function is computed from the output of the discriminator, its parameters update
+    is fast. When the discriminator converges faster, the generator no longer receives
+    sufficient gradient updates for its parameters and fails to converge. Other than
+    being hard to train, GANs can also suffer from either a partial or total modal
+    collapse, a situation wherein the generator is producing almost similar outputs
+    for different latent encodings.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Principles of GANs
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: As shown in *Figure 4.1.1* a GAN is analogous to a counterfeiter (generator)
+    - police (discriminator) scenario. At the academy, the police are taught how to
+    determine if a dollar bill is either genuine or fake. Samples of real dollar bills
+    from the bank and fake money from the counterfeiter are used to train the police.
+    However, from time to time, the counterfeiter will attempt to pretend that he
+    printed real dollar bills. Initially, the police will not be fooled and will tell
+    the counterfeiter why the money is fake. Taking into consideration this feedback,
+    the counterfeiter hones his skills again and attempts to produce new fake dollar
+    bills. As expected the police will be able to both spot the money as fake and
+    justify why the dollar bills are fake.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Principles of GANs](img/B08956_04_01.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 4.1.1: The generator and discriminator of GANs are analogous to the
+    counterfeiter and the police. The goal of the counterfeiter is to fool the police
+    into believing that the dollar bill is real.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: This scenario continues indefinitely but eventually, a time will come when the
+    counterfeiter has mastered his skills in making fake dollar bills that are indistinguishable
+    from real ones. The counterfeiter can then infinitely print dollar bills without
+    getting caught by the police as they are no longer indefinable as counterfeit.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Principles of GANs](img/B08956_04_02.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 4.1.2: A GAN is made up of two networks, a generator, and a discriminator.
+    The discriminator is trained to distinguish between real and fake signals or data.
+    The generator''s job is to generate fake signals or data that can eventually fool
+    the discriminator.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: As shown in *Figure 4.1.2*, a GAN is made up of two networks, a generator, and
+    a discriminator. The input to the generator is noise, and the output is a synthesized
+    signal. Meanwhile, the discriminator's input will be either a real or a synthesized
+    signal. Genuine signals come from the true sampled data, while the fake signals
+    come from the generator. All of the valid signals are labeled 1.0 (that is, 100%
+    probability of being real) while all the synthesized signals are labeled 0.0 (that
+    is, 0% probability of being real). Since the labeling process is automated, GANs
+    are still considered part of the unsupervised learning approach in deep learning.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The objective of the discriminator is to learn from this supplied dataset on
+    how to distinguish real signals from fake signals. During this part of GAN training,
+    only the discriminator parameters will be updated. Like a typical binary classifier,
+    the discriminator is trained to predict on a range of 0.0 to 1.0 in confidence
+    values on how close a given input signal is to the true one. However, this is
+    only half of the story.
+  prefs: []
+  type: TYPE_NORMAL
+- en: At regular intervals, the generator will pretend that its output is a genuine
+    signal and will ask the GAN to label it as 1.0\. When the fake signal is then
+    presented to the discriminator, naturally it will be classified as fake with a
+    label close to 0.0\. The optimizer computes the generator parameter updates based
+    on the presented label (that is, 1.0). It also takes its own prediction into account
+    when training on this new data. In other words, the discriminator has some doubt
+    about its prediction, and so, GANs takes that into consideration. This time, GANs
+    will let the gradients backpropagate from the last layer of the discriminator
+    down to the first layer of the generator. However, in most practices, during this
+    phase of training, the discriminator parameters are temporarily frozen. The generator
+    will use the gradients to update its parameters and improve its ability to synthesize
+    fake signals.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Overall, the whole process is akin to two networks competing with one another
+    while still cooperating at the same time. When the GAN training converges, the
+    end result is a generator that can synthesize signals. The discriminator thinks
+    these synthesized signals are real or with a label near 1.0, which means the discriminator
+    can then be discarded. The generator part will be useful in producing meaningful
+    outputs from arbitrary noise inputs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Principles of GANs](img/B08956_04_03.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 4.1.3: Training the discriminator is similar to training a binary classifier
+    network using binary cross-entropy loss. The fake data is supplied by the generator
+    while real data is from true samples.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'As shown in the preceding figure, the discriminator can be trained by minimizing
+    the loss function in the following equation:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Principles of GANs](img/B08956_04_001.jpg) (Equation 4.1.1)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'The equation is just the standard binary cross-entropy cost function. The loss
+    is the negative sum of the expectation of correctly identifying real data, ![Principles
+    of GANs](img/B08956_04_002.jpg), and the expectation of 1.0 minus correctly identifying
+    synthetic data, ![Principles of GANs](img/B08956_04_003.jpg). The log does not
+    change the location of the local minima. Two mini-batches of data are supplied
+    to the discriminator during training:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Principles of GANs](img/B08956_04_004.jpg), real from sampled data (that
+    is, ![Principles of GANs](img/B08956_04_005.jpg)) with label 1.0'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![Principles of GANs](img/B08956_04_006.jpg) , fake data from the generator
+    with label 0.0'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: In order to minimize the loss function, the discriminator parameters, ![Principles
+    of GANs](img/B08956_04_007.jpg), will be updated through backpropagation by correctly
+    identifying the genuine data, ![Principles of GANs](img/B08956_04_008.jpg), and
+    synthetic data, ![Principles of GANs](img/B08956_04_009.jpg). Correctly identifying
+    real data is equivalent to ![Principles of GANs](img/B08956_04_010.jpg) while
+    correctly classifying fake data is the same as ![Principles of GANs](img/B08956_04_011.jpg)
+    or ![Principles of GANs](img/B08956_04_012.jpg). In this equation, ![Principles
+    of GANs](img/B08956_04_013.jpg) is the arbitrary encoding or noise vector that
+    is used by the generator to synthesize new signals. Both contribute to minimizing
+    the loss function.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To train the generator, GAN considers the total of the discriminator and generator
+    losses as a zero-sum game. The generator loss function is simply the negative
+    of the discriminator loss function:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Principles of GANs](img/B08956_04_014.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: (Equation 4.1.2)
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'This can then be rewritten more aptly as a value function:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Principles of GANs](img/B08956_04_015.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: (Equation 4.1.3)
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'From the perspective of the generator, *Equation 4.1.3* should be minimized.
+    From the point of view of the discriminator, the value function should be maximized.
+    Therefore, the generator training criterion can be written as a minimax problem:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Principles of GANs](img/B08956_04_016.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: (Equation 4.1.4)
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Occasionally, we''ll try to fool the discriminator by pretending that the synthetic
+    data is real with label 1.0\. By maximizing with respect to ![Principles of GANs](img/B08956_04_017.jpg),
+    the optimizer sends gradient updates to the discriminator parameters to consider
+    this synthetic data as real. At the same time, by minimizing with respect to ![Principles
+    of GANs](img/B08956_04_018.jpg), the optimizer will train the generator''s parameters
+    on how to trick the discriminator. However, in practice, the discriminator is
+    confident in its prediction in classifying the synthetic data as fake and will
+    not update its parameters. Furthermore, the gradient updates are small and have
+    diminished significantly as they propagate to the generator layers. As a result,
+    the generator fails to converge:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Principles of GANs](img/B08956_04_04.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 4.1.4: Training the generator is like training a network using a binary
+    cross-entropy loss function. The fake data from the generator is presented as
+    genuine.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The solution is to reformulate the loss function of the generator in the form:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Principles of GANs](img/B08956_04_019.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: (Equation 4.1.5)
+  prefs: []
+  type: TYPE_NORMAL
+- en: The loss function simply maximizes the chance of the discriminator into believing
+    that the synthetic data is real by training the generator. The new formulation
+    is no longer zero-sum and is purely heuristics-driven. *Figure 4.1.4* shows the
+    generator during training. In this figure, the generator parameters are only updated
+    when the whole adversarial network is trained. This is because the gradients are
+    passed down from the discriminator to the generator. However, in practice, the
+    discriminator weights are only temporarily frozen during adversarial training.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In deep learning, both the generator and discriminator can be implemented using
+    a suitable neural network architecture. If the data or signal is an image, both
+    the generator and discriminator networks will use a CNN. For single-dimensional
+    sequences like in NLP, both networks are usually recurrent (RNN, LSTM or GRU).
+  prefs: []
+  type: TYPE_NORMAL
+- en: GAN implementation in Keras
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the previous section, we learned that the principles behind GANs are straightforward.
+    We also learned how GANs could be implemented by familiar network layers such
+    as CNNs and RNNs. What differentiates GANs from other networks is they are notoriously
+    difficult to train. Something as simple as a minor change in the layers can drive
+    the network to training instability.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this section, we'll examine one of the early successful implementations of GANs using
+    deep CNNs. It is called DCGAN [3].
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*Figure 4.2.1* shows DCGAN that is used to generate fake MNIST images. DCGAN recommends
+    the following design principles:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Use of *strides* > 1 convolution instead of `MaxPooling2D` or `UpSampling2D`.
+    With *strides* > 1, the CNN learns how to resize the feature maps.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Avoid using `Dense` layers. Use CNN in all layers. The `Dense` layer is utilized
+    only as the first layer of the generator to accept the *z*-vector. The output
+    of the `Dense` layer is resized and becomes the input of the succeeding CNN layers.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Use of **Batch Normalization** (**BN**) to stabilize learning by normalizing
+    the input to each layer to have zero mean and unit variance. No BN in the generator
+    output layer and discriminator input layer. In the implementation example to be
+    presented here, no batch normalization is used in the discriminator.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Rectified Linear Unit** (**ReLU**) is used in all layers of the generator
+    except in the output layer where the *tanh* activation is utilized. In the implementation
+    example to be presented here, *sigmoid* is used instead of *tanh* in the output
+    of the generator since it generally results in a more stable training for MNIST digits.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Use of **Leaky ReLU** in all layers of the discriminator. Unlike ReLU, instead
+    of zeroing out all outputs when the input is less than zero, Leaky ReLU generates
+    a small gradient equal to *alpha* × *input*. In the following example, *alpha*
+    = 0.2.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '![GAN implementation in Keras](img/B08956_04_05.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 4.2.1: A DCGAN model'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The generator learns to generate fake images from 100-dim input vectors ([-1.0,
+    1.0] range 100-dim random noise with uniform distribution). The discriminator
+    classifies real from fake images but inadvertently coaches the generator how to
+    generate real images when the adversarial network is trained. The kernel size
+    used in our DCGAN implementation is 5, this is to allow it to increase the coverage
+    and expressive power of the convolution.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The generator accepts the 100-dim *z*-vector generated by a uniform distribution
+    with a range of -1.0 to 1.0\. The first layer of the generator is a 7 × 7 ×128
+    = 6,272 - *unit* `Dense` layer. The number of units is computed based on the intended
+    ultimate dimensions of the output image (28 × 28 × 1, 28 is a multiple of 7) and
+    the number of filters of the first `Conv2DTranspose`, which is equal to 128\.
+    We can imagine transposed CNNs (`Conv2DTranspose`) as the reversed process of
+    CNN. In a simple example, if a CNN converts an image to feature maps, a transposed
+    CNN will produce an image given feature maps. Hence, transposed CNNs were used
+    in the decoder in the previous chapter and here on generators.
+  prefs: []
+  type: TYPE_NORMAL
+- en: After undergoing two `Conv2DTranspose` with `strides = 2`, the feature maps
+    will have a size of 28 × 28 × *number of filters*. Each `Conv2DTranspose` is preceded
+    by batch normalization and ReLU. The final layer has *sigmoid* activation that
+    generates the 28 × 28 × 1 fake MNIST images. Each pixel is normalized to [0.0, 1.0]
+    corresponding to [0, 255] grayscale levels. Following listing shows the implementation
+    of the generator network in Keras. A function is defined to build the generator
+    model. Due to the length of the entire code, we will limit the listing to the
+    particular lines being discussed.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'The complete code is available on GitHub: [https://github.com/PacktPublishing/Advanced-Deep-](https://github.com/PacktPublishing/Advanced-Deep-)
+    [Learning-with-Keras](http://Learning-with-Keras).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Listing 4.2.1, `dcgan-mnist-4.2.1.py` shows us the generator network builder
+    function for DCGAN:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: The discriminator is similar to many CNN-based classifiers. The input is a 28
+    × 28 × 1 MNIST image that is classified as either real (1.0) or fake (0.0). There
+    are four CNN layers. Except for the last convolution, each `Conv2D` uses `strides
+    = 2` to down sample the feature maps by two. Each `Conv2D` is then preceded by
+    a Leaky ReLU layer. The final filter size is 256, while the initial filter size
+    is 32 and doubles every convolution layer. The final filter size of 128 also works.
+    However, we'll find that the generated images look better with 256\. The final
+    output layer is flattened, and a single unit `Dense` layer generates the prediction
+    between 0.0 to 1.0 after scaling by the sigmoid activation layer. The output is
+    modeled as a Bernoulli distribution. Hence, the binary cross-entropy loss function
+    is used.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'After building the generator and discriminator models, the adversarial model
+    is made by concatenating the generator and discriminator networks. Both discriminator
+    and adversarial networks use the RMSprop optimizer. The learning rate for the
+    discriminator is 2e-4 while for the adversarial network, it is 1e-4\. RMSprop
+    decay rates of 6e-8 for discriminator and 3e-8 for the adversarial network are
+    applied. Setting the learning rate of the adversarial equal to half of the discriminator
+    will result in a more stable training. We''ll recall from *Figure 4.1.3* and *4.1.4*,
+    that the GAN training has two parts: discriminator training and generator training,
+    which is adversarial training, with discriminator weights frozen.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*Listing* *4.2.2* shows the implementation of the discriminator in Keras. A
+    function is defined to build the discriminator model. In *Listing* *4.2.3*, we''ll
+    illustrate how to build GAN models. Firstly, the discriminator model is built
+    and following on from that the generator model is instantiated. The adversarial
+    model is just the generator and the discriminator put together. Across many GANs,
+    the batch size of 64 appears to be the most common. The network parameters are
+    shown in *Listing* *4.2.3*.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: As can be seen in *Listing* *4.2.1* and *4.2.2*, the DCGAN models are straightforward.
+    What makes it difficult to build is small changes in the network design can easily
+    break the training convergence. For example, if batch normalization is used in
+    the discriminator or if `strides = 2` in the generator is transferred to the latter
+    CNN layers, DCGAN will fail to converge.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Listing 4.2.2, `dcgan-mnist-4.2.1.py` shows us the discriminator network builder
+    function for DCGAN:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Listing 4.2.3, `dcgan-mnist-4.2.1.py`: Function to build DCGAN models and call
+    the training routine:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: '*Listing* *4.2.4* shows the function dedicated to training the discriminator
+    and adversarial networks. Due to custom training, the usual `fit()` function is
+    not going to be used. Instead, `train_on_batch()` is called up to run a single
+    gradient update for the given batch of data. The generator is then trained via
+    an adversarial network. The training first randomly picks a batch of real images
+    from the dataset. This is labeled as real (1.0). Then a batch of fake images will
+    be generated by the generator. This is labeled as fake (0.0). The two batches
+    are concatenated and are used to train the discriminator.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'After this is completed, a new batch of fake images will be generated by the
+    generator and labeled as real (1.0). This batch will be used to train the adversarial
+    network. The two networks are trained alternately for about 40,000 steps. At regular
+    intervals, the generated MNIST digits based on a certain noise vector are saved
+    on the filesystem. At the last training step, the network has converged. The generator
+    model is also saved on a file so we can easily reuse the trained model for future
+    MNIST digits generation. However, only the generator model is saved since that
+    is the useful part of GANs in the generation of new MNIST digits. For example,
+    we can generate new and random MNIST digits by executing:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Listing 4.2.4, `dcgan-mnist-4.2.1.py` shows us the function to train the discriminator
+    and adversarial networks:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: '*Figure 4.2.1* shows the evolution of fake images from the generator as a function
+    of training steps. At 5,000 steps, the generator is already producing recognizable
+    images. It''s very much like having an agent that knows how to draw digits. It''s
+    worth noting that some digits change from one recognizable form (for example,
+    8 on the 2nd column of the last row) to another (for example, 0). When the training
+    converges, the discriminator loss reaches near 0.5 while the adversarial loss
+    approaches near 1.0 as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![GAN implementation in Keras](img/B08956_04_06.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 4.2.2: The fake images generated by the DCGAN generator at different
+    training steps'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Conditional GAN
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the previous section, the fake images generated by the DCGAN are random.
+    There is no control over which specific digits will be produced by the generator.
+    There is no mechanism for how to request a particular digit from the generator.
+    This problem can be addressed by a variation of GAN called **Conditional GAN**
+    (**CGAN**) [4].
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using the same GAN, a condition is imposed on both the generator and discriminator
+    inputs. The condition is in the form of a one-hot vector version of the digit.
+    This is associated with the image to produce (generator) or classified as real
+    or fake (discriminator). The CGAN model is shown in *Figure 4.3.1*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'CGAN is similar to DCGAN except for the additional one-hot vector input. For
+    the generator, the one-hot label is concatenated with the latent vector before
+    the `Dense` layer. For the discriminator, a new `Dense` layer is added. The new
+    layer is used to process the one-hot vector and reshape it so that it is suitable
+    for concatenation to the other input of the succeeding CNN layer:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Conditional GAN](img/B08956_04_08.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 4.3.1: The CGAN model is similar to DCGAN except for the one-hot vector,
+    which is used to condition the generator and discriminator outputs'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The generator learns to generate fake images from a 100-dim input vector and
+    a specified digit. The discriminator classifies real from fake images based on
+    real and fake images and their corresponding labels.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The basis of CGAN is still the same as the original GAN principle except that
+    the discriminator and generator inputs are conditioned on one-hot labels, *y*.
+    By incorporating this condition in *Equations* *4.1.1* and *4.1.5*, the loss functions
+    for the discriminator and generator are shown in *Equations* *4.3.1* and *4.3.2* respectively.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Given *Figure 4.3.2*, it may be more appropriate to write the loss functions
+    as:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Conditional GAN](img/B08956_04_021.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: and
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Conditional GAN](img/B08956_04_022.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: .
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Conditional GAN](img/B08956_04_023.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: (Equation 4.3.1)
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Conditional GAN](img/B08956_04_025.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: (Equation 4.3.2)
+  prefs: []
+  type: TYPE_NORMAL
+- en: The new loss function of the discriminator aims to minimize the error of predicting
+    real images coming from the dataset and fake images coming from the generator
+    given their one-hot labels. *Figure 4.3.2* shows how to train the discriminator.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Conditional GAN](img/B08956_04_09.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 4.3.2: Training the CGAN discriminator is similar to training the GAN
+    discriminator. The only difference is both the generated fake and the dataset''s
+    real images are conditioned with their corresponding one-hot labels.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The new loss function of the generator minimizes the correct prediction of
+    the discriminator on fake images conditioned on the specified one-hot labels.
+    The generator learns how to generate the specific MNIST digit given its one-hot
+    vector that can fool the discriminator. The following figure shows how to train
+    the generator:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Conditional GAN](img/B08956_04_07.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 4.3.3: Training the CGAN generator through the adversarial network is
+    similar to training GAN generator. The only difference is the generated fake images
+    are conditioned with one-hot labels.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Following listing highlights the minor changes needed in the discriminator model.
+    The code processes the one-hot vector using a `Dense` layer and concatenates it
+    with the image input. The `Model` instance is modified for the image and one-hot
+    vector inputs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Listing 4.3.1, `cgan-mnist-4.3.1.py` shows us the CGAN discriminator. In highlight
+    are the changes made in DCGAN.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: Following listing highlights the code changes to incorporate the conditioning
+    one-hot labels in the generator builder function. The `Model` instance is modified
+    for the *z*-vector and one-hot vector inputs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Listing 4.3.2, `cgan-mnist-4.3.1.py` shows us the CGAN generator. In highlight
+    are the changes made in DCGAN:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: '*Listing* *4.3.3* highlights the changes made in the `train()` function to
+    accommodate the conditioning one-hot vector for the discriminator and the generator.
+    The CGAN discriminator is firstly trained with one batch of real and fake data
+    conditioned on their respective one-hot labels. Then, the generator parameters
+    are updated by training the adversarial network given one-hot label conditioned
+    fake data pretending to be real. Similar to DCGAN, the discriminator weights are
+    frozen during adversarial training.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Listing 4.3.3, `cgan-mnist-4.3.1.py` shows us the CGAN training. In highlight
+    are the changes made in DCGAN:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: '*Figure 4.3.4* shows the evolution of MNIST digits generated when the generator
+    is conditioned to produce digits with the following labels:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[0 1 2 3'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 4 5 6 7
+  prefs: []
+  type: TYPE_NORMAL
+- en: 8 9 0 1
+  prefs: []
+  type: TYPE_NORMAL
+- en: 2 3 4 5]
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Conditional GAN](img/B08956_04_10.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 4.3.4: The fake images generated by CGAN at different training steps
+    when conditioned with labels [0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5]'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You''re encouraged to run the trained generator model to see new synthesized
+    MNIST digits images:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Alternatively, a specific digit (for example, 8) to be generated can also be
+    requested:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: With CGAN it's like having an agent that we can ask to draw digits similar to how humans
+    write digits. The key advantage of CGAN over DCGAN is that we can specify which
+    digit we want the agent to draw.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Conclusion
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: This chapter discussed the general principles behind GANs, to give you a foundation
+    to the more advanced topics we'll now move on to, including Improved GANs, Disentangled
+    Representations GANs, and Cross-Doman GANs. We started this chapter by understanding
+    how GANs are made up of two networks called generator and discriminator. The role
+    of the discriminator is to discriminate between real and fake signals. The aim
+    of the generator is to fool the discriminator. The generator is normally combined
+    with the discriminator to form an adversarial network. It is through training
+    the adversarial network that the generator learns how to produce fake signals
+    that can trick the discriminator.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We also learned how GANs are easy to build but notoriously difficult to train.
+    Two example implementations in Keras were presented. DCGAN demonstrated that it
+    is possible to train GANs to generate fake images using deep CNNs. The fake images
+    are MNIST digits. However, the DCGAN generator has no control over which specific
+    digit it should draw. CGAN addressed this problem by conditioning the generator
+    to draw a specific digit. The condition is in the form of a one-hot label. CGAN
+    is useful if we want to build an agent that can generate data of a specific class.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the next chapter, improvements on the DCGAN and CGAN will be introduced.
+    In particular, the focus is on how to stabilize the training of DCGAN and how
+    to improve the perceptive quality of CGAN. This will be done by introducing new
+    loss functions and slightly different model architectures.
+  prefs: []
+  type: TYPE_NORMAL
+- en: References
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Ian Goodfellow. *NIPS 2016 Tutorial: Generative Adversarial Networks*. arXiv
+    preprint arXiv:1701.00160, 2016 ([https://arxiv.org/pdf/1701.00160.pdf](https://arxiv.org/pdf/1701.00160.pdf)).'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Alec Radford, Luke Metz, and Soumith Chintala. *Unsupervised Representation
+    Learning with Deep Convolutional Generative Adversarial Networks*. arXiv preprint
+    arXiv:1511.06434, 2015 ([https://arxiv.org/pdf/1511.06434.pdf](https://arxiv.org/pdf/1511.06434.pdf)).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Mehdi Mirza and Simon Osindero. *Conditional Generative Adversarial Nets*. arXiv
+    preprint arXiv:1411.1784, 2014 ([https://arxiv.org/pdf/1411.1784.pdf](https://arxiv.org/pdf/1411.1784.pdf)).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Tero Karras and others. *Progressive Growing of GANs for Improved Quality, Stability,
+    and Variation*. ICLR, 2018 ([https://arxiv.org/pdf/1710.10196.pdf](https://arxiv.org/pdf/1710.10196.pdf)).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL

@@ -1,0 +1,570 @@
+- en: Recurrent Neural Networks
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this chapter, we are going to learn more about **Recurrent Neural Networks**
+    (**RNNs**), an overview of their most common use cases, and, finally, a possible
+    implementation by starting to be hands-on using the DeepLearning4j framework.
+    This chapter's code examples involve Apache Spark too. As stated in the previous
+    chapter for CNNs, training and evaluation strategies for RNNs will be covered
+    in [Chapter 7](3b6f47c0-6e17-484b-ad30-b6f92eb0473c.xhtml), *Training Neural Networks
+    with Spark*, [Chapter 8](b30120ea-bd42-4cb7-95d9-5ecaa2b7c181.xhtml), *Monitoring
+    and Debugging Neural Network Training*, and [Chapter 9](869a9495-e759-4810-8623-d8b76ba61398.xhtml),
+    *Interpreting Neural Network Output*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this chapter, I have tried to reduce the usage of math concepts and formulas
+    as much as possible in order to make the reading and comprehension easier for
+    developers and data analysts who might have no math or data science background.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The chapter covers the following topics:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Long short-term memory** (**LSTM**)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Use cases
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Hands-on RNN with Spark
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: LSTM
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'RNNs are multilayer neural networks that are used to recognize patterns in
+    sequences of data. By sequences of data, we mean text, handwriting, numerical
+    times series (coming for example from sensors), log entries, and so on. The algorithms
+    involved here have a temporal dimension too: they take time (and this is the main
+    difference with CNNs) and sequence both into account. For a better understanding
+    of the need for RNNs, we have to look at the basics of feedforward networks first.
+    Similar to RNNs, these networks channel information through a series of mathematical
+    operations performed at the nodes of the network, but they feed information straight
+    through, never touching a given node twice. The network is fed with input examples
+    that are then transformed into an output: in simple words, they map raw data to
+    categories. Training happens for them on labeled inputs, until the errors made
+    when guessing input categories has been minimized. This is the way a network learns
+    to categorize new data it has never seen before. A feedforward network hasn''t
+    any notion of order in time: the only input it considers is the current one it
+    has been exposed to, and it doesn''t necessarily alter how it classifies the next
+    one. RNNs take as input the current example they see, plus anything they have
+    perceived previously. A RNN can be then be seen as multiple feedforward neural
+    networks passing information from one to the other.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the RNNs' use case scenarios, a sequence could be a finite or infinite stream
+    of interdependent data. CNNs can't work well in those cases because they don’t
+    have any correlation between previous and next input. From [Chapter 5](fbec1d8a-a92f-4899-af0f-11f3d545e0eb.xhtml), *Convolutional
+    Neural Networks*, you have learned that a CNN takes an input and then outputs
+    based on the trained model. Running a given number of different inputs, none of
+    them would be biased by taking into account any of the previous outputs. But if
+    you consider a case like that presented in the last sections of this chapter (a
+    sentence generation case), where all the generated words are dependent on the
+    those generated before, there is definitely a need to bias based on previous output.
+    This is where RNNs come to the rescue, because they have memory of what happened
+    earlier in the sequence of data and this helps them to get the context. RNNs in
+    theory can look back indefinitely at all of the previous steps, but really, for
+    performance reasons, they have to restrict looking back at the last few steps
+    only.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let's go into the details of RNNs. For this explanation, I am going to start
+    from a **Multilayer Perception** (**MLP**), a class of feedforward ANN. The minimal
+    implementation of an MLP has at least three layers of nodes. But for the input
+    nodes, each node is a neuron that uses a nonlinear activation function. The input
+    layer, of course, takes the input. It is the first hidden layer that does the
+    activation, passing onto the next hidden layers, and so on. Finally, it reaches
+    the output layer. This is responsible for providing the output. All of the hidden
+    layers behave differently, because each one has different weights, bias, and activation
+    functions. In order to make it possible and easier to merge them, all the layers
+    need to be replaced with the same weights (and also same biases and activation
+    function). This is the only way to combine all the hidden layers into a single
+    recurrent layer. They start looking as shown in the following diagram.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/f7fe7d22-1b68-4038-bf16-8b4e3c859d78.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 6.1
+  prefs: []
+  type: TYPE_NORMAL
+- en: With reference to the preceding diagram, the network **H** receives some input
+    **x** and produces an output **o**. Any info passes from one step of the network
+    to the next through a loop mechanism. An input is provided to the hidden layer
+    of the network at each step. Any neuron of an RNN stores the inputs it receives
+    during all of the previous steps and then can merge that information with input
+    passed to it at the current step. This means that a decision taken at a time step
+    *t-1* affects the decision that is taken at a time *t*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s rephrase the preceding explanation with an example: let''s say we want
+    to predict what the next letter would be after a sequence of letters. Let''s assume
+    the input word is **pizza**, which is of five letters. What happens when the network
+    tries to figure out the fifth letter after the first four letters have been fed
+    to the network? Five iterations happen for the hidden layer. If we unfold the
+    network, it would be a five layers network, one for each letter of the input word
+    (see [Chapter 2](a177e128-f96b-4a3a-8e3e-24f133492cb0.xhtml), *Deep Learning Basics*, *Figure
+    2.11* as reference). We can see it then as a normal neural network repeated multiple
+    times (5). The number of times we unroll it has a direct correlation with how
+    far in the past the network can remember. Going back to the **pizza** example,
+    the total vocabulary of the input data is *{p, i, z, a}*. The hidden layer or
+    the RNN applies a formula to the current input as well as the previous state.
+    In our example, the letter *p* from the word *pizza*, being the first letter,
+    has nothing preceding it, so nothing is done and we can move on to the next letter,
+    which is *i*. The formula is applied by the hidden layer at the time between letter
+    *i* and the previous state, which was letter *p*. If at a given time *t*, the
+    input is *i*, then at time *t-1*, the input is *p*. By applying the formula to
+    both *p* and *i* we get a new state. The formula to calculate the current state
+    can be written as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*h[t] = f(h[t-1], x[t])*'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'where *h[t]* is the new state, *h[t-1]* is the previous state and *x[t]* is
+    the current input. From the previous formula, we can understand that the current
+    state is a function of the previous input (the input neuron has applied transformations
+    on the previous input). Any successive input is used as a time step. In this *pizza*
+    example we have four inputs to the network. The same function and the same weights
+    are applied to the network at each time step. Considering the simplest implementation
+    of an RNN, the activation function is *tanh*, a hyperbolic tangent that ranges
+    from *-1* to *1*, which is one of the most common sigmoid activation function
+    for MLPs. So, the formula looks as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*h[t] = tanh(W[hh]h[t-1] + W[xh]x[t])*'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Here *W[hh]* is the weight at the recurrent neuron and *W[xh]* is the weight
+    at the input neuron. That formula means that the immediate previous state is taken
+    into account by a recurrent neuron. Of course, the preceding equation can involve
+    multiple states in cases of longer sequence than *pizza*. Once the final state
+    is calculated then the output *y[t]* can be obtained this way:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*y[t] = W[hy]h[t]*'
+  prefs: []
+  type: TYPE_NORMAL
+- en: One final note about the error. It is calculated by comparing the output to
+    the actual output. Once the error has been calculated, then the learning process
+    happens by backpropagating it through the network in order to update the network
+    weights.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Backpropagation Through Time (BPTT)
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Multiple variant architectures have been proposed for RNNs (some of them have
+    been listed in [Chapter 2](a177e128-f96b-4a3a-8e3e-24f133492cb0.xhtml), *Deep
+    Learning Basics*, in the section *Recurrent Neural Networks*). Before entering
+    into details of the LSTM implementation, a few words must be spent about the problems
+    with the generic RNN architecture described previously. In general for neural
+    networks, forward propagation is the technique used to get the output of a model
+    and check if it is correct or not. Likewise, backward propagation is a technique
+    to go backwards through a neural network to find the partial derivatives of the
+    error over the weights (this makes it possible to subtract the found value from
+    the weights). These derivatives are then used by the Gradient Descent Algorithm,
+    which, in an iterative way, minimizes a function and then does up or down adjustments
+    to the weights (the direction depends on which one decreases the error). At training
+    time, backpropagation is then the way in which it is possible to adjust the weights
+    of a model. BPTT is just a way to define the process of doing backpropagation
+    on an unrolled RNN. With reference to [Chapter 2](a177e128-f96b-4a3a-8e3e-24f133492cb0.xhtml),
+    *Deep Learning Basics*, *Figure 2.11*, in doing BPTT, it is mandatory to do the
+    formulation of unrolling, this being the error of a given time step, depending
+    on the previous one. In the BPTT technique, the error is backpropagated from the
+    last time step to the first one, while unrolling all of them. This allows error
+    calculation for each time step, making it possible to update the weights. Please
+    be aware that BPTT can be computationally expensive in those cases where the number
+    of time steps is high.
+  prefs: []
+  type: TYPE_NORMAL
+- en: RNN issues
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The two major issues affecting RNNs are the **Exploding Gradients** and **Vanishing
+    Gradients**. We talk about Exploding Gradients when an algorithm assigns, without
+    a reason, a high importance to the model weights. But, the solution to this problem
+    is easy, as this would require just truncating or compressing the gradients. We
+    talk about Vanishing Gradients when the values of a gradient are so small that
+    they cause a model to stop or take too long to learn. This is a major problem
+    if compared with the Exploding Gradients, but it has now been solved through the
+    **LSTM** (Long Short-Term Memory) neural networks. LSTMs are a special kind of
+    RNN, capable of learning long-term dependencies, that were introduced by Sepp
+    Hochreiter ([https://en.wikipedia.org/wiki/Sepp_Hochreiter](https://en.wikipedia.org/wiki/Sepp_Hochreiter))
+    & Juergen Schmidhuber ([https://en.wikipedia.org/wiki/J%C3%BCrgen_Schmidhuber](https://en.wikipedia.org/wiki/J%C3%BCrgen_Schmidhuber))
+    in 1997.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'They are explicitly designed with the default ability to remember information
+    for long periods of time. This can be achieved because LSTMs retain their information
+    in a memory, which is pretty much like that of a computer: a LSTM can read, write,
+    and delete information from it. The LSTM''s memory can be considered as a gated
+    cell: it decides whether or not to store or delete information (open gates or
+    not), depending on the importance it puts on a given information. The process
+    of assigning importance happens through weights: consequently a network learns
+    over time which information has to be considered important and which not. An LSTM
+    has three gates: the input, the forget, and the output gate. The **Input Gate**
+    determines if a new input in should be let in, the **Forget Gate** deletes the
+    non-important information, and the **Output Gate** influences the output of the
+    network at the current time step, as shown in the following diagram:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/1cebafbc-4831-480b-b561-f880b3a85ac0.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 6.2: The three gates of an LSTM'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You can think of each of these three gates as a conventional artificial neuron,
+    as in a feedforward MNN: they compute an activation (using an activation function)
+    of a weighted sum. What enables the LSTM gates to do backpropagation is the fact
+    that they are analog (sigmoids, they range from zero to one). This implementation
+    solves the problems of Vanishing Gradients because it keeps the gradients steep
+    enough, and consequently the training completes in a relatively short time, while
+    maintaining an high accuracy.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Use cases
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'RNNs have several use cases. Here is a list of the most frequently used:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Language modelling and text generation**: This is the attempt to predict
+    the likelihood of the next word, given a sequence of words. This is useful for
+    language translation: the most likely sentence would be the one that is correct.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Machine translation**: This is the attempt to translate text from one language
+    to another.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Anomaly detection in time series**: It has been demonstrated that LSTM networks
+    in particular are useful for learning sequences containing longer term patterns
+    of unknown length, due to their ability to maintain long-term memory. For this
+    reason they are useful for anomaly or fault detection in time series. Practical
+    use cases are in log analysis and sensor data analysis.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Speech recognition**: This is the attempt to predict phonetic segments based
+    on input sound waves and then to formulate a word.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Semantic parsing**: Converting a natural language utterance to a logical
+    form—a machine-understandable representation of its meaning. Practical applications
+    include question answering and programming language code generation.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Image captioning**: This is a case that usually involves a combination of
+    a CNN and an RNN. The first makes the segmentation, while the other then uses
+    the data segmented by the CNN to recreate the descriptions.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Video tagging**: RNNs can be used for video search when doing frame by frame
+    image captioning of a video.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Image generation**: This is the process of creating parts of a scene independently
+    from others and to successively refine approximate sketches, generating at the
+    end, images that cannot be distinguished from real data with the naked eye.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Hands-on RNNs with Spark
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Let's start now being hands-on with RNNs. This section is divided into two parts—the
+    first one is about using DL4J to implement a network, while the second one will
+    introduce using both DL4J and Spark for the same purpose. As with CNNs, you will
+    discover that, thanks to the DL4J framework, lots of high-level facilities come
+    out-of-the-box with it, so that the implementation process is easier than you
+    might expect.
+  prefs: []
+  type: TYPE_NORMAL
+- en: RNNs with DL4J
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The first example presented in this chapter is an LSTM which, after the training,
+    will recite the following characters once the first character of the learning
+    string has been used as input for it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The dependencies for this example are the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Scala 2.11.8
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: DL4J NN 0.9.1
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: ND4J Native 0.9.1 and the specific classifier for the OS of the machine where
+    you would run it
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: ND4J jblas 0.4-rc3.6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Assuming we have a learn string that is specified through an immutable variable
+    `LEARNSTRING`, let''s start creating a dedicated list of possible characters from
+    it, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Let''s configure the network, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: You will notice that we are using the same `NeuralNetConfiguration.Builder`
+    class as for the CNN example presented in the previous chapter. This same abstraction
+    is used for any network you need to implement through DL4J. The optimization algorithm
+    used is the Stochastic Gradient Descent ([https://en.wikipedia.org/wiki/Stochastic_gradient_descent](https://en.wikipedia.org/wiki/Stochastic_gradient_descent)).
+    The meaning of the other parameters will be explained in the next chapter that
+    will focus on training.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s now define the layers for this network. The model we are implementing
+    is based on the LSTM RNN by Alex Graves ([https://en.wikipedia.org/wiki/Alex_Graves_(computer_scientist)](https://en.wikipedia.org/wiki/Alex_Graves_(computer_scientist))).
+    After deciding their total number assigning a value to an immutable variable `HIDDEN_LAYER_CONT`,
+    we can define the hidden layers of our network, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: The activation function is `tanh` (hyperbolic tangent).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We need then to define the `outputLayer` (choosing softmax as the activation
+    function), as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Before completing the configuration, we must specify that this model isn''t
+    pre-trained and that we use backpropagation, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The network (`MultiLayerNetwork`) can be created starting from the preceding
+    configuration, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Some training data can be generated programmatically starting from the learning
+    string character list, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: The way the training for this RNN happens will be covered in the next chapter
+    (and the code example will be completed there)—the focus in this section is to
+    show how to configure and build an RNN network using the DL4J API.
+  prefs: []
+  type: TYPE_NORMAL
+- en: RNNs with DL4J and Spark
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The example presented in this section is an LSTM that would be trained to generate
+    text, one character at a time. The training is done using Spark.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The dependencies for this example are the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Scala 2.11.8
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: DL4J NN 0.9.1
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: ND4J Native 0.9.1 and the specific classifier for the OS of the machine where
+    you would run it
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: ND4J jblas 0.4-rc3.6
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Apache Spark Core 2.11, release 2.2.1
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: DL4J Spark 2.11, release 0.9.1_spark_2
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'We start configuring the network as usual through the `NeuralNetConfiguration.Builder`
+    class, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: As for the example presented in the *RNNs with DL4J* section, the LSTM RNN implementation
+    used here is that by Alex Graves. So the configuration, the hidden layers, and
+    the output layer are pretty similar to those for the previous example.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now this is where Spark comes into play. Let''s set up the Spark configuration
+    and context, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: Assuming we got some training data and have created a `JavaRDD[DataSet]` named
+    `trainingData` from them, we need to set up for data parallel training. In particular,
+    we need to set up the `TrainingMaster` ([https://deeplearning4j.org/doc/org/deeplearning4j/spark/api/TrainingMaster.html](https://deeplearning4j.org/doc/org/deeplearning4j/spark/api/TrainingMaster.html)).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'It is an abstraction that controls how learning is actually executed on Spark
+    and allows for multiple different training implementations to be used with `SparkDl4jMultiLayer`
+    ([https://deeplearning4j.org/doc/org/deeplearning4j/spark/impl/multilayer/SparkDl4jMultiLayer.html](https://deeplearning4j.org/doc/org/deeplearning4j/spark/impl/multilayer/SparkDl4jMultiLayer.html)).
+    Set up for data parallel training, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Currently, the DL4J framework has only one implementation of the `TrainingMaster`,
+    the `ParameterAveragingTrainingMaster` ([https://deeplearning4j.org/doc/org/deeplearning4j/spark/impl/paramavg/ParameterAveragingTrainingMaster.html](https://deeplearning4j.org/doc/org/deeplearning4j/spark/impl/paramavg/ParameterAveragingTrainingMaster.html)).
+    The parameters that we have set for it in the current example are:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`workerPrefetchNumBatches`: The number of Spark workers capable of prefetching
+    in an asynchronous way; a number of mini-batches (Dataset objects), in order to
+    avoid waiting for the data to be loaded. Setting this parameter to `0` means disabling
+    this prefetching. Setting it to `2` (such as in our example) is a good compromise
+    (a sensible default with a non-excessive use of memory).'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`batchSizePerWorker`: This is the number of examples used for each parameter
+    update in each Spark worker.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`averagingFrequency`: To control how frequently the parameters are averaged
+    and redistributed, in terms of a number of mini-batches of size `batchSizePerWorker`.
+    Setting a low averaging period may be inefficient, because of the high network
+    communication and initialization overhead, relative to computation, while setting
+    a large averaging period may result in poor performance. So, a good compromise
+    is to keep its value between `5` and `10`.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The `SparkDl4jMultiLayer` requires as parameters the Spark context, the Spark
+    configuration, and the `TrainingMaster`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The training through Spark can now start. The way it happens will be covered
+    in the next chapter (and this code example will be completed there)—again, the
+    focus in this section is to show how to configure and build an RNN network using
+    the DL4J and Spark API.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Loading multiple CSVs for RNN data pipelines
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Before wrapping up this chapter, here are a few notes about how we can load
+    multiple CSV files, each containing one sequence, for RNN training and testing
+    data. We are assuming to have a dataset made of multiple CSV files stored in a
+    cluster (it could be HDFS or an object storage such as Amazon S3 or Minio), where
+    each file represents a sequence, each row of one file contains the values for
+    one time step only, the number of rows could be different across files, and the
+    header row could be present or missing in all files.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'With reference to CSV files saved in an S3-based object storage (refer to [Chapter
+    3](44fab060-12c9-4eec-9e15-103da589a510.xhtml), *Extract, Transform, Load*, *Data
+    Ingestion from S3,* for more details), the Spark context has been created as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The Spark job configuration has been set up to access the object storage (as
+    explained in [Chapter 3](44fab060-12c9-4eec-9e15-103da589a510.xhtml), *Extract,
+    Transform, Load*), and we can get the data as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: '(`dl4j-bucket` is the bucket containing the CSV files). Next we create a DataVec
+    `CSVSequenceRecordReader` specifying if all the CSV files in the bucket have the
+    header row or not (use the value `0` for no, `1` for yes) and the values separator,
+    as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Finally we get the sequence by applying a `map` transformation to the original
+    data in `seqRR`, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'It is very similar in the case of RNN training with non-sequence CSV files,
+    by using the `DataVecDataSetFunction` class of `dl4j-spark` and specifying the
+    index of the label column and the number of labels for classification, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this chapter, we first went deeper into the RNNs' main concepts, before understanding
+    how many practical use cases these particular NNs have, and, finally, we started
+    going hands-on, implementing some RNNs using DL4J and Spark.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The next chapter will focus on training techniques for CNN and RNN models. Training
+    techniques have just been mentioned, or skipped from [Chapter 3](44fab060-12c9-4eec-9e15-103da589a510.xhtml),
+    *Extract, Transform, Load*, to this chapter because the main goal so far has been
+    on understanding how training data can be retrieved and prepared and how models
+    can be implemented through DL4J and Spark.
+  prefs: []
+  type: TYPE_NORMAL

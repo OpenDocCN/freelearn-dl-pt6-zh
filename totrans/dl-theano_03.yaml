@@ -1,0 +1,696 @@
+- en: Chapter 3. Encoding Word into Vector
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the previous chapter, inputs to neural nets were images, that is, vectors
+    of continuous numeric values, the **natural language** for neural nets. But for
+    many other machine learning fields, inputs may be categorical and discrete.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this chapter, we'll present a technique known as embedding, which learns
+    to transform discrete input signals into vectors. Such a representation of inputs
+    is an important first step for compatibility with the rest of neural net processing.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Such embedding techniques will be illustrated with an example of natural language
+    texts, which are composed of words belonging to a finite vocabulary.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We will present the different aspects of embedding:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The principles of embedding
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The different types of word embedding
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: One hot encoding versus index encoding
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Building a network to translate text into vectors
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Training and discovering the properties of embedding spaces
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Saving and loading the parameters of a model
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Dimensionality reduction for visualization
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Evaluating the quality of embeddings
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Applications of embedding spaces
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Weight tying
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Encoding and embedding
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Each word can be represented by an index in a vocabulary:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Encoding and embedding](img/00043.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Encoding words is the process of representing each word as a vector. The simplest
+    method of encoding words is called one-hot or 1-of-K vector representation. In
+    this method, each word is represented as an ![Encoding and embedding](img/00044.jpeg)
+    vector with all 0s and one 1 at the index of that word in the sorted vocabulary.
+    In this notation, |V| is the size of the vocabulary. Word vectors in this type
+    of encoding for vocabulary {**King**, **Queen**, **Man**, **Woman**, **Child**}
+    appear as in the following example of encoding for the word **Queen**:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Encoding and embedding](img/00045.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: In the one-hot vector representation method, every word is equidistant from
+    the other. However, it fails to preserve any relationship between them and leads
+    to data sparsity. Using word embedding does overcome some of these drawbacks.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Word embedding is an approach to distributional semantics that represents words
+    as vectors of real numbers. Such representation has useful clustering properties,
+    since it groups together words that are semantically and syntactically similar.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For example, the words **seaworld** and **dolphin** will be very close in the
+    created space. The main aim of this step is to map each word into a continuous,
+    low-dimensional, and real-valued vector and use it as input to a model such as
+    a **Recurrent Neural Network** (**RNN**), a **Convolutional Neural Network** (**CNN**),
+    and so on:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Encoding and embedding](img/00046.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Such a representation is **dense**. We would expect synonyms and interchangeable
+    words to be close in that space.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this chapter, we will present the very popular model of word embedding,
+    Word2Vec, which was initially developed by Mikolov et al. in 2013\. Word2Vec has
+    two different models: **Continuous Bag of Words** (**CBOW**) and **Skip-gram**.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In the CBOW method, the goal is to predict a word given a surrounding context.
+    A Skip-gram predicts a surrounding context of words given a single word (see the
+    following figure):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Encoding and embedding](img/00047.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: For this chapter, we will focus on the CBOW model. We will start by presenting
+    the dataset, then we will explain the idea behind the method. Afterwards, we will
+    show a simple implementation of it using Theano. Finally, we will end with referring
+    to some applications of word embedding.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Dataset
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Before we explain the model part, let us start by processing the text corpus
+    by creating the vocabulary and integrating the text with it so that each word
+    is represented as an integer. As a dataset, any text corpus can be used, such
+    as Wikipedia or web articles, or posts from social networks such as Twitter. Frequently
+    used datasets include PTB, text8, BBC, IMDB, and WMT datasets.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this chapter, we use the `text8` corpus. It consists of a pre-processed
+    version of the first 100 million characters from a Wikipedia dump. Let us first
+    download the corpus:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now, we construct the vocabulary and replace the rare words with tokens for
+    **UNKNOWN**. Let us start by reading the data into a list of strings:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Read the data into a list of strings:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: From the list of strings, we can now build the dictionary. We start by counting
+    the frequency of the words in the `word_freq` dictionary. Afterwards, we replace
+    the words that are infrequent, that have a number of ocurrences in the corpus
+    less than `max_df`, with tokens.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Build the dictionary and replace rare words with the `UNK` token:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Now, let us define the functions of creating the dataset (that is, the contexts
+    and targets):'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Continuous Bag of Words model
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The design of the neural network to predict a word given its surrounding context
+    is shown in the following figure:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Continuous Bag of Words model](img/00048.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'The input layer receives the context while the output layer predicts the target
+    word. The model we''ll use for the CBOW model has three layers: input layer, hidden
+    layer (also called the projection layer or embedding layer), and output layer.
+    In our setting, the vocabulary size is V and the hidden layer size is N. Adjacent
+    units are fully connected.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The input and the output can be represented either by an index (an integer,
+    0-dimensional) or a one-hot-encoding vector (1-dimensional). Multiplying with
+    the one-hot-encoding vector `v` consists simply of taking the j-th row of the
+    embedding matrix:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Continuous Bag of Words model](img/00049.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Since the index representation is more efficient than the one-hot encoding representation
+    in terms of memory usage, and Theano supports indexing symbolic variables, it
+    is preferable to adopt the index representation as much as possible.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Therefore, input (context) will be 2-dimensional, represented by a matrix,
+    with two dimensions: the batch size and the context length. The output (target)
+    is 1-dimensional, represented by a vector with one dimension: the batch size.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s define the CBOW model:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The context and target variables are the known parameters of this model. The
+    unknown parameters of the CBOW model are the connection matrix ![Continuous Bag
+    of Words model](img/00050.jpeg), between the input layer and the hidden layer,
+    and the connection matrix ![Continuous Bag of Words model](img/00051.jpeg), between
+    the hidden layer and the output layer:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Each row of ![Continuous Bag of Words model](img/00050.jpeg) is the N-dimension
+    vector representation ![Continuous Bag of Words model](img/00052.jpeg) of the
+    associated word, `i`, of the input layer, where `N` is the hidden layer size.
+    Given a context, when computing the hidden layer output, the CBOW model takes
+    the average of the vectors of the input context words, and uses the product of
+    the `input -> hidden` weight matrix and the average vector as the output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Continuous Bag of Words model](img/00053.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Here, `C` is the number of words in the context, `w1, w2, w3,..., wc` are the
+    words in the context, and ![Continuous Bag of Words model](img/00054.jpeg) is
+    the input vector of a word ![Continuous Bag of Words model](img/00055.jpeg). The
+    activation function of the output layer is the softmax layer. Equations 2 and
+    3 show how we compute the output layer:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Continuous Bag of Words model](img/00056.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Here, ![Continuous Bag of Words model](img/00052.jpeg) is the j-th column of
+    the matrix ![Continuous Bag of Words model](img/00051.jpeg) and `V` is the vocabulary
+    size. In our settings, the vocabulary size is `vocab_size` and the hidden layer
+    size is `emb_size`. The loss function is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Continuous Bag of Words model](img/00057.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: (4)
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, let us translate equations 1, 2, 3, and 4 in Theano.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To compute the hidden (projection) layer output: `input -> hidden (eq. 1)`'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The softmax activation (eq. 3) :'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The loss function (eq. 4):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Update the parameters of the model using SGD:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: Finally, we need to define the training and evaluation functions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s make the dataset shared to pass it to the GPU. For simplicity, we assume
+    that we have a function called `get_data_set` that returns the set of targets
+    and its surrounding context:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: The input variable of `train_model` is the index of the batch, since the whole
+    dataset has been transferred in one pass to the GPU thanks to shared variables.
+  prefs: []
+  type: TYPE_NORMAL
+- en: For validation during training, we evaluate the model using the cosine similarity
+    between a mini batch of examples and all embeddings.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s use a `theano` variable to place the input to the validation model:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Normalized word embedding of the validation input:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Similarity is given by the cosine similarity function:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: Training the model
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Now we can start training the model. In this example, we chose to train the
+    model using SGD with a batch size of 64 and 100 epochs. To validate the model,
+    we randomly selected 16 words and used the similarity measure as an evaluation
+    metric:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s begin training:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Lastly, let us create two generic functions that will help us save any model
+    parameters in a reusable `utils.py` utility file:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Running on a GPU, the preceding code prints the following results:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Let us note:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Rare words are updated only a small number of times, while frequent words appear
+    more often in inputs and context windows. Subsampling of frequent words can remedy
+    to this.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: All weights are updated in the output embedding, and only a few of them, those
+    corresponding to the words in the context window, are updated positively. Negative
+    sampling can help rebalance the positives and negatives in the update.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Visualizing the learned embeddings
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Let us visualize the embedding in a 2D figure in order to get an understanding
+    of how well they capture similarity and semantics. For that purpose, we need to
+    reduce the number of dimension of the embedding, which is highly dimensional,
+    to two dimensions without altering the structure of the embeddings.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Reducing the number of dimension is called manifold learning, and many different
+    techniques exist, some of them linear, such as **Principal Component Analysis**
+    (**PCA**), **Independent Component Analysis** (**ICA**), **Linear Discriminant
+    Analysis** (**LDA**), and **Latent Sementic Analysis** / **Indexing** (**LSA**
+    / **LSI**), and some are non-linear, such as **Isomap**, **Locally Linear Embedding**
+    (**LLE**), **Hessian** **Eigenmapping**, **Spectral embedding**, **Local tangent
+    space embedding**, **Multi Dimensional Scaling** (**MDS**), and **t-distributed
+    Stochastic Neighbor Embedding** (**t-SNE**).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To display the word embedding, let us use t-SNE, a great technique adapted
+    to high dimensional data to reveal local structures and clusters, without crowding
+    points together:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Visualize the embeddings:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The plotted map displays the words with similar embeddings close to each other:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '![Visualizing the learned embeddings](img/00058.jpeg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_IMG
+- en: Evaluating embeddings – analogical reasoning
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Analogical reasoning is a simple and efficient way to evaluate embeddings by
+    predicting syntactic and semantic relationships of the form *a is to b as c is
+    to _?*, denoted as *a : b → c : ?*. The task is to identify the held-out fourth
+    word, with only exact word matches deemed correct.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For example, the word *woman* is the best answer to the question *king is to
+    queen as man is to?*. Assume that ![Evaluating embeddings – analogical reasoning](img/00059.jpeg)
+    is the representation vector for the word ![Evaluating embeddings – analogical
+    reasoning](img/00060.jpeg) normalized to unit norm. Then, we can answer the question
+    *a : b → c : ?* , by finding the word ![Evaluating embeddings – analogical reasoning](img/00061.jpeg)
+    with the representation closest to:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Evaluating embeddings – analogical reasoning](img/00062.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'According to cosine similarity:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Evaluating embeddings – analogical reasoning](img/00063.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Now let us implement the analogy prediction function using Theano. First, we
+    need to define the input of the function. The analogy function receives three
+    inputs, which are the word indices of `a`, `b`, and `c`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Then, we need to map each input to the word embedding vector. Each row of `a_emb`,
+    `b_emb`, `c_emb` is a word''s embedding vector:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now we can compute the cosine distance between each target and vocab pair.
+    We expect that d''s embedding vectors on the unit hyper-sphere is near: `c_emb
+    + (b_emb - a_emb)`, which has the shape `[bsz, emb_size]`. `dist` has shape [`bsz,
+    vocab_size`].'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In this example, we consider that the prediction function takes the top four
+    words. Thus, we can define the function in Theano as the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'To run the preceding function, we need to load the evaluation data, which is
+    in this example the set of analogy questions defined by Google. Each question
+    contains four words separated by spaces. The first question can be interpreted
+    as *Athens is to Greece as Baghdad is to _?* and the correct answer should be
+    *Iraq*:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Let us load the analogy questions using the `read_analogies` function that
+    is defined in the following code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now, we can run the evaluation model:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This results in:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE25]'
+  prefs: []
+  type: TYPE_PRE
+- en: Evaluating embeddings – quantitative analysis
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: A few words might be enough to indicate that the quantitative analysis of embeddings
+    is also possible.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Some word similarity benchmarks propose human-based distances between concepts:
+    Simlex999 (Hill et al., 2016), Verb-143 (Baker et al., 2014), MEN (Bruni et al.,
+    2014), RareWord (Luong et al., 2013), and MTurk- 771 (Halawi et al., 2012).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Our similarity distance between embeddings can be compared to these human distances,
+    using Spearman's rank correlation coefficient to quantitatively evaluate the quality
+    of the learned embeddings.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Application of word embeddings
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Word embeddings capture the meaning of the words. They translate a discrete
+    input into an input that can be processed by neural nets.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Embeddings are the start of many applications linked to language:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Generating texts, as we'll see in the next chapter
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Translation systems, where input and target sentences are sequences of words
+    and whose embeddings can be processed by end-to-end neural nets ([Chapter 8](part0083_split_000.html#2F4UM2-ccdadb29edc54339afcb9bdf9350ba6b
+    "Chapter 8. Translating and Explaining with Encoding – decoding Networks"), *Translating
+    and Explaining with Encoding – decoding Networks*)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Sentiment analysis ([Chapter 5](part0060_split_000.html#1P71O2-ccdadb29edc54339afcb9bdf9350ba6b
+    "Chapter 5. Analyzing Sentiment with a Bidirectional LSTM"), *Analyzing Sentiment
+    with a Bidirectional LSTM*)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Zero-shot learning in computer vision; the structure in the word language enables
+    us to find classes for which no training images exist
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Image annotation/captioning
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Neuro-psychiatry, for which neural nets can predict with 100% accuracy some
+    psychiatric disorders in human beings
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Chatbots, or answering questions from a user ([Chapter 9](part0091_split_000.html#2MP362-ccdadb29edc54339afcb9bdf9350ba6b
+    "Chapter 9. Selecting Relevant Inputs or Memories with the Mechanism of Attention"),
+    *Selecting Relevant Inputs or Memories with the Mechanism of Attention*)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: As with words, the principle of semantic embedding can be used on any problem
+    with categorical variables (classes of images, sounds, films, and so on), where
+    the learned embedding for the activation of categorical variables can be used
+    as input to neural nets for further classification challenges.
+  prefs: []
+  type: TYPE_NORMAL
+- en: As language structures our mind, word embeddings help structure or improve the
+    performance of neural net based systems.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Weight tying
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Two weight matrices, ![Weight tying](img/00050.jpeg) and ![Weight tying](img/00051.jpeg)
+    have been used for input or output respectively. While all weights of ![Weight
+    tying](img/00051.jpeg) are updated at every iteration during back propagation,
+    ![Weight tying](img/00050.jpeg)is only updated on the column corresponding to
+    the current training input word.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Weight tying** (**WT**) consists of using only one matrix, W, for input and
+    output embedding. Theano then computes the new derivatives with respect to these
+    new weights and all weights in W are updated at every iteration. Fewer parameters
+    leads to less overfitting.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In the case of Word2Vec, such a technique does not give better results for
+    a simple reason: in the Word2Vec model, the probability of finding the input word
+    in the context is given as:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Weight tying](img/00064.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: It should be as close to zero but cannot be zero except if W = 0.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'But in other applications, such as in **Neural Network Language Models** (**NNLM**)
+    in [Chapter 4](part0051_split_000.html#1GKCM1-ccdadb29edc54339afcb9bdf9350ba6b
+    "Chapter 4. Generating Text with a Recurrent Neural Net"), *Generating Text with
+    a Recurrent Neural Net* and **Neural Machine Translation** (**NMT**) in [Chapter
+    8](part0083_split_000.html#2F4UM2-ccdadb29edc54339afcb9bdf9350ba6b "Chapter 8. Translating
+    and Explaining with Encoding – decoding Networks"), *Translating and Explaining
+    with Encoding-decoding Networks*), it can be shown [*Using the output embedding
+    to improve the language models*] that:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Input embeddings are usually worse than output embeddings
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: WT solves this problem
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The common embedding learned with WT is close in quality to the output embedding
+    without WT
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Inserting a regularized projection matrix P before the output embedding helps
+    the networks use the same embedding and leads to even better results under WT
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Further reading
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Please refer to the following articles:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Efficient Estimation of Word Representations in Vector Space, Tomas Mikolov,
+    Kai Chen, Greg Corrado, Jeffrey Dean, Jan 2013
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Factor-based Compositional Embedding Models, Mo Yu, 2014
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Character-level Convolutional Networks for Text Classification, Xiang Zhang,
+    Junbo Zhao, Yann LeCun, 2015
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Distributed Representations of Words and Phrases and their Compositionality,
+    Tomas Mikolov, Ilya Sutskever, Kai Chen, Greg Corrado, Jeffrey Dean, 2013
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Using the Output Embedding to Improve Language Models, Ofir Press, Lior Wolf,
+    Aug 2016
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: This chapter presented a very common way to transform discrete inputs in particular
+    texts into numerical embeddings, in the case of natural language processing.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The technique to train these word representations with neural networks does
+    not require us to label the data and infers its embedding directly from natural
+    texts. Such training is named *unsupervised learning*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: One of the main challenges with deep learning is to convert input and output
+    signals into representations that can be processed by nets, in particular vectors
+    of floats. Then, neural nets give all the tools to process these vectors, to learn,
+    decide, classify, reason, or generate.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the next chapters, we'll use these embeddings to work with texts and more
+    advanced neural networks. The first application presented in the next chapter
+    is about automatic text generation.
+  prefs: []
+  type: TYPE_NORMAL

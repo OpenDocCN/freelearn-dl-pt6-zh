@@ -1,0 +1,1348 @@
+- en: Implementing Natural Language Processing
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this chapter, we will discuss word vectors (Word2Vec) and paragraph vectors
+    (Doc2Vec) in DL4J. We will develop a complete running example step by step, covering
+    all the stages, such as ETL, model configuration, training, and evaluation. Word2Vec and Doc2Vec are
+    **natural language processing** (**NLP**) implementations in DL4J. It is worth
+    mentioning a little about the bag-of-words algorithm before we talk about Word2Vec.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Bag-of-words** is an algorithm that counts the instances of words in documents.
+    This will allow us to perform document classification. Bag of words and Word2Vec are
+    just two different types of text classification. **Word2Vec** can use a bag of
+    words extracted from a document to create vectors. In addition to these text classification
+    methods, **term frequency–inverse document frequency** (**TF-IDF**) can be used
+    to judge the topic/context of the document. In the case of TF-IDF, a score will
+    be calculated for all the words, and word counts will be replaced with this score.
+    TF-IDF is a simple scoring scheme, but word embeddings may be a better choice,
+    as the semantic similarity can be captured by word embedding. Also, if your dataset
+    is small and the context is domain-specific, then bag of words may be a better
+    choice than Word2Vec.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Word2Vec is a two-layer neural network that processes text. It converts the
+    text corpus to vectors.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note that Word2Vec is not a **deep neural network** (**DNN**). It transforms
+    text data into a numerical format that a DNN can understand, making customization
+    possible.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We can even combine Word2Vec with DNNs to serve this purpose. It doesn't train
+    the input words through reconstruction; instead, it trains words using the neighboring
+    words in the corpus.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Doc2Vec (paragraph vectors) associates documents with labels, and is an extension
+    of Word2Vec. Word2Vec tries to correlate words with words, while Doc2Vec (paragraph
+    vectors) correlates words with labels. Once we represent documents in vector formats,
+    we can then use these formats as an input to a supervised learning algorithm to
+    map these vectors to labels.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this chapter, we will cover the following recipes:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Reading and loading text data
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Tokenizing data and training the model
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Evaluating the model
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Generating plots from the model
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Saving and reloading the model
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Importing Google News vectors
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Troubleshooting and tuning Word2Vec models
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Using Word2Vec for sentence classification using CNNs
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Using Doc2Vec for document classification
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Technical requirements
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The examples discussed in this chapter can be found at [https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/tree/master/05_Implementing_NLP/sourceCode/cookbookapp/src/main/java/com/javadeeplearningcookbook/examples](https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/tree/master/05_Implementing_NLP/sourceCode/cookbookapp/src/main/java/com/javadeeplearningcookbook/examples).
+  prefs: []
+  type: TYPE_NORMAL
+- en: After cloning our GitHub repository, navigate to the directory called `Java-Deep-Learning-Cookbook/05_Implementing_NLP/sourceCode`.Then,
+    import the `cookbookapp` project as a Maven projectby importing `pom.xml`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To get started with NLP in DL4J, add the following Maven dependency in `pom.xml`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: Data requirements
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The project directory has a `resource` folder with the required data for the `LineIterator`
+    examples:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/afff3d5b-69da-41a6-8309-79bab888a6c6.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'For `CnnWord2VecSentenceClassificationExample` or `GoogleNewsVectorExampleYou`,
+    you can download datasets from the following URLs:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Google News vector**: [https://deeplearning4jblob.blob.core.windows.net/resources/wordvectors/GoogleNews-vectors-negative300.bin.gz](https://deeplearning4jblob.blob.core.windows.net/resources/wordvectors/GoogleNews-vectors-negative300.bin.gz)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**IMDB review data**: [http://ai.stanford.edu/~amaas/data/sentiment/aclImdb_v1.tar.gz](http://ai.stanford.edu/~amaas/data/sentiment/aclImdb_v1.tar.gz)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Note that IMDB review data needs to be extracted twice in order to get the actual
+    dataset folder.
+  prefs: []
+  type: TYPE_NORMAL
+- en: For the **t-Distributed Stochastic Neighbor Embedding** (**t-SNE**) visualization
+    example, the required data (`words.txt`) can be located in the project root directory
+    itself.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Reading and loading text data
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: We need to load raw sentences in text format and iterate them using an underlined
+    iterator that serves the purpose. A text corpus can also be subjected to preprocessing,
+    such as lowercase conversion. Stop words can be mentioned while configuring the Word2Vec
+    model. In this recipe, we will extract and load text data from various data-input
+    scenarios.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Select an iterator approach from step 1 to step 5 depending on what kind of
+    data you're looking for and how you want to load it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Create a sentence iterator using `BasicLineIterator`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: For an example, go to [https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/blob/master/05_Implementing_NLP/sourceCode/cookbookapp/src/main/java/com/javadeeplearningcookbook/examples/BasicLineIteratorExample.java](https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/blob/master/05_Implementing_NLP/sourceCode/cookbookapp/src/main/java/com/javadeeplearningcookbook/examples/BasicLineIteratorExample.java).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Create a sentence iterator using `LineSentenceIterator`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: For an example, go to **[https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/blob/master/05_Implementing_NLP/sourceCode/cookbookapp/src/main/java/com/javadeeplearningcookbook/examples/LineSentenceIteratorExample.java](https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/blob/master/05_Implementing_NLP/sourceCode/cookbookapp/src/main/java/com/javadeeplearningcookbook/examples/LineSentenceIteratorExample.java)**.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Create a sentence iterator using `CollectionSentenceIterator`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: For an example, go to [https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/blob/master/05_Implementing_NLP/sourceCode/cookbookapp/src/main/java/com/javadeeplearningcookbook/examples/CollectionSentenceIteratorExample.java](https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/blob/master/05_Implementing_NLP/sourceCode/cookbookapp/src/main/java/com/javadeeplearningcookbook/examples/CollectionSentenceIteratorExample.java).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Create a sentence iterator using `FileSentenceIterator`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: For an example, go to**[https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/blob/master/05_Implementing_NLP/sourceCode/cookbookapp/src/main/java/com/javadeeplearningcookbook/examples/FileSentenceIteratorExample.java](https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/blob/master/05_Implementing_NLP/sourceCode/cookbookapp/src/main/java/com/javadeeplearningcookbook/examples/FileSentenceIteratorExample.java).
+    [](https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/blob/master/05_Implementing_NLP/sourceCode/cookbookapp/src/main/java/com/javadeeplearningcookbook/examples/FileSentenceIteratorExample.java)**
+  prefs: []
+  type: TYPE_NORMAL
+- en: Create a sentence iterator using `UimaSentenceIterator`.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Add the following Maven dependency:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Then use the iterator, as shown here:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'You can also use it like this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: For an example, go to [https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/blob/master/05_Implementing_NLP/sourceCode/cookbookapp/src/main/java/com/javadeeplearningcookbook/examples/UimaSentenceIteratorExample.java](https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/blob/master/05_Implementing_NLP/sourceCode/cookbookapp/src/main/java/com/javadeeplearningcookbook/examples/UimaSentenceIteratorExample.java).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Apply the preprocessor to the text corpus:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: For an example, go to [https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/blob/master/05_Implementing_NLP/sourceCode/cookbookapp/src/main/java/com/javadeeplearningcookbook/examples/SentenceDataPreProcessor.java](https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/blob/master/05_Implementing_NLP/sourceCode/cookbookapp/src/main/java/com/javadeeplearningcookbook/examples/SentenceDataPreProcessor.java).
+  prefs: []
+  type: TYPE_NORMAL
+- en: How it works...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In step 1, we used `BasicLineIterator`, which is a basic, single-line sentence
+    iterator without any customization involved.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In step 2, we used `LineSentenceIterator` to iterate through multi-sentence
+    text data. Each line is considered a sentence here. We can use them for multiple
+    lines of text.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In step 3, **`CollectionSentenceIterator`** will accept a list of strings as
+    text input where each string represents a sentence (document). This can be a list
+    of tweets or articles.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In step 4, **`FileSentenceIterator`** processes sentences in a file/directory.
+    Sentences will be processed line by line from each file.
+  prefs: []
+  type: TYPE_NORMAL
+- en: For anything complex, we recommend that you use **`UimaSentenceIterator`**,
+    which is a proper machine learning level pipeline. It iterates over a set of files
+    and segments the sentences. The `UimaSentenceIterator` pipeline can perform tokenization,
+    lemmatization, and part-of-speech tagging. The behavior can be customized based
+    on the analysis engines that are passed on. This iterator is the best fit for
+    complex data, such as data returned from the Twitter API. An analysis engine is
+    a text-processing pipeline.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You need to use the `reset()` method if you want to begin the iterator traversal
+    from the beginning after traversing once.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We can normalize the data and remove anomalies by defining a preprocessor on
+    the data iterator. Hence, we defined a normalizer (preprocessor) in step 5.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There's more...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'We can also create a sentence iterator using `UimaSentenceIterator` by passing
+    an analysis engine, as shown in the following code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: The concept of an analysis engine is borrowed from UIMA's text-processing pipeline.
+    DL4J has standard analysis engines available for common tasks that enable further
+    text customization and decide how sentences are defined. Analysis engines are
+    thread safe compared to OpenNLP text-processing pipelines. ClearTK-based pipelines
+    are also used to handle common text-processing tasks in DL4J.
+  prefs: []
+  type: TYPE_NORMAL
+- en: See also
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '**UIMA**: [http://uima.apache.org/](http://uima.apache.org/)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**OpenNLP**: [http://opennlp.apache.org/](http://opennlp.apache.org/)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Tokenizing data and training the model
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: We need to perform tokenization in order to build the Word2Vec models. The context
+    of a sentence (document) is determined by the words in it. Word2Vec models require
+    words rather than sentences (documents) to feed in, so we need to break the sentence
+    into atomic units and create a token each time a white space is hit. DL4J has
+    a tokenizer factory that is responsible for creating the tokenizer. The `TokenizerFactory`
+    generates a tokenizer for the given string. In this recipe, we will tokenize the
+    text data and train the Word2Vec model on top of them.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Create a tokenizer factory and set the token preprocessor:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Add the tokenizer factory to the Word2Vec model configuration:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Train the Word2Vec model:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: How it works...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In step 1, we used `DefaultTokenizerFactory()` to create the tokenizer factory
+    to tokenize the words. This is the default tokenizer for Word2Vec and it is based
+    on a string tokenizer, or stream tokenizer. We also used `CommonPreprocessor`
+    as the token preprocessor. A preprocessor will remove anomalies from the text
+    corpus. The `CommonPreprocessor` is a token preprocessor implementation that removes
+    punctuation marks and converts the text to lowercase. It uses the `toLowerCase(String)` method
+    and its behavior depends on the default locale.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Here are the configurations that we made in step 2:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`minWordFrequency()`: This is the minimum number of times in which a word must
+    exist in the text corpora. In our example, if a word appears fewer than five times,
+    then it is not learned. Words should occur multiple times in text corpora in order
+    for the model to learn useful features about them. In very large text corpora,
+    it''s reasonable to raise the minimum value of word occurrences.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`layerSize()`: This defines the number of features in a word vector. This is
+    equivalent to the number of dimensions in the feature space. Words represented
+    by 100 features become points in a 100-dimensional space.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`iterate()`: This specifies the batch on which the training is taking place.
+    We can pass in an iterator to convert to word vectors. In our case, we passed
+    in a sentence iterator.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`epochs()`: This specifies the number of iterations over the training corpus
+    as a whole.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`windowSize():` This defines the context window size.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: There's more...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The following are the other tokenizer factory implementations available in
+    DL4J Word2Vec to generate tokenizers for the given input:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`NGramTokenizerFactory`: This is the tokenizer factory that creates a tokenizer
+    based on the *n*-gram model. *N*-grams are a combination of contiguous words or
+    letters of length *n* that are present in the text corpus.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`PosUimaTokenizerFactory`: This creates a tokenizer that filters part of the
+    speech tags.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`UimaTokenizerFactory`: This creates a tokenizer that uses the UIMA analysis
+    engine for tokenization. The analysis engine performs an inspection of unstructured
+    information, makes a discovery, and represents semantic content. Unstructured
+    information is included, but is not restricted to text documents.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Here are the inbuilt token preprocessors (not including `CommonPreprocessor`)
+    available in DL4J:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`EndingPreProcessor`: This is a preprocessor that gets rid of word endings
+    in the text corpus—for example, it removes *s*, *ed*, *.*, *ly*, and *ing* from
+    the text.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`LowCasePreProcessor`: This is a preprocessor that converts text to lowercase
+    format.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`StemmingPreprocessor`: This tokenizer preprocessor implements basic cleaning
+    inherited from `CommonPreprocessor` and performs English porter stemming on tokens.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`CustomStemmingPreprocessor`: This is the stemming preprocessor that is compatible
+    with different stemming processors defined as lucene/tartarus `SnowballProgram`,
+    such as `RussianStemmer`, `DutchStemmer`, and `FrenchStemmer`. This means that
+    it is suitable for multilanguage stemming.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`EmbeddedStemmingPreprocessor`: This tokenizer preprocessor uses a given preprocessor
+    and performs English porter stemming on tokens on top of it.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: We can also implement our own token preprocessor—for example, a preprocessor
+    to remove all stop words from the tokens.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Evaluating the model
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: We need to check the feature vector quality during the evaluation process. This
+    will give us an idea of the quality of the Word2Vec model that was generated.
+    In this recipe, we will follow two different approaches to evaluate the Word2Vec
+    model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Find similar words to a given word:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'You will see an *n* output similar to the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Find the cosine similarity of the given two words:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'For the preceding example, the cosine similarity is calculated as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: How it works...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In step 1, we found the top *n* similar words (similar in context) to a given
+    word by calling `wordsNearest()`, providing both the input and count `n`. The `n` count
+    is the number of words that we want to list.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In step 2, we tried to find the similarity of two given words. To do this, we
+    actually calculated the **cosine similarity** between the two given words. The
+    cosine similarity is one of the useful metrics that we can use to find the similarity
+    between words/documents. We converted input words into vectors using our trained
+    model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There's more...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Cosine similarity is the similarity between two nonzero vectors measured by
+    the cosine of the angle between them. This metric measures the orientation instead
+    of the magnitude because cosine similarity calculates the angle between document
+    vectors instead of the word count. If the angle is zero, then the cosine value
+    reaches 1, indicating that they are very similar. If the cosine similarity is
+    near zero, then this indicates that there's less similarity between documents,
+    and the document vectors will be orthogonal (perpendicular) to each other. Also,
+    the documents that are dissimilar to each other will yield a negative cosine similarity.
+    For such documents, cosine similarity can go up to -1, indicating an angle of
+    1,800 between document vectors.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Generating plots from the model
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: We have mentioned that we have been using a layer size of `100` while training
+    the Word2Vec model. This means that there can be 100 features and, eventually,
+    a 100-dimensional feature space. It is impossible to plot a 100-dimensional space,
+    and therefore we rely on t-SNE to perform dimensionality reduction. In this recipe,
+    we will generate 2D plots from the Word2Vec model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: For this recipe, refer to the t-SNE visualization example found at: [//github.com/PacktPublishing/Java-Deep-Learning-Cookbook/blob/master/05_Implementing_NLP/sourceCode/cookbookapp/src/main/java/com/javadeeplearningcookbook/examples/TSNEVisualizationExample.java](https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/blob/master/05_Implementing_NLP/sourceCode/cookbookapp/src/main/java/com/javadeeplearningcookbook/examples/TSNEVisualizationExample.java).
+  prefs: []
+  type: TYPE_NORMAL
+- en: The example generates t-SNE plots in a CSV file.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Add the following snippet (at the beginning of the source code) to set the
+    data type for the current JVM runtime:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Write word vectors into a file:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Separate the weights of the unique words into their own list using `WordVectorSerializer`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Create a list to add all unique words:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Build a dual-tree t-SNE model for dimensionality reduction using `BarnesHutTsne`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Establish the t-SNE values and save them to a file:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs: []
+  type: TYPE_PRE
+- en: How it works...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In step 2, word vectors from the trained model are saved to your local machine
+    for further processing.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In step 3, we extracted data from all the unique word vectors by using `WordVectorSerializer`.
+    Basically, this will load an in-memory VocabCache from the mentioned input words.
+    But it doesn't load whole vocab/lookup tables into the memory, so it is capable
+    of processing large vocabularies served over the network.
+  prefs: []
+  type: TYPE_NORMAL
+- en: A `VocabCache` manages the storage of information required for the Word2Vec
+    lookup table. We need to pass the labels to the t-SNE model, and labels are nothing
+    but the words represented by word vectors.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In step 4, we created a list to add all unique words.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `BarnesHutTsne` phrase is the DL4J implementation class for the dual-tree
+    t-SNE model. The Barnes–Hut algorithm takes a dual-tree approximation strategy.
+    It is recommended that you reduce the dimension by up to 50 using another method,
+    such as **principal component analysis** (**PCA**) or similar.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In step 5, we used `BarnesHutTsne` to design a t-SNE model for the purpose.
+    This model contained the following components:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`theta()`: This is the Barnes–Hut trade-off parameter.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`useAdaGrad()`: This is the legacy AdaGrad implementation for use in NLP applications.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Once the t-SNE model is designed, we can fit it with weights loaded from words. We
+    can then save the feature plots to an Excel file, as demonstrated in step 6.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The feature coordinates will look like the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/f566cd82-b2d0-4d28-abf4-e46bf33e8092.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: We can plot these coordinates using gnuplot or any other third-party libraries.
+    DL4J also supports JFrame-based visualizations.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Saving and reloading the model
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Model persistence is a key topic, especially while operating with different
+    platforms. We can also reuse the model for further training (transfer learning)
+    or performing tasks.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this recipe, we will persist (save and reload) the Word2Vec models.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Save the Word2Vec model using `WordVectorSerializer`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Reload the Word2Vec model using `WordVectorSerializer`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs: []
+  type: TYPE_PRE
+- en: How it works...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In step 1, the `writeWord2VecModel()` method saves the Word2Vec model into a
+    compressed ZIP file and sends it to the output stream. It saves the full model,
+    including `Syn0` and `Syn1`. The `Syn0` is the array that holds raw word vectors
+    and is a projection layer that can convert one-hot encoding of a word into a dense
+    embedding vector of the right dimension. The `Syn1` array represents the model's
+    internal hidden weights to process the input/output.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In step 2, the `readWord2VecModel()`method loads the models that are in the
+    following format:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Binary model, either compressed or not compressed
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Popular CSV/Word2Vec text format
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: DL4J compressed format
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Note that only weights will be loaded by this method.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Importing Google News vectors
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Google provides a large, pretrained Word2Vec model with around 3 million 300-dimension
+    English word vectors. It is large enough, and pretrained to display promising
+    results. We will use Google vectors as our input word vectors for the evaluation.
+    You will need at least 8 GB of RAM to run this example. In this recipe, we will
+    import the Google News vectors and then perform an evaluation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Import the Google News vectors:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE25]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Run an evaluation on the Google News vectors:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE26]'
+  prefs: []
+  type: TYPE_PRE
+- en: How it works...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In step 1, the `readWord2VecModel()` method is used to load the pretrained Google
+    News vector that was saved in compressed file format.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In step 2, the `wordsNearest()` method is used to find the nearest words to
+    the given word based on positive/negative scores.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'After performing step 2, we should see the following results:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/8e2f1a8c-a69b-4cec-82f7-cc6513924b93.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: You can try this technique using your own inputs to see different results.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There's more...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The Google News vector''s compressed model file is sized at 1.6 GB. It can
+    take a while to load and evaluate the model. You might observe an `OutOfMemoryError` error
+    if you''re running the code for the first time:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/93bb0b0b-11ae-405f-9f12-b31a8ae5f1f8.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'We now need to adjust the VM options to accommodate more memory for the application.
+    You can adjust the VM options in IntelliJ IDE, as shown in the following screenshot.
+    You just need to make sure that you assign enough memory value and restart the
+    application:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/ff3fbe8d-7414-42ef-a681-9eb114dc1ba4.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Troubleshooting and tuning Word2Vec models
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Word2Vec models can be tuned further to produce better results. Runtime errors
+    can happen in situations where there is high memory demand and less resource availability.
+    We need to troubleshoot them to understand why they are happening and take preventative
+    measures. In this recipe, we will troubleshoot Word2Vec models and tune them.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Monitor `OutOfMemoryError` in the application console/logs to check whether
+    the heap space needs to be increased.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Check your IDE console for out-of-memory errors. If there are out-of-memory
+    errors, then add VM options to your IDE to increase the Java memory heap.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Monitor `StackOverflowError` while running Word2Vec models. Watch out for the
+    following error:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![](img/5b2382d7-5db2-4dae-98d2-795986783447.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: This error can happen because of unwanted temporary files in a project.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Perform hyperparameter tuning for Word2Vec models. You might need to perform
+    multiple training sessions with different values for the hyperparameters, such
+    as `layeSize`, `windowSize`, and so on.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Derive the memory consumption at the code level. Calculate the memory consumption
+    based on the data types used in the code and how much data is being consumed by
+    them.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: How it works...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Out-of-memory errorsare an indication that VM options need to be adjusted. How
+    you adjust these parameters will depend on the RAM capacity of the hardware. For
+    step 1, if you're using an IDE such as IntelliJ, you can provide the VM options
+    using VM attributes such as `-Xmx`, `-Xms`, and so on. VM options can also be
+    used from the command line.
+  prefs: []
+  type: TYPE_NORMAL
+- en: For example, to increase the maximum memory consumption to 8 GB, you will need
+    to add the `-Xmx8G ``VM` argument to your IDE.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To mitigate `StackOverflowError` mentioned in step 2, we need to delete the
+    temporary files created under the project directory where our Java program is
+    executed. These temporary files should look like the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/d0394d7e-63de-493b-bd02-525542a51f6e.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'With regard to step 3, if you observe that your Word2Vec model doesn''t hold
+    all the words from the raw text data, then you might be interested in increasing
+    the layer size of the Word2Vec model. This `layerSize` is nothing but the output
+    vector dimension or the feature space dimension. For example, we had `layerSize` of `100` in
+    our code. This means that we can increase it to a larger value, say `200`, as
+    a workaround:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE27]'
+  prefs: []
+  type: TYPE_PRE
+- en: If you have a GPU-powered machine, you can use this to accelerate the Word2Vec training
+    time. Just make sure that the dependencies for the DL4J and ND4J backend are added
+    as usual. If the results still don't look right, then make sure there are no normalization
+    issues.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tasks such as `wordsNearest()` use normalized weights by default, and others
+    require weights without normalization applied.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'With regard to step 4, we can use the conventional approach. The weights matrix has
+    the most memory consumption in Word2Vec. It is calculated as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*NumberOfWords * NumberOfDimensions * 2 * DataType memory footprint*'
+  prefs: []
+  type: TYPE_NORMAL
+- en: For example, if our Word2Vec model with 100,000 words uses `long` as the data
+    type, and 100 dimensions, the memory footprint will be 100,000 * 100 * 2 * 8 (long
+    data type size) = 160 MB RAM, just for the weights matrix.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note that DL4J UI will only provide a high-level overview of memory consumption.
+  prefs: []
+  type: TYPE_NORMAL
+- en: See also
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Refer to the official DL4J documentation at [https://deeplearning4j.org/docs/latest/deeplearning4j-config-memory ](https://deeplearning4j.org/docs/latest/deeplearning4j-config-memory)to
+    learn more about memory management
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Using Word2Vec for sentence classification using CNNs
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Neural networks require numerical inputs to perform their operations as expected.
+    For text inputs, we cannot directly feed text data into a neural network. Since Word2Vec converts
+    text data to vectors, it is possible to exploit Word2Vec so that we can use it with
+    neural networks. We will use a pretrained Google News vector model as a reference
+    and train a CNN network on top of it. At the end of this process, we will develop
+    an IMDB review classifier to classify reviews as positive or negative. As per
+    the paper found at [https://arxiv.org/abs/1408.5882](https://arxiv.org/abs/1408.5882),
+    combining a pretrained Word2Vec model with a CNN will give us better results.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We will employ custom CNN architecture along with the pretrained word vector
+    model as suggested by Yoon Kim in his 2014 publication, [https://arxiv.org/abs/1408.5882](https://arxiv.org/abs/1408.5882).
+    The architecture is slightly more advanced than standard CNN models. We will also
+    be using two huge datasets, and so the application might require a fair amount
+    of RAM and performance benchmarks to ensure a reliable training duration and no
+    `OutOfMemory` errors.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this recipe, we will perform sentence classification using both Word2Vec
+    and a CNN.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Use the example found at [https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/blob/master/05_Implementing_NLP/sourceCode/cookbookapp/src/main/java/com/javadeeplearningcookbook/examples/CnnWord2VecSentenceClassificationExample.java](https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/blob/master/05_Implementing_NLP/sourceCode/cookbookapp/src/main/java/com/javadeeplearningcookbook/examples/CnnWord2VecSentenceClassificationExample.java) for
+    reference.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You should also make sure that you add more Java heap space through changing
+    the VM options—for example, if you have 8 GB of RAM, then you may set `-Xmx2G
+    -Xmx6G` as VM arguments.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We will extract the IMDB data to start with in step 1\. The file structure
+    will look like the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/e06d569b-8da9-447e-995c-5018afb8c890.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'If we further navigate to the dataset directories, you will see them labeled
+    as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/6169b9f6-fc75-4f34-9af6-9a8641177fde.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Load the word vector model using `WordVectorSerializer`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE28]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Create a sentence provider using `FileLabeledSentenceProvider`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE29]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Create train iterators or test iterators using `CnnSentenceDataSetIterator`
+    to load the IMDB review data:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE30]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Create a `ComputationGraph` configuration by adding default hyperparameters:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE31]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Configure layers for `ComputationGraph` using the `addLayer()` method:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE32]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Set the convolution mode to stack the results later:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE33]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Create a `ComputationGraph` model and initialize it:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE34]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Perform the training using the `fit()` method:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE35]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Evaluate the results:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE36]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Retrieve predictions for the IMDB reviews data:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE37]'
+  prefs: []
+  type: TYPE_PRE
+- en: How it works...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In step 1, we used `loadStaticModel()` to load the model from the given path;
+    however, you can also use `readWord2VecModel()`. Unlike `readWord2VecModel()`,
+    `loadStaticModel()` utilizes host memory.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In step 2, `FileLabeledSentenceProvider` is used as a data source to load the
+    sentences/documents from the files. We created `CnnSentenceDataSetIterator` using
+    the same. `CnnSentenceDataSetIterator` handles the conversion of sentences to
+    training data for CNNs, where each word is encoded using the word vector from
+    the specified word vector model. Sentences and labels are provided by a `LabeledSentenceProvider`
+    interface. Different implementations of `LabeledSentenceProvider` provide different
+    ways of loading the sentence/documents with labels.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In step 3, we created `CnnSentenceDataSetIterator` to create train/test dataset
+    iterators. The parameters we configured here are as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`sentenceProvider()`: Adds a sentence provider (data source) to `CnnSentenceDataSetIterator`'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`wordVectors()`: Adds a word vector reference to the dataset iterator—for example,
+    the Google News vectors'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`useNormalizedWordVectors()`: Sets whether normalized word vectors can be used'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: In step 5, we created layers for a `ComputationGraph` model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `ComputationGraph` configuration is a configuration object for neural networks
+    with an arbitrary connection structure. It is analogous to multilayer configuration,
+    but allows considerably greater flexibility for the network architecture.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We also created multiple convolution layers stacked together with multiple filter
+    widths and feature maps.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In step 6, `MergeVertex` performs in-depth concatenation on activation of these
+    three convolution layers.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Once all steps up to step 8 are completed, we should see the following evaluation
+    metrics:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/e363c5d4-89d7-4980-97d2-e1b856408dd5.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: In step 10, `contents` refers to the content from a single-sentence document
+    in string format.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For negative review content, we would see the following result after step 9:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/424f42b6-b2c7-42a8-8dd9-91e56cf9a770.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: This means that the document has a 77.8% probability of having a negative sentiment.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There's more...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Initializing word vectors with those retrieved from pretrained unsupervised
+    models is a known method for increasing performance. If you can recall what we
+    have done in this recipe, you will remember that we used pretrained Google News
+    vectors for the same purpose. For a CNN, when applied to text instead of images,
+    we will be dealing with one-dimensional array vectors that represent the text.
+    We perform the same steps, such as convolution and max pooling with feature maps,
+    as discussed in [Chapter 4](4a688ef9-2dd8-47de-abaf-456fa88bcfc2.xhtml), *Building
+    Convolutional Neural Networks*. The only difference is that instead of image pixels,
+    we use vectors that represent text. CNN architectures have subsequently shown
+    great results against NLP tasks. The paper found at [https://www.aclweb.org/anthology/D14-1181](https://www.aclweb.org/anthology/D14-1181) will
+    contain further insights on this.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The network architecture of a computation graph is a directed acyclic graph,
+    where each vertex in the graph is a graph vertex. A graph vertex can be a layer
+    or a vertex that defines a random forward/backward pass functionality. Computation
+    graphs can have a random number of inputs and outputs. We needed to stack multiple
+    convolution layers, which was not possible in the case of a normal CNN architecture.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`ComputaionGraph` has an option to set the configuration known as `convolutionMode`.
+    `convolutionMode` determines the network configuration and how the convolution
+    operations should be performed for convolutional and subsampling layers (for a
+    given input size). Network configurations such as `stride`/`padding`/`kernelSize`
+    are applicable for a given convolution mode. We are setting the convolution mode
+    using `convolutionMode` because we want to stack the results of all three convolution
+    layers as one and generate the prediction.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The output sizes for convolutional and subsampling layers are calculated in
+    each dimension as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*outputSize = (inputSize - kernelSize + 2*padding) / stride + 1*'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'If `outputSize` is not an integer, an exception will be thrown during the network
+    initialization or forward pass. We have discussed `MergeVertex`, which was used
+    to combine the activations of two or more layers. We used `MergeVertex` to perform
+    the same operation with our convolution layers. The merge will depend on the type
+    of inputs—for example, if we wanted to merge two convolution layers with a sample
+    size (`batchSize`) of `100`, and `depth` of `depth1` and `depth2` respectively,
+    then `merge` will stack the results where the following applies:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*depth = depth1 + depth2*'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using Doc2Vec for document classification
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Word2Vec correlates words with words, while the purpose of Doc2Vec (also known
+    as paragraph vectors) is to correlate labels with words. We will discuss Doc2Vec in
+    this recipe. Documents are labeled in such a way that the subdirectories under
+    the document's root represent document labels. For example, all finance-related
+    data should be placed under the `finance` subdirectory. In this recipe, we will
+    perform document classification using Doc2Vec.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Extract and load the data using `FileLabelAwareIterator`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE38]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Create a tokenizer using `TokenizerFactory`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE39]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Create a `ParagraphVector` model definition:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE40]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Train `ParagraphVectors` by calling the `fit()` method:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE41]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Assign labels to unlabeled data and evaluate the results:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE42]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Store the weight lookup table:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE43]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Predict labels for every unclassified document, as shown in the following pseudocode:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE44]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Create the tokens from the document and use the iterator to retrieve the document
+    instance:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE45]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Use the lookup table to get the vocabulary information (`VocabCache`):'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE46]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Count all the instances where the words are matched in `VocabCache`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE47]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Store word vectors of the matching words in the vocab:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE48]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Calculate the domain vector by calculating the mean of the word embeddings:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE49]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Check the cosine similarity of the document vector with labeled word vectors:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE50]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Display the results:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE51]'
+  prefs: []
+  type: TYPE_PRE
+- en: How it works...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In step 1, we created a dataset iterator using `FileLabelAwareIterator`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The `FileLabelAwareIterator` is a simple filesystem-based `LabelAwareIterator`
+    interface. It assumes that you have one or more folders organized in the following
+    way:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**First-level subfolder**: Label name'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Second-level subfolder**: The documents for that label'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Look at the following screenshot for an example of this data structure:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/d4d9286f-50f4-431b-b705-d6beb0cb8d00.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: In step 3, we created **`ParagraphVector`** by adding all required hyperparameters. The
+    purpose of paragraph vectors is to associate arbitrary documents with labels. Paragraph
+    vectors are an extension to Word2Vec that learn to correlate labels and words,
+    while Word2Vec correlates words with other words. We need to define labels for
+    the paragraph vectors to work.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For more information on what we did in step 5, refer to the following directory
+    structure (under the `unlabeled` directory in the project):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/37bfbc65-3bb3-4cad-acba-462579d829b5.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The directory names can be random and no specific labels are required. Our task
+    is to find the proper labels (document classifications) for these documents. Word
+    embeddings are stored in the lookup table. For any given word, a word vector of
+    numbers will be returned.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Word embeddings are stored in the lookup table. For any given word, a word vector
+    will be returned from the lookup table.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In step 6, we created `InMemoryLookupTable` from paragraph vectors. `InMemoryLookupTable`
+    is the default word lookup table in DL4J. Basically, the lookup table operates
+    as the hidden layer and the word/document vectors refer to the output.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Step 8 to step 12 are solely used for the calculation of the domain vector of
+    each document.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In step 8, we created tokens for the document using the tokenizer that was created
+    in step 2\. In step 9, we used the lookup table that was created in step 6 to
+    obtain `VocabCache`. `VocabCache` stores the information needed to operate the
+    lookup table. We can look up words in the lookup table using `VocabCache`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In step 11, we store the word vectors along with the occurrence of a particular
+    word in an INDArray.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In step 12, we calculated the mean of this INDArray to get the document vector.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The mean across the zero dimension means that it is calculated across all dimensions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In step 13, the cosine similarity is calculated by calling the `cosineSim()` method
+    provided by ND4J. We use cosine similarity to calculate the similarity of document
+    vectors. ND4J provides a functional interface to calculate the cosine similarity
+    of two domain vectors. `vecLabel` represents the document vector for the labels
+    from classified documents. Then, we compared `vecLabel` with our unlabeled document
+    vector, `documentVector`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'After step 14, you should see an output similar to the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/adff8732-4749-4183-9cb0-006c7a32869e.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: We can choose the label that has the higher cosine similarity value. From the
+    preceding screenshots, we can infer that the first document is more likely finance-related
+    content with a 69.7% probability. The second document is more likely health-related
+    content with a 53.2% probability.
+  prefs: []
+  type: TYPE_NORMAL

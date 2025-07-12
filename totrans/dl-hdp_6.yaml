@@ -1,0 +1,870 @@
+- en: Chapter 6.  Autoencoders
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '|   | *"People worry that computers will get too smart and take over the world,
+    but the real problem is that they''re too stupid and they''ve already taken over
+    the world."* |   |'
+  prefs: []
+  type: TYPE_TB
+- en: '|   | --*Pedro Domingos* |'
+  prefs: []
+  type: TYPE_TB
+- en: In the last chapter, we discussed a generative model called Restricted Boltzmann
+    machine. In this chapter, we will introduce one more generative model called **autoencoder**.
+    Autoencoder, a type of artificial neural network, is generally used for dimensionality
+    reduction, feature learning, or extraction.
+  prefs: []
+  type: TYPE_NORMAL
+- en: As we move on with this chapter, we will discuss the concept of autoencoder
+    and its various forms in detail. We will also explain the terms *regularized autoencoder*
+    and *sparse autoencoder*. The concept of sparse coding, and selection criteria
+    of the sparse factor in a sparse autoencoder will be taken up. Later, we will
+    talk about the deep learning model, deep autoencoder, and its implementation using
+    Deeplearning4j. Denoising autoencoder is one more form of a traditional autoencoder,
+    which will be discussed in the end part of the chapter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Overall, this chapter is broken into a few subsections, which are listed as
+    follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Autoencoder
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Sparse autoencoder
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Deep autoencoder
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Denoising autoencoder
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Applications of autoencoders
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Autoencoder
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: An autoencoder is a neural network with one hidden layer, which is trained to
+    learn an identity function that attempts to reconstruct its input to its output.
+    In other words, the autoencoder tries to copy the input data by projecting onto
+    a lower dimensional subspace defined by the hidden nodes. The hidden layer, *h*,
+    describes a code, which is used to represent the input data and its structure.
+    This hidden layer is thus forced to learn the structure from its input training
+    dataset so that it can copy the input at the output layer.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The network of an autoencoder can be split into two parts: encoder and decoder.
+    The encoder is described by the function *h=f (k)*, and a decoder that tries to
+    reconstruct or copy is defined by *r = g (h)*. The basic idea of autoencoder should
+    be to copy only those aspects of the inputs which are prioritized, and not to
+    create an exact replica of the input. They are designed in such a way so as to
+    restrict the hidden layer to copy only approximately, and not everything from
+    the input data. Therefore, an autoencoder will not be termed as useful if it learns
+    to completely set *g(f(k) = k* for all the values of *k*. *Figure 6.1* represents
+    the general structure of an autoencoder, mapping an input *k* to an output *r*
+    through an internal hidden layer of code *h*:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Autoencoder](img/image_06_001.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 6.1: General block diagram of an autoencoder. Here, input k is mapped
+    to an output r through a hidden state or internal representation h. An encoder
+    f maps the input k to the hidden state h, and decoder g performs the mapping of
+    h to the output r.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: To provide one more example, let us consider *Figure 6.2*. The figure shows
+    a practical representation of an autoencoder for input image patches *k*, which
+    learns the hidden layer *h* to output *r*. The input layer *k* is a combination
+    of intensity values from the image patches. The hidden layer nodes help to project
+    the high-dimensional input layer into lower-dimensional activation values of the
+    hidden nodes. These activation values of the hidden node are merged together to
+    generate the output layer *r*, which is an approximation of the input pixel. In
+    ideal cases, hidden layers generally have a smaller number of nodes as compared
+    to the input layer nodes. For this reason, they are forced to diminish the information
+    in such a way that the output layer can still be generated.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Autoencoder](img/B05883_06_02-1.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 6.2: Figure shows a practical example of how an autoencoder learns output
+    structure from the approximation of the input pixels.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Replicating the structure of the input to the output might sound inefficacious,
+    however, practically, the final result of an autoencoder is not exactly dependent
+    on the output of the decoder. Instead, the main idea behind training an autoencoder
+    is to copy the useful properties of the input task, which will reflect in the
+    hidden layer.
+  prefs: []
+  type: TYPE_NORMAL
+- en: One of the common ways to extract desired features or information from the autoencoder
+    is to limit the hidden layer, *h*, to have smaller dimension *(d^/)* than the
+    input *k* with a dimension *d,* that is *d^/<d*. This resulting smaller dimensional
+    layer can thus be called a loss compressed representation of the input *k*. An
+    autoencoder whose hidden layer's dimension is less than the input's dimension
+    is termed as *undercomplete*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The learning process described can be mathematically represented as minimizing
+    the loss function *L*, which is given as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Autoencoder](img/image_06_003.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: In simple words, *L* can be defined as a loss function that penalized *g (f
+    (k))* for being different from the input *k*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: With a linear decoder function, an autoencoder learns to form the basis for
+    space as similar to the **Principal component analysis** (**PCA**) procedure.
+    Upon convergence, the hidden layer will form a basis for the space spanned by
+    the principal subspace of the training dataset given as the input. However, unlike
+    PCA, these procedures need not necessarily generate orthogonal vectors. For this
+    reason, autoencoders with non-linear encoder functions *f* and non-linear decoder
+    function *g* can learn more powerful non-linear generalization of the PCA. This
+    will eventually increase the capacity of the encoder and decoder to a large extent.
+    With this increase in capacity, however, the autoencoder starts showing unwanted
+    behavior.
+  prefs: []
+  type: TYPE_NORMAL
+- en: It can then learn to undergo copying the whole input without giving attention
+    to extract the desired information. In a theoretical sense, an autoencoder might
+    be a one-dimensional code, but practically, a very powerful nonlinear encoder
+    can learn to represent each training example *k(i)* with code *i*. The decoder
+    then maps those integers *(i)* to the values of specific training examples. Hence,
+    copying of only the useful features from the input dataset fails completely with
+    an autoencoder with higher capacity.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: PCA is a statistical method which applies orthogonal transformation to convert
+    a set of possibly correlated observed variables into a set of linearly correlated
+    set of variables termed as principal components. The number of principal components
+    in the PCA method is less than or equal to the number of original input variables.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Similar to the edge case problem mentioned for an undercomplete autoencoder,
+    where the dimension of the hidden layer is less than that of the input, autoencoder,
+    where the hidden layer or code is allowed to have an equal dimension of input,
+    often faces the same problem.
+  prefs: []
+  type: TYPE_NORMAL
+- en: An autoencoder, where the hidden code has greater dimension than the dimension
+    of the input, is termed as an overcomplete autoencoder. This type of autoencoder
+    is even more vulnerable to the aforementioned problems. Even a linear encoder
+    and decoder can perform learning a copy of input to output without learning any
+    desired attributes of the input dataset.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Regularized autoencoders
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: By choosing a proper dimension for the hidden layer, and the capacity of the
+    encoder and decoder in accordance with the complexity of the model distribution,
+    autoencoders of any kind of architecture can be built successfully. The autoencoder
+    which has the ability to provide the same is termed as a regularized autoencoder.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Besides the ability to copy the input to output, a regularized autoencoder has
+    a loss function, which helps the model to possess other properties too. These
+    include robustness to missing inputs, sparsity of the representation of data,
+    smallness of the derivative of the representation, and so on. Even a nonlinear
+    and *overcomplete* regularized autoencoder is able to learn at least something
+    about the data distribution, irrespective of the capacity of the model. Regularized
+    autoencoders [131] are able to capture the structure of the training distribution
+    with the help of productive opposition between a restructuring error and a regularizer.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Sparse autoencoders
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Distributed sparse representation is one of the primary keys to learn useful
+    features in deep learning algorithms. Not only is it a coherent mode of data representation,
+    but it also helps to capture the generation process of most of the real world
+    dataset. In this section, we will explain how autoencoders encourage sparsity
+    of data. We will start with introducing sparse coding. A code is termed as sparse
+    when an input provokes the activation of a relatively small number of nodes of
+    a neural network, which combine to represent it in a sparse way. In deep learning
+    technology, a similar constraint is used to generate the sparse code models to
+    implement regular autoencoders, which are trained with sparsity constants called
+    sparse autoencoders.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Sparse coding
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Sparse coding is a type of unsupervised method to learn sets of *overcomplete*
+    bases in order to represent the data in a coherent and efficient way. The primary
+    goal of sparse coding is to determine a set of vectors *(n) v[i] *such that the
+    input vector *k* can be represented as a linear combination of these vectors.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Mathematically, this can be represented as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Sparse coding](img/image_06_004.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Here *a[i]* is the coefficient associated with each vector *v[i]* [.]
+  prefs: []
+  type: TYPE_NORMAL
+- en: With the help of PCA, we can learn a complete set of basis vectors in a coherent
+    way; however, we want to learn an *overcomplete* set of basis vectors to represent
+    the input vector *k* ![Sparse coding](img/equation.jpg) where *n>m*. The reason
+    to have the *overcomplete* basis is that the basis vectors are generally able
+    to catch the pattern and structure that are inherent to the input data. However,
+    overcompleteness sometime raises a degeneracy that, with its basis, the coefficient
+    *a[i ]*cannot uniquely identify the input vector *k*. For this reason, an additional
+    criterion called sparsity is introduced in sparse coding.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In a simple way, sparsity can be defined as having few non-zero components or
+    having few components that are not close to zero. The set of coefficients *a[i]*
+    is termed as sparse if, for a given input vector, the number of non-zero coefficients,
+    or the number of coefficients that are way far from zero, should be a few.
+  prefs: []
+  type: TYPE_NORMAL
+- en: With this basic understanding of sparse coding, we can now move to the next
+    part to discover how the sparse coding concept is used for autoencoders to generate
+    sparse autoencoders.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Sparse autoencoders
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: When the input dataset maintains some structure, and if the input features are
+    correlated, then even a simple autoencoder algorithm can discover those correlations.
+    Moreover, in such cases, a simple autoencoder will end up learning a low-dimensional
+    representation, which is similar to PCA.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This perception is based on the fact that the number of hidden layers is relatively
+    small. However, by imposing other constraints on the network, even with a large
+    number of hidden layers, the network can still discover desired features from
+    the input vectors.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Sparse autoencoders are generally used to learn features to perform other tasks
+    such as classification. Autoencoders for which the sparsity constraints have been
+    added must respond to the unique statistical features of the input dataset with
+    which it is training on, rather than simply acting as an identity function.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Sparse autoencoders](img/B05883_06_03.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 6.3: Figure shows a typical example of a sparse autoencoder'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Sparse autoencoders are a type of autoencoder with a sparsity enforcer, which
+    helps to direct a single layer network to learn the hidden layer code. This approach
+    minimizes the reconstruction errors along with restricting the number of code
+    words needed to restructure the output. This kind of sparsifying algorithm can
+    be considered as a classification problem that restricts the input to a single
+    class value, which helps to reduce the prediction errors.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this part, we will explain sparse autoencoder with a simple architecture.
+    *Figure 6.3* shows the simplest form of a sparse autoencoder, consisting of a
+    single hidden layer *h*. The hidden layer *h*, is connected to the input vector
+    *K* by a weight matrix, *W*, which forms the encoding step. In the decoder step,
+    the hidden layer h outputs to a reconstruction vector *K` *with the help of the
+    tied weight matrix *W^T*. In the network, the activation function is denoted as
+    *f* and the bias term as *b*. The activation function could be anything: linear,
+    sigmoidal, or ReLU.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The equation to compute the sparse representation of the hidden code *l* is
+    written as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Sparse autoencoders](img/Capture-10.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'The reconstructed output is the hidden representation, mapped linearly to the
+    output using this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Sparse autoencoders](img/Capture-11.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Learning occurs via backpropagation on the reconstruction error. All the parameters
+    are optimized to minimize the mean square error, given as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Sparse autoencoders](img/image_06_008.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: As we have the network setup now, we can add the sparsifying component, which
+    drives the vector *L* towards a sparse representation. Here, we will use k-Sparse
+    autoencoders to implement the sparse representation of the layer. (Don't get confused
+    between the *k* of k-Sparse representation and *K* input vector. To distinguish
+    between both of them, we have denoted these two with a small *k* and capital *K*
+    respectively.)
+  prefs: []
+  type: TYPE_NORMAL
+- en: The k-Sparse autoencoder
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: The k-Sparse autoencoder [132] is based on an autoencoder with tied weights
+    and linear activation functions. The basic idea of a k-Sparse autoencoder is very
+    simple. In the feed-forward phase of the autoencoder, once we compute the hidden
+    code *l = WK + b*, rather than reconstructing the input from all the hidden units,
+    the method searches for the *k* largest hidden units and sets the remaining hidden
+    units' values as zero.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There are alternative methods to determine the *k* largest hidden units. By
+    sorting the activities of the hidden units or using ReLU, hidden units with thresholds
+    are adjusted until we determine the *k* largest activities. This selection step
+    to find the *k* largest activities is non-linear. The selection step behaves like
+    a regularizer, which helps to prevent the use of large numbers of hidden units
+    while building the output by reconstructing the input.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to select the sparsity level k
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: An issue might arise during the training of a k-Sparse autoencoder if we enforce
+    a low sparsity level, say *k=10*. One common problem is that in the first few
+    epochs, the algorithm will aggressively start assigning the individual hidden
+    units to groups of training cases. The phenomena can be compared with the k-means
+    clustering approach. In the successive epochs, these hidden units will be selected
+    and re-enforced, but the other hidden units would not be adjusted.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This issue can be addressed by scheduling the sparsity level in a proper way.
+    Let us assume we are aiming for a sparsity level of 10\. In such cases, we can
+    start with a large sparsity level of say *k=100* or *k=200*. Hence, the k-Sparse
+    autoencoder can train all the hidden units present. Gradually, over half of the
+    epoch, we can linearly decrease the sparsity level of *k=100* to *k=10*. This
+    greatly increases the chances of all the hidden units being picked. Then, we will
+    keep *k=10* for the next half of the epoch. In this way, this kind of scheduling
+    will guarantee that even with a low sparsity level, all of the filters will be
+    trained.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Effect of sparsity level
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: The choice of value of *k* is very much crucial while designing or implementing
+    a k-Sparse autoencoder. The value of *k* determines the desirable sparsity level,
+    which helps to make the algorithm ideal for a wide variety of datasets. For example,
+    one application could be used to pre-train a deep discriminative neural network
+    or a shallow network.
+  prefs: []
+  type: TYPE_NORMAL
+- en: If we take a large value for *k* (say *k=200* on an MNIST dataset), the algorithm
+    will tend to identify and learn very local features of the dataset. These features
+    sometimes behave too prematurely to be used for the classification of a shallow
+    architecture. A shallow architecture generally has a naive linear classifier,
+    which does not really have enough architectural strength to merge all of these
+    features and achieve a substantial classification rate. However, similar local
+    features are very much desirable to pre-train a deep neural network.
+  prefs: []
+  type: TYPE_NORMAL
+- en: For a smaller value of the sparsity level (say *k=10* on an MNIST dataset),
+    the output is reconstructed from the input using a smaller set of hidden units.
+    This eventually results in detecting of global features from the datasets, instead
+    of local features as in the earlier case. These less local features are suitable
+    for shallow architecture for the classification tasks. On the contrary, these
+    types of situations are not ideal for deep neural networks.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Deep autoencoders
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: So far, we have talked only about single-layer encoders and single-layer decoders
+    for a simple autoencoder. However, a deep autoencoder with more than one encoder
+    and decoder brings more advantages.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Feed-forward networks perform better when they are deep. Autoencoders are basically
+    feed-forward networks; hence, the advantages of a basic feed-forward network can
+    also be applied to autoencoders. The encoders and decoders are autoencoders, which
+    also work like a feed-forward network. Hence, we can deploy the advantages of
+    the depth of a feed-forward network in these components also.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this context, we can also talk about the universal approximator theorem,
+    which ensures that a feed-forward neural network with at least one hidden layer,
+    and with enough hidden units, can produce an approximation of any arbitrary function
+    to any degree of accuracy. Following this concept, a deep autoencoder having at
+    least one hidden layer, and containing sufficient hidden units, can approximate
+    any mapping from input to code arbitrarily well.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: One can approximate any continuous function to any degree of accuracy with a
+    two-layer network. In the mathematical theory of artificial neural networks, the
+    universal approximation function states that a feed-forward network can approximate
+    any continuous function of a compact subset of *R^n*, if it has at least one hidden
+    layer with a finite number of neurons.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Deep autoencoder provides many advantages as compared to shallow architecture.
+    The non-trivial depth of an autoencoder suppresses the computation of representing
+    a few functions. Also, the depth of autoencoders drastically reduces the amount
+    of training data required to learn the functions. Even experimentally, it has
+    been found that deep autoencoders provide better compression when compared to
+    shallow autoencoders.
+  prefs: []
+  type: TYPE_NORMAL
+- en: To train a deep autoencoder, the common practice is to train a stack of shallow
+    autoencoders. Therefore, to train a deep autoencoder, a series of shallow autoencoders
+    are encountered frequently. In the next subsections, we will discuss the concept
+    of deep autoencoders in depth.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Training of deep autoencoders
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'The design of a deep autoencoder explained here is based on MNIST handwritten
+    digit databases. In the paper [133],a well-structured procedure of building and
+    training of a deep autoencoder is explained. The fundamentals of training a deep
+    autoencoder is through three phases, that is: Pre-training, Unrolling, and Fine-tuning.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Pre-training**: The first phase of training a deep autoencoder is ''pre-training''.
+    The main purpose of this phase is to work on binary data, generalize in to a real-valued
+    data, and then to conclude that it works well for various datasets.'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'We already have enough insights that a single layer of hidden units is not
+    the proper way to model the structure in a large set of images. A deep autoencoder
+    is composed of multiple layers of a Restricted Boltzmann machine. In [Chapter
+    5](ch05.html "Chapter 5.  Restricted Boltzmann Machines"), *Restricted Boltzmann
+    Machines* we gave enough information on how a Restricted Boltzmann machine works.
+    Using the same concept, we can proceed to build the structure for a deep autoencoder:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '![Training of deep autoencoders](img/image_06_009.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_IMG
+- en: 'Figure 6.4: Pre-training a deep autoencoder involves learning a stack of Restricted
+    Boltzmann machines (RBMs) where each RBM possesses a single layer of feature detectors.
+    The learned features of one Restricted Boltzmann machine is used as the ''input
+    data'' to train the next RBM of the stack. After the pre-training phase, all the
+    RBMs are unfolded or unrolled to build a deep autoencoder. This deep autoencoder
+    is then fine-tuned using the backpropagation approach of error derivatives.'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: When the first layer of the RBM is driven by a stream of data, the layer starts
+    to learn the feature detectors. This learning can be treated as input data for
+    learning for the next layer. In this way, feature detectors of the first layer
+    become the visible units for learning the next layer of the Restricted Boltzmann
+    machine. This procedure of learning layer-by-layer can be iterated as many times
+    as desired. This procedure is indeed very much effectual in pre-training the weights
+    of a deep autoencoder. The features captured after each layer have a string of
+    high-order correlations between the activities of the hidden units below. The
+    first part of *Figure 6.4* gives a flow diagram of this procedure. Processing
+    the benchmark dataset MNIST, a deep autoencoder would use binary transformations
+    after each RBM. To process real-valued data, deep autoencoders use Gaussian rectified
+    transformations after each Restricted Boltzmann machine layer.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '![Training of deep autoencoders](img/B05883_06_05-1.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_IMG
+- en: 'Figure 6.5: Pictorial representation of how the number or vectors of encoder
+    and decoder varies during the phases.'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '**Unrolling**: Once the multiple layers of feature detectors of the deep autoencoders
+    are pre-trained, the whole model is unrolled to generate the encoder and decoder
+    networks, which at first use the same weights. We will explain each of the designs
+    of each part given in the second part of the image separately to have a better
+    understanding of this phase.'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '**Encoder**: For an MNIST dataset of *28x28* pixel images, the input that the
+    network will get is that of 784 pixels. As per the rule of thumb, the number of
+    parameters of the first layer of the deep autoencoder should be slightly larger.
+    As shown in *Figure 6.4*, **2000** parameters are taken for the first layer of
+    the network. This might sound unreasonable, as taking more parameters as inputs
+    increase the chance of overfitting the network. However, in this case, increasing
+    the number of parameters will eventually increase the features of the input, which,
+    in turn, make the decoding of the autoencoder data possible.'
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: As shown in *Figure 6.4*, the layers would be **2000**, **1000**, **500**, and
+    **30**-nodes wide respectively. A snapshot of this phenomenon is depicted in *Figure
+    6.5*. In the end, the encoder will produce a vector **30** numbers long. This
+    **30** number vector is the last layer of the encoder of the deep autoencoder.
+    A rough outline for this encoder will be as follows:![Training of deep autoencoders](img/image_06_011.jpg)
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Decoder**: The **30** number vectors found at the end of the encoding phase
+    are the encoded version of the 28x28 pixel images. The second part of the deep
+    autoencoder is the decoder phase, where it basically learns how to decode the
+    condensed vector. Hence, the output of the encoder phase (**30**-number vectors)
+    becomes the input of the decoder phase. This half of the deep autoencoder is a
+    feed-forward network, where the encoded condensed vector proceeds towards the
+    reconstructed input after each layer. The layers shown in *Figure 6.4* are **30**,
+    **500**, **1000**, and **2000**. The layers initially possess the same weights
+    as their counterparts in the pre-training network; it is just that the weights
+    are transposed as shown in the figure. A rough outline for this encoder will be
+    as follows:![Training of deep autoencoders](img/image_06_012.jpg)'
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: So, the main purpose of decoding half of a deep autoencoder is to learn how
+    to reconstruct the image. The operation is carried out in the second feed-forward
+    network that also performs back propagation, which happens through reconstruction
+    entropy.
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '**Fine-tuning**: In the fine-tuning phase, the stochastic activities are replaced
+    by the deterministic, real-valued probabilities. The weights associated with each
+    layer of the whole deep autoencoder are fine-tuned for optimal reconstruction
+    by using the backpropagation method.'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Implementation of deep autoencoders using Deeplearning4j
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: So, you now have sufficient idea of how to build a deep autoencoder using a
+    number of Restricted Boltzmann machines. In this section, we will explain how
+    to design a deep autoencoder with the help of Deeplearning4j.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We will use the same MNIST dataset as in the previous section, and keep the
+    design of the deep autoencoder similar to what we explained earlier.
+  prefs: []
+  type: TYPE_NORMAL
+- en: As already explained in earlier examples, a small batch size of 1024 number
+    of examples is used from the raw MNIST datasets, which can be split into *N* multiple
+    blocks of Hadoop. These *N* multiple blocks will run on the Hadoop Distributed
+    File System by each worker in parallel. The flow of code to implement the deep
+    autoencoder is simple and straightforward.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The steps are shown as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Batch-wise loading of the MNIST dataset in HDFS. Each batch will contain `1024`
+    number of examples.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Start building the model.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Perform the encoding operation.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Perform the decoding operation.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Train the model by calling the `fit()` method.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: Initial configuration needed to set the Hadoop environment. The `batchsize`
+    is set to `1024`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Load the data into the HDFS:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We are now all set to build the model to add the number of layers of the Restricted
+    Boltzmann machine to build the deep autoencoder:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'To a create a ListBuilder with the specified layers (here it is eight), we
+    call the .`list()` method:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The next step now is to build the encoding phase of the model. This can be
+    done by the subsequent addition of the Restricted Boltzmann machine into the model.
+    The encoding phase has four layers of the restricted Boltzmann machine in which
+    each layer would have `2000`, `1000`, `500`, and `30` nodes respectively:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The next phase after encoder is the decoder phase, where we will use four more
+    Restricted Boltzmann machines in a similar manner:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'As all the intermediate layers are now built, we can build the model by calling
+    the `build()` method:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The last phase of the implementation is to train the deep autoencoder. It can
+    be done by calling the `fit ()` method:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: Denoising autoencoder
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The reconstruction of output from input does not always guarantee the desired
+    output, and can sometimes end up in simply copying the input. To prevent such
+    a situation, in [134], a different strategy has been proposed. In that proposed
+    architecture, rather than putting some constraints in the representation of the
+    input data, the reconstruction criteria is built, based on cleaning the partially
+    corrupted input.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*"A good representation is one that can be obtained robustly from a corrupted
+    input and that will be useful for recovering the corresponding clean input."*'
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: A denoising autoencoder is a type of autoencoder which takes corrupted data
+    as input, and the model is trained to predict the original, clean, and uncorrupted
+    data as its output. In this section, we will explain the basic idea behind designing
+    a denoising autoencoder.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Architecture of a Denoising autoencoder
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The primary idea behind a denoising autoencoder is to introduce a corruption
+    process, *Q (k^/ | k)*, and reconstruct the output *r* from the corrupted input
+    *k^/*. *Figure 6.6* shows the overall representation of a denoising autoencoder.
+    In a denoising autoencoder, for every minibatch of training data *k*, the corresponding
+    corrupted *k^/* should be generated using *Q (k^/ | k)*. From there, if we consider
+    the initial input as the corrupted input *k^/*, then the whole model can be considered
+    as a form of a basic encoder. The corrupted input *k^(/ )*is mapped to generate
+    the hidden representation *h*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Therefore, we get the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Architecture of a Denoising autoencoder](img/image_06_013.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: From this hidden representation, the reconstructed output, *r*, can be derived
+    using *r = g (h)*. Denoising autoencoder reorganizes the data, and then tries
+    to learn about the data for the reconstruction of the output. This reorganization
+    of the data or shuffling of the data generates the noise, and the model learns
+    the features from the noise, which allows categorizing the input. During training
+    of the network, it produces a model, which computes the distance between that
+    model and the benchmark through a loss function. The idea is to minimize the average
+    reconstruction error over a training set to make the output r as close as possible
+    to the original uncorrupted input *k*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Architecture of a Denoising autoencoder](img/B05883_06_06.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 6.6: The steps involved in designing a denoising autoencoder. The original
+    input is k; corrupted input derived from k is denoted as k^/. The final output
+    is denoted as r.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Stacked denoising autoencoders
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The basic concept of building a stacked denoising autoencoder to initialize
+    a deep neural network is similar to stacking a number of Restricted Boltzmann
+    machines to build a Deep Belief network or a traditional deep autoencoder. The
+    generation of corrupted input is only needed for the initial denoising training
+    of each of the individual layers to help in learning the useful features extraction.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Once we know the encoding function *f* to reach the hidden state, it is used
+    on the original, uncorrupted data to reach the next level. In general, no corruption
+    or noise is put to generate the representation, which will act as an uncorrupted
+    input for training the next layer. A key function of a stacked denoising autoencoder
+    is its layer-by-layer unsupervised pre-training as the input is fed through. Once
+    a layer is pre-trained to perform the feature selection and extraction on the
+    input from the preceding layer, the next stages of supervised fine tuning can
+    follow, just as in case of the traditional deep autoencoders.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*Figure 6.7* shows the detailed representation to design a stacked denoising
+    autoencoder. The overall procedure for learning and stacking multiple layers of
+    a denoising autoencoder is shown in the following figure:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Stacked denoising autoencoders](img/B05883_06_07-1.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 6.7: The representation of a stacked denoising autoencoder'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Implementation of a stacked denoising autoencoder using Deeplearning4j
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Stacked denoising autoencoders can be built using Deeplearning4j by creating
+    a `MultiLayerNetwork` that possesses autoencoders as its hidden layers. The autoencoders
+    have some `corruptionLevel`, which is denoted as noise.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Here we set the initial configuration needed to set up the model. For illustration
+    purposes, a `batchSize` of `1024` numbers of examples is taken. The input number
+    and output number is taken as `1000` and `2` respectively.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The loading of the input dataset is the same as explained in the deep autoencoder
+    section. Therefore, we will directly jump to how to build the stack denoising
+    autoencoder. We have taken a five-hidden-layer deep model to illustrate the method:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The following code denotes how much input data is to be corrupted:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Once the model is built, it is trained by calling the `fit()` method:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: Applications of autoencoders
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Autoencoders can be successfully applied in many use cases, and hence, have
+    gained much popularity in the world of deep learning. In this section, we will
+    discuss the important applications and uses of autoencoders:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Dimensionality reduction**: If you remember, in [Chapter 1](ch01.html "Chapter 1. Introduction
+    to Deep Learning"), *Introduction to Deep Learning*, we introduced the concept
+    of the ''curse of dimensionality''. Dimensionality reduction was one of the first
+    applications of deep learning. Autoencoders were initially studied to overcome
+    the issues with the curse of dimensionality. We have already got a fair idea from
+    this chapter how deep autoencoders work on higher-dimensional data to reduce the
+    dimensionality in the final output.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Information Retrieval**: One more important application of autoencoders is
+    in information retrieval. Information retrieval basically means to search for
+    some entries, which match with an entered query, in a database. Searching in high-dimensional
+    data is generally a cumbersome task; however, with reduced dimensionality of a
+    dataset, the search can become extremely efficient in certain kinds of lower dimensional
+    data. The dimensionality reduction obtained from the autoencoder can generate
+    codes that are low dimensional and binary in nature. These can be stored in a
+    key values stored data structure, where keys are binary code vectors and values
+    are the corresponding entries. Such key value stores help us to perform information
+    retrieval by returning all the database entries that match some binary code with
+    the query. This approach to retrieving information through dimensionality reduction
+    and binary code is called semantic hashing [135].'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Image Search**: As explained in the deep autoencoder section, deep autoencoders
+    are capable of compressing image datasets of higher dimensions to a very small
+    number of vectors, say 30\. Therefore, this has made image searching easier for
+    high-dimensional images. Once an image is uploaded, the search engine will compress
+    it into small vectors, and then compare that vector to all the others in its index.
+    For a search query, the vectors that contain similar numbers will be returned
+    and translated into the mapped image.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Autoencoders, one of the most popular and widely applicable generative models,
+    have been discussed in this chapter. Autoencoders basically help two phases: one
+    is the encoder phase and the other is the decoder phase. In this chapter, we elaborated
+    on both of these phases with suitable mathematical explanations. Going forward,
+    we explained a special kind of autoencoder called the sparse autoencoder. We also
+    discussed how autoencoders can be used in the world of deep neural networks by
+    explaining deep autoencoders. Deep autoencoders consist of layers of Restricted
+    Boltzmann machines, which take part in the encoder and decoder phases of the network.
+    We explained how to deploy deep autoencoders using Deeplearning4j, by loading
+    chunks of the input dataset into a Hadoop Distributed File System. Later in this
+    chapter, we introduced the most popular form of autoencoder called the denoising
+    autoencoder and its deep network version known as the stacked denoising autoencoder.
+    The implementation of a stacked denoising autoencoder using Deeplearning4j was
+    also shown. We concluded this chapter by outlining the common applications of
+    autoencoders.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the next chapter, we will discuss some common useful applications of deep
+    learning with the help of Hadoop.
+  prefs: []
+  type: TYPE_NORMAL

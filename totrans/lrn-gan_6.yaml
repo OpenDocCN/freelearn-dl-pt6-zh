@@ -1,0 +1,1132 @@
+- en: Chapter 6. Taking Machine Learning to Production
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: A lot of machine learning and deep learning tutorials, text books, and videos
+    focus on the training and evaluation of models only. But how do you take your
+    trained model to production and use it for real-time scenarios or make it available
+    to your customers?
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this chapter, you will develop a facial image correction system using the
+    `LFW` dataset to automatically correct corrupted images using your trained GAN
+    model. Then, you will learn several techniques to deploy machine learning or deep
+    learning models in production, both on data centers and clouds with microservice-based
+    containerized environments. Finally, you will learn a way to run deep models in
+    a serverless environment and with managed cloud services.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We will cover the following topics in this chapter:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Building an image correction system using DCGAN
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The challenges of deploying machine learning models
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Microservice architecture with containers
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Various approaches to deploying deep learning models
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Serving Keras-based deep models on Docker
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Deploying deep models on the cloud with GKE
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Serverless image recognition with audio using AWS Lambda and Polly
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Running face detection with a cloud managed service
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Building an image correction system using DCGAN
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Image correction and inpainting are related technologies used for filling in
+    or completing missing or corrupted parts of images. Building a system that can
+    |fill in the missing pieces broadly requires two pieces of information:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Contextual information**: Helps to infer missing pixels based on information
+    provided by the surrounding pixels'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Perceptual information**: Helps to interpret the filled/completed portions
+    as being normal, as seen in real life or other pictures'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: In this example, we will develop an image correction or completion system with
+    the **Labeled Face in the Wild** (`LFW`) dataset using DCGAN. Refer to [Chapter
+    2](ch02.html "Chapter 2. Unsupervised Learning with GAN"), *Unsupervised Learning
+    with GAN*, for DCGAN and its architecture.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s define some notation and `loss` function before diving into the steps
+    for building an image correction system:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*x*: Corrupted image.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*M*: Represents a binary mask that has a value of either 1 (meaning the part
+    of the image we want to keep) or 0 (meaning the part of the image we want to complete/correct).
+    The element-wise multiplication between the two matrices *x* and *M* represented
+    by ![Building an image correction system using DCGAN](img/B08086_06_37.jpg) returns
+    the original part of the image.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*pdata*: The unknown distribution of sampled data.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Once we have trained the discriminator *D(x)* and generator *G(z)* of DCGAN,
+    we can leverage it to complete missing pixels in an image, *x*, by maximizing
+    *D(x)* over those missing pixels.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Contextual loss penalizes *G(z)* for not creating a similar image for the known
+    pixel location in the input image by element-wise subtracting the pixels in *x*
+    from *G(z)* and finding the difference between them:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Building an image correction system using DCGAN](img/B08086_06_38.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Perceptual loss has the same criterion used in training DCGAN to make sure
+    that the recovered image looks real:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Building an image correction system using DCGAN](img/B08086_06_39.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Next, we need to find an image from the generator, *G(z)*, that provides a
+    reasonable reconstruction of the missing pixels. Then, the completed pixels ![Building
+    an image correction system using DCGAN](img/B08086_06_41.jpg) can be added to
+    the original pixels to generate the reconstructed image:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Building an image correction system using DCGAN](img/B08086_06_40.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Tip
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Training a deep convolutional network over a CPU may be prohibitively slow,
+    so it is recommended to use a CUDA-enabled GPU for deep learning activities involving
+    images with convolution or transposed convolution.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Steps for building an image correction system
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Make sure you have downloaded the code for this chapter:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `DCGAN-ImageCorrection` project will have the following directory structure:![Steps
+    for building an image correction system](img/B08086_06_01.jpg)
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Now download the `LFW` dataset (aligned with deep funnelling) from [http://vis-www.cs.umass.edu/lfw](http://vis-www.cs.umass.edu/lfw)
+    and extract its content under the `lfw` directory:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Next, execute `create_tfrecords.py` to generate the TensorFlow standard format
+    from the `LFW` images. Modify the path of your `LFW` image location in the Python
+    file:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'This will generate the `tfrecords` file in the `data` directory as follows:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '![Steps for building an image correction system](img/B08086_06_02.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_IMG
+- en: 'Now train the DCGAN model by executing the following command:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'You can modify the `max_itr` attribute in the Python files to determine the
+    maximum number of iterations the training should continue for. Once the training
+    is going on, after every 5,000 iterations, you will find the generated images
+    under the `lfw-gen` directory, as follows:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '![Steps for building an image correction system](img/B08086_06_03.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_IMG
+- en: 'Finally, you can use the trained DCGAN model to correct corrupted images. You
+    need to put your corrupted images under the `complete_src` directory and execute
+    the following command:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: You can also alter the type of masking by specifying `center` or `random` with
+    the `masktype` attribute in the preceding command.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Steps for building an image correction system](img/B08086_06_04.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'The preceding command will generate corrected or completed images under the
+    complete directory, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Steps for building an image correction system](img/B08086_06_05.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Challenges of deploying models to production
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Most researchers and machine learning practitioners focus on the training and
+    evaluation side of machine learning or deep learning models. A real-world analogy
+    of building models during research is similar to cooking at home, whereas building
+    or deploying that model in production is like cooking for a wide variety of customers
+    (whose taste changes over time) in a restaurant.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Some of the common challenges that often arise during the production deployment
+    of models are as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Scalability**: A real-world production environment is quite different from
+    a training or research environment. You often need to cater for a high volume
+    of requests without impacting the performance. Your model should automatically
+    scale up/out based on the traffic and then scale down/in when the traffic is low.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Automated model training or updates**: Real-world data has temporal dynamics
+    and, as your model enters the real-world production environment, the data starts
+    looking different from that on which the model was originally trained. This means
+    you need to retrain your model (sometimes automatically) and then switch between
+    models seamlessly.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Interoperation between development languages**: Often, two different people
+    or groups are responsible for researching (training) the model and productionizing
+    it, and the language for research may be different from the preferred language
+    for production. This causes a bunch of problems, as machine learning models have
+    different implementations in different programming languages, even though the
+    model is essentially the same.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Knowledge of training set metadata**: Real-world production data might have
+    missing values and you will need to apply a missing value imputation technique
+    to deal with this. Although, in production systems, you don''t keep information
+    about training data, but in order to correctly impute the missing values arriving
+    in production test samples, you have to store the knowledge of the training set
+    statistics needed for imputation.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Real-time evaluation of model performance**: Evaluation of a model''s performance
+    in production often requires you to collect ground truth data (or other real-time
+    metrics) and generate dynamic pages as a model processes more data. Also, you
+    might need to carry out **A/B** testing by deploying two or more models serving
+    the same functionality simultaneously to evaluate performance in production.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Microservice architecture using containers
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In traditional **monolithic** architecture, an application puts all its functionality
+    into single packages such as EAR or WAR and deploys it on an application server
+    (such as JBoss, Tomcat, or WebLogic). Even though a monolithic application has
+    separate and distinguishable components, all are packaged under one roof.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Drawbacks of monolithic architecture
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Some of the common pitfalls of monolithic design are as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The functional components in monolithic architecture are packed under one application
+    and are not isolated. Hence, changing a single component requires updating an
+    entire application, thereby bringing the entire application to a halt. This is
+    not desirable in a production scenario.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Scaling a monolithic application is not efficient, because to scale you have
+    to deploy each copy of the application (WAR or EAR) in various servers that will
+    utilize the same amount of resources.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Often, in the real world, one or two functional components are heavily used
+    compared to other components. But in monolithic design, all components will utilize
+    the same resources, hence it is hard to segregate highly used components to improve
+    the performance of the overall application.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Microservices** is a technique that decomposes large software projects into
+    loosely coupled modules/services that communicate with each other through simple
+    APIs. A microservices-based architecture puts each functionality into separate
+    services to overcome the drawbacks of monolithic design.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Benefits of microservice architecture
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Some of the advantages of microservice design pattern are as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Single responsibility principle**: Microservice architecture makes sure that
+    each functionality is deployed or exposed as a separate service through simple
+    APIs.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**High scalability**: Highly utilized or demanding services can be deployed
+    in multiple servers to serve a high number of requests/traffic, thereby enhancing
+    performance. This is difficult to achieve with single, large monolithic services.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Improves fault tolerance**: The failure of single modules/services doesn''t
+    affect the larger application, and you can quickly recover or bring back the failed
+    module, since the module is running as a separate service. Whereas a monolithic
+    or bulky service having errors in one component/module can impact other modules/functionality.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Freedom of the technology stack**: Microservices allows you to choose the
+    technology that is best suited for a particular functionality and helps you to
+    try out a new technology stack on an individual service.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The best way to deploy microservices-based applications is inside containers.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Containers
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'Containers are shareable, lightweight processes that sit on top of a host operating
+    system and share the kernels (binaries and libraries) of the host OS. Containers
+    solve a bunch of complex problems simultaneously through a layer of abstraction.
+    The popularity of containers can be described by the wonderful triad: *Isolation*!
+    *Portability*! *Repeatability*!.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Docker
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Docker is one of the hottest open source projects and is a very popular containerization
+    engine that allows a convenient way to pack your service/application with all
+    dependencies together to be deployed locally or in the cloud.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Kubernetes
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Kubernetes is another open source project at Google and it provides orchestration
+    to containers, allowing automated horizontal scaling, service discovery, load
+    balancing, and much more. Simply put, it automates the management of your containerized
+    applications/services in the cloud.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: We will refer to Docker as the container engine for illustration in this section,
+    although other container engines would also provide similar features or functionality.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Benefits of using containers
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Some of the pros of using container are discussed as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Continuous deployment and testing**: Often, release life cycles involving
+    different environments, such as development and production, have some differences
+    because of different package versions or dependencies. Docker fills that gap by
+    ensuring consistent environments by maintaining all configurations and dependencies
+    internally from development to production. As a result, you can use the same container
+    from development to production without any discrepancies or manual intervention.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Multi-cloud platforms**: One of the greatest benefits of Docker is its portability
+    across various environments and platforms. All major cloud providers, such as
+    **Amazon Web Services** (**AWS**) and **Google Compute Platform** (**GCP**), have
+    embraced Docker''s availability by adding individual support (AWS ECS or Google
+    GKE). Docker containers can run inside a Virtual Machine VM instance (Amazon EC2
+    or Google Compute Engine) provided the host OS supports Docker.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Version control**: Docker containers work as a version control system just
+    like `Git`/`SVN` repositories, so that you can commit changes to your Docker images
+    and version control then.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Isolation and security**: Docker ensures that applications running inside
+    containers are completely isolated and segregated from each other, granting complete
+    control over traffic flow and management. No Docker container has access to the
+    processes running inside another container. From an architectural standpoint,
+    each container has its own set of resources.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: You can combine an advanced machine learning or deep learning application with
+    the deployment capabilities of containers to make the system more efficient and
+    shareable.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Various approaches to deploying deep models
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Machine learning is exciting and fun! It has its challenges though, both during
+    the modeling part and also during deployment, when you want your model to serve
+    real people and systems.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Deploying machine learning models into production can be done in a wide variety
+    of ways and the different ways of productionalizing machine learning models is
+    really governed by various factors:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Do you want your model to be part of real-time streaming analytics or batch
+    analytics?
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Do you want to have multiple models serving the same functionality or do you
+    need to perform A/B testing on your models?
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: How often do you want your model to be updated?
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: How do you scale your model based on traffic?
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: How do you integrate with other services or fit the ML service into a pipeline?
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Approach 1 - offline modeling and microservice-based containerized deployment
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: In this approach, you will train and evaluate your model offline and then use
+    your pretrained model to build a RESTful service and deploy it inside a container.
+    Next, you can run the container within your data center or cloud depending on
+    cost, security, scaling, and infrastructure requirement. This approach is well
+    suited to when your machine learning or deep learning service will have continuous
+    traffic flow and need to dynamically scale based on spikes in requests.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Approach 2 - offline modeling and serverless deployment
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: In this approach, you will train your model offline and deploy your service
+    in a serverless environment such as AWS Lambda (where you will be charged only
+    for invoking the API; you don't have to pay for running containers or VM instances
+    on an hourly/minute basis). This approach is well suited to when your model service
+    will not be used continuously but will instead be invoked after a certain time.
+    But even if there is continuous traffic flow (depending on the number of requests
+    you hit), this approach might still be cost-effective compared to approach 1.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Approach 3 - online learning
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Sometimes, you need to perform real-time streaming analytics by integrating
+    your machine learning service with the pipeline (such as putting it at the consumer
+    end of a message queue having IOT sensor data). Data might change very frequently
+    in real-time streaming situations. In that scenario, offline model training is
+    not the right choice. Instead, you need your model to adapt automatically to the
+    data as it is sees it—that is it will update weights/parameters based on data
+    using something like SGD or its mini batch variant.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Approach 4 - using a managed machine learning service
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: This approach is well suited to when you don't have the resources or team members
+    to build machine learning models in-house. Instead, you utilize the available
+    cloud-based managed machine learning or deep learning services, such as Google
+    Cloud ML, Azure ML, AWS Rekognition, AWS Polly, Google Cloud Vision, and so on
+    to fulfill your requirements by invoking simple API calls.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Next, we will illustrate the deployment approaches mentioned previously through
+    hands-on examples.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Serving Keras-based deep models on Docker
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this example, we will build an image identification system with a pretrained
+    Keras InceptionV3 model and deploy it on a container in the local machine. Refer
+    to [Chapter 4](ch04.html "Chapter 4. Building Realistic Images from Your Text"),
+    *Building Realistic Images from Your Text*, for more information about pretrained
+    models. Our pretrained Keras model will run inside a Docker container exposed
+    as a REST API using Flask.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Serving Keras-based deep models on Docker](img/B08086_06_06.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Make sure you have the `keras-microservice` project available and then perform
+    the following steps to run a Keras-based deep model inside a `docker` container:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'First, check that the Dockerfile is in your current working directory and then
+    build a Docker image:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Once the Docker image is built successfully, use the image to run a container
+    with the `docker run` command:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'For example:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Note
+  prefs:
+  - PREF_IND
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Inside the `docker` container, the Keras model is running on port `5001` inside
+    a WSGI HTTP Python server named **Gunicorn**, which is load balanced by an **Nginx**
+    proxy server on port `80`. We used the `–p` attribute previously to map the host
+    port with the container port. Also, we used the `-v` volume attribute to map the
+    host path with the container path, so that we can load the pretrained model from
+    this path.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Now it''s time to test our image identification service by executing the `test.sh`
+    script. The script contains a `curl` command to call and test the REST API of
+    our exposed image identification service:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Finally, execute the script to generate a prediction from our Keras service:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '![Serving Keras-based deep models on Docker](img/B08086_06_07.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_IMG
+- en: Voila! We have successfully deployed our first Keras-based deep learning model
+    inside a container.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Deploying a deep model on the cloud with GKE
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Once the deep learning model is created, deployed inside the container, and
+    generating predictions locally, it's time to take the model to the cloud (for
+    example, Google Cloud in this example) using Docker and Kubernetes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Perform the following steps to take a locally created containerized model to
+    the cloud:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Sign up for a Google Cloud trial account ([https://cloud.google.com/free](https://cloud.google.com/free))
+    and then create a **New Project** by typing a relevant **Project name** of your
+    choice:![Deploying a deep model on the cloud with GKE](img/B08086_06_08.jpg)
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Please note down the **project ID** containing your **Project name** along with
+    some numeric digits of the format `<project name>-xxxxxx`. We will need the **project
+    ID** later for deploying our local model to the c
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'd SDK on your machine ([https://cloud.google.com/sdk](https://cloud.google.com/sdk)).
+    And then install kubectl to manage the Kubernetes cluster:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: The `gcloud` command is included in the Google Cloud SDK.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Set some environment variables with the `gcloud` command-line tool `config`
+    command:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Now build the docker image with a tag or version (`v1` in this example):'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'For example:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Next, upload the image built previously with the `docker push` command to the
+    Google Container Registry:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'For example:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '![Deploying a deep model on the cloud with GKE](img/B08086_06_09.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_IMG
+- en: 'Once the container image is stored in a registry, we need to create a container
+    cluster by specifying the number of Compute Engine VM instances. This cluster
+    will be orchestrated and managed by Kubernetes. Execute the following command
+    to create a two-node cluster named `dl-cluster`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'We will use the Kubernetes `kubectl` command-line tool to deploy and run an
+    application on a Container Engine cluster, listening on port `80`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '![Deploying a deep model on the cloud with GKE](img/B08086_06_10.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_IMG
+- en: 'Now attach the application running inside the container cluster to the load
+    balancer, so that we can expose our image identification service to a real- world
+    user:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Next, run the following `kubectl` command to get the external IP of our service:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Finally, execute the following command to get a prediction from our image recognition
+    service hosted inside a container cluster hosted on the cloud:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '![Deploying a deep model on the cloud with GKE](img/B08086_06_11.png.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_IMG
+- en: Serverless image recognition with audio using AWS Lambda and Polly
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this example, we will build an audio-based image prediction system using
+    TensorFlow pretrained InceptionV3 model and deploy it on a serverless environment
+    of AWS Lambda. We will run our image prediction code on AWS Lambda and load our
+    pretrained model from S3, and then expose the service to our real-world customer
+    through the AWS API gateway.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Serverless image recognition with audio using AWS Lambda and Polly](img/B08086_06_12.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Perform the following steps to build an audio-based image recognition system
+    on a serverless platform:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Sign up for an AWS trial account ([https://aws.amazon.com/free/](https://aws.amazon.com/free/))
+    and navigate to the **IAM** service to create a new role for AWS Lambda. Attach
+    two new managed policies: **S3FullAccess** and **PollyFullAccess** alongside the
+    inline policy of **lambda_basic_execution**.![Serverless image recognition with
+    audio using AWS Lambda and Polly](img/B08086_06_13.png.jpg)'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Next, create an S3 bucket, where we will store our lambda code (consisting
+    of custom Python packages such as `numpy`, `scipy`, `tensorflow`, and so on).
+    Also create three folders within your S3 bucket:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '`code`: We will store our code for the lambda environment here'
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`audio`: Our prediction audio will be saved in this location'
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`model`: We will store our pretrained model in this location'
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '![Serverless image recognition with audio using AWS Lambda and Polly](img/B08086_06_14.png.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_IMG
+- en: 'Download the pretrained TensorFlow model ([http://download.tensorflow.org/models/image/imagenet/inception-2015-12-05.tgz](http://download.tensorflow.org/models/image/imagenet/inception-2015-12-05.tgz)),
+    extract it, and then upload the following files to the `S3` bucket under the `model`
+    directory:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '![Serverless image recognition with audio using AWS Lambda and Polly](img/B08086_06_15.png.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_IMG
+- en: 'The `lambda_tensorflow.zip` contains a `classify.py` file that will be invoked
+    during the `lambda` function execution. Change the bucket name, and inside the
+    `classify.py`, zip it again and upload it to the S3 bucket under the `code` directory:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '![Serverless image recognition with audio using AWS Lambda and Polly](img/B08086_06_16.png.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_IMG
+- en: Now navigate to the **Lambda** service from the web console to create a new
+    Lambda function from scratch. Provide **Name*** and **Description** for the function;
+    choose **Runtime** as **Python 2.7** and attach the `IAM` role created previously
+    to this Lambda function.![Serverless image recognition with audio using AWS Lambda
+    and Polly](img/B08086_06_17.png.jpg)
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: And then specify the code (`lambda_tensorflow.zip`) location in your Lambda
+    function configuration:![Serverless image recognition with audio using AWS Lambda
+    and Polly](img/B08086_06_18.png.jpg)
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Also increase the **Memory(MB)** and **Timeout** of your Lambda function under
+    the **Advance Settings** tab. The first time, the lambda execution will take some
+    time due to the loading of the pretrained model from S3.![Serverless image recognition
+    with audio using AWS Lambda and Polly](img/B08086_06_19.png.jpg)
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Next, create a new API by navigating to the **API Gateway** service:![Serverless
+    image recognition with audio using AWS Lambda and Polly](img/B08086_06_20.png.jpg)
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Then, click the **Binary Support** tab on the left panel of your API to add
+    the following content type:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '**image/png**'
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**image/jpeg**'
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '![Serverless image recognition with audio using AWS Lambda and Polly](img/B08086_06_21.png.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_IMG
+- en: Next, create a **New Child Resource** by specifying the **Resource Path** (for
+    example, `tensorflow-predict`):![Serverless image recognition with audio using
+    AWS Lambda and Polly](img/B08086_06_22.png.jpg)
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Next, add a method (**POST**) to your child resource by clicking **Create Method**
+    from the **Action** menu. Add the Lambda function we created previously to AMP
+    with this API resource. You may need to specify the correct region to find your
+    Lambda function from the dropdown.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Once the **POST** method is created, click on **Integration Request** and expand
+    the **Body Mapping Templates** tab. Under **Request body passthrough**, choose
+    **When there are no templates defined (recommended)**. Then, add an image/jpeg
+    under **Content-Type** and add the following under the **Generate template** section:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '![Serverless image recognition with audio using AWS Lambda and Polly](img/B08086_06_23.png.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_IMG
+- en: 'Finally, deploy the API from the **Action** menu and define the **Stage name**
+    (for example, `prod` or `dev`). Once your API is deployed, you will find your
+    API URL as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '`https://<API ID>.execute-api.<region>.amazonaws.com/`'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'Next, access your API from the REST client, such as **POSTMAN** shown in this
+    example, to invoke your image prediction service. In the **API Request**, set
+    the **Content-Type** as **image/jpeg** and add the parameter name **imageName**
+    with a value (such as `animal`). Add an image in the body as a `binary` file that
+    our service will predict:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '`https://<API ID>.execute-api.<region>.amazonaws.com/prod/tensorflow-predict?imageName=animal`'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '![Serverless image recognition with audio using AWS Lambda and Polly](img/B08086_06_24.png.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_IMG
+- en: 'Voila! You will see the following output from the serverless service in your
+    Postman response:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**"The image is identified as giant panda, panda, panda bear, coon bear, Ailuropoda
+    melanoleuca (with score = 0.89107)"**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Serverless image recognition with audio using AWS Lambda and Polly](img/B08086_06_25.png.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Also, audio of the predicted response will be generated and stored in the S3
+    bucket under the `audio` folder.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Serverless image recognition with audio using AWS Lambda and Polly](img/B08086_06_26.png.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Steps to modify code and packages for lambda environments
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'If you need to add an additional Python package for your service or update
+    any existing package, perform the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Launch an EC2 instance with **Amazon Linux AMI 2017.03.1 (HVM), SSD Volume Type**:![Steps
+    to modify code and packages for lambda environments](img/B08086_06_27.png.jpg)
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Log in to the EC2 instance and copy the current lambda code in the instance.
+    Then, create a directory and extract the ZIP file inside that directory:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '![Steps to modify code and packages for lambda environments](img/B08086_06_28.png.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_IMG
+- en: 'To update any existing package, first remove it and then install it with the
+    `pip` command. To add a new package install with `pip` (if that package depends
+    on shared `.so` libraries, then you need to create a `lib` folder and copy those
+    files in it from the `//usr/lib` and `/usr/lib64` directory):'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Then create the ZIP file of the full directory:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE25]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: And finally, copy the ZIP file to S3 and update your Lambda function by mentioning
+    the new ZIP file location on S3.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: You may need to strip down some packages or irrelevant directories from packages
+    to make sure the total size of unzipped files in the `code` directory is less
+    than 250 MB; otherwise, Lambda won't deploy your code.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Go to the following link for more information about custom package deployment
+    on Lambda[http://docs.aws.amazon.com/lambda/latest/dg/lambda-python-how-to-create-deployment-package.html](http://docs.aws.amazon.com/lambda/latest/dg/lambda-python-how-to-create-deployment-package.html).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Running face detection with a cloud managed service
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: In this example, we will use a deep learning-based managed cloud service for
+    our label identification and face detection system. We will continue to leverage
+    a serverless environment AWS Lambda and utilize a deep learning-based cloud managed
+    service, AWS Rekognition for facial attribute identification.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Perform the following steps to build a facial detection system using managed
+    cloud deep learning services on a serverless platform:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: First, update the IAM Lambda execution role from the previous example and attach
+    a new managed policy **AmazonRekognitionFullAccess** as follows:![Running face
+    detection with a cloud managed service](img/B08086_06_29.png.jpg)
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Next, create a new Lambda function that will be used for building the facial
+    detection service. Select **Runtime*** as **Python 2.7** and keep all other settings
+    as default. Attach the updated IAM role with this Lambda function:![Running face
+    detection with a cloud managed service](img/B08086_06_30.png.jpg)
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Then, paste the following code in the **Lambda function code** section area.
+    Update the S3 **Bucket Name** and AWS **Region** information in the `boto3.client`
+    of the code as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE26]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Once you have created the Lambda function, we will create an API gateway child
+    resource for this service as follows:![Running face detection with a cloud managed
+    service](img/B08086_06_31.png.jpg)
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Next, we will add a method (**PUT** in this case) to our new child resource
+    (**predict**), then click on **Integration Request** of the **PUT** method.![Running
+    face detection with a cloud managed service](img/B08086_06_32.jpg)
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Now, attach the **Lambda Function** created previously with this resource method.
+    You need to select the AWS **Lambda Region** where you have created your **Lambda
+    Function** to get the Lambda function name in the drop-down list:![Running face
+    detection with a cloud managed service](img/B08086_06_33.png.jpg)
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Next, expand the **Body Mapping Templates** section and select **When there
+    are no templates defined (recommended)** in the **Request body passthrough** section.
+    Then, add a mapping template **image/png** in the **Content-Type** and paste the
+    following code in the **General template** area:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE27]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: '![Running face detection with a cloud managed service](img/B08086_06_34.png.jpg)'
+  prefs:
+  - PREF_IND
+  type: TYPE_IMG
+- en: 'Now deploy your API Gateway resource API by clicking **Deploy API** from the
+    **Action** menu. Once your resource is deployed, you will get an API of the gateway
+    that you will use to invoke the face detection service. We will continue to use
+    the REST client **Postman** ([https://chrome.google.com/webstore/detail/postman/fhbjgbiflinjbdggehcddcbncdddomop?hl=en](https://chrome.google.com/webstore/detail/postman/fhbjgbiflinjbdggehcddcbncdddomop?hl=en))
+    from our previous example, but you can use any other REST client of your choice
+    as well. The API Gateway URL will look as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '`https://<API ID>.execute-api.<AWS Region>.amazonaws.com/prod/predict`'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Add **Content-Type** as **image/png** and add two request parameter activities
+    and filenames in the request. The parameter **activity** takes two values (**label-detect**
+    for image recognition or label detection) and (**face-detect** for face detection).
+    And the **fileName** parameter will be used to save the raw image to S3 with that
+    name.![Running face detection with a cloud managed service](img/B08086_06_35.png.jpg)
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Now, invoke your service to detect a label or face and get the response output
+    in JSON as follows:![Running face detection with a cloud managed service](img/B08086_06_36.png.jpg)
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'So far, you have learned and implemented various ways of deploying the trained
+    deep model and making predictions for new data samples. You have also learned
+    how to take your model from your local machine or data center to the cloud using
+    Docker containers smoothly. I hope, throughout the book, with lots of hands-on
+    examples using real-world public datasets, you have understood the concept of
+    GANs, and its variant architecture (SSGAN, BEGAN, DCGAN, CycleGAN, StackGAN, DiscoGAN)
+    well. Once you have played around with the code and examples in this book, I would
+    definitely encourage you to do the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Participate in the Kaggle Adversarial Network competition: [https://www.kaggle.com/c/nips-2017-defense-against-adversarial-attack](https://www.kaggle.com/c/nips-2017-defense-against-adversarial-attack).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Keep your knowledge updated about deep learning and GANs by attending or viewing
+    the following conferences:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Neural Informat****ion Processing Syst****ems** (**NIPS**): [https://nips.cc/](https://nips.cc/)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**International Conference on Learning Representations** (ICLR): [HTTP://WWW.ICLR.CC/](HTTP://WWW.ICLR.CC/)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL

@@ -1,0 +1,969 @@
+- en: End-to-End Learning
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the previous chapters, we have learnt about analyzing sequential data (text)
+    using the **Recurrent Neural Network** (**RNN**), and also about analyzing image
+    data using the **Convolutional Neural Network** (**CNN**).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this chapter, we will be learning about using the CNN + RNN combination
+    to solve the following case studies:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Handwritten-text recognition
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Generating caption from image
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Additionally, we will also be learning about a new loss function called **Connectionist
+    Temporal Classification** (**CTC**) loss while solving the handwritten-text-recognition
+    problem.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Finally, we will be learning about beam search to come up with plausible alternatives
+    to the generated text, while solving the caption generating from image problem.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Introduction
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Consider a scenario where we are transcribing the image of a handwritten text.
+    In this case, we would be dealing with image data and also sequential data (as
+    the content in the image needs to be transcribed sequentially).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In traditional analysis, we would have hand-crafted the solution—for example:
+    we might have slid a window across the image (where the window is of the average
+    size of a character) so that the window would detect each character, and then
+    output characters that it detects, with high confidence.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: However, in this scenario, the size of the window or the number of windows we
+    shall slide is hand crafted by us—which becomes a feature-engineering (feature
+    generation) problem.
+  prefs: []
+  type: TYPE_NORMAL
+- en: A more end-to-end approach shall be extracting the features obtained by passing
+    the image through a CNN and then passing these features as inputs to various time
+    steps of an RNN, so that we extract the output at various time steps.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Thus, we will be using a combination of CNN and RNN, and by approaching the
+    problem this way, we do not have to build a hand-crafted feature at all and let
+    the model figure the optimal parameters of CNN and RNN.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Connectionist temporal classification (CTC)
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: One of the limitations to perform supervised learning on top of handwritten
+    text recognition or in speech transcription is that, using a traditional approach,
+    we would have to provide the label of which part of the image contain a certain
+    character (in the case of hand-writing recognition) or which subsegment of the
+    audio contains a certain phoneme (multiple phonemes combine to form a word utterance).
+  prefs: []
+  type: TYPE_NORMAL
+- en: However, providing the ground truth for each character in image, or each phoneme
+    in speech transcription, is prohibitively costly when building the dataset, where
+    there are thousands of words or hundreds of hours of speech to transcribe.
+  prefs: []
+  type: TYPE_NORMAL
+- en: CTC comes in handy to address the issue of not knowing the mapping of different
+    parts of images to different characters. In this section, we will learn about
+    how CTC loss functions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Decoding CTC
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Let''s say, we are transcribing an image that contains the text **ab**. The
+    example can look like any of the following (with varying space between the characters
+    **a** and **b**) and the output label (ground truth) is just the same **ab**:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/cf409f12-0d59-4815-8c13-0abc072eb181.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'In the next step, we shall divide these examples into multiple time steps,
+    as follows (where each box represents a time step):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/77d67303-323b-495a-a8c4-8170d6abca28.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: In the preceding example, we have a total of six time steps (each cell represents
+    a time step).
+  prefs: []
+  type: TYPE_NORMAL
+- en: We shall be predicting the output from each time step where the output of a
+    time step is the softmax across the vocabulary.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Given that we are performing softmax, let''s say the output of each time step
+    for the first picture of **ab** is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/1b3bac58-0c5a-48a2-a533-44f676518f0b.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Note that, the **-** in the preceding picture represents a blank space. Additionally,
+    the output in the fourth and fifth time steps can be **b** if the features of
+    the image are passed through a bidirectional LSTM (or GRU)—as the information
+    in the next time step can also influence the output in a previous time step while
+    performing a bidirectional analysis.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the final step, we shall be squashing all the softmax outputs that have the
+    same value in consecutive time steps.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The preceding results in our final output being: **-a-b-** for this example.
+  prefs: []
+  type: TYPE_NORMAL
+- en: If, in case the ground truth is **abb**, we shall expect a **-** in between
+    the two **b**s so that the consecutive **b**s do not get squashed into one.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Calculating the CTC loss value
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'For the problem we were solving in the previous section, let''s consider we
+    have the following scenario, where the probability of having the character in
+    a given time step is provided in the circle of the following diagram (note that,
+    the probabilities add up to one in each time step from **t0** to **t5**):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/e6ae3e2b-0198-4204-93e2-c3099b144404.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'However, to keep the calculation simple for us to understand, let''s consider
+    the scenario where the ground truth is **a** and not **ab** and also that the
+    output has only three time steps and not six. The modified output across the three
+    time steps looks as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/f49d376c-e7ca-493c-9c01-8642c6ba3ff2.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'We can obtain the ground truth of **a** if the softmax in each time step is
+    any of the following scenarios:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '| **Output in each time step** | **Prob of character in time step 1** | **Prob
+    of character in time step 2** | **Prob of character in time step 3** | **Probability
+    of combination** | **Final probability** |'
+  prefs: []
+  type: TYPE_TB
+- en: '| - - a | 0.8 | 0.1 | 0.1 | 0.8 x 0.1 x 0.1 |  0.008 |'
+  prefs: []
+  type: TYPE_TB
+- en: '| - a a | 0.8 | 0.9 | 0.1 | 0.8 x 0.9 x 0.1 | 0.072 |'
+  prefs: []
+  type: TYPE_TB
+- en: '| a a a | 0.2 | 0.9 | 0.1 | 0.2 x 0.9 x 0.1 | 0.018 |'
+  prefs: []
+  type: TYPE_TB
+- en: '| - a - | 0.8 | 0.9 | 0.8 | 0.8 x 0.9 x 0.8 | 0.576 |'
+  prefs: []
+  type: TYPE_TB
+- en: '| - a a | 0.8 | 0.9 | 0.1 | 0.8 x 0.9 x 0.1 | 0.072 |'
+  prefs: []
+  type: TYPE_TB
+- en: '| a - -  | 0.2 | 0.1 | 0.8 | 0.2 x 0.1 x 0.8 | 0.016 |'
+  prefs: []
+  type: TYPE_TB
+- en: '| a a - | 0.2 | 0.9 | 0.8 | 0.2 x 0.9 x 0.8 | 0.144 |'
+  prefs: []
+  type: TYPE_TB
+- en: '| **Overall probability** | **0.906** |'
+  prefs: []
+  type: TYPE_TB
+- en: From the preceding results, we see that the overall probability of obtaining
+    the ground truth **a** is 0.906.
+  prefs: []
+  type: TYPE_NORMAL
+- en: CTC loss is the negative logarithm of the overall probability = *-log(0.906)
+    = 0.04*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note that, as the combination of characters with the highest probability in
+    each time step indicate the ground truth of **a**, the CTC loss is close to zero.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Handwritten-text recognition
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this case study, we will be working toward transcribing the handwritten images
+    so that we extract the text that is present in the pictures.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'A sample of the handwriting looks as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/900d721e-6a43-4de5-9ced-850bc6332af3.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Note that in the preceding diagram, the handwritten characters have varied length,
+    the images are of different dimensions, the separation between the characters
+    is varied, and the images are of different quality.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this section, we will be learning about using CNN, RNN, and the CTC loss
+    function together to transcribe the handwritten examples.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The strategy we will adopt to transcribe the handwritten examples is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Download images that contain images of handwritten text:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Multiple datasets containing handwritten text images are provided in the code
+    file associated with this case study in GitHub
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Ensure that, along with the images, you have also taken the ground truth corresponding
+    to the images
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Resize all images to be of the same size, let's say 32 x 128 in size
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'While resizing, we should also ensure that the aspect ratio of the picture
+    is not distorted:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: This is to ensure that images cannot look very blurred because the original
+    image was changed to 32 x 128 in size
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: We'll resize the images without distorting the aspect ratio, and then superimpose
+    each of them on a different blank 32 x 128 image
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Invert the colors of the images so that the background is in black and the handwritten
+    content is in white
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Scale the images so that their value is between zero and one
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Pre-process the output (ground truth):'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Extract all the unique characters in output
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Assign an index for each character
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Find the maximum length of output, and then ensure that the number of time steps
+    for which we are predicting the content of time step is more than the maximum
+    length of output
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Ensure the same length of output for all outputs by padding the ground truths
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Pass the processed picture through a CNN so that we extract features that are
+    of 32 x 256 in shape
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Pass the extracted features from CNN through GRU unit that is bidirectional
+    so that we encapsulate the information that is present in adjacent time steps
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Each of the 256 features in 32 time steps is an input for the respective time
+    step
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Pass the output through a dense layer that has as many output values as the
+    total number of unique characters in ground truth (the padded value (**-** in
+    the example given in the introduction to the CTC loss section) shall also be one
+    of the unique characters—where the padded value **-** represents either the space
+    between characters, or the padding in the blank portion of the picture
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Extract the softmax and its corresponding output character at each of the 32
+    time steps
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The preceding algorithm in code is performed as follows (the code file is available
+    as `Handwritten_text_recognition.ipynb` in GitHub):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Download and import the dataset. This dataset will contain the images of handwritten
+    text and their corresponding ground truth (transcription).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Build a function that resizes pictures without distorting the aspect ratio
+    and pad the rest of pictures so that all of them have the same shape:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the preceding code, we are creating a blank picture (named `target`). In
+    the next step, we have reshaped the picture to maintain its aspect ratio.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Finally, we have overwritten the rescaled picture on top of the blank one we
+    created, and have returned the picture where the background is in black (255-target).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Read the pictures and store them in a list, as shown in the following code:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In the preceding code, we are extracting each picture and also are modifying
+    it per the function that we defined. The input and modified examples for different
+    scenario:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/cb7b3958-fbd3-4d1c-b6cb-40a4cc1ec9be.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Extract the unique characters in output, shown as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Create the output ground truth, as demonstrated in the following code:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the preceding code, we are storing the index of each character in an output
+    into a list. Additionally, if the output is less than 32 characters in size, we
+    pad it with 79, which represents the blank value.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Finally, we are also storing the label length (in the ground truth) and also
+    the input length (which is always 32 in size).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Convert the input and output into NumPy arrays, as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Define the objective, as shown here:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: We are initializing 32 zeros, as the batch size will be 32\. For each value
+    in batch size, we expect the loss value to be zero.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Define the CTC loss function as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: The preceding function takes the predicted values, ground truth (labels) and
+    input, label lengths as input and calculates the CTC loss value.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Define the model, demonstrated as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In the preceding code, we are building the CNN that converts a picture with
+    32 x 128 shape into a picture of 32 x 256 in shape:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The architecture of model till the layers defined previously are as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/ceeb523d-37f3-4c1d-9828-32dc1dddfe58.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'In the preceding code, we are passing the features obtained from CNN into a
+    GRU. The architecture defined previously continues from the preceding graph shown
+    is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/3703ea67-229b-4f73-bc63-a71be57a06d0.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'In the following code, we are concatenating the output of two GRUs so that
+    we take both bidirectional GRU and normal GRU-generated features into account:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The architecture after adding the preceding layer is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/d3b78853-dfea-445c-8be8-538b17c2b466.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'In the following code, we are passing the features of GRU output through a
+    dense layer and applying softmax to get one of the possible 80 values as output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The architecture of the model continues as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/1f69ad73-9c27-40b1-8720-e37833d6fce1.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Initialize the variables that are required for the CTC loss:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the preceding code, we are mentioning that `y_pred` (predicted character
+    values), actual labels, input length, and the label length are the inputs to the
+    CTC loss function.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Build and compile the model as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Note that there are multiple inputs that we are passing to our model. The CTC
+    calculation is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/8ad595f7-6135-494d-8787-4979a3460b79.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Create the following vectors of inputs and outputs:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Fit the model on multiple batches of pictures, demonstrated in the following
+    code:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the preceding code, we are sampling 32 pictures at a time, converting them
+    into an array, and fitting the model to ensure that the CTC loss is zero.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note that, we are excluding the last 100 pictures (in `x2`) from passing as
+    input to model, so that we can test our model's accuracy on that data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Furthermore, we are looping through the total dataset multiple times, as fetching
+    all pictures into RAM and converting them into an array is very likely to crash
+    the system, due to the huge memory requirement.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The training loss over increasing epochs is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/65786b6a-f385-4f80-a721-9e7111c729f5.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Predict the output at each time for a test picture, using the following code:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the preceding code, we are discarding the output if the predicted character
+    at a time step is the character of 79.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'A test examples and its corresponding predictions (in title) are as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/3841110b-83d4-4e17-a9ed-1a43606a7f33.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Image caption generation
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the previous case study, we learned about using CNN, RNN, and CTC loss together
+    to transcribe the handwritten digits.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this case study, we will learn about integrating CNN and RNN architectures
+    to generate captions for a given picture.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Here is a sample of the picture:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/d236b475-d8ec-405c-bc4a-712208d8b564.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: A girl in red dress with Christmas tree in background
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: A girl is showing the Christmas tree
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: A girl is playing in the park
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: A girl is celebrating Christmas
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'In this section, let''s list the strategy that we shall adopt to transcribe
+    pictures:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We'll be working toward generating captions from pictures by working on a dataset
+    that has images as well as the captions associated with the images. Links of datasets
+    that have images and their corresponding captions are provided in the corresponding
+    notebook in GitHub.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: We'll extract the VGG16 features of each picture.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'We will also preprocess the captions text:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Convert all words to lower case
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Remove punctuation
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Add start and end tokens to each caption
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Keep only the pictures that are of a dog or a girl (we are performing this analysis
+    only so that we train our model faster, as it takes ~5 hours to run this model,
+    even on a GPU).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Assign an index to each unique word in the vocabulary of captions.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Pad all captions (where each word is represented by an index value) so that
+    all captions are now of the same size.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: To predict the first word, the model shall take the combination of the VGG16
+    features and the embedding of the start token.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Similarly, to predict the second word, the model will take the combination of
+    the VGG16 features and the embedding combination of start token and the first
+    word.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: In a similar manner, we proceed to fetch all the predicted words.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: We continue with the preceding steps until we predict the end token.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'We''ll code up the strategy that we have defined previously, as follows (the
+    code file is available as `Image_captioning.ipynb` in GitHub):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Download and import a dataset that contains images and their corresponding captions.
+    The recommended datasets are provided in GitHub
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Import the relevant packages, as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Load the caption dataset, shown in the following code:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Load the pictures and store the VGG16 features:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Convert the VGG16 features into NumPy arrays:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Build a function that removes the punctuation in captions, and also converts
+    all words to lowercase:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In the following code, we preprocess all the captions and also append the start
+    and end tokens:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Append only the pictures that are of a child or a dog:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Extract all the unique words in captions, as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Assign indexes to words in the vocabulary, demonstrated in the following code:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Identify the maximum length of a caption so that we pad all captions to be
+    of the same length:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE25]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Pad all the captions to be of the same length, as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE26]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Build the model that takes pictures as input and creates features from it:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE27]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Build a model that takes captions as input and creates features from it:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE28]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Concatenate the two models and come up with a softmax of probabilities across
+    all the possible output words:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE29]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Compile the model, as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE30]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Fit the model, shown in the following code:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE31]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the preceding code, we are looping through all the pictures, 32 at a time.
+    Additionally, we are creating the input dataset in such a way that the first *n* number
+    of output words in a caption are input along with the VGG16 features of a picture,
+    and the corresponding output is the *n+1^(th)* word of the caption.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Furthermore, we are dividing the VGG16 features (`x3`) by 12, as we need to
+    scale the input values between zero and one.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The output caption of a sample picture can be obtained as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE32]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![](img/4344dfc9-c830-4c95-abbe-a425403cb3d0.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'The output is decoded as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE33]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The output of the preceding code is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/6ef9c565-3bcb-4d8b-bc54-4776d13e1022.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Note that the generated caption correctly detected that the dog is black and
+    is also jumping.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Generating captions, using beam search
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the previous section on caption generation, we have decoded based on the
+    word that has the highest probability in a given time step. In this section, we'll
+    improve upon the predicted captions by using beam search.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Beam search works as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Extract the probability of various words in first time step (where VGG16 features
+    of the picture and the start token are the input)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Instead of providing the most probable word as the output, we'll consider the
+    top three probable words
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: We'll proceed to the next time step, where we extract the top three characters
+    in this time step
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'We''ll loop through the top three predictions in first time step, as an input
+    to the prediction of second time step, and extract the top three predictions for
+    each of the possible top three predictions in input:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Let's say that *a*, *b*, and *c* are the top three predictions in time-step
+    one
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: We'll use *a* as input along with VGG16 features to predict the top three probable
+    characters in time-step two, and similarly for *b* and *c*
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: We have a total of nine combinations of outputs between the first time- step
+    and the second time-step
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Along with the combination, we''ll also store the confidence of each prediction
+    across all nine combinations:'
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'For example: if the probability of *a* in time-step one is 0.4 and the probability
+    of *x* in time step two is 0.5, then the probability of combination is 0.4 x 0.5
+    = 0.2'
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: We'll keep the top three combinations and discard the rest of the combinations
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: We'll repeat the preceding step of shortlisting the top three combinations until
+    we reach the end of the sentence
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The value of three is the beam length across which we are searching for the
+    combination.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'In this section, we''ll code up the beam-search strategy that we discussed
+    previously (the code file is available as `Image_captioning.ipynb` in GitHub):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Define a function that takes the VGG16 features of the picture as input, along
+    with the sequence of words and their corresponding confidences from the previous
+    time steps and return the top three predictions in the current time step:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE34]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the preceding step, we are separating the word IDs and their corresponding
+    confidences provided in the `string_with_conf` parameter. Furthermore, we are
+    storing the sequence of tokens in an array and using that to make a prediction.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the next step, we are extracting the top three predictions in the next time
+    step and storing it in `best_pred`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Additionally, along with the best prediction of word IDs, we are also storing
+    the confidence associated with each top three prediction in the current time step.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Finally, we are returning the three predictions of the second time step.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Loop through the range of the maximum possible length of sentence and extract
+    the top three possible combinations of words across all time steps:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE35]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Loop through the preceding `best_strings` obtained to print the output:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE36]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The output sentences for the same picture that we tested in the previous section
+    are as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/ec9b27db-9d6e-46a2-9716-f0b4e19d595b.png)  ![](img/1448ba62-e00b-4a79-a24b-23d879f650c1.png)  ![](img/764e7e00-72e6-45cc-ae51-1fe3818710f2.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Note that, in this specific case, the first and second sentences differed when
+    it came to the words `jumping` and `playing`, and the third sentence happened
+    to be the same as the first, as the probability of combination was much higher.
+  prefs: []
+  type: TYPE_NORMAL

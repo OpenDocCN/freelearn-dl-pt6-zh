@@ -1,0 +1,1485 @@
+- en: Building a Recurrent Neural Network
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the previous chapter, we looked at multiple ways of representing text as
+    a vector and then performed sentiment classification on top of those representations.
+  prefs: []
+  type: TYPE_NORMAL
+- en: One of the drawbacks of this approach is that we did not take the order of words
+    into consideration—for example, the sentence *A is faster than B* would have the
+    same representation as *B is faster than A*, as the words in both sentences are
+    exactly the same, while the order of words is different.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Recurrent neural networks** (**RNNs**) come in handy in scenarios when the
+    word order needs to be preserved. In this chapter, you will learn about the following
+    topics:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Building RNN and LSTM from scratch in Python
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Implementing RNN for sentiment classification
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Implementing LSTM for sentiment classification
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Implementing stacked LSTM for sentiment classification
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Introduction
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'RNN can be architected in multiple ways. Some of the possible ways are as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/79db1776-f471-4fe6-89b0-67cbae844bfc.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'The box in the bottom is the input, followed by the hidden layer (as the middle
+    box), and the box on top is the output layer. The one-to-one architecture is the
+    typical neural network with a hidden layer between the input and the output layer.
+    The examples of different architectures are as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '| **Architecture** | **Example** |'
+  prefs: []
+  type: TYPE_TB
+- en: '| One-to-many | Input is image and output is caption of image |'
+  prefs: []
+  type: TYPE_TB
+- en: '| Many-to-one | Input is a movie''s review (multiple words in input) and output
+    is sentiment associated with the review |'
+  prefs: []
+  type: TYPE_TB
+- en: '| Many-to-many | Machine translation of a sentence in one language to a sentence
+    in another language |'
+  prefs: []
+  type: TYPE_TB
+- en: Intuition of RNN architecture
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: RNN is useful when we want to predict the next event given a sequence of events.
+  prefs: []
+  type: TYPE_NORMAL
+- en: An example of that could be to predict the word that comes after *This is an
+    _____*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let's say, in reality, the sentence is *This is an example*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Traditional text-mining techniques would solve the problem in the following
+    way:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Encode each word while having an additional index for potential new words:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Encode the phrase `This is an`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Create the training dataset:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: Build a model with input and output
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: One of the major drawbacks of the model is that the input representation does
+    not change in the input sentence; it is either `this is an`, or `an is this`,
+    or `this an is`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'However, intuitively, we know that each of the preceding sentences is different
+    and cannot be represented by the same structure mathematically. This calls for
+    having a different architecture, which looks as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/a4da81fc-763e-4ed2-b638-f3694aebd985.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: In the preceding architecture, each of the individual words from the sentence
+    enter into individual box among the input boxes. However the structure of the
+    sentence will be preserved, for example `this` enters the first box, `is` enters
+    second box and `an` enters the third box.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The output box at the top will be the output that is `example`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Interpreting an RNN
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'You can think of RNN as a mechanism to hold memory—where the memory is contained
+    within the hidden layer. It can be visualized as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/ef7343c2-b306-43b0-8e2d-3dc8f10fa443.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The network on the right is an unrolled version of the network on the left. The
+    network on the right takes one input in each time step and extracts the output
+    at each time step. However, if we are interested in the output in the fourth time
+    step, we'll provide input in the previous three time steps and the output of the
+    third time step is the predicted value for fourth time step.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note that, while predicting the output of third time step, we are incorporating
+    values from the first three time steps through the hidden layer, which is connecting
+    the values across time steps.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s explore the preceding diagram:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The **U** weight represents the weights that connect the input layer to the
+    hidden layer
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The **W** weight represents the hidden-layer-to-hidden-layer connection
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The **V** weight represents the hidden-layer-to-output-layer connection
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Why store memory?
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: There is a need to store memory, as in the preceding example or even in text-generation
+    in general, the next word does not necessarily depend only on the preceding word,
+    but the context of the words preceding the word to predict.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Given that we are looking at the preceding words, there should be a way to keep
+    them in memory, so that we can predict the next word more accurately.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Moreover, we should also have the memory in order; that is, more often than
+    not, the recent words are more useful in predicting the next word than the words
+    that are far away from the word to predict.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Building an RNN from scratch in Python
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this recipe, we will build an RNN from scratch using a toy example, so that
+    you gain a solid intuition of how RNN helps in solving the problem of taking the
+    order of events (words) into consideration.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Note that a typical NN has an input layer, followed by an activation in the
+    hidden layer, and then a softmax activation at the output layer.
+  prefs: []
+  type: TYPE_NORMAL
+- en: RNN follows a similar structure, with modifications done in such a way that
+    the hidden layers of the previous time steps are considered in the current time
+    step.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We'll build the working details of RNN with a simplistic example before implementing
+    it on more practical use cases.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s consider an example text that looks as follows: `This is an example`.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The task at hand is to predict the third word given a sequence of two words.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'So, the dataset translates as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '| **Input** | **Output** |'
+  prefs: []
+  type: TYPE_TB
+- en: '| `this, is` | `an` |'
+  prefs: []
+  type: TYPE_TB
+- en: '| `is, an` | `example` |'
+  prefs: []
+  type: TYPE_TB
+- en: Given an input of `this is`, we are expected to predict `example` as the output.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The strategy that we''ll adopt to build an RNN is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: One-hot encode the words
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Identify the maximum length of input:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Pad the rest of input to the maximum length so that all the inputs are of the
+    same length
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Convert the words in the input into a one-hot-encoded version
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Convert the words in the output into a one-hot-encoded version
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Process the input and the output data, then fit the RNN model
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The strategy discussed above is coded as follows (the code file is available
+    as `Building_a_Recurrent_Neural_Network_from_scratch-in_Python.ipynb` in GitHub):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s define the input and output in code, as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Let''s preprocess our dataset so that it can be passed to an RNN:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In the preceding step, we are identifying all the unique words and their corresponding
+    frequency (counts) in a given dataset, and we are assigning an ID number to each
+    word. The output of `word_to_int` in the preceding code looks as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Modify the input and output words with their corresponding IDs, as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the preceding code, we are appending the ID of each word of an input sentence
+    into a list, thus making the input (`encoded_docs`) a list of lists.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Similarly, we are appending the ID of each word of the output into a list.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'One additional factor to take care of while encoding the input is the input
+    length. In cases of sentiment analysis, the input text length can vary from one
+    review to another. However, the neural network expects the input size to be fixed.
+    To get around this problem, we perform padding on top of the input. Padding ensures
+    that all inputs are encoded to have a similar length. While the lengths of both
+    examples in our case is 2, in practice, we are very likely to face the scenario
+    of differing lengths between input. In code, we perform padding as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the preceding code, we are passing `encoded_docs` to the `pad_sequences`
+    function, which ensures that all the input data points have the same length—which
+    is equal to the `maxlen` parameter. Additionally, for those parameters that are
+    shorter than `maxlen`, it pads those data points with a value of 0 to achieve
+    a total length of `maxlen` and the zero padding is done `pre`—that is, to the
+    left of the original encoded sentence.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now that the input dataset is created, let's preprocess the output dataset so
+    that it can be passed to the model-training step.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The typical processing for outputs is to make them into dummy values, that
+    is, make a one-hot-encoded version of the output labels, which is done as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: Note that, given the output values (`encoded_labels`) are `{2, 4}`, the output
+    vectors have a value of 1 at the second and fourth positions, respectively.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s build the model:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'An RNN expects the input to be (`batch_size`, `time_steps`, and `features_per_timestep`)
+    in shape. Hence, we first reshape the `padded_docs` input into the following format:'
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: Note that ideally we would have created a word embedding for each word (ID in
+    this specific case). However, given that the intent of this recipe is only to
+    understand the working details of RNN, we will exclude the embedding of IDs and
+    assume that each input is not an ID but a value. Having said that, we will learn
+    how to perform ID-embedding in the next recipe.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Define the model—where we are specifying that we will initialize an RNN by
+    using the `SimpleRNN` method:'
+  prefs:
+  - PREF_OL
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the preceding step, we explicitly specified the `recurrent_initializer` to
+    be zero so that we understand the working details of RNN more easily. In practice,
+    we would not be initializing the recurrent initializer to 0.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `return_sequences` parameter specifies whether we want to obtain the hidden
+    layer values at each time step. A false value for `return_sequences` specifies
+    that we want the hidden layer output only at the final timestep.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Typically, in a many-to-one task, where there are many inputs (one input in
+    each time step) and outputs, `return_sequences` will be false, resulting in the
+    output being obtained only in the final time step. An example of this could be
+    the stock price on the next day, given a sequence of historical five-day stock
+    prices.
+  prefs: []
+  type: TYPE_NORMAL
+- en: However, in cases where we try to obtain hidden-layer values in each time step,
+    `return_sequences` will be set to `True`. An example of this could be machine
+    translation, where there are many inputs and many outputs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Connect the RNN output to five nodes of the output layer:'
+  prefs:
+  - PREF_OL
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: We have performed a `Dense(5)`, as there are five possible classes of output
+    (the output of each example has 5 values, where each value corresponds to the
+    probability of it belonging to word ID `0` to word ID `4`).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Compile and summarize the model:'
+  prefs:
+  - PREF_OL
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'A summary of model is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/54388466-b7f3-4314-a618-964e8acfd193.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Now that we have defined the model, before we fit the input and output, let's
+    understand the reason why there are certain number of parameters in each layer.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The simple RNN part of the model has an output shape of `(None, 1)`. The `None` in
+    the output shape represents the `batch_size`. None is a way of specifying that
+    the `batch_size` could be any number. Given that we have specified that there
+    shall be one unit of hidden that is to be outputted from simple RNN, the number
+    of columns is one.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now that we understand the output shape of `simpleRNN`, let's understand why
+    the number of parameters is three in the `simpleRNN` layer. Note that the hidden-layer
+    value is outputted at the final time step. Given that the input has a value  of
+    one in each time step (one feature per time step) and the output is also of one
+    value, the input is essentially multiplied by a weight that is of a single value.
+    Had the output (hidden-layer value) been 40 units of hidden-layer values, the
+    input should have been multiplied by 40 units to get the output (more on this
+    in the *Implementing RNN for sentiment classification*
+  prefs: []
+  type: TYPE_NORMAL
+- en: recipe). Apart from the one weight connecting the input to the hidden-layer
+    value, there is a bias term that accompanies the weight. The other 1 parameter
+    comes from the connection of the previous time step's hidden layer value to the
+    current time step's hidden layer, resulting in a total of three parameters.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There are 10 parameters from the hidden layer to the final output as there are
+    five possible classes resulting in five weights and five biases connecting the
+    hidden-layer value (which is of one unit)—a total of 10 parameters.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Fit the model to predict the output from the input:'
+  prefs:
+  - PREF_OL
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: Extract prediction on the first input data point
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The extracted output is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: Validating the output
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Now that the model is fit, let's gain an understanding of how an RNN works by
+    working backward—that is, extract the weights of model, feed forward the input
+    through the weights to match the predicted value using NumPy (the code file is
+    available as `Building_a_Recurrent_Neural_Network_from_scratch_in_Python.ipynb` in
+    GitHub).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Inspect the weights:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: The preceding gives us an intuition of the order in which weights are presented
+    in the output.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the preceding example, `kernel` represents the weights and `recurrent` represents
+    the connection of the hidden layer from one step to another.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note that a `simpleRNN` has weights that connect the input to the hidden layer
+    and also weights that connect the previous time step's hidden layer to the current
+    time step's hidden layer.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The kernel and bias in the `dense_2` layer represent the layer that connects
+    the hidden layer value to the final output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Extract weights:'
+  prefs:
+  - PREF_OL
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: The preceding line of code gives us the computed values of each of the weights.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Pass the input through the first time step—the input is as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In the preceding code, the first time step has a value of `3` and the second
+    time step has a value of `1`. We''ll initialize the value at first time step as
+    follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The value at the first time step is multiplied by the weight connecting the
+    input to the hidden layer, then the bias value is added:'
+  prefs:
+  - PREF_OL
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The hidden layer value at this time step is calculated by passing the preceding
+    output through the `tanh` activation (as that is the activation we specified when
+    we defined the model):'
+  prefs:
+  - PREF_OL
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Calculate the hidden-layer value at time step 2; where the input has a value
+    of `1` (note the value of `padded_docs[0]` is `[3, 1]`):'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The output value when the input at the second time step is passed through the
+    weight and bias is as follows:'
+  prefs:
+  - PREF_OL
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs: []
+  type: TYPE_PRE
+- en: Note that the weights that multiply the input remain the same, regardless of
+    the time step being considered.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The calculation for the hidden-layer at various time steps is performed as
+    follows:'
+  prefs:
+  - PREF_OL
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![](img/0fe5cacd-023b-479f-8a90-874d5b0f3c42.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Where *Φ* is an activation that is performed (In general, `tanh` activation
+    is used).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The calculation from the input layer to the hidden-layer constitutes two components:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Matrix multiplication of the input layer value and kernel weights
+  prefs:
+  - PREF_UL
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Matrix multiplication of the hidden layer of the previous time step and recurrent
+    weights
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'The final calculation of the hidden-layer value at a given time step would
+    be the summation of the preceding two matrix multiplications. Pass the result
+    through a tanh activation function:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The total value before passing through the `tanh` activation is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE25]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The output of the hidden-layer value is calculated by passing the preceding
+    output through the `tanh` activation, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE26]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Pass the hidden layer output from the final time step through the dense layer,
+    which connects the hidden layer to the output layer:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE27]'
+  prefs: []
+  type: TYPE_PRE
+- en: Note that the fourth and fifth output of the `model.get_weights()` method correspond
+    to the connection from the hidden layer to the output layer.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Pass the preceding output through the softmax activation (as defined in the
+    model) to obtain the final output:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE28]'
+  prefs: []
+  type: TYPE_PRE
+- en: You should notice that the output we obtained through the forward pass of input
+    through the network is the same as what the `model.predict` function gave as output.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Implementing RNN for sentiment classification
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: To understand how RNN is implemented in Keras, let's implement the airline-tweet
+    sentiment classification exercise that we performed in the [Chapter 10](79b072ff-23b6-47ef-80bc-d9400a855714.xhtml),
+    *Text Analysis Using Word Vectors* chapter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The task would be performed as follows (the code file is available as `RNN_and_LSTM_sentiment_classification.ipynb`
+    in GitHub):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Import the relevant packages and dataset:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE29]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Preprocess the text to remove punctuation, normalize all words to lowercase,
+    and remove the stopwords, as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE30]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Extract the word-to-integer mapping of all the words that constitute the dataset:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE31]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In the preceding step, we are extracting the frequency of all the words in
+    the dataset. A sample of extracted words are as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/f9b4e5b9-a37a-4944-941f-6647af1ba595.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: '[PRE32]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In the preceding code, we are looping through all the words and are assigning
+    an index for each word. A sample of integer to word dictionary is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/c12eb915-d624-4999-b83c-6daeff8e36e0.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Map each word in a given sentence to the corresponding word associated with
+    it:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE33]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In the preceding step, we are converting a text review into a list of lists
+    where each list constitutes the ID of words contained in a sentence. A sample
+    of original and mapped review is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/04c3a122-9b47-4e60-87a5-bf3bed019521.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Extract the maximum length of a sentence and normalize all sentences to the
+    same length by padding them. In the following code, we are looping through all
+    the reviews and storing the length corresponding to each review. Additionally,
+    we are also calculating the maximum length of a review (tweet text):'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE34]'
+  prefs: []
+  type: TYPE_PRE
+- en: We should note that different tweets have different lengths. However, RNN expects
+    the number of time steps for each input to be the same. In the code below, we
+    are padding a mapped review  with a value of 0, if the length of the review is
+    less than the maximum length of all reviews in dataset. This way, all inputs will
+    have the same length.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE35]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Prepare the training and test datasets:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE36]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the preceding step, we are splitting the original data into the train and
+    test datasets, and are converting the dependent variable into a one-hot-encoded
+    variable.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Build the RNN architecture and compile the model:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE37]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Note that embedding takes the total number of distinct words as input, and
+    creates a vector for each word, where `output_dim` represents the number of dimensions
+    in which the word is to be represented. `input_length` represents the number of
+    words in each sentence:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE38]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Note that, in the RNN layer, if we want to extract the output of each time
+    step, we say the `return_sequences` parameter is `True`. However, in the use case
+    that we are solving now, we extract the output only after reading through all
+    the input words and thus `return_sequences = False`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE39]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The summary of model is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/7d2328cb-7549-4f74-9844-a2f5f3d89b04.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Let's understand why there are `401056` parameters to be estimated in the embedding
+    layer. There are a total of 12, 532 unique words, and if we consider that there
+    is no word with an index of 0, it results in a total of 12,533 possible words
+    where each is represented in 32 dimensions and hence (12,533 x 32 = 401,056) parameters
+    to be estimated.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, let's try to understand why there are 2,920 parameters in the `simpleRNN`
+    layer.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There is a set of weights that connect the input to the 40 units of RNN. Given
+    that there are 32 inputs at each time step (where the same set of weights is repeated
+    for each time step), a total of 32 x 40 weights is used to connect the input to
+    the hidden layer. This gives an output that is of 1 x 40 in dimension for each
+    input.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Additionally, for the summation between the *X * W[xh]* and *h[(t-1) *] W[hh]* to
+    happen (where *X* is is the input values, *W*[*xh* ]is the weights-connecting
+    input layer to the hidden layer, *W[hh]* is the weights-connecting the previous
+    time step's hidden layer to the current time step's hidden layer, and *h[(t-1)]*
+    is the hidden layer of previous time step)—given that the output of the *X W[xh]* input
+    is 1 x 40—the output of *h[(t-1) ]X W[hh]* should also be 1 x 40 in size. Thus,
+    the *W[hh]* matrix will be 40 x 40 in dimension, as the dimensions of  *h[(t-1)]* are
+    1 x 40.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Along with weights, we would also have 40 bias terms associated with each of
+    the 40 output and thus a total of (32 x 40 + 40 x 40 + 40 = 2,920) weights.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There are a total of 82 weights in the final layer, as the 40 units of the final
+    time step are connected to the two possible output, resulting 40 x 2 weights and
+    2 biases, and thus a total of 82 units.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Fit the model:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE40]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The plot of accuracy and loss values in training, test dataset are as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/afc6244e-0a9d-463a-956d-c6b4956c784d.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: The output of the preceding model is also ~89%, and does not offer any significant
+    improvement over the word-vector-based network that we built in *Text analysis
+    using word vectors* chapter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: However, it is expected to have better accuracy as the number of data points
+    increases.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There's more...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'A traditional RNN that takes multiple time steps into account for giving predictions
+    can be visualized as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/a7fcb1be-8d05-49f7-811f-8f716f209092.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Notice that, as time step increases, the impact of input at a much earlier
+    layer would be lower. An intuition of that can be seen here (for a moment, let''s
+    ignore the bias terms):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*h[5] = WX[5] + Uh[4] = WX5 + UWX[4] + U²WX[3] + U³WX[2] + U⁴WX[1]*'
+  prefs: []
+  type: TYPE_NORMAL
+- en: You can see that, as the time step increases, the value of hidden layer is highly
+    dependent on *X[1]* if *U>1*, or much less dependent on *X[1]* if *U<1*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The dependency on U matrix can also result in vanishing gradient when the value
+    of *U* is very small and can result in exploding gradient when the value of *U*
+    is very high.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The above phenomenon results in an issue when there is a long-term dependency
+    in predicting the next word. To solve this problem, we'll use the **Long Short
+    Term Memory** (**LSTM**) architecture in the next recipe.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Building a LSTM Network from scratch in Python
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'In the previous section on issues with traditional RNN, we learned about how
+    RNN does not help when there is a long-term dependency. For example, imagine the
+    input sentence is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*I live in India. I speak ____.*'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The blank space in the preceding statement could be filled by looking at the
+    key word, *India*, which is three time steps prior to the word we are trying to
+    predict.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In a similar manner, if the key word is far away from the word to predict, vanishing/exploding
+    gradient problems need to be solved.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this recipe, we'll learn how LSTM helps in overcoming the long-term dependency
+    drawback of the RNN architecture and also build a toy example so that we understand
+    the various components of LSTM.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'LSTM looks as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/f2243925-4b0f-400b-bb2d-6d485e0d1401.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: You can see that while the input, **X**, and the output of the hidden layer,
+    (**h**), remain the same, there are different activations that happen in the hidden
+    layer (sigmoid activation in certain cases and tanh activation in others).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s closely examine the various activations that happen in one of the time
+    steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/4c51bfa7-310d-4ee5-97dd-aff0de7c9669.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: In the preceding diagram, **X** and **h** represent the input layer and the
+    hidden layer.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The longterm memory is stored in cell state **C**.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The content that needs to be forgotten is obtained using the forget gate:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*f[t]=σ(W[xf]x^((t))+W[hf]h^((t-1))+b[f])*'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Sigmoid activation enables the network to selectively identify the content that
+    needs to be forgotten.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The updated cell state after we determine the content that needs to be forgotten
+    is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*c[t]=(c[t-1] ![](img/598b937a-e234-4d91-a30e-ae8b81fbf55e.png) f)*'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note that ![](img/dc04ccba-f496-4601-93a6-3f1f35655156.png) represents element-to-element
+    multiplication.
+  prefs: []
+  type: TYPE_NORMAL
+- en: For example, if the input input sequence of the sentence is *I live in India.
+    I speak ___*, the blank space can be filled based on the input word *India*. After
+    filling in the blank, we do not necessarily need the specific information of the
+    name of the country.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We update the cell state based on what needs to be forgotten at the current
+    time step.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the next step, we will be adding additional information to the cell state
+    based on the input provided in the current time step. Additionally, the magnitude
+    of the update (either positive or negative) is obtained through the tanh activation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The input can be specified as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*i[t]=σ(W[xi]x^((t))+W[hi]h^((t-1))+bi)*'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The modulation (magnitude of the input update) can be specified as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*g[t]=tanh(W[xg]x^((t))+W[hg]h^((t-1))+bg)*'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The cell state—where we are forgetting certain things in a time step and also
+    adding additional information in the same time step—gets updated as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/b2688aa0-958e-4f11-9c52-f6661cacac20.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'In the final gate, we need to specify what part of the combination of input
+    (combination of current time step input and previous time step''s hidden layer
+    value) and the cell state needs to be outputted to the next hidden layer:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/9f52fca7-fe04-4a8f-a16a-ae6386c325f1.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'The final hidden layer is represented as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/962e9401-a248-417f-8f8d-0ebdfff4aff3.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: This way, we are in a position to leverage the various gates in LSTM to selectively
+    identify the information that needs to be stored in memory and thus overcome the
+    limitation of RNN.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: To gain a practical intuition of how this theory works, let's look at the same
+    example we worked out in understanding RNN but this time using LSTM.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Note that the data preprocessing steps are common between the two examples.
+    Hence, we will reuse the preprocessing part (*step 1* to *step 4* in the *Building
+    an RNN from scratch in Python* recipe) and directly head over to the model-building
+    part (the code file is available as `LSTM_working_details.ipynb` in GitHub):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Define the model:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE41]'
+  prefs: []
+  type: TYPE_PRE
+- en: Note that, in the preceding code, we initialized the recurrent initializer and
+    recurrent activation to certain values only to make this example simpler; the
+    purpose is only to help you understand what is happening in the backend.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE42]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE43]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'A summary of the model is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/04377b35-d2b0-4091-9dae-5d5558039585.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The number of parameters is `12` in the LSTM layer as there are four gates (forget,
+    input, cell, and output), which results in four weights and four biases connecting
+    the input to the hidden layer. Additionally, the recurrent layer contains weight
+    values that correspond to the four gates, which gives us a total of `12` parameters.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The dense layer has a total of 10 parameters as there are five possible classes
+    as output, and thus five weights and five biases that correspond to each connection
+    from the hidden layer to the output layer.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s fit the model:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE44]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The order of weights of this model are as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE45]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The weights can be obtained as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE46]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'From the preceding code (`model.weights`), we can see that the order of weights
+    in the LSTM layer is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Weights of the input (kernel)
+  prefs:
+  - PREF_UL
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Weights corresponding to the hidden layer (`recurrent_kernel`)
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Bias in the LSTM layer
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Similarly, in the dense layer (the layer that connects the hidden layer to
+    the output), the order of weights is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Weight to be multiplied with the hidden layer
+  prefs:
+  - PREF_UL
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Bias
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Here is the order in which the weights and biases appear (not provided in the
+    preceding output, but available in the GitHub repository of Keras) in the LSTM
+    layer:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Input gate
+  prefs:
+  - PREF_UL
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Forget gate
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Modulation gate (cell gate)
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Output gate
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Calculate the predictions for the input.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: We are using raw-encoded input values (1,2,3) without converting them into embedding
+    values—only to see how the calculation works. In practice, we would be converting
+    the input into embedding values.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Reshape the input for the predict method, so that it is as per the data format
+    expected by LSTM (batch size, number of time steps, features per time step):'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE47]'
+  prefs: []
+  type: TYPE_PRE
+- en: The output of predict method is provided in commented line in the code above.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Validating the output
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Now that we have a predicted probability from the model, let's run the input
+    through the forward pass of weights using NumPy to obtain the same output as we
+    just did.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'This is done so that we validate our understanding of how LSTM works under
+    the hood. The steps that we take to validate the output of model we built are
+    as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Update the forget gate in time step 1\. This step looks at the input and then
+    provides an estimate of how much of the cell state (memory) known so far is to
+    be forgotten (note the usage of the sigmoid function):'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE48]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Update the cell state based on the updated forget gate. The output of the previous
+    step is being used here to direct the amount of values to be forgotten from the
+    cell state (memory):'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE49]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Update the input gate value in time step 1\. This step gives an estimate of
+    how much new information is to be injected into the cell state based on the current
+    input:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE50]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Update the cell state based on the updated input value. This is the step where
+    the output from the previous step is being used to dictate the amount of information
+    update that is to happen to cell state (memory):'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE51]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The preceding `tanh` activation helps to determine whether the update from
+    the input will add to or subtract from the cell state (memory). This provides
+    an additional lever, as, if certain information is already conveyed in the current
+    time step and is not useful in future time steps, we are better off wiping it
+    off from the cell state so that this extra information (which might not be helpful
+    in the next step) is wiped from memory:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE52]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Update the output gate. This step provides an estimate of how much information
+    will be conveyed in the current time step (note the usage of the sigmoid function
+    in this regard):'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE53]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Calculate the hidden layer value at time step 1\. Note that the final hidden-layer
+    value at a time step is a combination of how much memory and output in the current
+    time step is used to convey for a single time step:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE54]'
+  prefs: []
+  type: TYPE_PRE
+- en: We are done calculating the hidden layer value output from the first time step.
+    In the next steps, we will pass the updated cell state value from time step 1
+    and the output of the hidden layer value from time step 1 as inputs to time step
+    2.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Pass the input value at time step 2 and the cell state value going into time
+    step 2:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE55]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Update the forget gate value:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE56]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Update the cell state value in time step 2:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE57]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Update the hidden layer output value based on the combination of updated cell
+    state and the magnitude of output that is to be made:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE58]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Pass the hidden layer output through the dense layer:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE59]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Run softmax on top of the output we just obtained:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE60]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE61]'
+  prefs: []
+  type: TYPE_PRE
+- en: You should notice that the output obtained here is exactly the same as what
+    we obtained from the `model.predict` method.
+  prefs: []
+  type: TYPE_NORMAL
+- en: With this exercise, we are in a better position to appreciate the working details
+    of LSTM.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Implementing LSTM for sentiment classification
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In *Implementing RNN for sentiment classification* recipe, we implemented sentiment
+    classification using RNN. In this recipe, we will look at implementing it using
+    LSTM.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The steps we''ll adopt are as follows (the code file is available as `RNN_and_LSTM_sentiment_classification.ipynb`
+    in GitHub):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Define the model. The only change from the code we saw in *Implementing RNN
+    for sentiment classification* recipe will be the change from `simpleRNN` to LSTM
+    in the model architecture part (we will be reusing the code from *step 1* to *step
+    6* in the *Implementing RNN for sentiment classification* recipe):'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE62]'
+  prefs: []
+  type: TYPE_PRE
+- en: The input for the embedding layer is the total number of unique IDs present
+    in the dataset and the expected dimension to which each word needs to be converted
+    (`output_dim`).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Additionally, we''ll also specify the maximum length of input, so that the
+    LSTM layer in the next step has the required information—batch size, number of
+    time steps (`input_length`), and the number of features per time (`step(output_dim)`):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE63]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'A summary of the model is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/b4e00271-4c1b-464a-bdc1-6dbc45594704.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: While the parameters in the first and last layer are the same as what saw in
+    the *Implementing RNN for sentiment classification* recipe, the LSTM layer has
+    a different number of parameters.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s understand how 11,680 parameters are obtained in the LSTM layer:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE64]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The output will look like the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE65]'
+  prefs: []
+  type: TYPE_PRE
+- en: Note that the total of the preceding weights has *(32*160) + (40*160) + 160
+    = 11,680* parameters.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`W` represents the weights that connect the input to each of the four cells
+    (`i`, `f`, `c`, `o`), `U` represents the hidden-layer-to-hidden-layer connection,
+    and `b` represents the bias in each gate.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Individual weights of the input, forget, cell state, and output gates can be
+    obtained as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE66]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE67]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE68]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Fit the model as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE69]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The variation of loss and accuracy over increasing epochs in training and test
+    datasets are as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/ffc8b5d6-d220-487e-b635-67ce7423dddf.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: The prediction accuracy is 91% when using the LSTM layer, which is slightly
+    better than the prediction accuracy when we are using the simpleRNN layer. Potentially,
+    we can further improve upon the result by fine-tuning the number of LSTM units.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Implementing stacked LSTM for sentiment classification
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the previous recipe, we implemented sentiment classification using LSTM in
+    Keras. In this recipe, we will look at implementing the same thing but stack multiple
+    LSTMs. Stacking multiple LSTMs is likely to capture more variation in the data
+    and thus potentially a better accuracy.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Stacked LSTM is implemented as follows (the code file is available as `RNN_and_LSTM_sentiment_classification.ipynb`
+    in GitHub):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The only change in the code we saw earlier will be to change the `return_sequences`
+    parameter to true. This ensures that the first LSTM returns a sequence of output
+    (as many output as the number of LSTM units), which can then be passed to another
+    LSTM as an input on top of the original LSTM in the model architecture part (more
+    details on the `return_sequences` parameter can be found in the *Sequence to Sequence
+    learning* chapter):'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE70]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'A summary of model architecture is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/5e6ca342-8153-47a5-92ed-a04e9dcd64d8.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Note that, in the preceding architecture, there is an additional LSTM that is
+    stacked on top of another LSTM. The output at each time step of the first LSTM
+    is `40` values and thus an output shape of (`None`, `26`, `40`), where `None`
+    represents the `batch_size`, `26` represents the number of time steps, and `40`
+    represents the number of LSTM units considered.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now that there are `40` input values, the number of parameters in the second
+    LSTM is considered in the same fashion as in the previous recipe, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE71]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The following are the values we get by executing preceding code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE72]'
+  prefs: []
+  type: TYPE_PRE
+- en: This results in a total of 12,960 parameters, as seen in the output.
+  prefs: []
+  type: TYPE_NORMAL
+- en: W is 40 x 160 in shape, as it has 40 inputs that are mapped to 40 output and
+    also 4 different gates to be controlled, and hence a total of 40 x 40 x 4 weights.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Implement the model, as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE73]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The variation of loss and accuracy over increasing epochs in training and test
+    datasets are as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/d2377a1a-3446-4819-bc41-7a6583e1c92e.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: This results in an accuracy of 91%, as we saw with a single LSTM layer; however,
+    with more data, stacked LSTM is likely to capture more variation in the data than
+    the vanilla LSTM.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There's more...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '**Gated Recurrent Unit** (**GRU**) is another architecture we can use and has
+    accuracy that is similar to that of LSTM. For more information about GRU, visit [https://arxiv.org/abs/1412.3555](https://arxiv.org/abs/1412.3555).'
+  prefs: []
+  type: TYPE_NORMAL

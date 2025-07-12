@@ -1,0 +1,1010 @@
+- en: Agent and the Environment
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Playing with and exploring experimental reinforcement learning environments
+    is all well and good, but, at the end of the day, most game developers want to
+    develop their own learning environment. To do that, we need to understand a lot
+    more about training deep reinforcement learning environments, and, in particular,
+    how an agent receives and processes input. Therefore, in this chapter, we will
+    take a very close look at training one of the more difficult sample environments
+    in Unity. This will help us understand many of the intricate details of how important
+    input and state is to training an agent, and the many features in the Unity ML-Agents
+    toolkit that make it easy for us to explore multiple options. This will be a critical
+    chapter for anyone wanting to build their own environments and use the ML-Agents
+    in their game. So, if you need to work through this chapter a couple of times
+    to understand the details, please do so.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this chapter, we are going to cover many details related to how agents process
+    input/state, and how you can adapt this to fit your agent training. Here is a
+    summary of what we will cover in this chapter:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Exploring the training environment
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Understanding state
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Understanding visual state
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Convolution and visual state
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Recurrent networks
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Ensure that you have read, understood, and ran some of the sample exercises
+    from the last chapter, [Chapter 6](b422aff5-b743-4696-ba80-e0a222ea5b4d.xhtml),
+    *Unity ML-Agents*. It is essential that you have Unity and the ML-Agents toolkit
+    configured and running correctly before continuing.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Exploring the training environment
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'One of the things that often pushes us to success, or pushes us to learn, is
+    failure. As humans, when we fail, one of two things happens: we try harder or
+    we quit. Interestingly, this is not unlike a negative reward in reinforcement
+    learning. In RL, an agent that gets a negative reward may quit exploring a path
+    if it sees no future value, or that it predicts will not give enough benefit.
+    However, if the agent feels like more exploration is needed, or it hasn''t exhausted
+    the path fully, it will push on and, often, this leads it to the right path. Again,
+    this is certainly not unlike us humans. Therefore, in this section, we are going
+    to train one of the more difficult example agents to push ourselves to learn how
+    to fail and fix training failures.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Unity is currently in the process of building a multi-level bench marking tower
+    environment that features multiple levels of difficulty. This will allow DRL enthusiasts,
+    practitioners, and researchers to test their skills/models on baseline environments.
+    The author has been told, on reasonably good authority, that this environment
+    should be completed by early/mid 2019.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We will need to use many of the advanced features of the Unity ML-Agents toolkit
+    ultimately get this example working. This will require you to have a good understanding
+    of the first five chapters of this book. If you skipped those chapters to get
+    here, please go back and review them as needed. In many places in this chapter,
+    helpful links have been provided to previous relevant chapters.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The training sample environment we will focus on is the VisualHallway, not to
+    be confused with the standard Hallway example. The VisualHallway differs in that
+    it uses the camera as the complete input state into the model, while the other
+    Unity examples we previously looked at used some form of multi-aware sensor input,
+    often allowing the agent to see 90 to 360 degrees at all times, and be given other
+    useful information. This is fine for most games, and, in fact, many games still
+    allow  such cheats or intuition for NPC or computer opponents as part of their
+    AI. Putting these cheats in for a game's AI has been an accepted practice for
+    many years, but perhaps that will soon change.
+  prefs: []
+  type: TYPE_NORMAL
+- en: After all, good games are fun to play, and make sense to the player. Games of
+    the not so distant past could get away with giving the AI cheats. However, now,
+    players are expecting more, they want their AI to play by the same rules as them.
+    The previous perception that computer AI was hindered by technological limitations
+    is gone, and now a game AI must play by the same rules as the player, which makes
+    our focus on getting the VisualHallway sample working/training more compelling.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There is, of course, another added benefit to teaching an AI to play/learn like
+    a player, and that is the ability to transfer that capability to play in other
+    environments using a concept called transfer learning. We will explore transfer
+    learning in [Chapter 10](1525f2f4-b9e1-4b7f-ac40-33e801c668ed.xhtml), *Imitation
+    and Transfer Learning*, where we will learn how to adapt pretrained models/parameters
+    and apply them to other environments.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The VisualHallway/Hallway samples start by dropping the agent into a long room
+    or hallway at random. In the center of this space is a colored block, and at one
+    end of the hallway in each corner is a colored square covering the floor. The
+    block is either red or gold (orange/yellow) and is used to inform the agent of
+    the target square that is the same color. The goal is for the agent to move to
+    the correct colored square. In the standard Hallway example, the agent is given
+    360 degree sensor awareness. In the Visual Hallway example, the agent is only
+    shown a camera view of the room, exactly as the player version of the game would
+    see. This puts our agent on equal footing with a player.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Before we get to training, let''s open up the example and play it as a player
+    would, and see how we do. Follow this exercise to open the VisualHallway sample:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Ensure you have a working installation of ML-Agents and can train a brain externally
+    in Python before continuing. Consult the previous chapter if you need help.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Open the VisualHallway scene from the Assets | ML-Agents | Examples | Hallway | Scenes
+    folder in the Project window.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Make sure that Agent | Hallway Agent | Brain is set to VisualHallwayPlayer,
+    as shown in the following screenshot:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![](img/259082a8-06ae-4583-9189-fa851ca24130.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Hallway Agent | Brain set to player
+  prefs: []
+  type: TYPE_NORMAL
+- en: Press Play in the editor to run the scene, and use the *W*, *A*, *S*, and *D*
+    keys to control the agent. Remember, the goal is to move to the square that is
+    the same color as the center square.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Play the game and move to both color squares to see what happens when a reward
+    is given, either negative or positive. The game screen will flash with green or
+    red when a reward square is entered.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: This game environment is typical of a first person shooter, and perfect for
+    training an agent to play in first person as well. Training an agent to play as
+    a human would be the goal of many an AI practitioner, and one you may or may not
+    strive to incorporate in your game. As we will see, depending on the complexity
+    of your game, this type of learning/training may not even be a viable option.
+    At this point, we should look at how to set up and train the agent visually.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Training the agent visually
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Fortunately, setting up the agent to train it visually is quite straightforward,
+    especially if you worked through the exercises in the last chapter. Open the Unity
+    editor to the VisualHallway scene, have a Python command or Anaconda window ready,
+    and let''s begin:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In Unity, change Agent | Hallway Agent | Brain to VisualHallwayLearning, as
+    shown in the following screenshot:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![](img/3f960c28-6e36-45f1-b6c7-aeff1738ac2a.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Changing that the Brain to learning
+  prefs: []
+  type: TYPE_NORMAL
+- en: Click on the VisualHallwayLearning brain to locate it in the Project window.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Click on the VisualHallwayLearning brain to view its properties in the Inspector
+    window, and as shown in the following screen excerpt:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![](img/c8bbaee9-105f-4b1f-8982-64535af4acf8.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Confirming the properties are set correctly on the learning brain
+  prefs: []
+  type: TYPE_NORMAL
+- en: Make sure that the Brain parameters are set to accept a single Visual Observation
+    at a resolution of `84` x `84` pixels, and are not using Gray scale. Gray is simply
+    the removal of the color channels, which makes the input one channel instead of
+    three. Recall our discussion of CNN layers in [Chapter 2](391f7c79-537a-4c1d-bb92-e517097cd4d8.xhtml), *Convolutional
+    and Recurrent Networks*. Also, be sure that the Vector Observation | Space Size
+    is 0, as shown in the preceding screenshot.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: From the Menu, select File | Save and File | Save Project to save all your changes.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Switch to your Python window or Anaconda prompt, make sure you are in the `ML-Agents/ml-agents`
+    directory, and run the following command:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: After the command runs, wait for the prompt to start the editor. Then, run the
+    editor when prompted and let the sample run to completion, or however long you
+    have the patience for.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'After you run the sample to completion, you should see something like the following:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![](img/7856918a-91b1-4722-9212-9e1b1f86e07e.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Full training run to completion
+  prefs: []
+  type: TYPE_NORMAL
+- en: Assuming you trained your agent to the end of the run that is, for 500 K iterations,
+    then you can confirm that the agent does, in fact, learn nothing. So, why would
+    Unity put an example like that in their samples? Well, you could argue that it
+    was an intentional challenge, or perhaps just an oversight on their part. Either
+    way, we will take it as a challenge to better understand reinforcement learning.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Before we tackle this challenge, let's take a step back and reaffirm our understanding
+    of this environment by looking at the easier to train Hallway example in the next
+    section.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Reverting to the basics
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Often, when you get stuck on a problem, it helps to go back to the beginning
+    and reaffirm that your understanding of everything works as expected. Now, to
+    be fair, we have yet to explore the internals of ML-Agents and really understand
+    DRL, so we never actually started at the beginning, but, for the purposes of this
+    example, we will take a step back and look at the Hallway example in more detail.
+    Jump back into the editor and follow this exercise:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Open the Hallway sample scene in the editor. Remember, the scene is located
+    in the Assets | ML-Agents | Examples | Hallway | Scenes folder.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: This example is configured to use several concurrent training environments.
+    We are able to train multiple concurrent training environments with the same brain,
+    because **Proximal Policy Optimization** (**PPO**), the RL algorithm powering
+    this agent, trains to a policy and not a model. We will cover the fundamentals
+    of policy and model-based learning when we get to the internals of PPO in [Chapter
+    8](1393797c-79cd-46c3-8e43-a09a7750fc92.xhtml), *Understanding PPO,* for RL. For
+    our purposes and for simplicity, we will disable these additional environments
+    for now.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Press *Shift* and then select all the numbered HallwayArea (1-15) objects in
+    the Hierarchy.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'With all the extra HallwayArea objects selected, disable them all by clicking
+    the Active checkbox, as shown in the following screenshot:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![](img/bc31838a-bed8-4a26-aff8-f888099a6171.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Disabling all the extra training hallways
+  prefs: []
+  type: TYPE_NORMAL
+- en: Open the remaining active HallwayArea in the Hierarchy window and select the
+    Agent.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Set the Brain agents to use the HallwayLearning brain. It may be set to use
+    the player brain by default.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Select the Academy object back in the Hierarchy window, and make sure the Hallway
+    Academy component has its brain set to Learning and that the Control checkbox
+    is enabled.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Open a Python or Anaconda window to the `ML-Agents/ml-agents` folder. Make
+    sure your ML-Agents virtual environment is active and run the following command:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: Let the trainer start up and prompt you to click Play in the editor. Watch the
+    agent run and compare its performance to the VisualHallway example.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Generally, you will notice some amount of training activity from the agent before
+    50,000 iterations, but this may vary. By training activity, we mean the agent
+    is responding with a Mean Reward greater than -1.0 and a Standard Reward not equal
+    to zero. Even if you let the example run to completion, that is, 500,000 iterations
+    again, it is unlikely that the sample will train to a positive Mean Reward. We
+    generally want our rewards to range from -1.0 to +1.0, with some amount of variation
+    to show learning activity. If you recall from the VisualHallway example, the agent
+    showed no learning activity for the duration of the training. We could have extended
+    the training iterations, but it is unlikely we would have seen any stable training
+    emerge. The reason for this has to do with the increased state space and handling
+    of rewards. We will expand our understanding of state and how it pertains to RL
+    in the next section.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Understanding state
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The Hallway and VisualHallway examples are essentially the same game problem,
+    but provide a different perspective, or what we may refer to in reinforcement
+    learning as environment or game state. In the Hallway example, the agent learns
+    by sensor input, which is something we will look at shortly, while in the VisualHallway
+    example, the agent learns by a camera or player view. What will be helpful at
+    this point is to understand how each example handles state, and how we can modify
+    it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In the following exercise, we will modify the Hallway input state and see the
+    results:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Jump back into the Hallway scene with learning enabled as we left it at the
+    end of the last exercise.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: We will need to modify a few lines of C# code, nothing very difficult, but it
+    may be useful to install Visual Studio (Community or another version) as this
+    will be our preferred editor. You can, of course, use any code editor you like
+    as long as it works with Unity.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Locate the Agent object in the Hierarchy window, and then, in the Inspector
+    window, click the Gear icon over the Hallway Agent component, as shown in the
+    following screenshot:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![](img/62b836fb-b5d0-405a-aaef-059a8205417c.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Opening the HallwayAgent.cs script
+  prefs: []
+  type: TYPE_NORMAL
+- en: From the context menu, select the Edit Script option, as shown in the previous
+    screenshot. This will open the script in your code editor of choice.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Locate the following section of C# code in your editor:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: The `CollectObservations` method is where the agent collects its observations
+    or inputs its state. In the Hallway example, the agent has `useVectorObs` set
+    to `true`, meaning that it detects state by using the block of code that's internal
+    to the `if` statement. All this code does is cast a ray or line from the agent
+    in angles of `20f`, `60f`, `120f`, and `160f` degrees at a distance defined by
+    `rayDistance` and detect objects defined in `detectableObjects`. The ray perception
+    is done with a helper component called `rayPer` of the `RayPerception` type, and
+    it executes `rayPer.Percieve` to collect the environment state it perceives. This,
+    along with the ratio of steps, is added to the vector observations or state the
+    agent will input. At this point, the state is 36 vectors in length. As of this
+    version, this needs to be constructed in code, but this will likely change in
+    the future.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Alter the `rayAngles` line of code so that it matches the following:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: This has the effect of narrowing the agent's vision or perception dramatically
+    from 180 to 60 degrees. Another way to think of it is reducing the input state.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: After you finish the edit, save the file and return to Unity. Unity will recompile
+    the code when you return to the editor.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Locate the HallwayLearning brain in the Assets | ML-Agents | Examples | Hallway
+    | Brains folder and change the Vector Observation | Space Size to `15`, as shown
+    in the following screenshot:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![](img/39bc0790-79d7-4128-ac3d-1fedb99babb0.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Setting the Vector Observation Space Size
+  prefs: []
+  type: TYPE_NORMAL
+- en: The reason we reduce this to 15 is that the input now consists of two angle
+    inputs, plus one steps input. Each angle input consists of five detectable objects,
+    plus two boundaries for seven total perceptions or inputs. Thus, two angles times
+    seven perceptions plus one for steps, equals 15\. Previously, we had five angles
+    times seven perceptions plus one step, which equals 35.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Make sure that you save the project after modifying the Brain scriptable objects.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Run the example again in training and watch how the agent trains. Take some
+    time and pay attention to the actions the agent takes and how it learns. Be sure
+    to let this example run as long as you let the other Hallway sample run for, hopefully
+    to completion.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Were you surprised by the results? Yes, our agent with a smaller view of the
+    world actually trained quicker. This may seem completely counter-intuitive, but
+    think about this in terms of mathematics. A smaller input space or state means
+    the agent has less paths to explore, and so should train quicker. This is indeed
+    what we saw in this example when we reduced the input space by more than half.
+    At this point, we definitely need to see what happens when we reduce the visual
+    state space in the VisualHallway example.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Understanding visual state
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: RL is a very powerful algorithm, but can become very computationally complex
+    when we start to look at massive state inputs. To account for massive states,
+    many powerful RL algorithms use the concept of model-free or policy-based learning,
+    something we will cover in a later chapter. As we already know, Unity uses a policy-based
+    algorithm that allows it to learn any size of state space by generalizing to a
+    policy. This allows us to easily input a state space of 15 vectors in the example
+    we just ran to something more massive, as in the VisualHallway example.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s open up Unity to the VisualHallway example scene and look at how to
+    reduce the visual input space in the following exercise:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: With the VisualHallway scene open, locate the HallwayLearningBrain in the Assets
+    | ML-Agents | Examples | Hallway | Brains folder and select it.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Modify the Brain Parameters **|** Visual Observation first camera observable
+    to an input of `32` x `32` Gray scale. An example of this is shown in the following
+    screenshot:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![](img/6655a1f7-7595-454c-863c-60b2c4107101.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Setting up the visual observation space for the agent
+  prefs: []
+  type: TYPE_NORMAL
+- en: When Visual Observations are set on a brain, then every frame is captured from
+    the camera at the resolution selected. Previously, the captured image was 84 x
+    84 pixels large, by no means as large as the game screen in player mode, but still
+    significantly larger than 35 vector inputs. By reducing our image size and making
+    it gray, scale we reduced one input frame from 84 x 84 x 3 = 20,172 inputs to
+    32 x 32 x 1 =1,024\. In turn, this greatly reduces our required model input space
+    and the complexity of the network that's needed to learn.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Save the project and the scene.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Run the VisualHallway in learning mode again using the following command:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: Notice how we are changing the `--run-id` parameter with every run. Recall that,
+    if we want to use TensorBoard, then each of our runs needs a unique name, otherwise
+    it just writes over previous runs.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Let the sample train for as long as you ran the earlier VisualHallway exercise,
+    as this will give you a good comparison of the change we made in state.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Are the results what you expected? Yeah, the agent still doesn't learn, even
+    after reducing the state. The reason for this is because the smaller visual state
+    actually works against the agent in this particular case. Not unlike the results,
+    we would expect us humans to have when trying to solve a task by looking through
+    a pinhole. However, there is another way to reduce visual state into feature sets
+    using convolution. As you may recall, we covered convolution and CNN in [Chapter
+    2](391f7c79-537a-4c1d-bb92-e517097cd4d8.xhtml), *Convolutional and Recurrent Networks*,
+    at some length. In the next section, we will look at how we can reduce the visual
+    state of our example by adding convolutional layers.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Convolution and visual state
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The visual state an agent uses in the ML-Agents toolkit is defined by a process
+    that takes a screenshot at a specific resolution and then feeds that into a convolutional
+    network to train some form of embedded state. In the following exercise, we will
+    open up the ML-Agents training code and enhance the convolution code for better
+    input state:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Use a file browser to open the ML-Agents `trainers` folder located at `ml-agents.6\ml-agents\mlagents\trainers`**. **Inside
+    this folder, you will find several Python files that are used to train the agents.
+    The file we are interested in is called `models.py`.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Open the `models.py` file in your Python editor of choice. Visual Studio with
+    the Python data extensions is an excellent platform, and also provides the ability
+    to interactively debug code.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Scroll down in the file to locate the `create_visual_observation_encoder` function,
+    which looks as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: The code is Python using TensorFlow, but you should be able to identify the `conv1`
+    and `conv2` convolution layers. Notice how the kernel and stride is defined for
+    layers and the missing pooling layers as well. Unity does not use pooling in order
+    to avoid loss of spatial relationships in data. However, as we discussed earlier,
+    this is not always so cut-and-dry, and really varies by the type of visual features
+    you are trying to identify.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Add the following lines of code after the two convolution layers and modify
+    the `hidden` layer setup, as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: This will have the effect of adding another layer of convolution to extract
+    finer details in the agents game view. As we saw in [Chapter 2](391f7c79-537a-4c1d-bb92-e517097cd4d8.xhtml),
+    *Convolutional and Recurrent Networks*, adding extra layers of convolution will
+    increase training time, but does increase training performance – at least on image
+    classifiers, anyway.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Jump back to your command or Anaconda window and run the sample in learning
+    mode with the following command:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: Observe the training and watch how the agent performs—be sure to watch the agent's
+    movements in the Game window as the sample runs. Is the agent doing what you expected?
+    Compare your results with the previous runs and notice the differences.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: One thing you will certainly notice is the agent becoming slightly more graceful
+    and being able to perform finer movements. While the training may take much longer
+    overall, this agent will be able to observe finer changes in the environment,
+    and so will make finer movements. You could, of course, swap the entire CNN architecture
+    of ML-Agents to use more well-defined architectures. However, be aware that most
+    image classification networks ignore spatial relevance that, as we will see in
+    the next section, is very relevant to game agents.
+  prefs: []
+  type: TYPE_NORMAL
+- en: To pool or not to pool
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'As we discussed in [Chapter 2](391f7c79-537a-4c1d-bb92-e517097cd4d8.xhtml),
+    *Convolutional and Recurrent Networks*, ML-Agents does not use any pooling in
+    order to avoid any loss of spatial relationships in data. However, as we saw in
+    our self-driving vehicle example, a single pooling layer or two up at the higher
+    feature level extraction (convolutional layers) can in fact help. Although our
+    example was tested on a much more complex network, it will be helpful to see how
+    this applies to a more complex ML-Agents CNN embedding. Let''s try this out, and
+    apply a layer of pooling to the last example by completing the following exercise:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Open the `models.py` file in your Python editor of choice. Visual Studio with
+    the Python data extensions is an excellent platform, and also provides the ability
+    to interactively debug code.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Locate the following block of code, which is as we last left it in the previous
+    exercise:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We will now inject a layer of pooling by modifying the block of code, like
+    so:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: This now sets up our previous sample to use a single layer of pooling. You can
+    think of this as extracting all the upper features, such as the sky, wall, or
+    floor, and pooling the results together. When you think about it, how much spatial
+    information does the agent need to know regarding one sky patch versus another?
+    All the agent really needs to know is that the sky is always up.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Open your command shell or Anaconda window and train the sample by running
+    the following code:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: As always, watch the performance of the agent and notice how the agent moves
+    as it trains. Watch the training until completion, or as much as you observed
+    others.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Now, depending on your machine or environment you may have noticed a substantial
+    improvement in training time, but actual performance suffered slightly. This means
+    that each training iteration executed much quicker, two to three times or more,
+    but the agent needs slightly more interactions. In this case, the agent will train
+    quicker time-wise, but in other environments, pooling at higher levels maybe more detrimental.
+    When it comes down to it, it will depend on the visuals of your environment, how
+    well you want your agent to perform, and, ultimately, your patience.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the next section, we will look at another characteristic of state – memory,
+    or sequencing. We will look at how recurrent networks are used to capture the
+    importance of remembering sequences or event series.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Recurrent networks for remembering series
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The sample environments we have been running in this chapter use a form of
+    recurrent memory by default to remember past sequences of events. This recurrent
+    memory is constructed of **Long Short-Term Memory** (**LSTM**) layers that allow
+    the agent to remember beneficial sequences that may encourage some amount of future
+    reward. Remember that we extensively covered LSTM networks in [Chapter 2](391f7c79-537a-4c1d-bb92-e517097cd4d8.xhtml), *Convolutional
+    and Recurrent Networks*. For example, an agent may see the same sequence of frames
+    repeatedly, perhaps moving toward the target goal, and then associate that sequence
+    of states with an increased reward. A diagram showing the original form of this
+    network, taken from the paper *Training an Agent for FPS Doom Game using Visual
+    Reinforcement Learning and VizDoom* by *Khan Aduil et a**l.,* is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/42b80820-40ef-424c-8c27-8651f58f377d.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: DQRN Architecture
+  prefs: []
+  type: TYPE_NORMAL
+- en: The authors referred to the network architecture as DQRN, which stands for deep
+    Q recurrent network. It is perhaps strange they did not call it DQCRN, since the
+    diagram clearly shows the addition of convolution. While the ML-Agents implementation
+    is slightly different, the concept is very much the same. Either way, the addition
+    of LSTM layers can be a huge benefit to agent training, but, at this stage, we
+    have yet to see the affect of not being used in training.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Therefore, in the following exercise, we will learn how to disable recurrent
+    networks and see what effect this has on training:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Open the standard Hallway example scene, the one without visual learning, from
+    the `Assets/ML-Agents/Examples/Hallway/Scenes` folder.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Open a command shell or Anaconda window and make sure your ML-Agent's virtual
+    Python environment is active.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Locate and open the `trainer_config.xml` file located in the `ML-Agents/ml-agents/config`
+    folder in a text or XML editor of your choice.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Locate the configuration block, as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: The named configuration block, called `HallwayLearning`, matches the name of
+    the brain we set up in the Academy within the scene. If you need to confirm this,
+    go ahead.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: We generally refer to all these configuration parameters as hyperparameters,
+    and they can have a considerable effect on training, especially if set incorrectly.
+    If you scroll to the top of the file, you will notice a set of default parameters,
+    followed by exceptions for each of the named brains. Each section of brain parameters
+    for each brain override the default settings.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Disable the `use_recurrent` networks by modifying the code, as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: Setting `use_recurrent` to `false` disables the use of recurrent encoding. We
+    can now see what effect this has on training.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Save the configuration file.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Run the sample on learning as you normally would. You should be able to run
+    a training sample in your sleep by now.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: As always, watch how the agent performs and be sure to pay attention to the
+    agent's movements as well.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: As you can see, the agent performs considerably worse in this example, and it
+    is obvious that the use of recurrent networks to capture sequences of important
+    moves made a big difference. In fact, in most repetitive game environments, such
+    as the Hallway and VisualHallway, the addition of recurrent state works quite
+    well. However, there will be other environments that may not benefit, or may indeed
+    suffer, from the use of state sequencing. Environments that feature extensive
+    exploration or new content may, in fact, suffer. Since the agent may prefer shorter
+    action sequences, this is limited by the amount of memory that is configured for
+    the agent. Try to keep that in mind when you develop a new environment.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now that we have a comparison for how our samples run without recurrent or LSTM
+    layers, we can test the sample again by tweaking some of the relevant recurrent
+    hyperparameters in the next section.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tuning recurrent hyperparameters
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'As we learned in our discussion of recurrent networks, LSTM layers may receive
+    variable input, but we still need to define a maximum sequence length that we
+    want the network to remember. There are two critical hyperparameters we need to
+    play with when using recurrent networks. A description of these parameters, at
+    the time of writing, and as listed in the ML-Agents docs, is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`sequence_length`: *C*orresponds to the length of the sequences of experience
+    that are passed through the network during training. This should be long enough
+    to capture whatever information your agent might need to remember over time. For
+    example, if your agent needs to remember the velocity of objects, then this can
+    be a small value. If your agent needs to remember a piece of information that''s
+    given only once at the beginning of an episode, then this should be a larger value:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Typical Range: 4 – 128'
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`memory_size`: Corresponds to the size of the array of floating point numbers
+    that are used to store the hidden state of the recurrent neural network. This
+    value must be a multiple of four, and should scale with the amount of information
+    you expect the agent will need to remember to successfully complete the task:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Typical Range: 64 – 512'
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The description of the recurrent `sequence_length` and `memory_size` hyperparameters
+    was extracted directly from the Unity ML-Agents documentation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'If we look at our VisualHallway example configuration in the `trainer_config.yaml`
+    file, we can see that the parameters are defined as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This effectively means that our agent will remember 64 frames or states of
+    input using a memory size of 256\. The documentation is unclear as to how much
+    memory a single input takes, so we can only assume that the default visual convolutional
+    encoding network, the original two layer model, requires four per frame. We can
+    assume that, by increasing our convolutional encoding in the previous examples,
+    the agent may have not been able to remember every frame of state. Therefore,
+    let''s modify the configuration in the VisualHallway example to account for that
+    increase in memory, and see the effect it has in the following exercise:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Open up the VisualHallway example to where we last left it in the previous exercises,
+    with or without pooling enabled. Just be sure to remember if you are or are not
+    using pooling, as this will make a difference to the required memory.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Open the `trainer_config.yaml` file located in the `ML-Agents/ml-agents/config`
+    folder.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Modify the `VisualHallwayLearning` config section, as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: We are increasing the agent's memory from 64 to 128 sequences, thus doubling
+    its memory. Then, we are increasing the memory to 2,048 when not using pooling,
+    and 1,024 when using pooling. Remember that pooling collects features and reduces
+    the number of feature maps that are produced at every step of convolution.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Save the file after you finish editing it.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Open your command or Anaconda window and start training with the following
+    command:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: When prompted, start the training session in the editor by pressing Play and
+    watch the action unfold.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Wait for the agent to train, like you did for the other examples we ran. You
+    should notice another increase in training performance, as well as the choice
+    of actions the agent makes, which should look better coordinated.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: As we can see, a slight tweaking of hyperparameters allowed us to improve the
+    performance of the agent. Understanding the use of the many parameters that are
+    used in training will be critical to your success in building remarkable agents.
+    In the next section, we will look at further exercises you can use to improve
+    your understanding and skill.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Exercises
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: As always, try and complete a minimum of two to three of these exercises on
+    your own, and for your own benefit. While this is a hands-on book, it always helps
+    to spend a little more time applying your knowledge to new problems.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Complete the following exercises on your own:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Go through and explore the VisualPushBlock example. This example is quite similar
+    to the Hallway, and is a good analog to play with.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Modify the Hallway example's HallwayAgent script to use more scanning angles,
+    and thus more vector observations.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Modify the Hallway example to use a combined sensor sweep and visual observation
+    input. This will require you to modify the learning brain configuration by adding
+    a camera, and possibly updating some hyperparameters.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Modify other visual observation environments to use some form of vector observation.
+    A good example to try this on is the VisualPushBlock example.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Modify the visual observation camera space to be larger or smaller than 84 x
+    84 pixels, and to use, or not use, gray scaling. This is a good exercise to play
+    with when testing more complex or simpler CNN network architectures.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Modify the `create_visual_observation_encoder` convolutional encoding function
+    so that it can use different CNN architectures. These architectures may be as
+    simple or complex as you want.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Modify the `create_visual_observation_encoder` convolutional encoding function to
+    use different levels and amounts of pooling layers. Try and use pooling after
+    every convolutional layer to explore its effect on training.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Disable and enable recurrent networks on one or two of the other example's environments
+    and explore the effect this has.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Play with the `sequence_length` and `memory_size` parameters with recurrent
+    enabled to see the effect that different sequence lengths have on agent performance.
+    Be sure to increase the `memory_size` parameter if you increase the `sequence_length`.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Consider adding additional vector or visual observations to the agent. After
+    all, an agent doesn't have to have only a single form of sensory input. An agent
+    could always detect the direction it is in, or perhaps it may have other forms
+    of sensory input, such as being able to listen. We will give an agent the ability
+    to listen in a later chapter, but try and implement this yourself.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Remember, these exercises are provided for your benefit and enjoyment, so be
+    sure to try at least a couple.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this chapter, we took a very close look at how the agents in ML-Agents perceive
+    their environment and process input. An agent's perception of the environment
+    is completely in control by the developer, and it is often a fine balance of how
+    much or how little input/state you want to give an agent. We played with many
+    examples in this chapter and started by taking an in-depth look at the Hallway
+    sample and how an agent uses rays to perceive objects in the environment. Then,
+    we looked at how an agent can use visual observations, not unlike us humans, as
+    input or state that it may learn from. From this, we delved into the CNN architecture
+    that ML-Agents uses to encode the visual observations it provides to the agent.
+    We then learned how to modify this architecture by adding or removing convolution
+    or pooling layers. Finally, we looked at the role of memory, or how recurrent
+    sequencing of input state can be used to help with agent training. Recurrent networks
+    allow an agent to add more value to action sequences that provide a reward.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the next chapter, we will take a closer look at RL and how agents use the
+    PPO algorithm. We will learn more about the foundations of RL along the way, as
+    well as learn about the importance of the many hyperparameters used in training.
+  prefs: []
+  type: TYPE_NORMAL

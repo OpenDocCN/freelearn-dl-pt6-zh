@@ -1,0 +1,525 @@
+- en: Chapter 6. Locating with Spatial Transformer Networks
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this chapter, the NLP field is left to come back to images, and get an example
+    of application of recurrent neural networks to images. In [Chapter 2](part0026_split_000.html#OPEK1-ccdadb29edc54339afcb9bdf9350ba6b
+    "Chapter 2. Classifying Handwritten Digits with a Feedforward Network"), *Classifying
+    Handwritten Digits with a Feedforward Network* we addressed the case of image
+    classification, consisting of predicting the class of an image. Here, we'll address
+    object localization, a common task in computer vision as well, consisting of predicting
+    the bounding box of an object in the image.
+  prefs: []
+  type: TYPE_NORMAL
+- en: While [Chapter 2](part0026_split_000.html#OPEK1-ccdadb29edc54339afcb9bdf9350ba6b
+    "Chapter 2. Classifying Handwritten Digits with a Feedforward Network"), *Classifying
+    Handwritten Digits with a Feedforward Network* solved the classification task
+    with neural nets built with linear layers, convolutions, and non-linarites, the
+    spatial transformer is a new module built on very specific equations dedicated
+    to the localization task.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In order to locate multiple objects in the image, spatial transformers are composed
+    with recurrent networks. This chapter takes the opportunity to show how to use
+    prebuilt recurrent networks in **Lasagne**, a library on top of Theano that brings
+    extra modules, and helps you develop your neural networks very fast with pre-built
+    components, while not changing the way you build and handle nets with Theano.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To sum up, the list of topics is composed of:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: An introduction to the Lasagne library
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Spatial transformer networks
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Classification network with spatial transformers
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Recurrent modules with Lasagne
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Recurrent read of digits
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Unsupervised training with hinge loss functions
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Region-based object localization neural nets
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: MNIST CNN model with Lasagne
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The Lasagne library has packaged layers and tools to handle neural nets easily.
+    Let''s first install the latest version of Lasagne:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Let us reprogram the MNIST model from [Chapter 2](part0026_split_000.html#OPEK1-ccdadb29edc54339afcb9bdf9350ba6b
+    "Chapter 2. Classifying Handwritten Digits with a Feedforward Network"), *Classifying
+    Handwritten Digits with a Feedforward Network* with Lasagne:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: The layers are `layer0_input`, `conv1_out`, `pooled_out`, `conv2_out`, `pooled2_out`,
+    `hidden_output`. They are built with pre-built modules, such as, `InputLayer`,
+    `Conv2DLayer`, `MaxPool2DLayer`, `DenseLayer`, dropout non-linearities such as
+    rectify or softmax, and initialization such as `GlorotUniform`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To connect the network graph composed of modules with the input symbolic `var`
+    and get the output `var`, use the following code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Or use this code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'A very convenient feature is that you can print the output shape of any module:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Lasagne''s `get_all_params` method lists the parameters of the model:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Lastly, Lasagne comes with different learning rules, such as `RMSprop`, `Nesterov`
+    `Momentum`, `Adam`, and `Adagrad`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: All other things remain unchanged.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To test our MNIST model, download the MNIST dataset:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Train an MNIST classifier for digit classification:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: The model parameters are saved in `model.npz`. The accuracy is again above 99%.
+  prefs: []
+  type: TYPE_NORMAL
+- en: A localization network
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'In **Spatial Transformer Networks** (**STN**), instead of applying the network
+    directly to the input image signal, the idea is to add a module to preprocess
+    the image and crop it, rotate it, and scale it to fit the object, to assist in
+    classification:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![A localization network](img/00089.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Spatial Transformer Networks
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For that purpose, STNs use a localization network to predict the affine transformation
+    parameters and process the input:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![A localization network](img/00090.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Spatial transformer networks
+  prefs: []
+  type: TYPE_NORMAL
+- en: In Theano, differentiation through the affine transformation is automatic, we
+    simply have to connect the localization net with the input of the classification
+    net through the affine transformation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'First, we create a localization network not very far from the MNIST CNN model,
+    to predict six parameters of the affine transformation:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: Here, we simply add to the input array, with `DimshuffleLayer`, a channel dimension
+    that will have only value 1\. Such a dimension add is named a broadcast.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The pooling layer resizes the input image to *50x50*, which is enough to determine
+    the position of the digit.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The localization layer weight is initiated with zeros, except for the bias,
+    which is initiated to the Identity affine parameters; the STN modules will not
+    have any impact at the beginning and the full input image will be transmitted.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To crop given the affine parameters:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The `down_sampling_factor` enables us to define the size of the output image
+    with respect to the input. In this case, it is three, meaning the image will be
+    *33x33*—not very far from our MNIST digit size of *28x28*. Lastly, we simply add
+    our MNIST CNN model to classify the output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'To test the classifier, let us create images of *100x100* pixels, with some
+    distortions and one digit:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Plot the first three images (corresponding to 1, 0, 5):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![A localization network](img/00091.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Let''s run the command to train the model:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: Here again, the accuracy gets above 99% when the digit is alone without distortions,
+    which is typically not possible with the simple MNIST CNN model alone, and above
+    96.9% with distortions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The command to plot the crops is:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'It gives us the following result:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![A localization network](img/00092.jpeg)![A localization network](img/00093.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'And with distortions:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![A localization network](img/00094.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: STN can be thought of as a module to include in any network, at any place between
+    two layers. To improve the classification results further, adding multiple STNs
+    between different layers of a classification network helps get better results.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Here is an example of a network with two branches inside the network, each
+    with its SPN that will, when unsupervised, try to catch different parts of the
+    image to classify it:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![A localization network](img/00095.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: (Spatial transformer networks paper, Jaderberg et al., 2015)
+  prefs: []
+  type: TYPE_NORMAL
+- en: Recurrent neural net applied to images
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'The idea is to use recurrency to read multiple digits, instead of just one:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Recurrent neural net applied to images](img/00096.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'In order to read multiple digits, we simply replace the localization feedforward
+    network with a recurrent network that will output multiple affine transformations
+    corresponding to each digit:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Recurrent neural net applied to images](img/00097.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'From the previous example, we replace the fully connected layer with the GRU
+    layer:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This outputs a tensor of dimension (None, 3, 256), where the first dimension
+    is the batch size, 3 is the number of steps in the GRU, and 256 is the hidden
+    layer size. On top of this layer, we simply add the same fully connected layer
+    as before to output three identity images at the beginning:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'To test the classifier, let us create images of *100x100* pixels with some
+    distortions, and three digits this time:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Plot the first three images (corresponding to sequences **296**, **490**, **125**):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![Recurrent neural net applied to images](img/00098.jpeg)![Recurrent neural
+    net applied to images](img/00099.jpeg)![Recurrent neural net applied to images](img/00100.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Let''s run the command to train our recurrent model:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: The classification accuracy is 99.3%.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Plot the crops:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![Recurrent neural net applied to images](img/00101.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Unsupervised learning with co-localization
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The first layers of the digit classifier trained in [Chapter 2](part0026_split_000.html#OPEK1-ccdadb29edc54339afcb9bdf9350ba6b
+    "Chapter 2. Classifying Handwritten Digits with a Feedforward Network"), *Classifying
+    Handwritten Digits with a Feedforward Network* as an encoding function to represent
+    the image in an embedding space, as for words:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Unsupervised learning with co-localization](img/00102.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'It is possible to train unsurprisingly the localization network of the spatial
+    transformer network by minimizing the hinge loss objective function on random
+    sets of two images supposed to contain the same digit:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Unsupervised learning with co-localization](img/00103.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Minimizing this sum leads to modifying the weights in the localization network,
+    so that two localized digits become closer than two random crops.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Here are the results:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Unsupervised learning with co-localization](img/00104.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: (Spatial transformer networks paper, Jaderberg et al., 2015)
+  prefs: []
+  type: TYPE_NORMAL
+- en: Region-based localization networks
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Historically, the basic approach in object localization was to use a classification
+    network in a sliding window; it consists of sliding a window one pixel by one
+    pixel in each direction and applying a classifier at each position and each scale
+    in the image. The classifier learns to say if the object is present and centered.
+    It requires a large amount of computations since the model has to be evaluated
+    at every position and scale.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To accelerate such a process, the **Region Proposal Network** (**RPN**) in
+    the Fast-R-CNN paper from the researcher Ross Girshick consists of transforming
+    the fully connected layers of a neural net classifier such as MNIST CNN into convolutional
+    layers as well; in fact, network dense on 28x28 image, there is no difference
+    between a convolution and a linear layer when the convolution kernel has the same
+    dimensions as the input. So, any fully connected layers can be rewritten as convolutional
+    layers, with the same weights and the appropriate kernel dimensions, which enables
+    the network to work on a wider image than 28x28, at any size, outputting a feature
+    map with a classification score at each position. The only difference may come
+    from the stride of the whole network, which can be set different to 1 and can
+    be large (a few 10 pixels) with convolution kernels set to stride different to
+    1 in order to reduce the number of evaluation positions and thus the computations.
+    Such a transformation is worth because the convolutions are very efficient:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Region-based localization networks](img/00105.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Faster R-CNN: Towards Real-Time Object Detection with Region Proposal Networks'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'An end-to-end network has been designed, taking ideas from deconvolution principles
+    where an output feature map gives all bounding boxes at once: **You Only Look
+    Once** (**YOLO**) architecture predicts B possible bounding boxes for each position
+    in the feature map. Each bounding box is defined by its coordinates (x, y, w,
+    h) in proportion to the whole image as a regression problem, and a confidence
+    (probability) that corresponds to the **Intersection over Union** (**IOU**) between
+    the box and the true box. Comparable approaches are proposed with SSD models.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Lastly, segmentation networks introduced in [Chapter 8,](part0083_split_000.html#2F4UM2-ccdadb29edc54339afcb9bdf9350ba6b
+    "Chapter 8. Translating and Explaining with Encoding – decoding Networks") *Translating
+    and Explaining with Encoding – decoding Networks* can also be considered as neural
+    net implementations towards localizing objects.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Further reading
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'You can further refer to these sources for more information:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Spatial Transformer Networks, Max Jaderberg, Karen Simonyan, Andrew Zisserman,
+    Koray Kavukcuoglu, Jun 2015
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Recurrent Spatial Transformer Networks, Søren Kaae Sønderby, Casper Kaae Sønderby,
+    Lars Maaløe, Ole Winther, Sept 2015
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Original code: [https://github.com/skaae/recurrent-spatial-transformer-code](https://github.com/skaae/recurrent-spatial-transformer-code)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Google Street View Character Recognition, Jiyue Wang, Peng Hui How
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Reading Text in the Wild with Convolutional Neural Networks, Max Jaderberg,
+    Karen Simonyan, Andrea Vedaldi, Andrew Zisserman, 2014
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Multi-digit Number Recognition from Street View Imagery using Deep Convolutional
+    Neural Networks, Ian J. Goodfellow, Yaroslav Bulatov, Julian Ibarz, Sacha Arnoud,
+    Vinay Shet, 2013
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Recognizing Characters From Google Street View Images, Guan Wang, Jingrui Zhang
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Synthetic Data and Artificial Neural Networks for Natural Scene Text Recognition,
+    Max Jaderberg, Karen Simonyan, Andrea Vedaldi, Andrew Zisserman, 2014
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: R-CNN minus R, Karel Lenc, Andrea Vedaldi, 2015
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Fast R-CNN, Ross Girshick, 2015
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Faster R-CNN: Towards Real-Time Object Detection with Region Proposal Networks,
+    Shaoqing Ren, Kaiming He, Ross Girshick, Jian Sun, 2015'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'You Only Look Once: Unified, Real-Time Object Detection, Joseph Redmon, Santosh
+    Divvala, Ross Girshick, Ali Farhadi, Jun 2015'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: YOLO demo in real time [http://pjreddie.com/darknet/yolo/](http://pjreddie.com/darknet/yolo/)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'YOLO9000: Better, Faster, Stronger, Joseph Redmon, Ali Farhadi, Dec 2016'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'SSD: Single Shot MultiBox Detector, Wei Liu, Dragomir Anguelov, Dumitru Erhan,
+    Christian Szegedy, Scott Reed, Cheng-Yang Fu, Alexander C. Berg, Dec 2015'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Rich feature hierarchies for accurate object detection and semantic segmentation,
+    Ross Girshick, Jeff Donahue, Trevor Darrell, Jitendra Malik, 2013
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Text Flow: A Unified Text Detection System in Natural Scene Images Shangxuan
+    Tian, Yifeng Pan, Chang Huang, Shijian Lu, Kai Yu, Chew Lim Tan, 2016'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The spatial transformer layer is an original module to localize an area of the
+    image, crop it and resize it to help the classifier focus on the relevant part
+    in the image, and increase its accuracy. The layer is composed of differentiable
+    affine transformation, for which the parameters are computed through another model,
+    the localization network, and can be learned via backpropagation as usual.
+  prefs: []
+  type: TYPE_NORMAL
+- en: An example of the application to reading multiple digits in an image can be
+    inferred with the use of recurrent neural units. To simplify our work, the Lasagne
+    library was introduced.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Spatial transformers are one solution among many others for localizations; region-based
+    localizations, such as YOLO, SSD, or Faster RCNN, provide state-of-the-art results
+    for bounding box prediction.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the next chapter, we'll continue with image recognition to discover how to
+    classify full size images that contain a lot more information than digits, such
+    as natural images of indoor scenes and outdoor landscapes. In the meantime, we'll
+    continue with Lasagne's prebuilt layer and optimization modules.
+  prefs: []
+  type: TYPE_NORMAL

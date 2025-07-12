@@ -1,0 +1,1306 @@
+- en: Developing Applications in a Distributed Environment
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: As the demand increases regarding the quantity of data and resource requirements
+    for parallel computations, legacy approaches may not perform well. So far, we
+    have seen how big data development has become famous and is the most followed
+    approach by enterprises due to the same reasons. DL4J supports neural network
+    training, evaluation, and inference on distributed clusters.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Modern approaches to heavy training, or output generation tasks, distribute
+    training effort across multiple machines. This also brings additional challenges.
+    We need to ensure that we have the following constraints checked before we use
+    Spark to perform distributed training/evaluation/inference:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Our data should be significantly large enough to justify the need for distributed
+    clusters. Small network/data on Spark doesn't really gain any performance improvements
+    and local machine execution may have much better results in such scenarios.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: We have more than a single machine to perform training/evaluation or inference.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Let's say we have a single machine with multiple GPU processors. We could simply
+    use a parallel wrapper rather than Spark in this case. A parallel wrapper enables
+    parallel training on a single machine with multiple cores. Parallel wrappers will
+    be discussed in [Chapter 12](0db31248-e40b-4479-9939-0baccb0e11d1.xhtml), *Benchmarking
+    and Neural Network Optimization*, where you will find out how to configure them.
+    Also, if the neural network takes more than 100 ms for one single iteration, it
+    may be worth considering distributed training.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this chapter, we will discuss how to configure DL4J for distributed training,
+    evaluation, and inference. We will develop a distributed neural network for the `TinyImageNet`
+    classifier. In this chapter, we will cover the following recipes:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Setting up DL4J and the required dependencies
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Creating an uber-JAR for training
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: CPU/GPU-specific configuration for training
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Memory settings and garbage collection for Spark
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Configuring encoding thresholds
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Performing a distributed test set evaluation
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Saving and loading trained neural network models
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Performing distributed inference
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Technical requirements
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The source code for this chapter can be found at [https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/tree/master/10_Developing_applications_in_distributed_environment/sourceCode/cookbookapp/src/main/java/com/javacookbook/app](https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/tree/master/10_Developing_applications_in_distributed_environment/sourceCode/cookbookapp/src/main/java/com/javacookbook/app).
+  prefs: []
+  type: TYPE_NORMAL
+- en: After cloning our GitHub repository, navigate to the `Java-Deep-Learning-Cookbook/10_Developing_applications_in_distributed_environment/sourceCode` directory.
+    Then, import the `cookbookapp` project as a Maven project by importing the `pom.xml` file.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You need to run either of the following preprocessor scripts (`PreProcessLocal.java`
+    or `PreProcessSpark.java`) before running the actual source code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/blob/master/10_Developing_applications_in_distributed_environment/sourceCode/cookbookapp/src/main/java/com/javacookbook/app/PreProcessLocal.java](https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/blob/master/10_Developing_applications_in_distributed_environment/sourceCode/cookbookapp/src/main/java/com/javacookbook/app/PreProcessLocal.java)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '[https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/blob/master/10_Developing_applications_in_distributed_environment/sourceCode/cookbookapp/src/main/java/com/javacookbook/app/PreprocessSpark.java](https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/blob/master/10_Developing_applications_in_distributed_environment/sourceCode/cookbookapp/src/main/java/com/javacookbook/app/PreprocessSpark.java)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: These scripts can be found in the `cookbookapp` project.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You will also need the `TinyImageNet` dataset, which can be found at [http://cs231n.stanford.edu/tiny-imagenet-200.zip](http://cs231n.stanford.edu/tiny-imagenet-200.zip).
+    The home page can be found at [https://tiny-imagenet.herokuapp.com/](https://tiny-imagenet.herokuapp.com/).
+  prefs: []
+  type: TYPE_NORMAL
+- en: It is desirable if you have some prior knowledge of working with Apache Spark
+    and Hadoop so that you get the most out of this chapter. Also, this chapter assumes
+    that Java is already installed on your machine and has been added to your environment
+    variables. We recommend Java version 1.8.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note that the source code requires good hardware in terms of memory/processing
+    power. We recommend that you have at least 16 GB of RAM on your host machine in
+    case you're running the source on a laptop/desktop.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Setting up DL4J and the required dependencies
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: We are discussing setting up DL4J again because we are now dealing with a distributed
+    environment. For demonstration purposes, we will use Spark's local mode. Due to
+    this, we can focus on DL4J rather than setting up clusters, worker nodes, and
+    so on. In this recipe, we will set up a single node Spark cluster (Spark local),
+    as well as configure DL4J-specific dependencies.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'In order to demonstrate the use of a distributed neural network, you will need
+    the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: A distributed filesystem (Hadoop) for file management
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Distributed computing (Spark) in order to process big data
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Add the following Maven dependency for Apache Spark:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Add the following Maven dependency for `DataVec` for Spark:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Add the following Maven dependency for parameter averaging:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Add the following Maven dependency for gradient sharing:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Add the following Maven dependency for the ND4J backend:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Add the following Maven dependency for CUDA:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Add the following Maven dependency for JCommander:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: Download Hadoop from the official website at [https://hadoop.apache.org/releases.html](https://hadoop.apache.org/releases.html) and
+    add the required environment variables.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Extract the downloaded Hadoop package and create the following environment
+    variables:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Add the following entry to the `PATH` environment variable:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: Create name/data node directories for Hadoop. Navigate to the Hadoop home directory
+    (which is set in the `HADOOP_HOME` environment variable) and create a directory
+    named `data`. Then, create two subdirectories named `datanode` and `namenode`
+    underneath it. Make sure that access for read/write/delete has been provided for
+    these directories.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Navigate to `hadoop-x.x/etc/hadoop` and open `hdfs-site.xml`. Then, add the
+    following configuration:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Navigate to `hadoop-x.x/etc/hadoop` and open `mapred-site.xml`. Then, add the
+    following configuration:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Navigate to `hadoop-x.x/etc/hadoop` and open `yarn-site.xml`. Then, add the
+    following configuration:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Navigate to `hadoop-x.x/etc/hadoop` and open `core-site.xml`. Then, add the
+    following configuration:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: Navigate to `hadoop-x.x/etc/hadoop` and open `hadoop-env.cmd`. Then, replace
+    `set JAVA_HOME=%JAVA_HOME%` with `set JAVA_HOME={JavaHomeAbsolutePath}`.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Add the `winutils` Hadoop fix (only applicable for Windows). You can download
+    this from [http://tiny.cc/hadoop-config-windows](http://tiny.cc/hadoop-config-windows). Alternatively,
+    you can navigate to the respective GitHub repository, [https://github.com/steveloughran/winutils](https://github.com/steveloughran/winutils),
+    and get the fix that matches your installed Hadoop version. Replace the `bin`
+    folder at `${HADOOP_HOME}` with the `bin` folder in the fix.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Run the following Hadoop command to format `namenode`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'You should see the following output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/41f46736-3d0a-40a0-82e8-27e2fdf9a69b.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Navigate to `${HADOOP_HOME}\sbin` and start the Hadoop services:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: For Windows, run `start-all.cmd`.
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: For Linux or any other OS, run `start-all.sh` from Terminal.
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'You should see the following output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/9727f210-5dd4-40c4-b67b-f32a47ebc8f4.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Hit `http://localhost:50070/` in your browser and verify whether Hadoop is
+    up and running:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![](img/3632ac4d-fbcf-4421-bf28-9534434e821f.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Install Spark from [https://spark.apache.org/downloads.html](https://spark.apache.org/downloads.html) and
+    add the required environment variables. Extract the package and add the following
+    environment variables:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Configure Spark''s properties. Navigate to the directory location at `SPARK_CONF_DIR`
+    and open the `spark-env.sh` file. Then, add the following configuration:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Run the Spark master by running the following command:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'You should see the following output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/4f00b4cd-c9ea-432c-ad46-ae77b4414f33.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Hit `http://localhost:8080/` in your browser and verify whether Hadoop is up
+    and running:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![](img/65bfa3c8-838f-4d6e-bdc9-1d1f95d3f690.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: How it works...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In step 2, dependencies were added for `DataVec`. We need to use data transformation
+    functions in Spark just like in regular training. Transformation is a data requirement
+    for neural networks and is not Spark-specific.
+  prefs: []
+  type: TYPE_NORMAL
+- en: For example, we talked about `LocalTransformExecutor` in [Chapter 2](6ac5dff5-cc98-4d52-bc59-1da01b2aeded.xhtml),
+    *Data Extraction, Transformation, and Loading*. `LocalTransformExecutor` is used
+    for `DataVec` transformation in non-distributed environments. `SparkTransformExecutor`
+    will be used for the `DataVec` transformation process in Spark.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In step 4, we added dependencies for gradient sharing. Training times are faster
+    for gradient sharing and it is designed to be scalable and fault-tolerant. Therefore,
+    gradient sharing is preferred over parameter averaging. In gradient sharing, instead
+    of relaying all the parameter updates/gradients across the network, it only updates
+    those that are above the specified threshold. Let's say we have an update vector
+    at the beginning that we want to communicate across the network. Due to this,
+    we will be creating a sparse binary vector for the large values (as specified
+    by a threshold) in the update vector. We will use this sparse binary vector for
+    further communication. The main idea is to decrease the communication effort.
+    Note that the rest of the updates will not be discarded and are added in a residual
+    vector for processing later. Residual vectors will be kept for future updates
+    (delayed communication) and not lost. Gradient sharing in DL4J is an asynchronous
+    SGD implementation. You can read more about this in detail at [http://nikkostrom.com/publications/interspeech2015/strom_interspeech2015.pdf](http://nikkostrom.com/publications/interspeech2015/strom_interspeech2015.pdf).
+  prefs: []
+  type: TYPE_NORMAL
+- en: In step 5, we added CUDA dependencies for the Spark distributed training application.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Here are the uber-JAR requirements for this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: If the OS that's building the uber-JAR is the same as that of the cluster OS
+    (for example, run it on Linux and then execute it on a Spark Linux cluster), include
+    the `nd4j-cuda-x.x` dependency in the `pom.xml` file.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: If the OS that's building the uber-JAR is not the same as that of the cluster
+    OS (for example, run it on Windows and then execute it on a Spark Linux cluster),
+    include the `nd4j-cuda-x.x-platform` dependency in the `pom.xml` file.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Just replace `x.x` with the CUDA version you have installed (for example, `nd4j-cuda-9.2` for CUDA 9.2*).*
+  prefs: []
+  type: TYPE_NORMAL
+- en: In cases where the clusters don't have CUDA/cuDNN set up, we can include `redist javacpp-` presets
+    for the cluster OS. You can refer to the respective dependencies here: [https://deeplearning4j.org/docs/latest/deeplearning4j-config-cuDNN](https://deeplearning4j.org/docs/latest/deeplearning4j-config-cudnn).
+    That way, we don't have to install CUDA or cuDNN in each and every cluster machine.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In step 6, we added a Maven dependency for JCommander. JCommander is used to
+    parse command-line arguments that are supplied with `spark-submit`. We need this
+    because we will be passing directory locations (HDFS/local) of the train/test
+    data as command-line arguments in `spark-submit`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: From steps 7 to 16, we downloaded and configured Hadoop. Remember to replace `{PathDownloaded}`
+    with the actual location of the extracted Hadoop package. Also, replace `x.x`
+    with the Hadoop version you've downloaded. We need to specify the disk location
+    where we will store the metadata and the data represented in HDFS. Due to this,
+    we created name/data directories in step 8/step 9. To make changes, in step 10,
+    we configured `mapred-site.xml`. If you can't locate the file in the directory,
+    just create an XML file by copying all the content from the `mapred-site.xml.template` file,
+    and then make the changes that were mentioned in step 10.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In step 13, we replaced the `JAVA_HOME` path variable with the actual Java home
+    directory location. This was done to avoid certain `ClassNotFound` exceptions
+    from being encountered at runtime.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In step 18, make sure that you are downloading the Spark version that matches
+    your Hadoop version. For example, if you have Hadoop 2.7.3, then get the Spark
+    version that looks like `spark-x.x-bin-hadoop2.7`. When we made changes in step
+    19, if the `spark-env.sh` file isn't present, then just create a new file named
+    `spark-env.sh` by copying the content from the `spark-env.sh.template` file. Then,
+    make the changes that were mentioned in step 19\. After completing all the steps
+    in this recipe, you should be able to perform distributed neural network training
+    via the `spark-submit` command.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Creating an uber-JAR for training
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The training job that's executed by `spark-submit` will need to resolve all
+    the required dependencies at runtime. In order to manage this task, we will create
+    an uber-JAR that has the application runtime and its required dependencies. We
+    will use the Maven configurations in `pom.xml` to create an uber-JAR so that we
+    can perform distributed training. Effectively, we will create an uber-JAR and
+    submit it to `spark-submit` to perform the training job in Spark.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this recipe, we will create an uber-JAR using the Maven shade plugin for
+    Spark training.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Create an uber-JAR (shaded JAR) by adding the Maven shade plugin to the `pom.xml` file,
+    as shown here:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![](img/4d8158cc-6169-4fd5-960e-8c6d1fa051d9.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Refer to the `pom.xml` file in this book''s GitHub repository for more information: [https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/blob/master/10_Developing%20applications%20in%20distributed%20environment/sourceCode/cookbookapp/pom.xml](https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/blob/master/10_Developing%20applications%20in%20distributed%20environment/sourceCode/cookbookapp/pom.xml).
+    Add the following filter to the Maven configuration:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Hit the Maven command to build an uber-JAR for the project:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: How it works...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'In step 1, you need to specify the main class that should run while executing
+    the JAR file. In the preceding demonstration, `SparkExample` is our main class
+    that invokes a training session. You may come across exceptions that look as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: Some of the dependencies that were added to the Maven configuration may have
+    a signed JAR, which may cause issues like these.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In step 2, we added the filters to prevent the addition of signed `.jars` during
+    the Maven build.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In step 3, we generated an executable `.jar` file with all the required dependencies.
+    We can submit this `.jar` file to `spark-submit` to train our networks on Spark. The
+    `.jar` file is created in the `target` directory of the project:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/58b2d8d3-043e-43ac-b3ba-104fb70c7fdc.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The Maven shade plugin is not the only way to build an uber-JAR file. However,
+    the Maven shade plugin is recommended over other alternatives. Other alternatives
+    may not be able to include the required files from source `.jars`. Some of those
+    files act as dependencies for the Java service loader's functionality. ND4J makes
+    use of Java's service loader functionality. Therefore, other alternative plugins
+    can cause issues.
+  prefs: []
+  type: TYPE_NORMAL
+- en: CPU/GPU-specific configuration for training
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Hardware-specific changes are generic configurations that can't be ignored in
+    a distributed environment. DL4J supports GPU-accelerated training in NVIDIA GPUs
+    with CUDA/cuDNN enabled. We can also perform Spark distributed training using
+    GPUs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this recipe, we will configure CPU/GPU-specific changes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Download, install, and set up the CUDA toolkit from [https://developer.nvidia.com/cuda-downloads](https://developer.nvidia.com/cuda-downloads).
+    OS-specific setup instructions are available at the NVIDIA CUDA official website.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Configure the GPU for Spark distributed training by adding a Maven dependency
+    for ND4J''s CUDA backend:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Configure the CPU for Spark distributed training by adding an ND4J-native dependency:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: How it works...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: We need to enable a proper ND4J backend so that we can utilize GPU resources,
+    as we mentioned in step 1. Enable the `nd4j-cuda-x.x` dependency in your `pom.xml` file
+    for GPU training, where `x.x` refers to the CUDA version that you have installed.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We may include both ND4J backends (CUDA/native dependencies) if the master node
+    is running on the CPU and the worker nodes are running on the GPU, as we mentioned
+    in the previous recipe. If both backends are present in the classpath, the CUDA
+    backend will be tried out first. If it doesn't load for some reason, then the
+    CPU backend (native) will be loaded. The priority can also be changed by changing
+    the `BACKEND_PRIORITY_CPU` and `BACKEND_PRIORITY_GPU` environment variables in
+    the master node. The backend will be picked depending on which one of these environment
+    variables has the highest value.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In step 3, we added CPU-specific configuration that targets CPU-only hardware.
+    We don't have to keep this configuration if both the master/worker nodes have
+    GPU hardware in place.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There's more...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'We can further optimize the training throughput by configuring cuDNN into CUDA
+    devices. We can run a training instance in Spark without CUDA/cuDNN installed
+    on every node. To gain optimal performance with cuDNN support, we can add the
+    DL4J CUDA dependency. For that, the following components must be added and made
+    available:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The DL4J CUDA Maven dependency:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs: []
+  type: TYPE_PRE
+- en: The cuDNN library files at [https://developer.nvidia.com/cuDNN](https://developer.nvidia.com/cudnn).
+    Note that you need to sign up to the NVIDIA website to download cuDNN libraries.
+    Signup is free. Refer to the installation guide here: [https://docs.nvidia.com/deeplearning/sdk/cuDNN-install/index.html](https://docs.nvidia.com/deeplearning/sdk/cudnn-install/index.html).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Memory settings and garbage collection for Spark
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Memory management is very crucial for distributed training with large datasets
+    in production. It directly influences the resource consumption and performance
+    of the neural network. Memory management involves configuring off-heap and on-heap
+    memory spaces. DL4J/ND4J-specific memory configuration will be discussed in detail
+    in [Chapter 12](0db31248-e40b-4479-9939-0baccb0e11d1.xhtml), *Benchmarking and
+    Neural Network Optimization*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this recipe, we will focus on memory configuration in the context of Spark.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Add the `--executor-memory` command-line argument while submitting a job to
+    `spark-submit` to set on-heap memory for the worker node. For example, we could
+    use `--executor-memory 4g` to allocate 4 GB of memory.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Add the `--conf` command-line argument to set the off-heap memory for the worker
+    node:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs: []
+  type: TYPE_PRE
+- en: Add the `--conf` command-line argument to set the off-heap memory for the master
+    node. For example, we could use `--conf "spark.driver.memoryOverhead=-Dorg.bytedeco.javacpp.maxbytes=8G"`
+    to allocate 8 GB of memory.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Add the `--driver-memory` command-line argument to specify the on-heap memory
+    for the master node. For example, we could use `--driver-memory 4g` to allocate
+    4 GB of memory.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Configure garbage collection for the worker nodes by calling `workerTogglePeriodicGC()`
+    and `workerPeriodicGCFrequency()` while you set up the distributed neural network
+    using `SharedTrainingMaster`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Enable Kryo optimization in DL4J by adding the following dependency to the `pom.xml` file:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE25]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Configure `KryoSerializer` with `SparkConf`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE26]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Add locality configuration to `spark-submit`, as shown here:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE27]'
+  prefs: []
+  type: TYPE_PRE
+- en: How it works...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In step 1, we discussed Spark-specific memory configurations. We mentioned that
+    this can be configured for master/worker nodes. Also, these memory configurations
+    can be dependent on the cluster resource manager.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Note that the `--executor-memory 4g` command-line argument is for YARN. Please
+    refer to the respective cluster resource manager documentation to find out the
+    respective command-line argument for the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Spark Standalone: [https://spark.apache.org/docs/latest/spark-standalone.html](https://spark.apache.org/docs/latest/spark-standalone.html)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Mesos: [https://spark.apache.org/docs/latest/running-on-mesos.html](https://spark.apache.org/docs/latest/running-on-mesos.html)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: YARN: [https://spark.apache.org/docs/latest/running-on-yarn.html](https://spark.apache.org/docs/latest/running-on-yarn.html)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'For Spark Standalone, use the following command-line options to configure the
+    memory space:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The on-heap memory for the driver can be configured like so (`8G` -> 8 GB of
+    memory):'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '[PRE28]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The off-heap memory for the driver can be configured like so:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '[PRE29]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The on-heap memory for the worker can be configured like so:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '[PRE30]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The off-heap memory for the worker can be configured like so:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '[PRE31]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In step 5, we discussed garbage collection for worker nodes. Generally speaking,
+    there are two ways in which we can control the frequency of garbage collection.
+    The following is the first approach:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE32]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This will limit the frequency of garbage collector calls to the specified time
+    interval, that is, `frequencyIntervalInMs`. The second approach is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE33]'
+  prefs: []
+  type: TYPE_PRE
+- en: This will totally disable the garbage collector's calls. However, the these
+    approaches will not alter the worker node's memory configuration. We can configure
+    the worker node's memory using the builder methods that are available in `SharedTrainingMaster`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We call `workerTogglePeriodicGC()` to disable/enable periodic **garbage collector**
+    (**GC**) calls and `workerPeriodicGCFrequency()` to set the frequency in which
+    GC needs to be called.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In step 6, we added support for Kryo serialization in ND4J. The Kryo serializer
+    is a Java serialization framework that helps to increase the speed/efficiency
+    during training in Spark.
+  prefs: []
+  type: TYPE_NORMAL
+- en: For more information, refer to [https://spark.apache.org/docs/latest/tuning.html](https://spark.apache.org/docs/latest/tuning.html).
+    In step 8, locality configuration is an optional configuration that can be used
+    to improve training performance. Data locality can have a major impact on the
+    performance of Spark jobs. The idea is to ship the data and code together so that
+    the computation can be performed really quickly. For more information, please
+    refer to [https://spark.apache.org/docs/latest/tuning.html#data-locality](https://spark.apache.org/docs/latest/tuning.html#data-locality).
+  prefs: []
+  type: TYPE_NORMAL
+- en: There's more...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Memory configurations are often applied to master/worker nodes separately.
+    Therefore, memory configuration on worker nodes alone may not bring the required
+    results. The approach we take can vary, depending on the cluster resource manager
+    we use. Therefore, it is important to refer to the respective documentation on
+    the different approaches for a specific cluster resource manager. Also, note that
+    the default memory settings in the cluster resource managers are not appropriate
+    (too low) for libraries (ND4J/DL4J) that heavily rely on off-heap memory space.
+    `spark-submit` can load the configurations in two different ways. One way is to
+    use the *command line*, as we discussed previously, while another one is to specify
+    the configuration in the `spark-defaults.conf` file, like so:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE34]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Spark can accept any Spark properties using the `--conf` flag. We used it to
+    specify off-heap memory space in this recipe. You can read more about Spark configuration here: [http://spark.apache.org/docs/latest/configuration.html](http://spark.apache.org/docs/latest/configuration.html):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The dataset should justify the memory allocation in the driver/executor. For
+    10 MB of data, we don't have to assign too much of the memory to the executor/driver.
+    In this case, 2 GB to 4 GB of memory would be enough. Allotting too much memory
+    won't make any difference and it can actually reduce the performance.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The *driver* is the process where the main Spark job runs. *Executors* are worker
+    node tasks that have individual tasks allotted to run. If the application runs
+    in local mode, the driver memory is not necessarily allotted. The driver memory
+    is connected to the master node and it is relevant while the application is running
+    in *cluster* mode. In *cluster* mode, the Spark job will not run on the local
+    machine it was submitted from. The Spark driver component will launch inside the
+    cluster.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Kryo is a fast and efficient serialization framework for Java. Kryo can also
+    perform automatic deep/shallow copying of objects in order to attain a high speed,
+    low size, and easy-to-use API. The DL4J API can make use of Kryo serialization
+    to optimize the performance a bit further. However, note that since INDArrays consume
+    off-heap memory space, Kryo may not result in much performance gain. Check the
+    respective logs to ensure your Kryo configuration is correct while using it with
+    the `SparkDl4jMultiLayer` or `SparkComputationGraph` classes.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Just like in regular training, we need to add the proper ND4J backend for DL4J
+    Spark to function. For newer versions of YARN, some additional configurations
+    may be required. Refer to the YARN documentation for more details: [https://hadoop.apache.org/docs/r3.1.0/hadoop-yarn/hadoop-yarn-site/UsingGpus.html](https://hadoop.apache.org/docs/r3.1.0/hadoop-yarn/hadoop-yarn-site/UsingGpus.html).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Also, note that older versions (2.7.x or earlier) will not support GPUs natively
+    (GPU and CPU). For these versions, we need to use node labels to ensure that jobs
+    are running in GPU-only machines.
+  prefs: []
+  type: TYPE_NORMAL
+- en: If you perform Spark training, you need to be aware of data locality in order
+    to optimize the throughput. Data locality ensures that the data and the code that
+    operates on the Spark job are together and not separate. Data locality ships the
+    serialized code from place to place (instead of chunks of data) where the data
+    operates. It will speed up its performance and won't introduce further issues
+    since the size of the code will be significantly smaller than the data. Spark
+    provides a configuration property named `spark.locality.wait` to specify the timeout
+    before moving the data to a free CPU. If you set it to zero, then data will be
+    immediately moved to a free executor rather than wait for a specific executor
+    to become free. If the freely available executor is distant from the executor
+    where the current task is executed, then it is an additional effort. However,
+    we are saving time by waiting for a nearby executor to become free. So, the computation
+    time can still be reduced. You can read more about data locality on Spark here: [https://spark.apache.org/docs/latest/tuning.html#data-locality](https://spark.apache.org/docs/latest/tuning.html#data-locality).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Configuring encoding thresholds
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The DL4J Spark implementation makes use of a threshold encoding scheme to perform
+    parameter updates across nodes in order to reduce the commuted message size across
+    the network and thereby reduce the cost of traffic. The threshold encoding scheme
+    introduces a new distributed training-specific hyperparameter called **encoding
+    threshold**.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this recipe, we will configure the threshold algorithm in a distributed training
+    implementation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Configure the threshold algorithm in `SharedTrainingMaster`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE35]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Configure the residual vectors by calling `residualPostProcessor()`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE36]'
+  prefs: []
+  type: TYPE_PRE
+- en: How it works...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In step 1, we configured the threshold algorithm in `SharedTrainingMaster`,
+    where the default algorithm is `AdaptiveThresholdAlgorithm`. Threshold algorithms
+    will determine the encoding threshold for distributed training, which is a hyperparameter
+    that's specific to distributed training. Also, note that we are not discarding
+    the rest of the parameter updates. As we mentioned earlier, we put them into separate
+    residual vectors and process them later. We do this to reduce the network traffic/load
+    during training. **`AdaptiveThresholdAlgorithm` **is preferred in most cases for
+    better performance.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In step 2, we used `ResidualPostProcessor` to post process the residual vector.
+    The residual vector was created internally by the gradient sharing implementation
+    to collect parameter updates that were not marked by the specified bound. Most
+    implementations of `ResidualPostProcessor` will clip/decay the residual vector
+    so that the values in them will not become too large compared to the threshold
+    value. `ResidualClippingPostProcessor` is one such implementation. `ResidualPostProcessor`
+    will prevent the residual vector from becoming too large in size as it can take
+    too much time to communicate and may lead to stale gradient issues.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In step 1, we called `thresholdAlgorithm()` to set the threshold algorithm.
+    In step 2, we called `residualPostProcessor()` to post process the residual vector
+    for the gradient sharing implementation in DL4J. `ResidualClippingPostProcessor`
+    accepts two attributes: `clipValue` and `frequency`. `clipValue` is the multiple
+    of the current threshold that we use for clipping. For example, if threshold is
+    `t` and `clipValue` is `c`, then the residual vectors will be clipped to the range
+    **`[-c*t , c*t]`**.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: There's more...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The idea behind the threshold (the encoding threshold, in our context) is that
+    the parameter updates will happen across clusters, but only for the values that
+    come under the user-defined limit (threshold). This threshold value is what we
+    refer to as the encoding threshold. Parameter updates refer to the changes in
+    gradient values during the training process. High/low encoding threshold values
+    are not good for optimal results. So, it is reasonable to come up with a range
+    of acceptable values for the encoding threshold. This is also termed as the sparsity
+    ratio, in which the parameter updates happen across clusters.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this recipe, we also discussed how to configure threshold algorithms for
+    distributed training. The default choice would be to use `AdaptiveThresholdAlgorithm` if `AdaptiveThresholdAlgorithm` provides
+    undesired results.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The following are the various threshold algorithms that are available in DL4J:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`AdaptiveThresholdAlgorithm`: This is the default threshold algorithm that
+    works well in most scenarios.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`FixedThresholdAlgorithm`: This is a fixed and non-adaptive threshold strategy.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`TargetSparsityThresholdAlgorithm`: This is an adaptive threshold strategy
+    with a specific target. It decreases or increases the threshold to try and match
+    the target.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Performing a distributed test set evaluation
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'There are challenges involved in distributed neural network training. Some
+    of these challenges include managing different hardware dependencies across master
+    and worker nodes, configuring distributed training to produce good performance,
+    memory benchmarks across the distributed clusters, and more. We discussed some
+    of those concerns in the previous recipes. While keeping such configurations in
+    place, we''ll move on to the actual distributed training/evaluation. In this recipe,
+    we will perform the following tasks:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: ETL for DL4J Spark training
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Create a neural network for Spark training
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Perform a test set evaluation
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Download, extract, and copy the contents of the `TinyImageNet` dataset to the
+    following directory location:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE37]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Create batches of images for training using the `TinyImageNet` dataset:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE38]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Create batches of images for testing using the `TinyImageNet` dataset:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE39]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Create an `ImageRecordReader` that holds a reference of the dataset:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE40]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Create `RecordReaderFileBatchLoader` from `ImageRecordReader` to load the batch
+    data:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE41]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Use JCommander at the beginning of your source code to parse command-line arguments:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE42]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Create a parameter server configuration (gradient sharing) for Spark training
+    using `VoidConfiguration`, as shown in the following code:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE43]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Configure a distributed training network using `SharedTrainingMaster`, as shown
+    in the following code:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE44]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Create a `GraphBuilder` for `ComputationGraphConfguration`, as shown in the
+    following code:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE45]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Use `DarknetHelper` from the DL4J Model Zoo to power up our CNN architecture,
+    as shown in the following code:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE46]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Configure the output layers while considering the number of labels and loss
+    functions, as shown in the following code:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE47]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Create `ComputationGraphConfguration` from the `GraphBuilder`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE48]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Create the `SparkComputationGraph` model from the defined configuration and
+    set training listeners to it:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE49]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Create `JavaRDD` objects that represent the HDFS paths of the batch files that
+    we created earlier for training:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE50]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Invoke the training instance by calling `fitPaths()`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE51]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Create `JavaRDD` objects that represent the HDFS paths to batch files that
+    we created earlier for testing:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE52]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Evaluate the distributed neural network by calling `doEvaluation()`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE53]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Run the distributed training instance on `spark-submit` in the following format:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE54]'
+  prefs: []
+  type: TYPE_PRE
+- en: How it works....
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Step 1 can be automated using `TinyImageNetFetcher`, as shown here:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE55]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'For any OS, the data needs to be copied to the user''s home directory. Once
+    it is executed, we can get a reference to the train/test dataset directory, as
+    shown here:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE56]'
+  prefs: []
+  type: TYPE_PRE
+- en: You can also mention your own input directory location from your local disk
+    or HDFS. You will need to mention that in place of `dirPathDataSet` in step 2.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In step 2 and step 3, we created batches of images so that we could optimize
+    the distributed training. We used `createFileBatchesLocal()` to create these batches,
+    where the source of the data is a local disk. If you want to create batches from
+    the HDFS source, then use `createFileBatchesSpark()` instead. These compressed
+    batch files will save space and reduce bottlenecks in computation. Suppose we
+    loaded 64 images in a compressed batch – we don't require 64 different disk reads
+    to process the batch file. These batches contain the contents of raw files from
+    multiple files.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In step 5, we used `RecordReaderFileBatchLoader` to process file batch objects
+    that were created using either `createFileBatchesLocal()` or `createFileBatchesSpark()`.
+    As we mentioned in step 6, you can use JCommander to process the command-line
+    arguments from `spark-submit` or write your own logic to handle them.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In step 7, we configured the parameter server using the `VoidConfiguration`
+    class. This is a basic configuration POJO class for the parameter server. We can
+    mention the port number, network mask, and so on for the parameter server. The
+    network mask is a very important configuration in a shared network environment
+    and YARN.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In step 8, we started configuring the distributed network for training using
+    `SharedTrainingMaster`. We added important configurations such as threshold algorithms,
+    worker node count, minibatch size, and so on.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Starting from steps 9 and 10, we focused on distributed neural network layer
+    configuration. We used `DarknetHelper` from the DL4J Model Zoo to borrow functionalities
+    from DarkNet, TinyYOLO and YOLO2.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In step 11, we added the output layer configuration for our tiny `ImageNet`
+    classifier. There are 200 labels in which the image classifier makes a prediction.
+    In step 13, we created a Spark-based `ComputationGraph` using `SparkComputationGraph`.
+    If the underlying network structure is `MultiLayerNetwork`, then you could use `SparkDl4jMultiLayer`
+    instead.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In step 17, we created an evaluation instance, as shown here:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE57]'
+  prefs: []
+  type: TYPE_PRE
+- en: The second attribute (`5`, in the preceding code) represents the value `N`,
+    which is used to measure the top `N` accuracy metrics. For example, evaluation
+    on a sample will be correct if the probability for the `true` class is one of
+    the highest `N` values.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Saving and loading trained neural network models
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Training the neural network over and over to perform an evaluation is not a
+    good idea since training is a very costly operation. This is why model persistence
+    is important in distributed systems as well.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this recipe, we will persist the distributed neural network models to disk
+    and load them for further use.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Save the distributed neural network model using `ModelSerializer`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE58]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Save the distributed neural network model using `save()`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE59]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Load the distributed neural network model using `ModelSerializer`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE60]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Load the distributed neural network model using `load()`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE61]'
+  prefs: []
+  type: TYPE_PRE
+- en: How it works...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Although we used `save()` or `load()` for the model's persistence in a local
+    machine, it is not an ideal practice in production. For a distributed cluster
+    environment, we can make use of `BufferedInputStream`/`BufferedOutputStream` in
+    steps 1 and 2 to save/load models to/from clusters. We can use `ModelSerializer`
+    or `save()`/`load()` just like we demonstrated earlier. We just need to be aware
+    of the cluster resource manager and model persistence, which can be performed
+    across clusters.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There's more...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '`SparkDl4jMultiLayer` and `SparkComputationGraph` internally make use of the
+    standard implementations of `MultiLayerNetwork` and `ComputationGraph`, respectively.
+    Thus, their internal structure can be accessed by calling the `getNetwork()` method.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Performing distributed inference
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this chapter, we have discussed how to perform distributed training using
+    DL4J. We have also performed distributed evaluation to evaluate the trained distributed
+    model. Now, let's discuss how to utilize the distributed model to solve use cases
+    such as predictions. This is referred to as inference. Let's go over how we can
+    perform *distributed* inference in a Spark environment.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this recipe, we will perform distributed inference on Spark using DL4J.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Perform distributed inference for `SparkDl4jMultiLayer` by calling `feedForwardWithKey()`,
+    as shown here:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE62]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Perform distributed inference for `SparkComputationGraph` by calling `feedForwardWithKey()`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE63]'
+  prefs: []
+  type: TYPE_PRE
+- en: How it works...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The intent of the `feedForwardWithKey()` method in step 1 and 2 is to generate
+    output/predictions for the given input dataset. A map is returned from this method.
+    The input data is represented by the keys in the map and the results (output)
+    are represented by values (`INDArray`).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`feedForwardWithKey()` accepts two attributes: input data and the minibatch
+    size for feed-forward operations. The input data (features) is in the format of `JavaPairRDD<K`,
+    `INDArray>`.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note that RDD data is unordered. We need a way to map each input to the respective
+    results (output). Hence, we need to have a key-value pair that maps each input
+    to its respective output. That's the main reason why we use key values here. It
+    has nothing to do with the inference process. Values for the minibatch size are
+    used for the trade-off between memory versus computational efficiency.
+  prefs: []
+  type: TYPE_NORMAL

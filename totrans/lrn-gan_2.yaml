@@ -1,0 +1,878 @@
+- en: Chapter 2. Unsupervised Learning with GAN
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Recently, with the progress of generative models, neural networks can not only
+    recognize images but they can be used to generate audio and realistic images as
+    well.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this chapter, we will deep dive into the creative nature of deep learning
+    through the latest state of the art algorithm of **Generative Adversarial Network**,
+    commonly known as **GAN**. You will learn through hands-on examples to use the
+    generative ability of the neural networks in generating realistic images from
+    various real-world datasets (such as `MNIST` and `CIFAR`). Also, you will understand
+    how to overcome the major challenge of unsupervised learning with deep networks
+    using semi-supervised approach and apply it to your own problem domain. In the
+    final section of this chapter, you will learn some of the training obstacles followed
+    by practical tips and tricks of working with GAN models.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We will cover the following topics in this chapter:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: What is GAN? its application, tips, and tricks
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Explaining the concept of GAN through two-layer neural network image generation
+    with TensorFlow
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Image generation with **Deep Convolutional GAN** (**DCGAN**) using Keras
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Implementation of semi-supervised learning using TensorFlow
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Automating human tasks with deep neural networks
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the last few years, there has been an explosion of deep neural networks that
+    can perform image classification, voice recognition, and understanding natural
+    language with good accuracy.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The current state of the art algorithms within the field of deep neural network
+    are able to learn highly complex models of the patterns inherent in a set of data.
+    While the capabilities are impressive, human beings are capable of doing much
+    more than just image recognition or understanding what people are talking about
+    and automating those tasks through machines seems far-fetched.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let us see some use cases where we need human creativity (at least as of now):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Training an artificial author that can write an article and explain data science
+    concepts to a community in a very simplistic manner by learning from past articles
+    from Wikipedia
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Creating an artificial painter that can paint like any famous artist by learning
+    from his/her past collections
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Do you believe that machines are capable of accomplishing these tasks? To your
+    surprise the answer is "YES".
+  prefs: []
+  type: TYPE_NORMAL
+- en: Of course, these are difficult tasks to automate, but GANs have started making
+    some of these tasks possible.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Yann LeCun, a prominent figure in the deep learning domain (Director of Facebook
+    AI) said that:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Generative Adversarial Network (GANs), and the variations that are now being
+    proposed is the most interesting idea in the last 10 years in Machine Learning.
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: If you feel intimidated by the name GAN, don't worry! You will master this technique
+    and apply it to real-world problems yourself by the end of this book.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The purpose of GAN
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Some generative models are able to generate samples from model distribution.
+    GANs are an example of generative models. GAN focuses primarily on generating
+    samples from distribution.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You might be wondering why generative models are worth studying, especially
+    generative models that are only capable of generating data rather than providing
+    an estimate of the density function.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Some of the reasons to study generative models are as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Sampling (or generation) is straightforward
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Training doesn't involve maximum likelihood estimation
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Robust to overfitting since the generator never sees the training data
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: GANs are good at capturing the modes of distribution
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: An analogy from the real world
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Let''s consider the real-world relationship between a money counterfeiting
+    criminal and the police. Let''s enumerate the objective of the criminal and the
+    police in terms of money:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![An analogy from the real world](img/B08086_02_1.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure1a: GAN real world analogy'
+  prefs: []
+  type: TYPE_NORMAL
+- en: To become a successful money counterfeiter, the criminal needs to fool the police
+    so that the police can't tell the difference between the counterfeit/fake money
+    and real money
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: As a paragon of justice, the police want to detect fake money as effectively
+    as possible
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'This can be modeled as a minimax game in game theory. This phenomenon is called
+    **adversarial process**. GAN, introduced by Ian Goodfellow in 2014 at *arXiv:
+    1406.2661*, is a special case of an adversarial process where two neural networks
+    compete against each other. The first network generates data and the second network
+    tries to find the difference between the real data and the fake data generated
+    by the first network. The second network will output a scalar [0, 1], which represents
+    a probability of real data.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The building blocks of GAN
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'In GAN, the first network is called generator and is often represented as *G(z)*
+    and the second network is called discriminator and is often represented as *D(x)*:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![The building blocks of GAN](img/B08086_02_2.png.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 1b: Generative adversarial network'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'At the equilibrium point, which is the optimal point in the minimax game, the
+    first network will model the real data and the second network will output a probability
+    of 0.5 as the output of the first network = real data:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![The building blocks of GAN](img/B08086_02_3.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Sometimes the two networks eventually reach equilibrium, but this is not always
+    guaranteed and the two networks can continue learning for a long time. An example
+    of learning with both generator and discriminator loss is shown in the following
+    figure:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![The building blocks of GAN](img/B08086_02_4.png.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 1c: Loss of two networks, generator and discriminator'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Generator
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: The generator network takes as input random noise and tries to generate a sample
+    of data. In the preceding figure, we can see that generator *G(z)* takes an input
+    *z* from probability distribution *p(z)* and generates data that is then fed into
+    a discriminator network *D(x)*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Discriminator
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: The discriminator network takes input either from the real data or from the
+    generator's generated data and tries to predict whether the input is real or generated.
+    It takes an input *x* from real data distribution *P* *[data]* *(x)* and then
+    solves a binary classification problem giving output in the scalar range 0 to
+    1.
+  prefs: []
+  type: TYPE_NORMAL
+- en: GANs are gaining lot of popularity because of their ability to tackle the important
+    challenge of unsupervised learning, since the amount of available unlabeled data
+    is much larger than the amount of labeled data. Another reason for their popularity
+    is that GANs are able to generate the most realistic images among generative models.
+    Although this is subjective, it is an opinion shared by most practitioners.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Discriminator](img/B08086_02_5.png.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure-1d: Vector arithmetic in GANs'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Beside this, GAN is often very expressive: it can perform arithmetic operations
+    in the latent space, that is the space of the z vectors, and translate into corresponding
+    operations in feature space. As shown in *Figure 1d*, if you take the representation
+    of a man with glasses in latent space, subtract the `neutral man` vector and add
+    back the `neutral woman` vector, you end up with a picture of a woman with glasses
+    in feature space. This is truly amazing.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Implementation of GAN
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'As per the definition of GAN, we basically require two networks, be it a sophisticated
+    network such as ConvNet or a simple two-layer neural network. Let''s use a simple
+    two-layer neural network with the `MNIST` dataset using TensorFlow for implementation
+    purposes. `MNIST` is a dataset of handwritten digits where each image is gray
+    scale of dimension 28x28 pixel:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The `generator(z)` takes as input a 100-dimensional vector from a random distribution
+    (in this case we are using uniform distribution) and returns a 786-dimensional
+    vector, which is a `MNIST` image (28x28). The `z` here is the prior for the *G(z)*.
+    In this way, it learns a mapping between the prior space to *p* [*data*] (real
+    data distribution):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Whereas the `discriminator(x)` takes `MNIST` image(s) as input and returns
+    a scalar that represents a probability of real image. Now, let''s discuss an algorithm
+    for training GAN. Here''s the pseudo code for a training algorithm from the paper
+    *arXiv: 1406.2661, 2014*:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Implementation of GAN](img/B08086_02_6.png.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 1e: GAN training algorithm pseudo-code'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The TensorFlow optimizer can only do minimization, so in order to maximize
+    the `loss` function, we are using a negative sign for the loss as seen previously.
+    Also, as per the paper''s pseudo algorithm, it''s better to maximize `tf.reduce_mean(tf.log(D_fake))`
+    instead of minimizing `tf.reduce_mean(1 - tf.log(D_fake)`. Then we train the networks
+    one by one with those preceding `loss` functions:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: After that we start with random noise and as the training continues, `G(Z)`
+    starts moving towards *p* [*data*]. This is proved by the more similar samples
+    generated by `G(Z)` compared to original MNIST images.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Some of the output generated after 60,000 iterations is shown as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Implementation of GAN](img/B08086_02_7.png.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 1f: GAN implementation of a generated output image'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Applications of GAN
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'GAN is generating lots of excitement in a wide variety of fields. Some of the
+    exciting applications of GAN in recent years are listed as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Translating one image to another (such as horse to zebra) with CycleGAN and
+    performing image editing through Conditional GAN. Details will be covered in [Chapter
+    3](ch03.html "Chapter 3. Transfer Image Style Across Various Domains"), *Transfer
+    Image Style Across Various Domains*.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Automatic synthesis of realistic images from a textual sentence using StackGAN.
+    And transferring style from one domain to another domain using **Discovery GAN**
+    (**DiscoGAN**). Details will be covered in [Chapter 4](ch04.html "Chapter 4. Building
+    Realistic Images from Your Text"), *Building Realistic Images from Your Text*.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Enhancing image quality and generating high resolution images with pre-trained
+    models using SRGAN. Details will be covered in [Chapter 5](ch05.html "Chapter 5. Using
+    Various Generative Models to Generate Images"), *Using Various Generative Models
+    to Generate Images*.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Generating realistic a image from attributes**: Let''s say a burglar comes
+    to your apartment but you don''t have a picture of him/her. Now the system at
+    the police station could generate a realistic image of the thief based on the
+    description provided by you and search a database. For more information refer
+    to *arXiv: 1605.05396, 2016*.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Predicting the next frame in a video or dynamic video generation: ([http://carlvondrick.com/tinyvideo/](http://carlvondrick.com/tinyvideo/)).'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Image generation with DCGAN using Keras
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'The **Deep Convolutional Generative Adversarial Networks** (**DCGAN**) are
+    introduced in the paper: *Unsupervised Representation Learning with Deep Convolutional
+    Generative Adversarial Networks*, by *A. Radford, L. Metz, and S. Chintala, arXiv:1511.06434,
+    2015*.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The generator uses a 100-dimensional, uniform distribution space, *Z*, which
+    is then projected into a smaller space by a series of convolution operations.
+    An example is shown in the following figure:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Image generation with DCGAN using Keras](img/B08086_02_8.png.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 2: DCGAN architecture of the generator'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Source: arXiv, 1511.06434,2015'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'DCGAN stabilizes the networks with the following architectural constraints:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Replace any pooling layers with strided convolutions in the discriminator and
+    fractional-strided convolutions in the generator
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Use batchnorm in both the generator and the discriminator
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Remove fully connected hidden layers for deeper architectures and simply use
+    average pooling at the end
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Use ReLU activation in the generator for all layers except for the output, which
+    uses `tanh`
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Use leaky ReLU activation in the discriminator for all layers
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'A DCGAN generator can be described by the following code implemented in Keras,
+    available at: [https://github.com/jacobgil/keras-dcgan](https://github.com/jacobgil/keras-dcgan).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Start the training/generation process with the following command:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![Image generation with DCGAN using Keras](img/B08086_02_9.png.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Note that the number of batches printed previously is calculated based on input
+    image shape/batch size (provided).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now let''s jump into the code. The generator can be described with the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: The first dense layer of the generator takes as input a vector of 100 dimensions
+    and it produces output of 1,024 dimensions with the activation function `tanh`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The next dense layer in the network produces data of 128 x 7 x 7 in the output
+    using batch normalization (refer to *Batch Normalization Accelerating Deep Network
+    Training by Reducing Internal Covariate Shift*, by *S. Ioffe* and *C.Szegedy*,
+    *arXiv: 1502.03167*, 2014), a technique that often helps to stabilize learning
+    by normalizing the input with zero mean and unit variance. Batch normalization
+    has been empirically proven to speed up training in many situations, reduce the
+    problems of poor initialization, and in general produce more accurate results.
+    There is also a `Reshape()` module that produces data of 128 x 7 x 7 (128 channels,
+    7 width, and 7 height), `dim_ordering` to `tf`, and a `UpSampling()` module that
+    produces a repetition of each one into a 2 x 2 square. After that, we have a convolutional
+    layer that produces 64 filters on 5 x 5 convolutional kernels/patches with `tanh`
+    activation having same padding followed by a new `UpSampling()` and a final convolution
+    with one filter, and on 5 x 5 convolutional kernels with the activation as `tanh`.
+    Note that there are no pooling operations in the ConvNet.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The discriminator can be described with the following code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: The discriminator takes a standard MNIST image with the shape (`1, 28, 28`)
+    and applies a convolution with 64 filters of size 5 x 5 with `tanh` as the activation
+    function. It is then followed by a max-pooling operation of size 2 x 2 and by
+    a further convolution max-pooling operation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The last two stages are dense, with the final one being the prediction for
+    forgery, which consists of only a single neuron with a `sigmoid` activation function.
+    For a given number of epochs, the generator and discriminator are trained by using
+    `binary_crossentropy` as a `loss` function. At each epoch, the generator makes
+    a prediction of a number (for example, it creates forged MNIST images) and the
+    discriminator tries to learn after mixing the prediction with real MNIST images.
+    After a few epochs, the generator automatically learns to forge this set of handwritten
+    numbers:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Image generation with DCGAN using Keras](img/B08086_02_10.png.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure-3: Deep convolutional GAN generated handwritten digit output'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note that training GANs could be very difficult because it is necessary to find
+    the equilibrium between two players and hence some of the valuable techniques
+    and tips used by practitioners are given in the final section of this chapter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Implementing SSGAN using TensorFlow
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The basic intuition of **Semi-Supervised Learning Generative Adversarial Network**
+    (**SSGAN**) is to exploit the samples generated by generators to enhance the performance
+    of image classification tasks of the discriminator by improving generalization.
+    The key idea is to train one of the networks as both image classifier and discriminator
+    (to identify generated images from real images).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For a dataset having *n* classes, the dual trained (discriminator/classifier)
+    network will take an image as input and classify the real images into the first
+    *n* classes and generated images into the *n+1-th* class, as shown in the following
+    figure:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Implementing SSGAN using TensorFlow](img/B08086_02_11.png.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Source: [https://github.com/gitlimlab/SSGAN-Tensorflow/blob/master/figure/ssgan.png](https://github.com/gitlimlab/SSGAN-Tensorflow/blob/master/figure/ssgan.png)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'This multi-tasking learning framework consists of two losses, first the supervised
+    loss:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Implementing SSGAN using TensorFlow](img/B08086_02_12.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'and second the GAN loss of a discriminator:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Implementing SSGAN using TensorFlow](img/B08086_02_13.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: During the training phase, both these losses are jointly minimized.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Setting up the environment
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'Perform the following steps to execute SSGAN on Cifar-10 datasets:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Clone the `git` repo: [https://github.com/gitlimlab/SSGAN-Tensorflow](https://github.com/gitlimlab/SSGAN-Tensorflow):![Setting
+    up the environment](img/B08086_02_14.png.jpg)'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Change the directory:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Download the `CIFAR-10` dataset:![Setting up the environment](img/B08086_02_15.png.jpg)
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Train the model:![Setting up the environment](img/B08086_02_16.png.jpg)
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Test or evaluate the model:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Now let''s dive into the code. The generator takes random noise from the uniform
+    distribution:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Then the generator model flattens the input noise to 1 dimensional vector using
+    the `reshape` method. It then applies three layers of deconvolution on the input
+    noise having `ReLU` activation and then applies one more deconvolution with `tanh`
+    activation to generate the output image of dimension [*h*=height, *w*=width, *c*],
+    where *c* is the number of channels (grayscale images: 1, color images: 3):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The discriminator takes images as input and tries to output into a `n+1` class
+    label. It applies some layers of convolution having leaky ReLU with batch normalization,
+    followed by dropout on the input images, and finally outputs the class `label`
+    using the `softmax` function:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The discriminator network has two `loss` functions, one (`s_loss`) for the
+    supervise classification of real data from CIFAR-10 images using huber loss (Huber
+    loss is robust to outliers compared to squared error loss) and the other (`d_loss`)
+    loss to classify the generated images by the generator as real/fake in scalar
+    form using `softmax` function with cross entropy:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![Setting up the environment](img/B08086_02_17.png.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure: 4a: Supervise loss of discriminator'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![Setting up the environment](img/B08086_02_18.png.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure: 4b: Total discriminator loss (real + fake loss)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: Note
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'Note: Weight annealing is done as an auxiliary loss to help the generator get
+    rid of the initial local minimum.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Setting up the environment](img/B08086_02_19.png.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure: 4c: Generator loss'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The `loss` function of both the generator and discriminator network is optimized
+    with `AdamOptimizer` and gradient clipping (`clip_gradients`) is applied with
+    it to stabilize the training:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Finally, both the supervised loss (`s_loss`) and generative adversarial loss
+    (which is the combination of discriminator loss (`d_loss`) and generator loss
+    (`g_loss`)) are trained jointly to minimize the total loss:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The output of generated samples after 150 epochs is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Setting up the environment](img/B08086_02_20.png.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Challenges of GAN models
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Training a GAN is basically about two networks, generator *G(z)* and discriminator
+    *D(z)*, trying to race against each other and trying to reach an optimum, more
+    specifically a nash equilibrium. The definition of nash equilibrium as per Wikipedia
+    (in economics and game theory) is a stable state of a system involving the interaction
+    of different participants, in which no participant can gain by a unilateral change
+    of strategy if the strategies of the others remain unchanged.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Setting up failure and bad initialization
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: If you think about it, this is exactly what GAN is trying to do; the generator
+    and discriminator reach a state where they cannot improve any further given the
+    other is kept unchanged. Now the setup of gradient descent is to take a step in
+    a direction that reduces the loss measure defined on the problem—but we are by
+    no means enforcing the networks to reach Nash equilibrium in GAN, which have non-convex
+    objective with continuous high dimensional parameters. The networks try to take
+    successive steps to minimize a non-convex objective and end up in an oscillating
+    process rather than decreasing the underlying true objective.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In most cases, when your discriminator attains a loss very close to zero, then
+    right away you can figure out something is wrong with your model. But the biggest
+    difficulty is figuring out what is wrong.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Another practical thing done during the training of GAN is to purposefully make
+    one of the networks stall or learn slower, so that the other network can catch
+    up. And in most scenarios, it's the generator that lags behind so we usually let
+    the discriminator wait. This might be fine to some extent, but remember that for
+    the generator to get better, it requires a good discriminator and vice versa.
+    Ideally the system would want both the networks to learn at a rate where both
+    get better over time. The ideal minimum loss for the discriminator is close to
+    0.5— this is where the generated images are indistinguishable from the real images
+    from the perspective of the discriminator.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Mode collapse
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: One of the main failure modes with training a generative adversarial network
+    is called mode collapse or sometimes the helvetica scenario. The basic idea is
+    that the generator can accidentally start to produce several copies of exactly
+    the same image, so the reason is related to the game theory setup. We can think
+    of the way that we train generative adversarial networks as first maximizing with
+    respect to the discriminator and then minimizing with respect to the generator.
+    If we fully maximize with respect to the discriminator before we start to minimize
+    with respect to the generator, everything works out just fine. But if we go the
+    other way around and we minimize with respect to the generator and then maximize
+    with respect to the discriminator, everything will actually break and the reason
+    is that if we hold the discriminator constant, it will describe a single region
+    in space as being the point that is most likely to be real rather than fake and
+    then the generator will choose to map all noise input values to that same most
+    likely to be real point.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Problems with counting
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'GANs can sometimes be far-sighted and fail to differentiate the number of particular
+    objects that should occur at a location. As we can see, it gives more numbers
+    of eyes in the head than originally present:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Problems with counting](img/B08086_02_21.png.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Source: NIPS 2016- arXiv: 1701.00160, 2017'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Problems with perspective
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'GANs sometimes are not capable of differentiating between front and back view
+    and hence fail to adapt well with 3D objects while generating 2D representations
+    from it, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Problems with perspective](img/B08086_02_22.png.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Source: NIPS 2016- *arXiv: 1701.00160, 2017*'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Problems with global structures
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: GANs do not understand holistic structures, similar to problems with perspective.
+    For example, in the bottom left image, it generates an image of a quadruple cow,
+    that is, a cow standing on its hind legs and simultaneously on all four legs.
+    That is definitely unrealistic and not possible in real life!
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Problems with global structures](img/B08086_02_23.png.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Source: NIPS 2016- *arXiv: 1701* *.00160, 2017*'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Improved training approaches and tips for GAN
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In order to overcome the difficulties of GAN models, deep learning practitioners
+    carry out various hacks depending on the nature of the problem. Some of the improvisation
+    techniques are mentioned in the following sections.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Feature matching
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The instability of GANs is addressed by specifying a new objective for the generator
+    that prevents it from overtraining on the current discriminator.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The idea is to use the features at the intermediate layers in the discriminator
+    to match for real and fake images and make this as a supervisory signal to train
+    the generator.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Specifically, we train the generator to generate data that matches the statistics
+    of the real data, and match the expected value of the features on an intermediate
+    layer of the discriminator. By training the discriminator, we ask it to find those
+    features that are most discriminative of real data versus data generated by the
+    current model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Mini batch
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The problem of mode collapse can be addressed by adding some extra features
+    to the discriminator where the discriminator actually looks at an entire "mini
+    batch of samples" at a time rather than looking at a single sample. If those features
+    measure things such as distance to other samples, then the discriminator can detect
+    if the generator is starting to collapse in this way instead of encouraging every
+    sample from the generator to move towards the single most likely point. The mini
+    batch as a whole has to look realistic and have the correct amount of spacing
+    between different samples.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Historical averaging
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'The idea of historical averaging is to add a penalty term that punishes weights
+    that are rather far away from their historical average values. For example, the
+    cost is:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: One-sided label smoothing
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Usually one would use the labels 0 (image is real) and 1 (image is fake). Instead
+    using some smoother labels (0.1 and 0.9) seems to make networks more resistant
+    to adversarial examples.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Normalizing the inputs
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Most of the time it is good to normalize the images between -1 and 1 and use
+    `tanh` as the last layer of the generator output.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Batch norm
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The idea is to construct different mini batches for real and fake, that is,
+    each mini batch needs to contain only all real images or all generated images.
+    But when batch norm is not an option, you can use instance normalization (for
+    each sample, subtract mean and divide by standard deviation).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Avoiding sparse gradients with ReLU, MaxPool
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The stability of the GAN game suffers if you have sparse gradients. Leaky ReLU
+    is a good fit for both generator and discriminator.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In case of down-sampling, use a combination of average pooling, `Conv2d + stride`,
+    whereas for up-sampling, use the combination of `PixelShuffle`, `ConvTranspose2d
+    + stride`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: Optimizer and noise
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Use the ADAM optimizer for generators and SGD for discriminators. And provide
+    noise in the form of dropout to several layers of generator.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Don't balance loss through statistics only
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Instead have a principled approach to it, rather than intuition:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: Note
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'Note: Despite all these tips and training enhancement steps, the Generative
+    Adversarial model is still relatively new in the field of AI and deep learning
+    and so like any other fast growing field, it too requires a lot of improvement.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: So far you have learned how deep learning made its progress into the unsupervised
+    arena through the concepts of GAN. You have already generated some realistic images
+    such as handwritten digits, airplanes, cars, birds, and so on using `MNIST`, `CIFAR`
+    datasets. Also, you have understood various challenges related to Generative Adversarial
+    Network and how to overcome it with practical tuning tips.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the next few chapters, we will continue our journey with a different variety
+    of GAN-based architecture to perform some magnificent tasks with real datasets.
+  prefs: []
+  type: TYPE_NORMAL

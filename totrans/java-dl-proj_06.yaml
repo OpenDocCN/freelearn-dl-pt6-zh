@@ -1,0 +1,897 @@
+- en: Real-Time Object Detection using YOLO, JavaCV, and DL4J
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Considering this drawback, in this chapter, we will develop an end-to-end project
+    that will detect objects from video frames when a video clip plays continuously.
+    We will be utilizing a trained YOLO model for transfer learning and JavaCV techniques
+    on top of **Deeplearning4j** (**DL4J**) to do this. In short, the following topics
+    will be covered throughout this end-to-end project:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Object detection
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Challenges in object detection from videos
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Using YOLO with DL4J
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Frequently asked questions (FAQs)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Object detection from images and videos
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Deep learning has been widely applied to various computer vision tasks such
+    as image classification, object detection, semantic segmentation, and human pose
+    estimation. When we intend to solve the object detection problem from images,
+    the whole process starts from object classification. Then we perform object localization
+    and finally, we perform the object detection.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This project is highly inspired by the Java Autonomous driving – Car detection
+    article by Klevis Ramo ([http://ramok.tech/](http://ramok.tech/)). Also, some
+    theoretical concepts are used (but significantly extended for this need) with
+    due permission from the author.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Object classification, localization, and detection
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In an object classification problem, from a given image (or video clip), we're
+    interested to know if it contains a region of interest (ROI) or object. More formally,
+    "the image contains a car" versus "the image does not contain any car." To solve
+    this problem, over the last few years, ImageNet and PASCAL VOC (see more at [http://host.robots.ox.ac.uk/pascal/VOC/](http://host.robots.ox.ac.uk/pascal/VOC/))
+    have been in use and are based on deep CNN architectures .
+  prefs: []
+  type: TYPE_NORMAL
+- en: Moreover, of course, the latest technological advances (that is, both software
+    and hardware) have contributed to boosting the performance to the next level.
+    Despite such success of state-of-the-art approaches for still images, detecting
+    objects in videos is not easy. However, object detection from videos brings up
+    new questions, possibilities, and challenges on how to solve the object detection
+    problem for videos effectively and robustly.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Answering this question is not an easy job. First, let's try to solve the problem
+    step by step. First let's try to answer for an still image. Well, when we want
+    to use a CNN to predict if an image contains a particular object or not, we need
+    to localize the object position in the image. To do that, we need to specify the
+    position of the object in the image along with the classification task. This is
+    usually done by marking the object with a rectangular box commonly known as a
+    bounding box.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now, the idea of a bounding box is that at each frame of a video, the algorithm
+    is required to annotate bounding boxes and confidence scores on objects of each
+    class. To grab the idea clearly, take a look at what a bounding box is. A bounding
+    box is usually represented by the center (*b^x*, *b^y*), rectangle height (*b^h*),
+    and rectangle width (*b^w*), as shown in the following diagram:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/518cdb57-d806-492e-9d1d-57fe445afe3d.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: A bounding box representation
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now that we know how to represent such a bounding box, we can perceive what
+    we need to define these things in our training data for each of the objects in
+    the images too. Only then will the network be able to output the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The probability of an image's class number (for example, 20% probability of
+    being a car, 60% probability of being a bus, 10% probability of being a truck,
+    or 10% probability of being a train)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Also, the four variables defining the bounding box of the object
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Knowing only this information is not enough. Interestingly, with this minimum
+    contextual information about bounding box points (that is, center, width, and
+    height), our model is still able to predict and give us a more detailed view of
+    the content. In other words, using this approach, we can solve the object localization
+    problem, but still it is applicable only for a single object.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Therefore, we can even go a step further by localizing not just a single object
+    but multiple or all objects in the image, which will help us move toward the object
+    detection problem. Although the structure of the original image remains the same,
+    we need to deal with multiple bounding boxes in a single image.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now to crack this problem, a state-of-the-art technique is dividing the image
+    into smaller rectangles. And we have the same additional five variables we have
+    already seen (*P^c, b^x, b^y*, *b^h*, *b^w*) and, of course, the normal prediction
+    probabilities at each bounding box.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The idea sounds easy, but how would it work in practice? If we just need to
+    deal with a static image classification problem, things become easier. Using a
+    Naïve approach would be cropping each car image from a collection of thousands
+    of car images and then we training a convolution neural network (for example,
+    VGG-19) to train the model with all these images (although, each image might have
+    a different size).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/182e01a5-2ec9-4892-8184-ef2d89b6918c.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Typical highway traffic
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, to handle this scenario, we can scan the image with a sliding rectangle
+    window and each time let our model predict if there is a car in it or not. As
+    we can see by using different sizes of rectangles, we can figure out quite a different
+    shape for cars and their positions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Albeit, this works quite well in detecting only cars, but imagine a more practical
+    problem such as developing an autonomous driving application. On a typical highway,
+    in a city even in a suburb, there will be many cars, buses, trucks, motorbikes,
+    bicycles, and other vehicles. Moreover, there will be other objects, such as pedestrians,
+    traffic signs, bridges, dividers, and lamp-posts. These will make the scenario
+    more complicated. Nevertheless, the size of real images will very different (that
+    is, much bigger) compared to cropped ones. Also, in the front, many cars might
+    be approaching, so manual resizing, feature extraction and then handcraft training
+    would be necessary.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Another issue would be the slowness of the training algorithm, so it would not
+    be used for real-time video object detection. This application will be built so
+    that you folks can learn something useful so that the same knowledge can be extended
+    and applied to emerging applications, such as autonomous driving.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Anyway, let's come to the original discussion. When moving the rectangle (right,
+    left, up and down), many shared pixels may not be reused but they are just recalculated
+    repeatedly. Even with very accurate and different bounding box sizes, this approach
+    will fail to mark the object with a bounding box very precisely.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Consequently, the model may not output the class of the vehicle very accurately
+    as if the box may include only a part of the object. This might lead an autonomous
+    driving car to be accident-prone—that is, may collide with other vehicles or objects.
+    Now to get rid of this limitation, one of the state-of-the-art approaches is using
+    the **Convolutional Sliding Window** (**CSW**) solution, which is pretty much
+    utilized in YOLO (we will see this later on).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Convolutional Sliding Window (CSW)
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the previous subsection, we have seen that the Naïve sliding window-based
+    approach has severe performance drawbacks since this type of approach is not able
+    to reuse many of the values already computed.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Nevertheless, when each individual window moves, we need to execute millions
+    of hyperparameters for all pixels in order to get a prediction. In reality, most
+    of the computation could be reused by introducing convolution (refer to [Chapter
+    5](2d4fc6f2-3753-456c-8774-3f41dbe13cfb.xhtml), *Image Classification using Transfer
+    Learning*, to get to know more on transfer learning using pre-trained DCNN architecture
+    for image classification). This can be achieved in two incremental ways:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: By turning full-connected CNN layers into convolution
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Using CSW
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: We have seen that whatever DCNN architectures people are using (for example,
+    DarkNet, VGG-16, AlexNet, ImageNet, ResNet, and Inception), regardless of their
+    size and configuration, in the end, they were used to feed fully connected neural
+    nets with a different number of layers and output several predictions depending
+    on classes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In addition, these deep architectures typically have so many layers that it
+    is difficult to interpret them well. Therefore, taking a smaller network sounds
+    a reasonable choice. In the following diagram, the network takes a colored image
+    (that is, RGB) of size 32 x 32 x 3 as input. It then uses the same convolution,
+    which leaves the first two dimensions (that is, width x height) unchanged at 3
+    x 3 x 64 in order to get an output 32 x 32 x 64\. This way, the 3rd dimension
+    (that is, 64) remains the same as conv matrix.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/14c94add-449d-4c09-ab47-49d25838b4d0.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Then, a maximum pooling layer is placed to reduce the width and height but leaving
+    the 3rd dimension unchanged at 16 x 16 x 64\. After that, the reduced layer is
+    fed into a dense layer having 2 hidden layers with 256 and 128 neurons each. In
+    the end, the network outputs the probabilities of five classes using a Softmax
+    layer.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now, let''s see how we can replace **fully connected** (**FC**) layers with
+    conv layers while leaving the linear function of the input at 16 x 16 x 64, as
+    illustrated by the following diagram:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/a8745d97-47a6-4e71-9f1b-3e913238ab0f.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'In the preceding diagram, we just replaced the FC layers with conv filters.
+    In reality, a 16 x 16 x 256 conv filter is equivalent to a 16 x 16 x 64 x 256
+    matrix. In that case, the third dimension, 64, is always the same as the third
+    dimension input 16 x 16 x 64\. Therefore, it can be written as a 16 x 16 x 256
+    conv filter by omitting the 64, which is actually equivalent to the corresponding
+    FC layer. The following math provides the answer as to why:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*Out: 1 x 1 x 256 = in: [16 x 16 x 64] * conv: [16 x 16 x 64 x 256]*'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The preceding math signifies that every element of the output 1 x 1 x 256 is
+    a linear function of a corresponding element of the input 16 x 16 x 64\. The reason
+    why we bothered to convert FC layers to convolution layers is that it will give
+    us more flexibility in the way output is generated by the network: with an FC
+    layer, we will always have the same output size, which is a number of classes.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, in order to see the effectiveness of replacing the FC layers with a convolution
+    filter, we have to take an input image having a bigger size, say 36 x 36 x 3\.
+    Now, if we use the Naïve sliding window technique, where stride is 2 and we have
+    FC, we need to move the original image size nine times to cover all, therefore,
+    executing the model nine times as well. Hence, it definitely does not make sense
+    to adopt that approach. Instead, let us try now to apply this new bigger matrix
+    as input for our new model with convolution layers only.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/7025aace-6796-4bb6-bca7-0181884071df.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Now, we can see that the output has changed from 1 x 1 x 5 to 3 x 3 x 5, which
+    is in comparison to FC. Again, if we recall the CSW-based approach, where we had
+    to move the sliding window nine times to cover all images, which is interestingly
+    equal to the 3 x 3 output of conv, nonetheless, each 3 x 3 cell represents the
+    probability prediction results of a sliding window of 1 x 1 x 5 class! Therefore,
+    instead of having only one 1 x 1 x 5 with 9 lots of sliding window moves, the
+    output now with one shot is 3 x 3 x 5.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, using the CSW-based approach, we have been able to solve the object detection
+    problem from images. Yet, this approach is not so accurate but still, will produce
+    an acceptable result with marginal accuracy. Nevertheless, when it comes to real-time
+    video, things get much more complicated. We will see how YOLO has solved the remaining
+    limitation later in this chapter. For the time being, let's try to understand
+    the underlying complexity in detecting objects from video clips.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Object detection from videos
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Let's think of a simple scenario before digging down deeper. Suppose we have
+    a video clip containing the movement of a cat or wolf in a forest. Now we want
+    to detect this animal but while on the move at each timestep.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The following graph shows the challenges in such a scenario. The red boxes are
+    ground truth annotations. The upper part of the figure (that is **a**) shows still-image
+    object detection methods have large temporal fluctuations across frames, even
+    on ground truth bounding boxes. The fluctuations may result from motion blur,
+    video defocus, part occlusion and bad pose. Information from boxes of the same
+    object on adjacent frames needs to be utilized for object detection in video.
+  prefs: []
+  type: TYPE_NORMAL
+- en: On the other hand, (**b**) shows tracking is able to relate boxes of the same
+    object. However, due to occlusions, appearance changes and pose variations, the
+    tracked boxes may drift to non-target objects. Object detectors should be incorporated
+    into tracking algorithms to constantly start new tracks when drifting occurs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/6e9d0c22-358d-4b9c-ad96-984e81c33202.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Challenges in object detection from the video (source: Kai Kang et al, Object
+    Detection from Video Tubelets with Convolutional Neural Networks)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: There are methods to tackle this problem. However, most of them focus on detecting
+    one specific class of objects, such as pedestrians, cars, or humans with actions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Fortunately, similar to object detection in still images being able to assist
+    tasks including image classification, localization, and object detection, accurately
+    detecting objects in videos could possibly boost the performance of video classification
+    as well. By locating objects in the videos, the semantic meaning of a video could
+    also be described more clearly, which results in more robust performance for video-based
+    tasks.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In other words, existing methods for general object detection cannot be applied
+    to solve this problem effectively. Their performance may suffer from large appearance
+    changes of objects in videos. For instance, in the preceding graph (**a**), if
+    the cat faces the camera at first and then turns back, it's back image cannot
+    be effectively recognized as a cat because it contains little texture information
+    and is not likely to be included in the training. Nevertheless, this is a simpler
+    scenario where we have to detect a single object (that is, an animal).
+  prefs: []
+  type: TYPE_NORMAL
+- en: When we want to develop an application for an autonomous driving car, we will
+    have to deal with so many objects and considerations. Anyway, since we cannot
+    cover all the aspects through this chapter, let's move to solving the problem
+    with only a modicum of knowledge.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Furthermore, implementing and training these types of applications from scratch
+    is time consuming and challenging too. Therefore, nowadays, transfer learning
+    techniques are becoming popular and viable options. By utilizing a trained model,
+    we can develop much more easily. One such trained object detection framework is
+    YOLO, which is one of the state-of-the-art real-time object detection systems.
+    These challenges and YOLO like frameworks have motivated me to develop this project
+    with a minimum of effort.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You Only Look Once (YOLO)
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Although we already addressed issues in object detection from static images
+    by introducing convolution-sliding windows, our model still may not output very
+    accurate bounding boxes, even with several bounding box sizes. Let''s see how
+    YOLO solves that problem well:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/a8d5df7e-72c6-47c5-a951-4a387edd4f3b.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Using the bounding box specification, we go to each image and mark the objects
+    we want to detect
+  prefs: []
+  type: TYPE_NORMAL
+- en: We need to label our training data in some specific way so that the YOLO algorithm
+    will work correctly. YOLO V2 format requires bounding box dimensions of *b^x*,
+    *b^y* and *b^h*, *b*^(*w*) in order to be relative to the original image width
+    and height.
+  prefs: []
+  type: TYPE_NORMAL
+- en: First, we normally go to each image and mark the objects we want to detect.
+    After that, each image is split into a smaller number of rectangles (boxes), usually,
+    13 x 13 rectangles, but here, for simplicity, we have 8 x 9\. Both the bounding
+    box (blue) and the object can be part of several boxes (green), so we can assign
+    the object and the bounding box only to the box owning the centre of the object
+    (yellow boxes).
+  prefs: []
+  type: TYPE_NORMAL
+- en: This way, we train our model with four additional (besides identifying the object
+    as a car) variables (*b^x*, *b^y*, *b^h*, and *b^w*) and assign those to the box
+    owning the center *b^x*, *b^y*. Since the neural network is trained with this
+    labeled data, it also predicts this four variables (besides what object is) values
+    or bounding boxes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Instead of scanning with predefined bounding box sizes and trying to fit the
+    object, we let the model learn how to mark objects with bounding boxes. Therefore,
+    bounding boxes are now flexible. This is definitely a better approach and the
+    accuracy of the bounding boxes is much higher and more flexible.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let us see how we can represent the output now that we have added four variables
+    (*b^x*, *b^y*, *b^h*, and *b^w*) beside classes like 1-car, 2-pedestrian. In reality,
+    another variable, *P^c*, is also added, which simply tells if the image has any
+    of the objects we want to detect at all.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**P^c =1(red)**: This means there is at least one of the objects, so it is
+    worth looking at probabilities and bounding boxes'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**P^c =0(red)**: The image has none of the objects we want so we do not care
+    about probabilities or bounding box specifications'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The resultant predictions, *b[w,]* and *b[h]*, are normalized by the height
+    and width of the image. (Training labels are chosen this way.) So, if the predictions
+    *b[x]* and *b[y]* for the box containing the car are (0.3, 0.8), then the actual
+    width and height on 13 x 13 feature maps are (13 x 0.3, 13 x 0.8).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'A bounding box predicted by YOLO is defined relative to the box that owns the
+    center of the object (yellow). The upper left corner of the box starts from (0,
+    0) and the bottom right (1, 1). Since the point is inside the box, in such a scenario,
+    the sigmoid activation function makes sure that the center (*b[x]* , *b[y]*) is
+    in the range 0-1, as outlined in the following diagram:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/4ff68531-32ea-4470-8ffb-db6422a055b9.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Sigmoid activation function makes sure that the center (b[x] , b[y])is in the
+    range 0-1
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'While *b[h]*, *b[^w]* are calculated in proportion to *w* and *h* values (yellow)
+    of the box, values can be greater than 1 (exponential used for positive values).
+    In the picture, we can see that the width *b[w]* of the bounding box is almost
+    1.8 times the size of the box width *w*. Similarly, *b[h]* is approximately 1.6
+    times the size of box height *h*, as outlined in the following diagram:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/2925cbfc-4935-4abb-a3ab-5a696df75677.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Now, the question would be what is the probability that an object is contained
+    in the bounding box? Well, to answer this question, we need to know the object
+    score, which represents the probability that an object is contained inside a bounding
+    box. It should be nearly 1 for the red and the neighboring grids, while almost
+    0 for, say, the grid at the corners. The following formulas describe how the network
+    output is transformed so as to obtain bounding box predictions:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/320f4dc8-05b4-4843-9e59-cf0253df142b.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: In the preceding formulas*, b[x], b[y], b[w],* and *b[h]* are the *x*, *y* center
+    coordinates, width and height, respectively, of our prediction. On the other hand,
+    *t[x], t[y], t[w,]* and *t[h]* are what the network outputs. Furthermore, *c[x]*
+    and *c[y]* are the top-left coordinates of the grid. Finally, *p[w]* and *p[h]*
+    are anchor dimensions for the box.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The abjectness score is also passed through a sigmoid, as it is to be interpreted
+    as a probability. Then, the class confidences are used that represent the probabilities
+    of the detected object belonging to a particular class. After prediction, we see
+    how much the predicted box intersects with the real bounding box labeled at the
+    beginning. We try to maximize the intersection between them so ideally, the predicted
+    bounding box is fully intersecting to the labelled bounding box.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In short, we provide enough labeled data with bounding boxes (*b^x* , *b^y*,
+    *b^h*, *b^w*), then we split the image and assign it to the box containing the
+    center, train using CSW network and predict the object and its position. So first,
+    we classify, and then localize the object and detect it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Up to this point, we can see that we have been able to overcome most of the
+    obstacles using YOLO. However, in reality, there are further two small problems
+    to solve. Firstly, even though if the object is assigned to one box (one containing
+    the center of the object) in the training time, during inferencing, the trained
+    model assumes several boxes (that is, yellow) have the center of the object (with
+    red). Therefore, this confusion introduces its own bounding boxes for the same
+    object.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Fortunately, the non-max suppression algorithm can solve this: first, the algorithm
+    chooses a prediction box with a maximum *P^c* probability so that it has a value
+    between 0 and 1 instead of binary 0 or 1 values. Then, every intersecting box
+    above a certain threshold with respect to that box is removed. The same logic
+    is repeated until there are no more bounding boxes left. Secondly, since we are
+    predicting multiple objects (car, train, bus, and so on), the center of two or
+    more objects may lie in a single box. This issue can be solved by introducing
+    anchor boxes:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/15810d89-ef14-47f1-bdfa-ee44007e1f80.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: An anchor box specification
+  prefs: []
+  type: TYPE_NORMAL
+- en: With anchor boxes, we choose several shapes of bounding boxes we find frequently
+    used for the object we want to detect. Then, the dimensions of the bounding box
+    are predicted by applying a log-space transform to the output and then multiplying
+    them by an anchor.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Developing a real-time object detection project
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this section, we will be developing a video object classification application
+    using pre-trained YOLO models (that is, transfer learning), DL4J, and OpenCV that
+    can detect labels such as cars, and trees inside the video frame. To be frank,
+    this application is also about extending an image detection problem to video detection.
+    So let's get started.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Step 1 – Loading a pre-trained YOLO model
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Since Alpha release 1.0.0, DL4J provides a Tiny YOLO model via ZOO. For this,
+    we need to add a dependency to your Maven friendly `pom.xml` file:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Apart from this, if possible, make sure you utilize the CUDA and cuDNN by adding
+    the following dependencies (see [Chapter 2](e27fb252-7892-4659-81e2-2289de8ce570.xhtml),
+    *Cancer Types Prediction Using Recurrent Type Networks*, for more details):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Then, we are ready to load the pre-trained Tiny YOLO model as a `ComputationGraph`
+    with the following lines of code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In the preceding code segment, the `createObjectLabels()` method is referring
+    to the labels from the PASCAL Visual Object Classes (PASCAL VOC) dataset that
+    was used to train the YOLO 2 model. The signature of the method can be seen as
+    follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now, let''s create a Tiny YOLO model instance:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now, out of curiosity, let''s take a look at the model architecture and the
+    number of hyperparameters in each layer:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![](img/f8ad0f0e-daa2-4a32-8575-441734544417.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Network summary and layer structure of a pre-trained Tiny YOLO model
+  prefs: []
+  type: TYPE_NORMAL
+- en: Therefore, our Tiny YOLO model has around 1.6 million parameters across its
+    29-layer network. However, the original YOLO 2 model has more layers. Interested
+    readers can look at the original YOLO 2 at [https://github.com/yhcc/yolo2/blob/master/model_data/model.png](https://github.com/yhcc/yolo2/blob/master/model_data/model.png).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Step 2 – Generating frames from video clips
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Now, to deal with real-time video, we can use video processing tools or frameworks
+    such as JavaCV frameworks that can split a video into individual frames, and we
+    take the image height and width. For this, we have to include the following dependency
+    in the `pom.xml` file:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: JavaCV uses wrappers from the JavaCPP presets of libraries commonly used by
+    researchers in the field of computer vision (for example, OpenCV and FFmpeg),
+    and provides utility classes to make their functionality easier to use on the
+    Java platform, including Android. More details can be found at [https://github.com/bytedeco/javacv](https://github.com/bytedeco/javacv).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For this project, I have collected two video clips (each 1 minute long) that
+    should give you a glimpse into an autonomous driving car. I have downloaded the
+    dataset from YouTube from the following links:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*Building Self Driving Car - Local Dataset - Day*: [https://www.youtube.com/watch?v=7BjNbkONCFw](https://www.youtube.com/watch?v=7BjNbkONCFw)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Building Self Driving Car - Local Dataset - Night*: [https://www.youtube.com/watch?v=ev5nddpQQ9I](https://www.youtube.com/watch?v=ev5nddpQQ9I)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'After downloading them from YouTube downloader (or so), I renamed them as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`SelfDrivingCar_Night.mp4`'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`SelfDrivingCar_Day.mp4`'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Now, if you play these clips, you will see how German people drive cars at
+    160 km/h or even faster. Now, let us parse the video (first we use day 1) and
+    see some properties to get an idea of video quality hardware requirements:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We then grab each frame and use `Java2DFrameConverter`; it helps us to convert
+    frames to JPEG images:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In this way, the preceding code will generate 1,802 JPEG images against an
+    equal number of frames. Let''s take a look at the generated images:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/66694124-6340-48c9-9cc2-2ace25135ed5.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: From video clip to video frame to image
+  prefs: []
+  type: TYPE_NORMAL
+- en: Thus, the 1-minute long video clip has a fair number (that is, 1,800) of frames
+    and is 30 frames per second. In short, this video clip has 720p video quality.
+    So you can understand that processing this video should require good hardware;
+    in particular, having a GPU configured should help.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Step 3 – Feeding generated frames into Tiny YOLO model
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Now that we know some properties of the clip, we can start generating the frames
+    to be passed to the Tiny YOLO pre-trained model. First, let''s look at a less
+    important but transparent approach:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the preceding code block, we send each frame to the model. Then we use the
+    `Mat` class to represent each frame in an n-dimensional, dense, numerical multi-channel
+    (that is, RGB) array.
+  prefs: []
+  type: TYPE_NORMAL
+- en: To know more, visit [https://docs.opencv.org/trunk/d3/d63/classcv_1_1Mat.html#details](https://docs.opencv.org/trunk/d3/d63/classcv_1_1Mat.html#details).
+  prefs: []
+  type: TYPE_NORMAL
+- en: In other words, we split the video clip into multiple frames and pass into the
+    Tiny YOLO model to process them one by one. This way, we apply a single neural
+    network to the full image.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Step 4 – Object detection from image frames
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Tiny YOLO extracts the features from each frame as an n-dimensional, dense,
+    numerical multi-channel array. Then each image is split into a smaller number
+    of rectangles (boxes):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In the preceding code, the `prepareImage()` method takes video frames as images,
+    parses them using the `NativeImageLoader class`, does the necessary preprocessing,
+    and extracts image features that are further converted into `INDArray` format,
+    consumable by the model:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: Then, the `markWithBoundingBox()` method is used for non-max suppression in
+    the case of more than one bounding box.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Step 5 – Non-max suppression in case of more than one bounding box
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'As YOLO predicts more than one bounding box per object, non-max suppression
+    is implemented; it merges all detections that belong to the same object. Therefore,
+    instead of using *b^x*, *b^y*, *b^h*, and *b^w***,** we can use the top-left and
+    bottom-right points. `gridWidth` and `gridHeight` are the number of small boxes
+    we split our image into. In our case, this is 13 x 13, where `w` and `h` are the
+    original image frame dimensions:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Finally, we remove those objects that intersect with the max suppression, as
+    follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In the second block, we scaled each image into 416 x 416 x 3 (that is, W x
+    H x 3 RGB channels). This scaled image is then passed to Tiny YOLO for predicting
+    and marking the bounding boxes as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/7b10e461-0e7c-42ed-b47f-bde5329922f3.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Our Tiny YOLO model predicts the class of an object detected in a bounding box
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Once the `markObjectWithBoundingBox()` method is executed, the following logs
+    containing the predicted class, *b^x*, *b^y*, *b^h*, *b^w*, and confidence (that
+    is, the detection threshold) will be generated and shown on the console:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: Step 6 – wrapping up everything and running the application
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Since, up to this point, we know the overall workflow of our approach, we can
+    now wrap up everything and see whether it really works. However, before that,
+    let''s take a look at the functionalities of different Java classes:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`FramerGrabber_ExplorartoryAnalysis.java`: This shows how to grab frames from
+    the video clip and save each frame as a JPEG image. Besides, it also shows some
+    exploratory properties of the video clip.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`TinyYoloModel.java`: This instantiates the Tiny YOLO model and generates the
+    label. It also creates and marks the object with the bounding box. Nonetheless,
+    it shows how to handle non-max suppression for more than one bounding box per
+    object.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`ObjectDetectorFromVideo.java`: The main class. It continuously grabs the frames
+    and feeds them to the Tiny YOLO model (that is, until the user presses the *Esc*
+    key). Then it predicts the corresponding class of each object successfully detected
+    inside the normal or overlapped bounding boxes with non-max suppression (if required).'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'In short, first, we create and instantiate the Tiny YOLO model. Then we grab
+    the frames and treat each frame as a separate JPEG image. Next, we pass all the
+    images to the model and the model does its trick as outlined previously. The whole
+    workflow can now be depicted with some Java code as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Once the preceding class is executed, the application should load the pretrained
+    model and the UI should be loaded, showing each object being classified:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/2cdfb2ce-0c92-46aa-93cb-9c2fd1af9a3b.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Our Tiny YOLO model can predict multiple cars simultaneously from a video clip
+    (day)
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now, to see the effectiveness of our model even in night mode, we can perform
+    a second experiment on the night dataset. To do this, just change one line in
+    the `main()` method, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Once the preceding class is executed using this clip, the application should
+    load the pretrained model and the UI should be loaded, showing each object being
+    classified:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/6f66961b-2b0a-4755-b510-9be340da10c5.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Our Tiny YOLO model can predict multiple cars simultaneously from a video clip
+    (night)
+  prefs: []
+  type: TYPE_NORMAL
+- en: Furthermore, to see the real-time output, execute the given screen recording
+    clips showing the output of the application.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Frequently asked questions (FAQs)
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this section, we will see some frequently asked questions that might already
+    be on your mind. Answers to these questions can be found in Appendix A.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Can't we train YOLO from scratch?
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: I was wondering whether we could use the YOLO v3 model.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: What changes to the code do I need to make it work for my own video clip?
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: The application provided can detect cars and another vehicle in the video clip.
+    However, the processing is not smooth. It seems to halt. How can I solve this
+    issue?
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Can I extend this app and make it work for a real-time video from a webcam?
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this chapter, we saw how to develop an end-to-end project that will detect
+    objects from video frames when video clips play continuously. We saw how to utilize
+    the pre-trained Tiny YOLO model, which is a smaller variant of the original YOLO
+    v2 model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Furthermore, we covered some typical challenges in object detection from both
+    still images and videos, and how to solve them using bounding box and non-max
+    suppression techniques. We learned how to process a video clip using the JavaCV
+    library on top of DL4J. Finally, we saw some frequently asked questions that should
+    be useful in implementing and extending this project.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the next chapter, we will see how to develop anomaly detection, which is
+    useful in fraud analytics in finance companies such as banks, and insurance and
+    credit unions. It is an important task to grow the business. We will use unsupervised
+    learning algorithms such as variational autoencoders and reconstructing probability.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Answers to questions
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '**Answer** **to question 1**: We can train a YOLO network from scratch, but
+    that would take a lot of work (and costly GPU hours). As engineers and data scientists,
+    we want to leverage as many prebuilt libraries and machine learning models as
+    we can, so we are going to use a pre-trained YOLO model to get our application
+    into production faster and more cheaply.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Answer** **to question 2**: Perhaps yes, but the latest DL4J release provides
+    only YOLO v2\. However, when I talked to their Gitter (see [https://deeplearning4j.org/](https://deeplearning4j.org/)),
+    they informed me that with some additional effort, you can make it work. I mean
+    you can import YOLO v3 with Keras import. Unfortunately, I tried but could not
+    make it workfullly.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Answer** **to question 3**: You should be able to directly feed your own
+    video. However, if it does not work, or throws any unwanted exception, then video
+    properties such as frame rate, width, and the height of each frame should be the
+    same as the bounding box specifications.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Answer** **to question 4**: Well, I''ve already stated that your machine
+    should have good hardware specifications and processing should not cause any delays.
+    For example, my machine has 32 GB of RAM, a core i7 processor, and GeForce GTX
+    1050 GPU with 4 GB of main memory, and the apps run very smoothly.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Answer** **to question 5:** Perhaps, yes. In that case, the main source of
+    the video should be from the webcam directly. According to the documentation provided
+    at [https://github.com/bytedeco/javacv](https://github.com/bytedeco/javacv), JavaCV
+    also comes with a hardware-accelerated full-screen image display, easy-to-use
+    methods to execute code in parallel on multiple cores, user-friendly geometric
+    and color calibration of cameras, projectors, and so on.'
+  prefs: []
+  type: TYPE_NORMAL

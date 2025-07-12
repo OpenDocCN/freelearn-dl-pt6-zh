@@ -1,0 +1,560 @@
+- en: Working with Caffe
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In [Chapter 2](270a3617-74cd-4e64-98f7-eb0c4e3cbcf6.xhtml), *Composing Networks*,
+    and [Chapter 3](3c2dd7d3-b762-49a3-a5d6-0b791eadadb2.xhtml), *Training Networks*,
+    we learned how to compose networks and train them, respectively. In this chapter,
+    we will examine the relationship between Caffe2 and Caffe and look at how to use
+    Caffe models in Caffe2 and vice versa.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The objectives of this chapter are as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The relationship between Caffe and Caffe2
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Introduction to AlexNet
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Building and installing Caffe
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Caffe model file formats
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Caffe2 model file formats
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Converting a Caffe model to Caffe2
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Converting a Caffe2 model to Caffe
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The relationship between Caffe and Caffe2
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: At the *NIPS* academic conference held in 2012, Alex Krizhevsky and his collaborators,
+    one of whom was the neural network pioneer, Geoffrey Hinton, presented a record
+    breaking result at the **ImageNet Large-Scale Visual Recognition Competition**
+    (**ILSVRC**). Research teams competed in various image recognition tasks that
+    used the ImageNet dataset. Krizhevsky's results on the image classification task
+    were 10.8% better than the state of the art. He had used GPUs for the first time
+    to train a CNN with many layers. This network structure would popularly be called
+    **AlexNet** later. The design of such a deep neural network with a large number
+    of layers is the reason why this field came to be called deep learning. Krizhevsky
+    shared the entire source code of his network, now called **cuda-convnet**, along
+    with its highly GPU-optimized training code.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Soon after this, **Yangqing Jia**, and his collaborators from the UC **Berkeley
+    Vision and Learning Center** (**BVLC**) tried to replicate these results, releasing
+    their software as *DeCaf*. This library was later polished and streamlined and
+    released as **Caffe**.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Unlike most of the buggy and poorly designed research code of its time, Caffe
+    was a well-designed deep learning library that made it easy to compose a network
+    using a prototxt text file. It was modular by design, making it easy for researchers
+    to add new layers and training algorithms. This made Caffe popular during the
+    period 2012 to 2016\. Most of the groundbreaking networks and models in the field
+    of image recognition were released in Caffe. This is why Caffe is an important
+    deep learning framework, and you might still find several classic models only
+    available for Caffe.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the meantime, there was growing interest in alternatives to Caffe. This was
+    because Caffe was beginning to show its limitations. Although a Python API was
+    added late in 2014, Caffe was primarily a C++ library. This C++ requirement meant
+    slow speed of experimentation and development. Caffe was also primarily designed
+    for image recognition problems. Practitioners found it difficult to add features
+    for solving other problems, such as speech recognition. Other useful features,
+    such as the utilization of different precision data types and quantization and
+    multi-GPU training, were not present in Caffe. These features were later grafted
+    painfully onto Caffe, but were not optimal in terms of engineering and maintenance.
+  prefs: []
+  type: TYPE_NORMAL
+- en: These issues resulted in a new breed of deep learning libraries that were written
+    with ease of use, distributed training, and customization in mind, gaining in
+    popularity. These included TensorFlow and PyTorch.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Yangqing Jia moved from university to Facebook and he led the creation of a
+    modern deep learning library, Caffe2, the subject of this book. Because he had
+    created Caffe too, Caffe2 borrowed a lot of the good ideas from Caffe and was
+    built to interoperate with Caffe.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Introduction to AlexNet
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: We mentioned AlexNet in the earlier section that introduced Caffe. AlexNet was
+    a seminal network structure because of the large number of layers it employed
+    for the first time, and for showing how such a deep neural network could be trained
+    in a reasonable time by utilizing GPUs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Figure 4.1 shows the network structure of AlexNet generated by Caffe''s network
+    visualization tool, `draw_net.py` . This tool uses the GraphViz library to render
+    the graph layout:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/e15f1dfa-f5a9-45f4-87e2-7f78bca94187.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 4.1: Network structure of AlexNet using the GraphViz layout'
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this visualization, layers are drawn as rectangles and data tensors between
+    layers are drawn as elongated octagons. For example, the first layer rectangle
+    after the input layer depicts a convolution layer named `conv1`. It uses kernels
+    of size ![](img/df3f5ab1-5fa4-40aa-884f-7cb8ddb104f5.png), a stride of `4`, and
+    a padding of `0`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Examining the AlexNet structure in *Figure 4.1* we can see that AlexNet is similar
+    in spirit to the LeNet model we looked at in [Chapter 3](3c2dd7d3-b762-49a3-a5d6-0b791eadadb2.xhtml),
+    *Training Networks*. Compared to LeNet, however, it has many more convolution
+    layers and fully connected layers at the end. Furthermore, it has replaced the
+    use of traditional tanh and sigmoid layers with ReLU. Krizhevsky describes in
+    his paper how these changes, along with some training innovations and the use
+    of GPUs, made training such a deep network tractable.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the rest of this chapter, we will use AlexNet as the example model to learn
+    how to understand Caffe and Caffe2 network description languages, and how to convert
+    between the two.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Building and installing Caffe
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The version of Caffe maintained by BVLC can be freely downloaded from [https://github.com/BVLC/caffe](https://github.com/BVLC/caffe).
+    A GPU-optimized fork of Caffe maintained by NVIDIA can be downloaded from [https://github.com/NVIDIA/caffe](https://github.com/NVIDIA/caffe).
+    For the remainder of this discussion, we will use BVLC Caffe, though NVIDIA Caffe
+    should also build and work similarly.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note that Caffe offers building using CMake or Make. We look at the CMake build
+    process in this book. If you want Caffe to use the GPU, you will need to have
+    CUDA and cuDNN libraries already installed.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Installing Caffe prerequisites
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Install the following prerequisites:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'First, install the libraries that Caffe depends on:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'For BLAS on CPU, the best performance comes from installing Intel''s MKL libraries.
+    (Steps to install MKL were described in [Chapter 1](5f3ecee9-fc6c-4a3f-bc8f-3bffb7cb2269.xhtml),
+    *Introduction and Installation*.) If you do not have MKL, or you are not using
+    an Intel CPU, then you can install either ATLAS or OpenBLAS:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'To build the Python interface to Caffe, make sure these packages are installed:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: We are now ready to build Caffe from source.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Building Caffe
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'To build Caffe, observe the following steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Since we have chosen to use CMake, the building process is simple and straightforward:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'To build and run the Caffe unit tests, execute the following command:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: This can take a substantial amount of time to finish.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To build the Python interface to Caffe, execute the following command:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: By default, the install directory will be a subdirectory inside the `build`
+    directory. Add this `build/install/python` path to the `PYTHONPATH` environment
+    variable before you import Caffe into Python.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Caffe model file formats
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'To be able to use Caffe models in Caffe2, we first need to understand the model
+    file formats that Caffe can export to. Caffe exports a trained model into two
+    files, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The structure of the neural network is stored as a `.prototxt` file
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: The weights of the layers of the neural network are stored as a `.caffemodel`
+    file
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Prototxt file
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The prototxt is a text file that holds information about the structure of the
+    neural network:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: A list of layers in the neural network
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The parameters of each layer, such as its name, type, input dimensions, and
+    output dimensions
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The connections between the layers
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Caffe exports a neural network by serializing it using the Google **Protocol
+    Buffers** (**ProtoBuf**) serialization library. The prototxt file is a serialization
+    of the neural network structure in the ProtoBuf text format.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We can look at the prototxt files of some of the popular CNN networks in the
+    `models` directory in the Caffe source code. (Refer to the *Building and Installing
+    Caffe* section on how to get Caffe source code.) You might find several prototxt
+    filenames there, each of which has a different purpose.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Here is a description of what some of the typical Caffe prototxt filenames
+    mean:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`deploy.prototxt`: This file describes the structure of the network that can
+    be deployed for inference. It does not include the extra layers that are typically
+    required for training a network. (We looked at extra layers or operators added
+    to network for training in [Chapter 3](3c2dd7d3-b762-49a3-a5d6-0b791eadadb2.xhtml),
+    *Training Networks*.) This is the prototxt file we typically want, if we wish
+    to take a pretrained Caffe model and use it for inference in Caffe2.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`train_val.prototxt`: This file describes the structure of the network that
+    was used for training. It includes all the extra layers that were added to aid
+    in the training and validation process. This is the prototxt file we typically
+    want, if we wish to take a pretrained Caffe model and continue training or fine-tuning
+    it in Caffe2.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Now, let's look at AlexNet as an example. (AlexNet was introduced earlier in
+    this chapter.) A version of the AlexNet pretrained model is available in the Caffe
+    source code in the `models/bvlc_alexnet` directory.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Here are the first two layers from the `deploy.prototxt` file of AlexNet:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: We can see that the `prototxt` file format is easy to read and modify by humans.
+    Note that the network is named `"AlexNet"`. We can see two layers in the preceding
+    code snippet named `"data"` and `"conv1"`. The `"data"` layer is an `Input` layer
+    and we can see that it requires input to be of dimensions ![](img/c45f6c81-95fe-4555-ad87-e7ad610e6c4a.png).
+    The `"conv1"` layer is a `Convolution` layer and we can see many of its parameters,
+    including a kernel size of ![](img/09207daa-bfd8-4c9e-b002-9670976ba764.png) and
+    stride of size ![](img/4a34b802-04cc-4c4e-8a3d-382d36dcabfd.png).
+  prefs: []
+  type: TYPE_NORMAL
+- en: The syntax used for describing a neural network as a Caffe prototxt file is,
+    itself, described in a `caffe.proto` text file. This is a file written in the
+    Google protocol buffer language. You can find this file in the Caffe source code
+    at `src/caffe/proto/caffe.proto`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'As an example, here is a partial description of `ConvolutionParameter` from
+    the `caffe.proto` file:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: By looking at this, we can start to understand the convolution layer parameters
+    in the `deploy.prototxt` easily, for example, what the parameters `num_outputs`,
+    `kernel_size`, and `stride` mean.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this way, you can understand any Caffe prototxt file that you come across.
+    It is essentially a list of layers, with names and parameters and links to previous
+    and later layers. For information about a particular layer type, refer to the
+    `caffe.proto` file.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Caffemodel file
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The `caffemodel` file is a binary file that holds the weights of the layers
+    of a neural network. This file is a serialization of the trained neural network
+    in the **ProtoBuf binary format**. A binary format is used because of the need
+    to store floating point or integer values that represent the weights. This file
+    is typically large, in the order of hundreds of megabytes, and so it typically
+    needs to be downloaded separately.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For each of the popular models that Caffe provides along with its source code,
+    there is a corresponding `readme.md` file that has the details required to download
+    the `caffemodel` file for that network. As an example, Figure 4.2 shows the `readme.md`
+    of the AlexNet model:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/23c3070a-8b79-40b6-8d40-1e0719b290f9.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 4.2: readme.md of the AlexNet model'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Downloading Caffe model files
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Caffe provides a Python script in `scripts/download_model_binary.py` in its
+    source code that can be used to download the caffemodel files of a model. This
+    script needs to be provided with the model directory as input. For example, to
+    download the `caffemodel` file for AlexNet, we can invoke the following command:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: This script looks for a `readme.md` in the input model directory (like the one
+    in *Figure 4.2*), figures out the caffemodel URL from the preamble in the `readme.md`,
+    downloads the `caffemodel` file, and ensures that the downloaded file is correct
+    by matching its SHA1 hash to the hash provided in the preamble.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Caffe2 model file formats
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'To be able to use Caffe models in Caffe2, we also need to understand the model
+    file formats that Caffe2 can import. Just like Caffe, Caffe2 also uses Protobuf
+    for serialization and deserialization of its model files. Caffe2 imports a trained
+    model from two files:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The structure of the neural network stored as a `predict_net.pb` file or as
+    a `predict_net.pbtxt` file
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: The weights of the operators of the neural network stored as a `init_net.pb`
+    file
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: predict_net file
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The `predict_net` binary file, which is usually named `predict_net.pb`, holds
+    the list of operators in the neural network, the parameters of each operator,
+    and the connections between the operators. This file is a serialization of the
+    neural network structure in the ProtoBuf binary format.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We can observe that Caffe2 uses a binary serialization file compared to a text
+    serialization file used by Caffe. This is not too much trouble in Caffe2 because
+    it has a Python API that can be used to easily understand the network structure
+    after importing the file.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Optionally, we can also use `predict_net` text file, usually named `predict_net.pbtxt`,
+    which is a text file that is equivalent to the `predict_net` binary file, but
+    stored in the ProtoBuf text format.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Continuing with our AlexNet example, the first convolution layer of that network
+    would appear as a convolution operator in `predict_net.pbtxt`, shown as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: Note how the `predict_net` text file is quite easy for humans to read, just
+    like the prototxt text file of Caffe.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The syntax used for describing a neural network as a Caffe2 `predict_net` file
+    is itself described in a `caffe2.proto` text file. This is a file written in the
+    Google protocol buffer language. You can find this file in the Caffe2 source code
+    at `proto/caffe2.proto`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Here is the definition of the operator from `caffe2.proto`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: We can see how Caffe2 defines an operator in more general terms, instead of
+    focusing on defining each and every operator (or layer) explicitly as Caffe did.
+  prefs: []
+  type: TYPE_NORMAL
+- en: init_net file
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The `init_net binary file`, which is typically named `init_net.pb`, holds the
+    weights of the operators of a neural network. This file is a serialization of
+    the trained neural network in the ProtoBuf binary format. Just like the Caffe
+    `caffemodel` file, this file too can be typically large, in the order of hundreds
+    of megabytes. It is named `init_net` because the weights inside the file can be
+    used to initialize the operators in the network.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Converting a Caffe model to Caffe2
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: To be able to use a Caffe model in Caffe2, we need to convert it from its Caffe
+    formats to Caffe2 file formats. Caffe2 provides a script named `python/caffe_translator.py`
+    that can be used for this purpose.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For example, we can convert our AlexNet files from Caffe to Caffe2 by invoking
+    the script as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Running this script generates three files, `predict_net.pb`, `predict_net.pbtxt`,
+    and `init_net.pb`, for AlexNet:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/a9e99589-e2ad-46ee-94e0-e5fab9850175.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 4.3: AlexNet network structure in Caffe2'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*Figure 4.3* shows the AlexNet network structure in Caffe2 after it was converted
+    from the Caffe model. This graph visualization was generated using the `Caffe2
+    net_drawer.py` tool that utilizes GraphViz for the network layout. You can find
+    more information about Caffe2 model visualization using `net_drawer` in [Chapter
+    7](91e4cdcf-24f6-4426-ac95-b6845c020d83.xhtml), *Caffe2 at the Edge and in the
+    cloud*.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: From the diagram, we can see that every Caffe layer is replaced with a Caffe2
+    operator. The operators are drawn in rectangles and both weights and data tensors
+    are drawn as elongated octagons. By looking at the first convolution operator,
+    we note how it has three tensors—one for the data (named `data`), and two for
+    the weights and bias for that operator (named `conv1_w` and `conv1_b`).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Converting a Caffe2 model to Caffe
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the previous sections in this chapter, we focused on how to convert a Caffe
+    model to a Caffe2 model. Since Caffe is not being actively developed now, and
+    Caffe2 was, in part, created to supersede Caffe2, this path of migrating a Caffe
+    model to Caffe2 is what the majority of users are interested in.
+  prefs: []
+  type: TYPE_NORMAL
+- en: However, if you need to use a Caffe2 model in Caffe, then that process is bound
+    to be more arduous. There does not seem to be any direct way to convert a Caffe2
+    model to Caffe. If you are sure that the Caffe2 operators and their arguments
+    are fully supported in Caffe, then you could try going through an intermediary
+    format such as ONNX (see [Chapter 5](4481e225-7882-4625-9d42-63ba41e74b4f.xhtml),
+    *Working with Other Frameworks*).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'If the ONNX route is not feasible, then you might have to resort to executing
+    the following tasks manually:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Export Caffe2 operators, arguments, and weights of the model
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Create a Caffe network manually, matching Caffe2 operators to corresponding
+    Caffe layers
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Implement new Caffe layers in C++ if there isn't a layer matching an operator
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Load weights manually to Caffe layers and use this Caffe network for inference
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this chapter, we introduced the Caffe deep learning framework and examined
+    the relationship between Caffe and Caffe2\. We examined the Caffe and Caffe2 model
+    file formats. Using AlexNet as an example network, we looked at how to convert
+    a Caffe model to Caffe2 format. Finally, we looked at the difficulties in converting
+    a Caffe2 model to Caffe.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Caffe is a DL framework that has reached its end of life and no new features
+    are being added to it. In the next chapter, we will look at contemporary DL frameworks,
+    such as TensorFlow and PyTorch, and see how we can exchange models to and from
+    Caffe2 and these other frameworks.
+  prefs: []
+  type: TYPE_NORMAL

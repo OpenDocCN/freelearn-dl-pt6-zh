@@ -1,0 +1,912 @@
+- en: Developing Model-based Movie Recommendation Engines
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Netflix is an American entertainment company founded by Reed Hastings and Marc
+    Randolph on August 29, 1997, in Scotts Valley, California. It specializes in and
+    provides streaming media, video-on-demand online, and DVD by mail. In 2013, Netflix
+    expanded into film and television production, as well as online distribution.
+    Netflix uses a model-based collaborative filtering approach for real-time movie
+    recommendation for its subscribers.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this chapter, we will see two end-to-end projects and develop a model for
+    item-based collaborative filtering for movie similarity measurement and a model-based
+    movie recommendation engine with Spark that recommends movies for new users. We
+    will see how to interoperate between ALS and **matrix factorization** (**MF**)
+    for these two scalable movie recommendation engines. We will use the movie lens
+    dataset for the project. Finally, we will see how to deploy the best model in
+    production.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In a nutshell, we will learn the following topics through two end-to-end projects:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Recommendation system—how and why?
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Item**-**based collaborative filtering for movie similarity
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Model**-**based movie recommendation with Spark
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Model deployment
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Recommendation system
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: A **recommendation system** (that is, **recommendation engine or ****RE**) is
+    a subclass of information filtering systems that helps predict the **rating** or
+    **preference** based on the ratings given by users to an item. In recent years,
+    recommendation systems have become increasingly popular. In short, a recommender
+    system tries to predict potential items a user might be interested in based on
+    history for other users.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Consequently, they're being used in many areas such as movies, music, news,
+    books, research articles, search queries, social tags, products, collaborations,
+    comedy, restaurants, fashion, financial services, life insurance, and online dating.
+    There are a couple of ways to develop recommendation engines that typically produce
+    a list of recommendations, for example, collaborative and content-based filtering
+    or the personality-based approach.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Collaborative filtering approaches
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Using collaborative filtering approaches, an RE can be built based on a user''s
+    past behavior where numerical ratings are given on purchased items. Sometimes,
+    it can be developed on similar decisions made by other users who also have purchased
+    the same items. From the following figure, you can get some idea of different
+    recommender systems:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/adad368d-b5cb-4177-8105-f17fb2c37b2b.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 1: A comparative view of different recommendation systems'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Collaborative filtering-based approaches often suffer from three problems—cold
+    start, scalability, and sparsity:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Cold start**: Sometimes gets stuck when a large amount of data about users
+    is required for making a more accurate recommendation system.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Scalability**: A large amount of computation power is often necessary to
+    calculate recommendations out of a dataset with millions of users and products.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Sparsity**: This often happens with a crowd-sourced dataset when a huge number
+    of items are sold on major e-commerce sites. In such a case, active users may
+    rate only a small subset of the items sold—that is, even the most popular items
+    have very few ratings. Accordingly, the user versus items matrix becomes very
+    sparse. In other words, a large-scale sparse matrix cannot be handled.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: To overcome these issues, a particular type of collaborative filtering algorithm
+    uses MF, a low-rank matrix approximation technique. We will see an example later
+    in this chapter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Content-based filtering approaches
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Using content-based filtering approaches, a series of discrete characteristics
+    of an item is utilized to recommend additional items with similar properties.
+    Sometimes it is based on a description of the item and a profile of the user's
+    preferences. These approaches try to recommend items that are similar to those
+    that a user liked in the past or is using currently.
+  prefs: []
+  type: TYPE_NORMAL
+- en: A key issue with content-based filtering is whether the system is able to learn
+    user preferences from users' actions regarding one content source and use them
+    across other content types. When this type of RE is deployed, it can be used to
+    predict items or ratings for items that the user is interested in.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Hybrid recommender systems
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'As you have seen, there are several pros and cons of using collaborative filtering
+    and content-based filtering. Therefore, to overcome the limitations of these two
+    approaches, recent trends have shown that a hybrid approach can be more effective
+    and accurate by combining collaborative filtering and content-based filtering.
+    Sometimes, factorization approaches such as MF and **Singular Value Decomposition**
+    (**SVD**) are used to make them robust. Hybrid approaches can be implemented in
+    several ways:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: At first, content-based and collaborative-based predictions are computed separately,
+    and later on we combine them, that is, unification of these two into one model.
+    In this approach, FM and SVD are used extensively.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Adding content-based capabilities to a collaborative-based approach or vice
+    versa. Again, FM and SVD are used for better prediction.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Netflix is a good example that uses this hybrid approach to make a recommendation
+    to its subscribers. This site makes recommendations in two ways:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Collaborative filtering**: By comparing the watching and searching habits
+    of similar users'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Content-based filtering**: By offering movies that share characteristics
+    with films that a user has rated highly'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Model-based collaborative filtering
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'AS shown in *Figure 1*, I really planned to implement a systematic project
+    using factorization machines it turns out to be time constraint. Therefore, decided
+    to develop a movie recommendation using a collaborative filtering  approach. Collaborative
+    filtering based methods are classified as:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Memory-based, that is, a user-based algorithm
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Model-based collaborative filtering, that is, kernel-mapping
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: In the model-based collaborative filtering technique, users and products are
+    described by a small set of factors, also called **latent factors** (**LFs**).
+    The LFs are then used to predict the missing entries. The **Alternating Least
+    Squares** (**ALS**) algorithm is used to learn these LFs. From a computational
+    perspective, model-based collaborative filtering is commonly used in many companies
+    such as Netflix for real-time movie recommendations.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The utility matrix
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'In a hybrid recommendation system, there are two classes of entities: users
+    and items (examples are movies, products, and so on). Now, as a user, you might
+    have preferences for certain items. Therefore, these preferences must be extracted
+    from data about items, users, or ratings. Often this data is represented as a
+    utility matrix, such as a user-item pair. This type of value can represent what
+    is known about the degree of preference of that user for a particular item. The
+    entry in the matrix, that is, a table, can come from an ordered set. For example,
+    integers 1-5 can be used to represent the number of stars that the user gave as
+    a rating for items.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We have argued that often users might not have rated items; that is, most entries
+    are **unknown**. This also means that the matrix might be sparse. An unknown rating
+    implies that we have no explicit information about the user's preference for the
+    item. *Table 1* shows an example utility matrix. The matrix represents the ratings
+    of users about movies on a 1-5 scale, 5 being the highest rating. A blank entry
+    means no users have provided any rating about those movies.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Here **HP1**, **HP2**, and **HP3** are acronyms for the movies **Harry Potter
+    I**, **II**, and **III**, respectively; **TW** is for **Twilight**; and **SW1**,
+    **SW2**, and **SW3** represent **Star Wars** episodes **1**, **2**, and **3**,
+    respectively. The users are represented by capital letters **A**, **B**, **C**,
+    and **D**:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/1fb37fd3-9a9c-4f08-a4f5-1cb99010989a.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 2: Utility matrix (user versus movies matrix)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: There are many blank entries for the user-movie pairs. This means that users
+    have not rated those movies. In a real-life scenario, the matrix might be even
+    sparser, with the typical user rating only a tiny fraction of all available movies.
+    Now, using this matrix, the goal is to predict the blanks in the utility matrix.
+    Let's see an example. Suppose we are curious to know whether user **A** likes **SW2**.
+    However, this is really difficult to determine since there is little evidence
+    in the matrix in *Table 1*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Thus, in practice, we might develop a movie recommendation engine to consider
+    the uncommon properties of movies, such as producer name, director name, lead
+    stars, or even the similarity of their names. This way, we can compute the similarity
+    of movies **SW1** and **SW2**. This similarity would drive us to conclude that
+    since A did not like **SW1**, they are not likely to enjoy **SW2** either.
+  prefs: []
+  type: TYPE_NORMAL
+- en: However, this might not work for the larger dataset. Therefore, with much more
+    data, we might observe that the people who rated both **SW1** and **SW2** were
+    inclined to give them similar ratings. Finally, we can conclude that **A** would
+    also give **SW2** a low rating, similar to **A**'s rating of **SW1**.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Spark-based movie recommendation systems
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The implementation in Spark MLlib supports model-based collaborative filtering.
+    In the model-based collaborative filtering technique, users and products are described
+    by a small set of factors, also called LFs. In this section, we will see two complete
+    examples of how it works toward recommending movies for new users.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Item-based collaborative filtering for movie similarity
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Firstly, we read the ratings from a file. For this project, we can use the
+    MovieLens 100k rating dataset from [http://www.grouplens.org/node/73](http://www.grouplens.org/node/73).
+    The training set ratings are in a file called `ua.base`, while the movie item
+    data is in `u.item`. On the other hand, `ua.test` contains the test set to evaluate
+    our model. Since we will be using this dataset, we should acknowledge the GroupLens
+    Research Project team at the University of Minnesota who wrote the following text:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'F. Maxwell Harper and Joseph A. Konstan. 2015\. The MovieLens Datasets: *History
+    and Context*. ACM Transactions on **Interactive Intelligent Systems** (**TiiS**)
+    5, 4, Article 19 (December 2015), 19 pages. DOI: [http://dx.doi.org/10.1145/2827872](http://dx.doi.org/10.1145/2827872).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: This dataset consists of 100,000 ratings of 1 to 5 from 943 users on 1,682 movies.
+    Each user has rated at least 20 movies. It also contains simple demographic info
+    about the users (age, gender, occupation, and zip code).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Step 1 - Importing necessary libraries and creating a Spark session
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'We need to import a Spark session so that we can create the Spark session,
+    the gateway of our Spark app:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: Step 2 - Reading and parsing the dataset
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Let''s use Spark''s `textFile` method to read a text file from your preferred
+    storage such as HDFS or the local filesystem. However, it''s up to us to specify
+    how to split the fields. While reading the input dataset, we do `groupBy` first
+    and transform after the join with a `flatMap` operation to get the required fields:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: Step 3 - Computing similarity
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Using item-based collaborative filtering, we can compute how similar two movies
+    are to each other. We follow these steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: For every pair of movies (**A**, **B**), we find all the users who rated both
+    **A** and **B**
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Now, using the preceding ratings, we compute a Movie **A** vector, say **X**,
+    and a Movie **B** vector, say **Y**
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Then we calculate the correlation between **X** and **Y**
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: If a user watches movie **C**, we can then recommend the most correlated movies
+    with it
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'We then compute the various vector metrics for each ratings vector **X** and
+    **Y**, such as size, dot product, norm, and so on. We will use these metrics to
+    compute the various similarity metrics between pairs of movies, that is, (**A**,
+    **B**). For each movie pair (**A**, **B**), we then compute several measures such
+    as cosine similarity, Jaccard similarity correlation, and regularized correlation.
+    Let''s get started. The first two steps are as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The `ratingsWithSize` variable now contains the following fields: `user`, `movie`,
+    `rating`, and `numRaters`. The next step is to make a dummy copy of ratings for
+    self-join. Technically, we join to `userid` and filter movie pairs so that we
+    do not double-count and exclude self-pairs:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now let''s compute the raw inputs to similarity metrics for each movie pair:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Here are the third and the fourth steps for computing the similarity. We compute
+    similarity metrics for each movie pair:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Next is the implementation of the methods we just used. We start with the `correlation()`
+    method for computing the correlation between the two vectors (*A*, *B*) as *cov(A,
+    B)/(stdDev(A) * stdDev(B))*:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now, the correlation is regularized by adding virtual pseudocounts over a prior, *RegularizedCorrelation
+    = w * ActualCorrelation + (1 - w) * PriorCorrelation where w = # actualPairs /
+    (# actualPairs + # virtualPairs)*:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The cosine similarity between the two vectors A, B is dotProduct(A, B) / (norm(A)
+    * norm(B)):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Finally, the Jaccard Similarity between the two sets *A*, *B* is *|Intersection
+    (A, B)| / |Union (A, B)|*:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: Step 4 - Testing the model
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Let''s see the 10 movies most similar to `Die Hard (1998)`, ranked by regularized
+    correlation:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![](img/67671a29-7faf-4d95-8390-626abbb4544f.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'In the preceding figure, the columns are Movie 1, Movie 2, Correlation, Reg-Correlation,
+    Cosine Similarity, and Jaccard Similarity. Now let''s see the 10 movies most similar
+    to *Postino, Il* (1994), ranked by regularized correlation:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![](img/5e6ea235-0edc-45a8-8e5f-6e1832daad71.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Finally, let''s see the 10 movies most similar to `Star Wars (1977)`, ranked
+    by regularized correlation:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![](img/2aae7d60-2323-4dc8-a3c2-e653ab54840c.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Now, from the outputs, we can see that some movie pairs have very few common
+    raters; it can be seen that using raw correlation resulted in suboptimal similarities.
+    Using cosine similarity did not perform well, though it is a standard similarity
+    metric for collaborative filtering approaches.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The reason is that there are many movies having a cosine similarity of 1.0\.
+    By the way, the preceding `evaluateModel()` method, which tests a few movies (substituting
+    the contains call with the relevant movie name), goes as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: You can understand the limitations of these types of collaborative filtering-based
+    approaches. Of course there are computational complexities, but you're partially
+    right. The most important aspects are that these does not have the ability to
+    predict missing entries in real-life use cases. They also have some already-mentioned
+    problems such as cold start, scalability, and sparsity. Therefore, we will see
+    how we can improve these limitations using model-based recommendation systems
+    in Spark MLlib.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Model-based recommendation with Spark
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'To make a preference prediction for any user, collaborative filtering uses
+    a preference by other users of similar interests and predicts movies of your interests,
+    that are unknown to you. Spark MLlib uses **Alternate Least Squares** (**ALS**)
+    to make a recommendation. Here is a glimpse of a collaborative filtering method
+    used in the ALS algorithm:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Table 1 – User-movie matrix**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '| **Users** | **M1** | **M2** | **M3** | **M4** |'
+  prefs: []
+  type: TYPE_TB
+- en: '| **U1** | 2 | 4 | 3 | 1 |'
+  prefs: []
+  type: TYPE_TB
+- en: '| **U2** | 0 | 0 | 4 | 4 |'
+  prefs: []
+  type: TYPE_TB
+- en: '| **U3** | 3 | 2 | 2 | 3 |'
+  prefs: []
+  type: TYPE_TB
+- en: '| **U4** | 2 | ? | 3 | ? |'
+  prefs: []
+  type: TYPE_TB
+- en: In the preceding table, user ratings on movies are represented as a matrix (that
+    is, a user-item matrix), where a cell represents ratings for a particular movie
+    by a user. The cell with **?** represents the movies user **U4** is not aware
+    of or hasn't seen. Based on the current preference of **U4**, the cell with **?** can
+    be filled in with an approximate rating of users who have similar interests as
+    **U4**. So at this point, ALS cannot do it alone, but the LFs are then used to
+    predict the missing entries.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The Spark API provides the implementation of the ALS algorithm, which is used
+    to learn these LFs based on the following six parameters:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`numBlocks`: This is the number of blocks used to parallelize computation (set
+    to -1 to auto-configure).'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`rank`: This is the number of LFs in the model.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`iterations`: This is the number of iterations of ALS to run. ALS typically
+    converges to a reasonable solution in 20 iterations or less.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`lambda`: This specifies the regularization parameter in ALS.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`implicitPrefs`: This specifies whether to use the explicit feedback from the
+    ALS variant (or one user defined) for implicit feedback data.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`alpha`: This is a parameter applicable to the implicit feedback variant of
+    ALS that governs the baseline confidence in preference observations.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Note that to construct an ALS instance with default parameters, you can set
+    the value based on your requirements. The default values are as follows: `numBlocks:
+    -1`, `rank: 10`, `iterations: 10`, `lambda: 0.01`, `implicitPrefs: false`, and
+    `alpha: 1.0`.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Data exploration
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The movie and the corresponding rating dataset were downloaded from the MovieLens
+    website ([https://movielens.org](https://movielens.org)). According to the data
+    description on the MovieLens website, all the ratings are described in the `ratings.csv`
+    file. Each row of this file, followed by the header, represents one rating of
+    one movie by one user.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The CSV dataset has the following columns: `userId`, `movieId`, `rating`, and
+    `timestamp`. These are shown in *Figure 14*. The rows are ordered first by `userId` and
+    within the user by `movieId`. Ratings are made on a five-star scale, with half-star
+    increments (0.5 stars up to a total of 5.0 stars). The timestamps represent the
+    seconds since midnight in **Coordinated Universal Time** (**UTC**) on January
+    1, 1970\. We have 105,339 ratings from 668 users on 10,325 movies:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**![](img/fd8ab03d-af42-41ae-b656-0a7a5f6a53ff.png)**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Figure 2: A snap of the rating dataset'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'On the other hand, movie information is contained in the `movies.csv` file.
+    Each row, apart from the header information, represents one movie containing these
+    columns: `movieId`, `title`, and `genres` (see *Figure 2*). Movie titles are either
+    created or inserted manually or imported from the website of the movie database
+    at [https://www.themoviedb.org/](https://www.themoviedb.org/). The release year,
+    however, is shown in brackets.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Since movie titles are inserted manually, some errors or inconsistencies may
+    exist in these titles. Readers are, therefore, recommended to check the IMDb database
+    ([https://www.imdb.com/](https://www.imdb.com/)) to make sure that there are no
+    inconsistencies or incorrect titles with the corresponding release year:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/08e1a39e-0aee-406c-8aae-fab36f629624.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 3: Title and genres for top 20 movies'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Genres are in a separated list and are selected from the following genre categories:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Action, Adventure, Animation, Children's, Comedy, and Crime
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Documentary, Drama, Fantasy, Film-Noir, Horror, and Musical
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Mystery, Romance, Sci-Fi, Thriller, Western, and War
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Movie recommendation using ALS
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this subsection, we will show you how to recommend movies to other users
+    through a systematic example, from data collection to movie recommendation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Step 1 - Import packages, load, parse, and explore the movie and rating dataset
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'We will load, parse, and do some exploratory analysis. However, before that,
+    let''s import the necessary packages and libraries:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This code segment should return you the DataFrame of the ratings:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The following code segment shows you the DataFrame of the movies:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: Step 2 - Register both DataFrames as temp tables to make querying easier
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'To register both datasets, we can use the following code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: This will help to make in-memory querying faster by creating a temporary view
+    as a table in the memory. The lifetime of the temporary table using the `createOrReplaceTempView
+    ()` method is tied to `[[SparkSession]]`, which was used to create this DataFrame.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Step 3 - Explore and query for related statistics
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Let''s check the ratings-related statistics. Just use the following code lines:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: You should find `105,339` ratings from `668` users on `10,325` movies. Now,
+    let's get the maximum and minimum ratings along with the count of users who have
+    rated a movie. However, you need to perform an SQL query on the rating table we
+    just created in memory in the previous step. Making a query here is simple, and
+    it is similar to making a query from a MySQL database or RDBMS.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'However, if you are not familiar with SQL-based queries, you are advised to
+    look at the SQL query specification to find out how to perform a selection using
+    `SELECT` from a particular table, how to perform ordering using `ORDER`, and how
+    to perform a joining operation using the `JOIN` keyword. Well, if you know the
+    SQL query, you should get a new dataset using a complex SQL query, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/6c4cea0d-0c85-441b-a932-51301558c41c.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 4: Max and min ratings along with the count of users who have rated
+    a movie'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To get some insight, we need to know more about the users and their ratings.
+    Now let''s find the 10 most active users and how many times they rated a movie:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![](img/007fce7f-9e51-4c07-878d-7a2c23be60f8.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 5: Top 10 active users and how many times they rated a movie'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s have a look at a particular user and find the movies that, say user, `668` rated
+    higher than `4`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![](img/4cdb1752-2455-4389-a605-843cbf9cdbe2.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 6: Movies that user 668 rated higher than 4'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Step 4 - Prepare training and test rating data and check the counts
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The following code splits the ratings RDD into training data RDD (75%) and
+    test data RDD (25%). Seed here is optional but is required for reproducibility
+    purposes:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs: []
+  type: TYPE_PRE
+- en: You should notice that there are 78,792 ratings in training and 26,547 ratings
+    in the test
+  prefs: []
+  type: TYPE_NORMAL
+- en: DataFrame.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Step 5 - Prepare the data for building the recommendation model using ALS
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The ALS algorithm takes the RDD of ratings for training. To do so, the following
+    code illustrates for building the recommendation model using APIs:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The `ratingsRDD` is an RDD of ratings that contains `userId`, `movieId`, and
+    the corresponding ratings from the training dataset we prepared in the previous
+    step. On the other hand, a test RDD is also required for evaluating the model.
+    The following `testRDD` also contains the same information coming from the test
+    DataFrame we prepared in the previous step:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs: []
+  type: TYPE_PRE
+- en: Step 6 - Build an ALS user product matrix
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Build an ALS user matrix model based on `ratingsRDD` by specifying the maximal
+    iteration, a number of blocks, alpha, rank, lambda, seed, and `implicitPrefs`.
+    Essentially, this technique predicts missing ratings for specific users and specific
+    movies based on ratings for those movies from other users who gave similar ratings
+    for other movies:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE25]'
+  prefs: []
+  type: TYPE_PRE
+- en: Finally, we iterated the model for learning 15 times. With this setting, we
+    got good prediction accuracy. Readers are advised to apply hyperparameter tuning
+    to get to know the most optimum values for these parameters. Furthermore, set
+    the number of blocks for both user blocks and product blocks to parallelize the
+    computation into a pass -1 for an auto-configured number of blocks. The value
+    is -1.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Step 7 - Making predictions
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Let''s get the top six movie predictions for user `668`. The following source
+    code can be used to make the predictions:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE26]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![](img/8840f8dc-d0b8-4885-b494-888a164eb7bf.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 7: Top six movie predictions for user 668
+  prefs: []
+  type: TYPE_NORMAL
+- en: Step 8 - Evaluating the model
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In order to verify the quality of the model, **Root Mean Squared Error** (**RMSE**)
+    is used to measure the difference between values predicted by a model and the
+    values actually observed. By default, the smaller the calculated error, the better
+    the model. In order to test the quality of the model, the test data is used (which
+    was split in *step 4*).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'According to many machine learning practitioners, RMSE is a good measure of
+    accuracy, but only for comparing forecasting errors of different models for a
+    particular variable. They say it is not fit for comparing between variables as
+    it is scale dependent. The following line of code calculates the RMSE value for
+    the model that was trained using the training set:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE27]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'For this setting, we get this output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE28]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This method computes the RMSE to evaluate the model. The lesser the RMSE, the
+    better the model and its prediction capability. It is to be noted that `computeRmse()`
+    is a UDF that goes as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE29]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![](img/49e379f1-e8b2-4546-ad36-bb1be1eb8575.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Finally, let''s provide some movie recommendation for a specific user. Let''s
+    get the top six movie predictions for user `668`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE30]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![](img/798664c9-3a41-49a3-86f1-4b9dfbe45b86.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The performance of the preceding model could be increased more, we believe.
+    However, so far, there's no model tuning facility of our knowledge available for
+    the MLlib-based ALS algorithm.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Interested readers should refer to this URL for more on tuning ML-based ALS
+    models: [https://spark.apache.org/docs/preview/ml-collaborative-filtering.html](https://spark.apache.org/docs/preview/ml-collaborative-filtering.html).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Selecting and deploying the best model
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: It is worth mentioning that the first model developed in the first project cannot
+    be persisted since it is just a few lines of code for computing movie similarity.
+    It also has another limitation that we did not cover earlier. It can compute the
+    similarity between two movies, but what about more than two movies? Frankly speaking,
+    a model like the first one would rarely be deployed for a real-life movie. So
+    let's focus on the model-based recommendation engine instead.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Although ratings from users will keep coming, still it might be worth it to
+    store the current one. Therefore, we also want to persist our current base model
+    for later use in order to save time when starting up the server. The idea is to
+    use the current model for real-time movie recommendations.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Nevertheless, we might also save time if we persist some of the RDDs we have
+    generated, especially those that took longer to process. The following line saves
+    our trained ALS model (see the `MovieRecommendation.scala` script for details):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE31]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Unlike another Spark model, the ALS model that we saved will contain only data
+    and some metadata in parquet format from the training, as shown in the following
+    screenshot:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/10e58639-6f8a-46f7-bb8b-b08f4e0d79f3.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Now, the next task would be to restore the same model and provide a similar
+    workflow as shown in the preceding steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE32]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Nevertheless I won''t confuse you, especially if you''re new to Spark and Scala.
+    Here''s the complete code that predicts the ratings of user 558:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE33]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'If the preceding script is executed successfully, you should see the following
+    output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/45a9b0e0-8410-4a69-a6a5-cfaae23112b7.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Well done! We have managed to reuse the model and do the same prediction but
+    for a different user, that is, 558\. However, probably due to the randomness of
+    the data, we observed a slightly different RMSE.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this chapter, we implemented two end-to-end projects to develop item-based
+    collaborative filtering for movie similarity measurement and model-based recommendation
+    with Spark. We also saw how to interoperate between ALS and MF and develop scalable
+    movie recommendations engines. Finally, we saw how to deploy this model in production.
+  prefs: []
+  type: TYPE_NORMAL
+- en: As human beings, we learn from past experiences. We haven't gotten so charming
+    by accident. Years of positive compliments as well as criticism have all helped
+    shape us into what we are today. You learn what makes people happy by interacting
+    with friends, family, and even strangers, and you figure out how to ride a bike
+    by trying out different muscle movements until it just clicks. When you perform
+    actions, you're sometimes rewarded immediately. This is all about **Reinforcement
+    Learning** (**RL**).
+  prefs: []
+  type: TYPE_NORMAL
+- en: The next chapter is all about designing a machine learning project driven by
+    criticisms and rewards. We will see how to apply RL algorithms for developing
+    options trading applications using real-life IBM stock and option price datasets.
+  prefs: []
+  type: TYPE_NORMAL

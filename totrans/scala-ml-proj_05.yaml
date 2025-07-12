@@ -1,0 +1,712 @@
+- en: Topic Modeling - A Better Insight into Large-Scale Texts
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '**Topic modeling** (**TM**) is a technique widely used in mining text from
+    a large collection of documents. These topics can then be used to summarize and
+    organize documents that include the topic terms and their relative weights. The
+    dataset that will be used for this project is just in plain unstructured text
+    format.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We will see how effectively we can use the **Latent Dirichlet Allocation** (**LDA**)
+    algorithm for finding useful patterns in the data. We will compare other TM algorithms
+    and the scalability power of LDA. In addition, we will utilize **Natural Language
+    Processing** (**NLP**) libraries, such as Stanford NLP.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In a nutshell, we will learn the following topics throughout this end-to-end
+    project:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Topic modelling and text clustering
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: How does LDA algorithm work?
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Topic modeling with LDA, Spark MLlib, and Standard NLP
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Other topic models and the scalability testing of LDA
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Model deployment
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Topic modeling and text clustering
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In TM, a topic is defined by a cluster of words, with each word in the cluster
+    having a probability of occurrence for the given topic, and different topics having
+    their respective clusters of words along with corresponding probabilities. Different
+    topics may share some words, and a document can have more than one topic associated
+    with it. So in short, we have a collection of text datasets—that is, a set of
+    text files. Now the challenging part is finding useful patterns about the data
+    using LDA.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'There is a popular TM approach, based on LDA, where each document is considered
+    a mixture of topics and each word in a document is considered randomly drawn from
+    a document''s topics. The topics are considered hidden and must be uncovered via
+    analyzing joint distributions to compute the conditional distribution of hidden
+    variables (topics), given the observed variables and words in documents. The TM
+    technique is widely used in the task of mining text from a large collection of
+    documents. These topics can then be used to summarize and organize documents that
+    include the topic terms and their relative weights (see *Figure 1*):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/998c2c26-e90d-46c5-8029-8874910126df.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 1: TM in a nutshell (source: Blei, D.M. et al., Probabilistic topic
+    models, ACM communication, 55(4(, 77-84, 2012)))'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'As the number of topics that can be seen in the preceding figure is a lot smaller
+    than the vocabulary associated with the document collection, the topic-space representation
+    can be viewed as a dimensionality-reduction process as well:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/9557f8d8-4641-4391-9691-bae70f289da5.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 2: TM versus text clustering'
+  prefs: []
+  type: TYPE_NORMAL
+- en: In contrast to TM, in document clustering, the basic idea is to group documents
+    into different groups based on a well-known similarity measure. To perform grouping,
+    each document is represented by a vector representing the weights assigned to
+    words in the document.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'It is common to perform weighting using the term frequency-inverse document
+    frequency (also known also the **TF-IDF** scheme). The end result of clustering
+    is a list of clusters with every document showing up in one of the clusters. The
+    basic difference between TM and text clustering can be illustrated by the following
+    figure:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: How does LDA algorithm work?
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'LDA is a topic model that infers topics from a collection of text documents.
+    LDA can be thought of as a clustering algorithm where topics correspond to cluster
+    centers, and documents correspond to examples (rows) in a dataset. Topics and
+    documents both exist in a feature space, where feature vectors are vectors of
+    word counts (bags of words). Instead of estimating a clustering using a traditional
+    distance, LDA uses a function based on a statistical model of how text documents
+    are generated (see in *Figure 3*):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/87d01601-71f3-4c34-9fbc-cf468d483985.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 3: Working principle of LDA algorithms on a collection of documents'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Particularly, we would like to discuss which topics people talk about most from
+    the large collection of text. Since the release of Spark 1.3, MLlib supports the
+    LDA, which is one of the most successfully used TM techniques in the area of text
+    mining and NLP.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Moreover, LDA is also the first MLlib algorithm to adopt Spark GraphX. The
+    following terminologies are worth knowing before we formally start our TM application:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`"word" = "term"`: an element of the vocabulary'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`"token"`: instance of a term appearing in a document'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`"topic"`: multinomial distribution over words representing some concept'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'The RDD-based LDA algorithm developed in Spark is a topic model designed for
+    text documents. It is based on the original LDA paper (journal version): Blei,
+    Ng, and Jordan, *Latent Dirichlet Allocation*, JMLR, 2003.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: This implementation supports different inference algorithms via the `setOptimizer`
+    function. The `EMLDAOptimizer` learns clustering using **expectation-maximization**
+    (**EM**) on the likelihood function and yields comprehensive results, while `OnlineLDAOptimizer`
+    uses iterative mini-batch sampling for online variational inference and is generally
+    memory-friendly.
+  prefs: []
+  type: TYPE_NORMAL
+- en: EM is an iterative way to approximate the maximum likelihood function. In practice,
+    when the input data is incomplete, has missing data points, or has hidden latent
+    variables, ML estimation can find the `best fit` model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'LDA takes in a collection of documents as vectors of word counts and the following
+    parameters (set using the builder pattern):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`K`: Number of topics (that is, cluster centers) (default is 10).'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`ldaOptimizer`: Optimizer to use for learning the LDA model, either `EMLDAOptimizer`
+    or `OnlineLDAOptimizer` (default is `EMLDAOptimizer`).'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`Seed`: Random seed for the reproducibility (optional though).'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`docConcentration`: Drichilet parameter for prior over documents distributions
+    over topics. Larger values encourage smoother inferred distributions (default
+    is - `Vectors.dense(-1)`).'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`topicConcentration`: Drichilet parameter for prior over topics'' distributions
+    over terms (words). Larger values ensure smoother inferred distributions (default
+    is -1).'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`maxIterations`: Limit on the number of iterations (default is 20).'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`checkpointInterval`: If using checkpointing (set in the Spark configuration),
+    this parameter specifies the frequency with which checkpoints will be created.
+    If `maxIterations` is large, using check pointing can help reduce shuffle file
+    sizes on disk and help with failure recovery (default is 10).'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '![](img/b1acc9cd-72c8-45e3-a84b-a2184a5e5e0e.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 4: The topic distribution and how it looks'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let's see an example. Assume there are *n* balls in a basket having *w* different
+    colors. Now also assume each term in a vocabulary has one of *w* colors. Now also
+    assume that the vocabulary terms are distributed in *m* topics. Now the frequency
+    of occurrence of each color in the basket is proportional to the corresponding
+    term's weight in topic, *φ*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Then the LDA algorithm incorporates a term weighting scheme by making the size
+    of each ball proportional to the weight of its corresponding term. In *Figure
+    4*, *n* terms have the total weights in a topic, for example, topic 0 to 3. *Figure
+    4* shows topic distribution from randomly generated Tweet text.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now that we have seen that by using TM, we find the structure within an unstructured
+    collection of documents. Once the structure is **discovered**, as shown in *Figure
+    4*, we can answer several questions as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: What is document X about?
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: How similar are documents X and Y?
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: If I am interested in topic Z, which documents should I read first?
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: In the next section, we will see an example of TM using a Spark MLlib-based
+    LDA algorithm to answer the preceding questions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Topic modeling with Spark MLlib and Stanford NLP
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this subsection, we represent a semi-automated technique of TM using Spark.
+    Using other options as defaults, we train LDA on the dataset downloaded from GitHub
+    at [https://github.com/minghui/Twitter-LDA/tree/master/data/Data4Model/test](https://github.com/minghui/Twitter-LDA/tree/master/data/Data4Model/test).
+    However, we will use more well-known text datasets in the model reuse and deployment
+    phase later in this chapter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Implementation
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The following steps show TM from data reading to printing the topics, along
+    with their term weights. Here''s the short workflow of the TM pipeline:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We also need to import some related packages and libraries:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The actual computation on TM is done in the `LDAforTM` class. The `Params`
+    is a case class, which is used for loading the parameters to train the LDA model.
+    Finally, we train the LDA model using the parameters setting via the `Params`
+    class. Now we will explain each step broadly with step-by-step source code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Step 1 - Creating a Spark session
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Let''s create a Spark session by defining the number of computing cores, the
+    SQL warehouse, and the application name as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: Step 2 - Creating vocabulary and tokens count to train the LDA after text pre-processing
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The `run()` method takes `params` such as input text, predefined vocabulary
+    size, and stop word file:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Then, it starts text pre-processing for the LDA model as follows (that is,
+    inside the `run` method):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The `Params` case class is used to define the parameters to train the LDA model.
+    This goes as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'For better result, you set these parameters in try and error basis. Alternatively,
+    you should go with the cross-validation for even better performance. Now that
+    if you want to checkpoint the current parameters, uses the following line of code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The `preprocess` method is used to process the raw text. First, let''s read
+    the whole text using the `wholeTextFiles()` method as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In the preceding code, `paths` are the path of the text files. Then, we need
+    to prepare the morphological RDD from the raw text after, based on the `lemma`
+    texts, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Here, the `getLemmaText()` method from the `helperForLDA` class supplies the
+    `lemma` texts after filtering the special characters, such as (``"""[! @ # $ %
+    ^ & * ( ) _ + - − , " '' ; : . ` ? --]``), as regular expressions, using the `filterSpaecialChatacters()`
+    method. The method goes as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: It is to be noted that the `Morphology()` class computes the base form of English
+    words by removing only inflections (not derivational morphology). That is, it
+    only does noun plurals, pronoun case, and verb endings, and not things such as
+    comparative adjectives or derived nominal. The `getLemmaText()` method takes the
+    document and the corresponding morphology and finally returns the lemmatized texts.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'This comes from the Stanford NLP group. To use this, you should have the following
+    import in the main class file: `edu.stanford.nlp.process.Morphology`. In the `pom.xml`
+    file, you will have to include the following entries as dependencies:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The `filterSpecialCharacters()` goes as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Once we have the RDD with special characters removed, we can create a DataFrame
+    for building the text analytics pipeline:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The DataFrame contains only document tags. A snapshot of the DataFrame is as
+    follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/aa7d27a0-30ec-409b-8753-ee85f6410800.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 5: Raw texts from the input dataset'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now if you look at the preceding DataFrame carefully, you will see that we
+    still need to tokenize them. Moreover, there are stop words in the DataFrame,
+    such as this, with, and so on, so we need to remove them as well. First, let''s
+    tokenize them using the `RegexTokenizer` API as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now let''s remove all the stop words as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Furthermore, we also need to apply count vectors to find only the important
+    features from the tokens. This will help make the pipeline chained as the pipeline
+    stage. Let''s do it as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: When an a-priori dictionary is not available, `CountVectorizer` can be used
+    as an Estimator to extract the vocabulary and generate a `CountVectorizerModel`.
+    In other words, `CountVectorizer` is used to convert a collection of text documents
+    to vectors of token (that is, term) counts. The `CountVectorizerModel` produces
+    sparse representations for the documents over the vocabulary, which can then be
+    fed to LDA. More technically, when the `fit()` method is invoked for the fitting
+    process, `CountVectorizer` will select the top `vocabSize` words ordered by term
+    frequency across the corpus.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now, create the pipeline by chaining the transformers (tokenizer, `stopWordsRemover`,
+    and `countVectorizer`) as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now, let''s fit and transform the pipeline toward the vocabulary and number
+    of tokens:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Finally, return the vocabulary and token count pairs as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: Step 3 - Instantiate the LDA model before training
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Let us instantiate the LDA model before we begin training it with the following
+    code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: Step 4 - Set the NLP optimizer
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: For better and optimized results from the LDA model, we need to set the optimizer
+    that contains an algorithm for LDA, and performs the actual computation that stores
+    the internal data structure (for example, graph or matrix) and other parameters
+    for the algorithm.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Here we use the `EMLDAOPtimizer` optimizer. You can also use the `OnlineLDAOptimizer()`
+    optimizer. The `EMLDAOPtimizer` stores a *data + parameter* graph, plus algorithm
+    parameters. The underlying implementation uses EM.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'First, let''s instantiate the `EMLDAOptimizer` by adding `(1.0 / actualCorpusSize)`
+    along with a very low learning rate (that is, 0.05) to `MiniBatchFraction` to
+    converge the training on a tiny dataset like ours as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now, set the optimizer using the `setOptimizer()` method from the LDA API as
+    follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: Step 5 - Training the LDA model
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Let''s start training the LDA model using the training corpus and keep track
+    of the training time as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now additionally, we can save the trained model for future reuse that can goes
+    as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs: []
+  type: TYPE_PRE
+- en: Note that once you have finished the training and got the most optimal training,
+    uncomment the preceding line before you deploy the model. Otherwise, it will get
+    stopped by throwing an exception in the model reuse phase.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For the text we have, the LDA model took 6.309715286 seconds to train. Note
+    these timing codes are optional. Here we provide them for reference purposes only
+    to get an idea of the training time:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Step 6 - Prepare the topics of interest
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Prepare the top 5 topics with each topic having 10 terms. Include the terms
+    and their corresponding weights:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs: []
+  type: TYPE_PRE
+- en: Step 7 - Topic modelling
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Print the top 10 topics, showing the top-weighted terms for each topic. Also,
+    include the total weight in each topic as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE25]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now let''s see the output of our LDA model towards topics modeling:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE26]'
+  prefs: []
+  type: TYPE_PRE
+- en: From the preceding output, we can see that topic five of the input documents
+    has the most weight, at `0.28263550964558276`. This topic discusses terms such
+    as `captain`, `fogg`, `nemo`, `vessel`, and `land`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Step 8 - Measuring the likelihood of two documents
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Now to get some more statistics, such as maximum likelihood or log likelihood
+    on the document, we can use the following code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE27]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The preceding code calculates the average log likelihood of the LDA model as
+    an instance of the distributed version of the LDA model:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE28]'
+  prefs: []
+  type: TYPE_PRE
+- en: For more information on the likelihood measurement, interested readers should
+    refer to [https://en.wikipedia.org/wiki/Likelihood_function](https://en.wikipedia.org/wiki/Likelihood_function).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now imagine that we''ve computed the preceding metric for document X and Y.
+    Then we can answer the following question:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: How similar are documents X and Y?
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'The thing is, we should try to get the lowest likelihood from all the training
+    documents and use it as a threshold for the previous comparison. Finally, to answer
+    the third and final question:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: If I am interested in topic Z, which documents should I read first?
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'A minimal answer: taking a close look at the topic distributions and the relative
+    term weights, we can decide which document we should read first.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Other topic models versus the scalability of LDA
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Throughout this end-to-end project, we have used LDA, which is one of the most
+    popular TM algorithms used for text mining. We could use more robust TM algorithms,
+    such as **Probabilistic Latent Sentiment Analysis** (**pLSA**), **Pachinko Allocation
+    Model** (**PAM**), and **Hierarchical Drichilet Process** (**HDP**) algorithms.
+  prefs: []
+  type: TYPE_NORMAL
+- en: However, pLSA has the overfitting problem. On the other hand, both HDP and PAM
+    are more complex TM algorithms used for complex text mining, such as mining topics
+    from high-dimensional text data or documents of unstructured text. Finally, non-negative
+    matrix factorization is another way to find topics in a collection of documents.
+    Irrespective of the approach, the output of all the TM algorithms is a list of
+    topics with associated clusters of words.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The previous example shows how to perform TM using the LDA algorithm as a standalone
+    application. The parallelization of LDA is not straightforward, and there have
+    been many research papers proposing different strategies. The key obstacle in
+    this regard is that all methods involve a large amount of communication.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'According to the blog on the Databricks website ([https://databricks.com/blog/2015/03/25/topic-modeling-with-lda-mllib-meets-graphx.html](https://databricks.com/blog/2015/03/25/topic-modeling-with-lda-mllib-meets-graphx.html)),
+    here are the statistics of the dataset and related training and test sets that
+    were used during the experimentation:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Training set size**: 4.6 million documents'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Vocabulary size**: 1.1 million terms'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Training set size**: 1.1 billion tokens (~239 words/document)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 100 topics
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 16-worker EC2 cluster, for example, M4.large or M3.medium depending upon budget
+    and requirements
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: For the preceding setting, the timing result was 176 seconds/iteration on average
+    over 10 iterations. From these statistics, it is clear that LDA is quite scalable
+    for a very large number of the corpus as well.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Deploying the trained LDA model
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'For this mini deployment, let''s use a real-life dataset: PubMed. A sample
+    dataset containing PubMed terms can be downloaded from: [https://nlp.stanford.edu/software/tmt/tmt-0.4/examples/pubmed-oa-subset.csv](https://nlp.stanford.edu/software/tmt/tmt-0.4/examples/pubmed-oa-subset.csv).
+    This link actually contains a dataset in CSV format but has a strange name, `4UK1UkTX.csv`.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To be more specific, the dataset contains some abstracts of some biological
+    articles, their publication year, and the serial number. A glimpse is given in
+    the following figure:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/a19af830-4cd6-496c-84df-93014ea2a1fc.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 6: A snapshot of the sample dataset'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In the following  code, we have already saved the trained LDA model for future
+    use as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE29]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The trained model will be saved to the previously mentioned location. The directory
+    will include data and metadata about the model and the training itself as shown
+    in the following figure:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/a4dd1974-8b96-405d-9fcb-37e24e57d6e9.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 7: The directory structure of the trained and saved LDA model'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'As expected, the data folder has some parquet files containing global topics,
+    their counts, tokens and their counts, and the topics with their respective counts.
+    Now the next task will be restoring the same model as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE30]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE31]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Well done! We have managed to reuse the model and do the same prediction. But,
+    probably due to the randomness of data, we observed a slightly different prediction.
+    Let''s see the complete code to get a clearer view:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE32]'
+  prefs: []
+  type: TYPE_PRE
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this chapter, we have seen how effectively we can use and combine the LDA
+    algorithm and NLP libraries, such as Stanford NLP, for finding useful patterns
+    from large-scale text. We have seen a comparative analysis between TM algorithms
+    and the scalability power of LDA.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Finally, for a real-life example and use case, interested readers can refer
+    to the blog article at [https://blog.codecentric.de/en/2017/01/topic-modeling-codecentric-blog-articles/](https://blog.codecentric.de/en/2017/01/topic-modeling-codecentric-blog-articles/).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Netflix** is an American entertainment company founded by Reed Hastings and
+    Marc Randolph on August 29, 1997, in Scotts Valley, California. It specializes
+    in, providing, streaming media and video-on-demand, online and DVD by mail. In
+    2013, Netflix expanded into film and television production, as well as online
+    distribution. Netflix uses a model-based collaborative filtering approach for
+    real-time movie recommendations for its subscribers.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In the next chapter, we will see two end-to-end projects: an item-based **collaborative
+    filtering** for movie-similarity measurements, and a model-based movie-recommendation
+    engine with Spark to recommend movies to new users. We will see how to interoperate
+    between **ALS** and **Matrix Factorization** for these two scalable movie recommendation
+    engines.'
+  prefs: []
+  type: TYPE_NORMAL

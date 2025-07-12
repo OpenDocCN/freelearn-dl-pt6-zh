@@ -1,0 +1,1516 @@
+- en: Text Analysis Using Word Vectors
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the previous chapter, we learned about encoding an image or encoding users
+    or movies for recommender systems, where the items that are similar have similar
+    vectors. In this chapter, we will be discussing how to encode text data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You will be learning about the following topics:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Building a word vector from scratch in Python
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Building a word vector using skip-gram and CBOW models
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Performing vector arithmetic using pre-trained word vectors
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Creating a document vector
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Building word vectors using fastText
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Building word vectors using GloVe
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Building sentiment classification using word vectors
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Introduction
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the traditional approach of solving text-related problems, we would one-hot
+    encode the word. However, if the dataset has thousands of unique words, the resulting
+    one-hot-encoded vector would have thousands of dimensions, which is likely to
+    result in computation issues. Additionally, similar words will not have similar
+    vectors in this scenario. Word2Vec is an approach that helps us to achieve similar
+    vectors for similar words.
+  prefs: []
+  type: TYPE_NORMAL
+- en: To understand how Word2Vec is useful, let's explore the following problem.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s say we have two input sentences:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/2ffc33e5-9913-45da-96d2-64b6c54b31b6.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Intuitively, we know that **enjoy** and **like** are similar words. However,
+    in traditional text mining, when we one-hot encode the words, our output looks
+    as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/06066bdf-95ff-41d5-85cb-e1789acc850e.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Notice that one-hot encoding results in each word being assigned a column. The
+    major issue with one-hot encoding such as this is that the Eucledian distance
+    between **I** and **enjoy** is the same as the Eucledian distance between **enjoy**
+    and **like**.
+  prefs: []
+  type: TYPE_NORMAL
+- en: However, intuitively, we know that the distance between **enjoy** and **like**
+    should be lower than the distance between **I** and **enjoy**, as **enjoy** and
+    **like** are similar to each other.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Building a word vector from scratch in Python
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The principle based on which we'll build a word vector is *related words will
+    have similar words surrounding them*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For example: the words *queen* and *princess* will have similar words (related
+    to a *kingdom*) around them more frequently. In a way, the context (surrounding
+    words) of these words would be similar.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Our dataset (of two sentences) looks as follows when we take the surrounding
+    words as input and the remaining (middle) word as output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/d5a3f1d0-5066-49a1-80a8-70c53b0979e8.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Notice that we are using the middle word as output and the remaining words
+    as input. A vectorized form of this input and output looks as follows (recall
+    the way in which we converted a sentence into a vector in the *Need for encoding
+    in text analysis* section in [Chapter 9](18e82d39-d5b2-40fe-ae2f-df222c2e1ffe.xhtml), *Encoding
+    Input*):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/17715c08-bfa2-4f12-a2dd-c8b30b67a2cc.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Notice that the vectorized form of input in the first row is *{0, 1, 1, 1, 0}*,
+    as the input word index is *{1, 2, 3}*, and the output is *{1, 0, 0, 0, 0}* as
+    the output word's index is *{1}*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In such a scenario, our hidden layer has three neurons associated with it.
+    Our neural network would look as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/536560c0-abd1-4c24-8e19-5e09c079e68f.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'The dimensions of each layer are as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '| **Layer** | **Shape of weights** | **Commentary** |'
+  prefs: []
+  type: TYPE_TB
+- en: '| Input layer | 1 x 5 | Each row is multiplied by five weights. |'
+  prefs: []
+  type: TYPE_TB
+- en: '| Hidden layer | 5 x 3 | There are five input weights each to the three neurons
+    in the hidden layer. |'
+  prefs: []
+  type: TYPE_TB
+- en: '| Output of hidden layer | 1 x 3 | This is the matrix multiplication of the
+    input and the hidden layer. |'
+  prefs: []
+  type: TYPE_TB
+- en: '| Weights from hidden to output | 3 x 5 | Three output hidden units are mapped
+    to five output columns (as there are five unique words). |'
+  prefs: []
+  type: TYPE_TB
+- en: '| Output layer | 1 x 5 | This is the matrix multiplication between the output
+    of the hidden layer and the weights from the hidden to the output layer. |'
+  prefs: []
+  type: TYPE_TB
+- en: Note that we would not be applying activation on top of the hidden layer while
+    building a word vector.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The output layer's values are not restricted to a specific range. Hence, we
+    pass them through the softmax function so that we arrive at the probability of
+    words. Furthermore, we minimize the cross-entropy loss to arrive at the optimal
+    weight values across the network. Now, the word vector of a given word is the
+    hidden-layer unit values when the input is the one-hot encoded version of the
+    word (not the input sentence).
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Now that we know how word vectors are generated, let''s code up the process
+    of generating word vectors (the code file is available as `Word_vector_generation.ipynb`
+    in GitHub):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Define the sentences of interest:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: From the preceding, we should expect the word vectors of `enjoy` and `like`
+    to be similar, as the words around `enjoy` and `like` are exactly the same.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s now create the one-hot encoded version of each sentence:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: Note that vectorizer defines the parameters that convert a document into a vector
+    format. Additionally, we pass in more parameters so that words such as `I` do
+    not get filtered out in the `CountVectorizer`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Furthermore, we will fit our documents to the defined vectorizer.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Transform the documents into a vector format:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Validate the transformations performed:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![](img/5a5b6dc6-d127-48fa-b65e-75253bde3f66.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Note that `vocabulary_` returns the index of various words, and that converting
+    the `toarray` vector returns the one-hot encoded version of sentences.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Create the input and the output dataset:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'From the preceding code, we have created the input and output datasets. Here
+    is the input dataset:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/0e9852c5-b6c2-45ca-a41f-8ad7a8f4a1d2.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'And here is the output dataset:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/7269b7b9-b223-4ba1-b9cf-0103abd330da.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Transform the preceding input and output words into vectors:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Here is the input array:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/4ac45077-8dbc-41aa-b6b8-5ad81fbd5a88.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Here is the output array:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/98d56a01-487d-4a36-8ae1-f040f3cf8a1e.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Define the neural network model that maps the input and output vector with
+    a hidden layer that has three units:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Compile and fit the model:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Extract the word vectors by fetching the intermediate layer values where the
+    inputs are the vectors of each individual word (not a sentence):'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In the preceding code, we are extracting the output from the layer we are interested
+    in: a layer named `dense_5` in the model we initialized.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In the code below, we are extracting the output of intermediate layer when
+    we pass the one-hot-encoded version of the word as input:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The word vectors of individual words are as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/d0f17447-2ac1-4512-b2be-0c821dd11b4e.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Note that the words `enjoy` and `like` are more correlated to each other than
+    others are and hence a better representation of word vectors.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The name could be different for the model you run, as we did not specify the
+    layer name in our model build. Also, the layer name changes for every new run
+    of model initialization when we do not explicitly specify the model name in the
+    layer.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Measuring the similarity between word vectors
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The similarity between word vectors could be measured using multiple metrics—here
+    are two of the more common ones:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Cosine similarity
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Eucledian distance
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'The cosine similarity between two different vectors, *A* and *B*, is calculated
+    as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/cf0c3808-dfe4-473c-be3a-b0fd82932a7e.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'In the example in previous section, the cosine similarity between *enjoy* and
+    *like* is calculated as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*enjoy = (-1.43, -0.94, -2.49)*'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*like     = (-1.43, -0.94, -2.66)*'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Here is the similarity between the *enjoy* and *like* vectors:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*(-1.43*-1.43 + -0.94*-0.94 +-2.49*-2.66)/ sqrt((-1.43)² + (-0.94)² + (-2.49)²)*
+    sqrt((-1.43)^2 + (-0.94)^2 + (-2.66)^2) = 0.99*'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The Eucledian distance between two different vectors, *A* and *B*, is calculated
+    as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*distance = sqrt(A-B)^2*'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*= sqrt((-1.43 - (-1.43))^2 + (-0.94 - (-0.94))^2 + (-2.49 - (-2.66))^2)*'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*= 0.03*'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Building a word vector using the skip-gram and CBOW models
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the previous recipe, we built a word vector. In this recipe, we'll build
+    skip-gram and CBOW models using the `gensim` library.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The method that we have adopted to build a word vector in this recipe is called
+    a **continuous bag of words** (**CBOW**) model. The reason it is called as CBOW
+    is explained as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s use this sentence as an example: *I enjoy playing TT*.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Here''s how the CBOW model handles this sentence:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Fix a window of certain size—let's say 1.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: By specifying the window size, we are specifying the number of words that will
+    be considered to the right as well as to the left of the given word.
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Given the window size, the input and output vectors would look as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '| **Input words** | **Output word** |'
+  prefs: []
+  type: TYPE_TB
+- en: '| *{I, playing}* | *{enjoy}* |'
+  prefs: []
+  type: TYPE_TB
+- en: '| *{enjoy,TT}* | *{playing}* |'
+  prefs: []
+  type: TYPE_TB
+- en: 'Another approach to building a word vector is the skip-gram model, where the
+    preceding step is reversed, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '|  **Input words** | **Output word** |'
+  prefs: []
+  type: TYPE_TB
+- en: '| *{enjoy}* | *{I, playing}* |'
+  prefs: []
+  type: TYPE_TB
+- en: '| *{playing}* | *{enjoy, TT}* |'
+  prefs: []
+  type: TYPE_TB
+- en: The approach to arrive at the hidden layer values of a word remains the same
+    as we discussed in previous section regardless of whether it is a skip-gram model
+    or a CBOW model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Now that we understand the backend of how a word vector gets built, let''s
+    build word vectors using the skip-gram and CBOW models. To build the model, we
+    will be using the airline sentiment dataset, where tweet texts are given and the
+    sentiments corresponding to the tweets are provided. To generate word vectors,
+    we will be using the `gensim` package, as follows (the code file is available
+    as `word2vec.ipynb` in GitHub):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Install the `gensim` package:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Import the relevant packages:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Read the airline tweets sentiment dataset, which contains comments (text) related
+    to airlines and their corresponding sentiment. The dataset can be obtained from [https://d1p17r2m4rzlbo.cloudfront.net/wp-content/uploads/2016/03/Airline-Sentiment-2-w-AA.csv](https://d1p17r2m4rzlbo.cloudfront.net/wp-content/uploads/2016/03/Airline-Sentiment-2-w-AA.csv):'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'A sample of the dataset looks as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/7cdad718-62b5-41b1-8158-947dd9313b85.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Preprocess the preceding text to do the following:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Normalize every word to lower case.
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Remove punctuation and retain only numbers and alphabets.
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Remove stop words:'
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Split sentences into a list of tokens so that they can then be passed to `gensim`.
+    The output of the first sentence should look as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The above code splits the sentence by space and thus looks as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/20e6f8c6-be19-41b0-a33e-6c2574611a1d.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'We will loop through all the text we have and append it in a list, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Let''s inspect the first three lists within the list of lists:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The list of lists of the first three sentences is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/b06668c0-b3d5-4475-afce-4f836f7cf292.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Build the `Word2Vec` model:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Define the vector size, context window size to look into, and the minimum count
+    of a word for it to be eligible to have a word vector, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the preceding code, `size` represents the size (dimension) of word vectors,
+    window represents the context size of words that would be considered, `min_count`
+    specifies the minimum frequency based on which a word is considered, `sg` represents
+    whether skip-gram would be used (when `sg=1`) or CBOW (when `sg = 0`) would be
+    used, and alpha represents the learning rate of the model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Once the model is defined, we will pass our list of lists to build a vocabulary,
+    as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Once the vocabulary is built, the final words that would be left after filtering
+    out the words that occur fewer than 30 times in the whole corpus can be found
+    as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Train the model by specifying the total number of examples (lists) that need
+    to be considered and the number of epochs to be run, as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the preceding code, `list_words` (the list of words) is the input, `total_examples`
+    represents the total number of lists to be considered, and epochs is the number
+    of epochs to be run.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Alternatively, you can also train the model by specifying the `iter` parameter
+    in the `Word2Vec` method, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Extract the word vectors of a given word (`month`), as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The word vector corresponding to the word "month" is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/074b3142-43d7-44e8-9b3d-0875022063eb.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'The similarity between two words can be calculated as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The words that are most similar to a given word is calculated as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE25]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The most similar words of the word `month` are as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/d45f1891-0a22-4ffe-b943-338221155ccd.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Note that, while these similarities look low and some of the most similar words
+    do not look intuitive, it will be more realistic once we train on a huge dataset
+    than the 11,000-tweet dataset that we have.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In the preceding scenario, let''s see the output of most similar words to the
+    word "month", when we run the model for a few number of epochs:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE26]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The most similar words to the word "month" are as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/ccf6b20e-4013-4fc5-aea4-643a97f97cb9.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: We can see that if we have few epochs, the most similar words to the word `month`
+    are not intuitive while the results are intuitive when there are many epochs,
+    particularly as the weights are not fully optimized for few epochs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The same operations can be replicated for skip-gram by replacing the value of
+    the `sg` parameter with `1`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Performing vector arithmetic using pre-trained word vectors
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the previous section, one of the limitations that we saw is that the number
+    of sentences is too small for us to build a model that is robust (we saw that
+    the correlation of month and year is around 0.4 in the previous section, which
+    is relatively low, as they belong to the same type of words).
+  prefs: []
+  type: TYPE_NORMAL
+- en: To overcome this scenario, we will use the word vectors trained by Google. The
+    pre-trained word vectors from Google include word vectors for a vocabulary of
+    3,000,000 words and phrases that were trained on words from Google News dataset.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Download the pre-trained word vectors from Google News (the code file is available
+    as `word2vec.ipynb` in GitHub):'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE27]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Unzip the downloaded file:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE28]'
+  prefs: []
+  type: TYPE_PRE
+- en: This command unzips the `bin` file, which is the saved version of the model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Load the model:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE29]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Load the  most similar words to the given word, `month`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE30]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The words that are most similar to `month` are as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/df73a48b-f995-4ad3-98a2-97506f9bad8d.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'We will perform vector arithmetic; that is, we will try to answer the following analogy:
+    woman is to man as what is to king? Check out the following code:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE31]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The output of above arithmetic is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/568bc06c-e395-4066-895d-74c8d070fd04.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: In this scenario, the word vector of `woman` is subtracted from the word vector
+    of `man` and added to the word vector of `king` – resulting in a vector that is
+    closest to the word `queen`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Creating a document vector
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: To understand the reason for having a document vector, let's go through the
+    following intuition.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The word *bank* is used in the context of finance and also in the context of
+    a river. How do we identify whether the word *bank* in the given sentence or document
+    is related to the topic of a river or the topic of finance?
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'This problem could be solved by adding a document vector, which works in a
+    similar way to word-vector generation but with the addition of a one-hot encoded
+    version of the paragraph ID, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/d1f47a77-220b-459a-9c00-2e9d68fb81d9.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: In the preceding scenario, the paragraph ID encompasses the delta that is not
+    captured by just the words. For example, in the sentence *on the bank of river*
+    where *on the bank of* is the input and *river* is the output, the words *on,
+    the*, and *of* do not contribute to the prediction as they are frequently-occurring
+    words, while the word *bank* confuses the output prediction to be either river
+    or America. The document ID of this particular document/sentence will help to
+    identify whether the document is related to the topic of rivers or to the topic
+    of finance. This model is called the **Distributed Memory Model of Paragraph Vectors**
+    (**PV-DM**).
+  prefs: []
+  type: TYPE_NORMAL
+- en: For example, if the number of documents is 100, the one-hot encoded version
+    of the paragraph ID will be 100-dimensional. Similarly, if the number of unique
+    words that meet the minimum frequency of a word is 1,000, the one-hot encoded
+    version of the words is 1,000 in size. When the hidden-layer size (which is the
+    word vector size) is 300, the total number of parameters would be 100 * 300 +
+    1,000 * 300 = 330,000
+  prefs: []
+  type: TYPE_NORMAL
+- en: The document vector would be the value of the hidden layer when the one-hot
+    encoded versions of all input words are 0 (that is, the effect of the words is
+    neutralized and only the effect of the document/paragraph ID is considered).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Similar to the way in which input and output switch between the skip-gram and
+    CBOW models, even for a document vector, the output and input can be switched
+    as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/4cc8cbac-3d82-4fe8-ad28-0b5ac55e1631.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: This representation of the model is called a **paragraph vector with a distributed
+    bag of words** (**PVDBOW**).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The strategy that we''ll adopt to build a document vector is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Preprocess the input sentences to remove punctuation as well as lowercasing
+    for all words, and remove the stop words (words that occur very frequently and
+    do not add context to sentence, for example, *and* and *the*)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Tag each sentence with its sentence ID.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: We are assigning an ID for each sentence.
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Use the Doc2Vec method to extract vectors for document IDs as well as words.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Train the Doc2Vec method over a high number of epochs, so that the model is
+    trained.
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Now that we have the intuition of how a document vector gets generated and
+    a strategy in place to build a document vector, let''s generate the document vectors
+    of the airline tweets dataset (the code file is available as `word2vec.ipynb` in
+    GitHub):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Import the relevant packages:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE32]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Preprocess the tweets'' text:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE33]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Create a dictionary of tagged documents where the document ID is generated
+    along with the text (tweet):'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE34]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The tagged document data looks as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/cfc4df1f-d5d2-4bbd-94a5-b9e08757d5c3.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: In the preceding code, we are extracting a list of all the constituent words
+    in a sentence (document).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Initialize a model with parameters, as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE35]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the preceding code snippet, `size` represents the vector size of the document,
+    `alpha` represents the learning rate, `min_count` represents the minimum frequency
+    for a word to be considered, and `dm = 1` represents the PV-DM
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Build a vocabulary:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE36]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Train the model for a high number of epochs on the tagged data:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE37]'
+  prefs: []
+  type: TYPE_PRE
+- en: The training process would generate vectors for words as well as for the document/paragraph
+    ID.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Word vectors can be fetched similarly to how we fetched them in the previous
+    section, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE38]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Document vectors can be fetched as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE39]'
+  prefs: []
+  type: TYPE_PRE
+- en: The preceding code snippet generates snippets for the document vectors for the
+    first document.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Extract the most similar document to a given document ID:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE40]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![](img/45742cdd-3b4c-44a5-8459-8e4833b21286.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: In the preceding code snippet, we are extracting the document ID that is most
+    similar to the document ID number 457, which is 827.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s look into the text of documents 457 and 827:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE41]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![](img/87db2662-06c1-414d-a69d-25c9b5e0bacd.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '[PRE42]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![](img/2c6c1158-93c8-4324-8de6-169ac90b85d4.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: If we inspect the vocabulary of the model, we would see that apart from the
+    word `just`, all the other words occur between the two sentences—hence it is obvious
+    that document ID `457` is most similar to document ID `827`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Building word vectors using fastText
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: fastText is a library created by the Facebook Research Team for the efficient
+    learning of word representations and sentence classification.
+  prefs: []
+  type: TYPE_NORMAL
+- en: fastText differs from word2vec in the sense that word2vec treats every single
+    word as the smallest unit whose vector representation is to be found, but fastText
+    assumes a word to be formed by a n-grams of character; for example, sunny is composed
+    of *[sun, sunn, sunny]*,*[sunny, unny, nny]*, and so on, where we see a subset
+    of the original word of size *n*, where *n* could range from *1* to the length
+    of the original word.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Another reason for the use of fastText would be that the words do not meet the
+    minimum frequency cut-off in the skip-gram or CBOW models. For example, the word
+    *appended* would not be very different than *append*. However, if *append* occurs
+    frequently, and in the new sentence we have the word *appended* instead of *append*,
+    we are not in a position to have a vector for *appended*. The n-gram consideration
+    of fastText comes in handy in such a scenario.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Practically, fastText uses skip-gram/CBOW models, however, it augments the input
+    dataset so that the unseen words are also taken into consideration.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The strategy that we''ll adopt to extract word vectors using fastText is as
+    follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Use the fastText method in the gensim library
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Preprocess the input data
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Break each input sentence into a list of lists
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Build a vocabulary on top of the input list of lists
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Train the model with the preceding input data over multiple epochs
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Calculate the similarity between words
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'In the following code, let''s look at how to generate word vectors using fastText
+    (the code file is available as `word2vec.ipynb` in GitHub):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Import the relevant packages:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE43]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Preprocess and prepare the dataset into a list of lists, just like we did for
+    the word2vec models:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE44]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In the preceding code, we are preprocessing the input text. Next, let''s convert
+    the input text into a list of lists:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE45]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Define the model (specify the number of vectors per word) and build a vocabulary:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE46]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Train the model:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE47]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Check the word vectors of a word that is not present in the vocabulary of the
+    model. For example, the word `first` is present in the vocabulary; however, the
+    word `firstli` is not present in the vocabulary. In such a scenario, check the
+    similarity between the word vectors for `first` and `firstli`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE48]'
+  prefs: []
+  type: TYPE_PRE
+- en: The output of the preceding code snippet is 0.97, which indicates a very high
+    correlation between the two words.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Thus, we can see that fastText word vectors help us to generate word vectors
+    for words that are not present in the vocabulary.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The preceding method could also be leveraged to correct the spelling mistakes,
+    if any, within our corpus of data, as the incorrectly-spelled words are likely
+    to occur rarely, and the most similar word with the highest frequency is more
+    likely to be the correctly-spelled version of the misspelled word.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Spelling corrections can be performed using vector arithmetic, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE49]'
+  prefs: []
+  type: TYPE_PRE
+- en: Note that in the preceding code, the positive words have a spelling mistake,
+    while the negative word does not. The output of the code is `promise`. So this
+    potentially corrects our spelling mistake.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Additionally, it can also be performed as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE50]'
+  prefs: []
+  type: TYPE_PRE
+- en: '*[(''experience'', 0.9027844071388245)]*'
+  prefs: []
+  type: TYPE_NORMAL
+- en: However, note that this does not work when there are multiple spelling mistakes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Building word vectors using GloVe
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Similar to the way word2vec generates word vectors, **GloVe** (short for **Global
+    Vectors for Word Representation**), also generates word vectors but using a different
+    method. In this section, we will explore how GloVe works and then get into the
+    implementation details of GloVe.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'GloVe aims to achieve two goals:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Creating word vectors that capture meaning in vector space
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Taking advantage of global count statistics instead of only local information
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'GloVe learns word vectors by looking at the cooccurrence matrix of words and
+    optimizing for a loss function. The working details of the GloVe algorithm can
+    be understood from the following example:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s consider a scenario where there are two sentences, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '| **Sentences** |'
+  prefs: []
+  type: TYPE_TB
+- en: '| This is test |'
+  prefs: []
+  type: TYPE_TB
+- en: '| This is also a |'
+  prefs: []
+  type: TYPE_TB
+- en: 'Let''s try to build a word-cooccurrence matrix. There is a total of five unique
+    words within our toy dataset of sentences, and from there the word-cooccurrence
+    matrix looks as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/adf142cf-c7c0-4105-83bb-56260c16ab48.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: In the preceding table, the words *this* and *is* occur together in the two
+    rows of the dataset and hence have a cooccurrence value of 2\. Similarly, the
+    words *this* and *test* occur together only once in the dataset and hence have
+    a cooccurrence value of 1.
+  prefs: []
+  type: TYPE_NORMAL
+- en: However, in the preceding matrix, we have not taken the distance between the
+    two words into consideration. The intuition for considering the distance between
+    the two words is that the farther the cooccurring words are from each other, the
+    less relevant they might be for the cooccurrence.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We will introduce a new metric—*offset*, which penalizes for having a high distance
+    between the given word and the cooccurring word. For example, *test* occurs at
+    a distance of 2 from *this* in the first sentence, so we will divide the cooccurrence
+    number by a value of 2.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The transformed cooccurrence matrix now looks as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '|  | **this** | **is** | **test** | **also** | **a** |'
+  prefs: []
+  type: TYPE_TB
+- en: '| **this** | 0 | 2 | 0.5 | 0.5 | 0.33 |'
+  prefs: []
+  type: TYPE_TB
+- en: '| **is** | 0 | 0 | 1 | 1 | 0.5 |'
+  prefs: []
+  type: TYPE_TB
+- en: '| **test** | 0 | 0 | 0 | 0 | 0 |'
+  prefs: []
+  type: TYPE_TB
+- en: '| **also** | 0 | 0 | 0 | 0 | 1 |'
+  prefs: []
+  type: TYPE_TB
+- en: '| **a** | 0 | 0 | 0 | 0 | 0 |'
+  prefs: []
+  type: TYPE_TB
+- en: 'Now that we have built the matrix, let''s bring in one additional parameter: the
+    *context* of the words to be considered. For example, if the window size is 2,
+    the cooccurrence value corresponding to the words *this* and *a* would be a value
+    of 0 as the distance between the two words is greater than 2\. The transformed
+    cooccurrence matrix when the context window size is 2 looks as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '|  | **this** | **is** | **test** | **also** | **a** |'
+  prefs: []
+  type: TYPE_TB
+- en: '| **this** | 0 | 2 | 0.5 | 0.5 | 0 |'
+  prefs: []
+  type: TYPE_TB
+- en: '| **is** | 0 | 0 | 1 | 1 | 0.5 |'
+  prefs: []
+  type: TYPE_TB
+- en: '| **test** | 0 | 0 | 0 | 0 | 0 |'
+  prefs: []
+  type: TYPE_TB
+- en: '| **also** | 0 | 0 | 0 | 0 | 1 |'
+  prefs: []
+  type: TYPE_TB
+- en: '| **a** | 0 | 0 | 0 | 0 | 0 |'
+  prefs: []
+  type: TYPE_TB
+- en: 'Now that we have arrived at a modified cooccurrence matrix, we randomly initialize
+    the word vectors of each word with a dimension of 2 in this instance. The randomly-initialized
+    weights and bias values of each word, where each word has a vector size of 3,
+    look as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '| **Word** | **Weights 1** | **Weights 2** | **Weights 3** | **Bias** |'
+  prefs: []
+  type: TYPE_TB
+- en: '| **this** | -0.64 | 0.82 | -0.08 | 0.16 |'
+  prefs: []
+  type: TYPE_TB
+- en: '| **is** | -0.89 | -0.31 | 0.79 | -0.34 |'
+  prefs: []
+  type: TYPE_TB
+- en: '| **test** | -0.01 | 0.14 | 0.82 | -0.35 |'
+  prefs: []
+  type: TYPE_TB
+- en: '| **also** | -0.1 | -0.67 | 0.89 | 0.26 |'
+  prefs: []
+  type: TYPE_TB
+- en: '| **a** | -0.1 | -0.84 | 0.35 | 0.36 |'
+  prefs: []
+  type: TYPE_TB
+- en: 'Given that the preceding weights and biases are randomly initialized, we modify
+    the weights to optimize the loss function. In order to do that, let''s define
+    the loss function of interest, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/7d0d0021-4a99-46aa-9ec9-6a8121574215.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: In the preceding equation, *w[i]* represents the word vector of the *i*^(th)
+    word, and *w[j]* represents the word vector of *j*^(th) word; *b[i]* and *b[j]*
+    are the biases that correspond to the *i*^(th) and *j*^(th) words, respectively.
+    *X[ij]* represents the values in the final cooccurrence value that we defined
+    earlier.
+  prefs: []
+  type: TYPE_NORMAL
+- en: For example, the value of *X[ij]* where *i* is the word *this* and *j* is the
+    word *also* is 0.5
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'When the value of *X[ij]* is 0, the value of f(*x[ij]*) is 0; otherwise, it
+    is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/e3cdf189-d305-4b20-88c4-6c4ba834f4b1.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: In the preceding equation, alpha is empirically found to be 0.75, *x[max]* is
+    100, and *x* is the value of *x[ij]*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now that the equation is defined, let''s apply that to our matrix, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/d9c693ff-588a-47e5-b951-5503216d9586.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The first table represents the word-cooccurrence matrix and the randomly-initialized
+    weights and biases.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The second table represents the loss-value calculation, where we calculate the
+    overall weighted loss value.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We optimize the weights and biases until the overall weighted loss value is
+    the least.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Now that we know how word vectors are generated using GloVe, let''s implement
+    the same in Python (the code file is available as `word2vec.ipynb` in GitHub):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Install GloVe:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE51]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Import the relevant packages:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE52]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Preprocess the dataset the way we preprocessed in word2vec, skip-gram, and
+    CBOW algorithms, as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE53]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Create a corpus and fit it with a vocabulary:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE54]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The dictionary of the corpus can be found as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE55]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The unique words and their corresponding word IDs are obtained as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/a15b2447-73bd-42bd-97e8-5bb1d630f4e9.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The preceding screenshot represents the key values of the words and their corresponding
+    index.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The following code snippet gives us the cooccurrence matrix:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE56]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![](img/0248814c-3205-47f8-b94d-79788deb21df.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Let''s define the model parameters, that is, the number of dimensions of a
+    vector, the learning rate, and the number of epochs to be run, as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE57]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Once the model is fit, the weights and biases of word vectors can be found
+    as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE58]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The word vector for a given word can be determined as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE59]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The most similar words for a given word can be determined as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE60]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The output of most similar words to "united" is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/f88b5cb8-7fc0-4a9f-97cc-13fdc15c6c0e.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Note that the words that are the most similar to the word `united` are the words
+    that belong to other airlines.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Building sentiment classification using word vectors
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the previous sections, we learned how to generate word vectors using multiple
+    models. In this section, we will learn how to build a sentiment classifier for
+    a given sentence. We will continue using the airline sentiment tweet dataset for
+    this exercise.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Generate word vectors like the way we extracted in previous recipes (the code
+    file is available as `word2vec.ipynb` in GitHub):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Import the packages and download the dataset:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE61]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Preprocess the input text:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE62]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Extract a list of lists across all the sentences in the dataset:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE63]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Build a CBOW model, where the context window `size` is `5` and the vector length
+    is 100:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE64]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Specify the vocabulary to model and then train it:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE65]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Extract the average vector of a given tweet:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE66]'
+  prefs: []
+  type: TYPE_PRE
+- en: We are taking the average of the word vectors for all the words present in the
+    input sentence. Additionally, there will be certain words that are not in the
+    vocabulary (words that occur less frequently) and would result in an error if
+    we try to extract their vectors. We've deployed `try` and `catch` errors for this
+    specific scenario.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Preprocess features to convert them into an array, split the dataset, into
+    train and test datasets and reshape the datasets so that they can be passed to
+    model:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE67]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Compile and build the neural network to predict the sentiment of a tweet:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE68]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The summary of model defined above is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/f192b1ad-1bfb-48b4-aec9-fe09290cf0ad.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'In the preceding model, we have a 1,000-dimensional hidden layer that connects
+    the 100 inputted average word vector values to the output, which has a value of
+    1 (1 or 0 for a positive or negative sentiment, respectively):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE69]'
+  prefs: []
+  type: TYPE_PRE
+- en: We can see that the accuracy of our model is ~90% in predicting the sentiment
+    of a tweet.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Plot the confusion matrix of predictions:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE70]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The output of confusion matrix is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/2c7b07d2-adcd-4ee5-bcaa-b8bfd5201169.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: From the above, we see that in 2,644 sentences, we predicted them to be positive
+    and they are actually positive. 125 sentences were predicted to be negative and
+    happened to be positive. 209 sentences were predicted to be positive and happened
+    to be negative and finally, 485 sentences were predicted negative and were actually
+    negative.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There's more...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'While we implemented the sentiment classification using the CBOW model and
+    an average of all the word vectors that are present in the tweets, the other ways
+    we could have proceeded are as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Use the skip-gram model.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Use the doc2vec model to build a model using document vectors.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Use the fastText-model-based word vectors.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Use the GloVe-based word vectors.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Use pre-trained models' word vector values.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: While these methods work in a similar fashion, one of the limitations of the
+    preceding model is that it does not take word order into consideration. There
+    are more sophisticated algorithms that solve the problem of word order, which
+    will be discussed in the next chapter.
+  prefs: []
+  type: TYPE_NORMAL

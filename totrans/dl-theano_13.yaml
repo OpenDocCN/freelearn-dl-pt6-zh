@@ -1,0 +1,719 @@
+- en: Chapter 13. Extending Deep Learning with Theano
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: This chapter gives clues to go further with both Theano and Deep Learning. First,
+    it presents how to create new operators for the Theano computation graph in Python
+    or C, either for the CPU or the GPU. Then, interactions with other Deep Learning
+    frameworks are studied with the support of code repositories and libraries that
+    enable back-and-forth conversion with other technologies.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Lastly, to complete the possibilities offered by the field of Deep Learning
+    with Theano, we develop the concepts of a new **General Artificial Intelligence**
+    field.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The topics covered in this chapter are as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Writing new operators for Theano computation graphs
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Python code for CPU and GPU
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The C API for CPU and GPU
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Sharing models with other Deep Learning frameworks
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Cloud GPUs
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Meta learning, gradual learning, and guided learning
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: General Artificial Intelligence
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: This chapter gives a complete overview of Deep Learning with Theano.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Theano Op in Python for CPU
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: As a mathematical compilation engine, Theano's purpose is to compile a graph
+    of computations in an optimal way for a target platform.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The development of new operators is possible in Python or C for compilation
+    either on the CPU or GPU.
+  prefs: []
+  type: TYPE_NORMAL
+- en: First, we address the simplest case, in Python for CPU, which will enable you
+    to add new operations very easily and quickly.
+  prefs: []
+  type: TYPE_NORMAL
+- en: To fix the ideas, let's implement a simple affine operator that performs the
+    affine transformation *a * x + b*, given x as the input.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The operator is defined by a class deriving from the generic `theano.Op` class:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: Let's understand this example.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The `__props__` property is set to the two parameter names, `a` and `b`, on
+    which the operator depends. It will automatically generate the `__eq__()`, `__hash__()`,
+    and `__str_()` methods for us so that if we create two different objects with
+    the same values for parameters `a` and `b`, Theano will consider them as equal
+    operators:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Also, the parameters `a` and `b` will appear when printing the op:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![Theano Op in Python for CPU](img/00267.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: If `__props__` is not specified, it is required to define the `__eq__()`, `__hash__()`,
+    and `__str_()` methods manually.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `make_node()` method creates the node to be included in the graph and is
+    run when the `mult4plus5op` object is applied to the input `x`. Node creation
+    is performed with the `theano.Apply()` method that takes as arguments the input
+    variables and the type of the output. To enforce that the inputs are variables,
+    the `as_tensor_variable()` method is called on the input to transform any NumPy
+    array into a variable. This is the place where we define the type of the output
+    given the input as well as to check whether the inputs are compatible with the
+    operator and raise a TypeError otherwise.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Note that it is possible to generate the `make_node()` method automatically,
+    as we did previously with the `__props__` attribute for the `__eq__()` method,
+    but in this case, with the `itypes` and `otypes` properties defining the types
+    of the inputs and outputs:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: The `perform()` method defines the computations in Python to be performed for
+    this operator. Since it is possible to implement operators on multiple inputs
+    that return multiple outputs, the inputs and outputs are given as lists. A second
+    output would be stored in `output_storage[1][0]`. Outputs might be already allocated
+    by previous values in order to reuse memory. They will always be of the good `dtype`
+    object, but not necessary of the right shape and stride. It is good to re-allocate
+    them when they are not of the good shape.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The last two methods, `infer_shape()` and `grad()`, are optional. The first
+    one is used when the output does not need to be computed, but only a shape information
+    is necessary to perform the computation—such a case occurs during Theano optimization
+    procedures. The second is used when the output needs to be differentiated under
+    the `grad()` method:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the same way, it is possible to define the R-operator function of the operator.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Theano Op in Python for the GPU
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Let''s take a look at what happens when we run this operator in a graph in
+    the GPU `config` mode:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Since we have only defined a CPU implementation of the new operator in Python
+    and the full graph is running on GPU, the data is transferred back and forth to
+    CPU in the middle of the graph to apply our new CPU operator:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Theano Op in Python for the GPU](img/00268.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: To avoid the inefficiency of the transfers inside the graph, let's create the
+    same operator in Python for the GPU.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For this, you will have to simply modify the `make_node()` and `perform()`
+    methods of the operator, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: Not many changes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the `make_node()` method, `as_tensor_variable()` is replaced by `as_gpuarray_variable()`,
+    which requires the context that is one part of the type definition of a GPU variable.
+    The `get_context()` method transforms the context name we have chosen for the
+    device into a `GPUContext` for the `pygpu` library.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the `perform()` method, computations are performed on GPU thanks to the `pygpu`
+    library that contains an element-wise operator on GPU as well as the **Basic Linear
+    Algebra Subprograms** (**BLAS**) methods, such as the **GEneral Matrix to Matrix
+    Multiplication** (**GEMM**) and **General Matrix to Vector Multiplication** (**GEMV**)
+    operations.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s now take a look at the compiled graph when this new operator is inside
+    a bigger graph on GPU:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![Theano Op in Python for the GPU](img/00269.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: For readability, we have prefixed the name of the class of the operator for
+    GPU with Gpu; for example, GpuAXPBOp.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Theano Op in C for CPU
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Another inefficiency arises from the fact the Python implementation of an operator
+    adds a significant overhead each time computations are performed, that is, for
+    each instance of our operator in the graph. The Python code is not compiled as
+    the rest of the graph by Theano in C and the overhead occurs when the C implementation
+    is wrapped into Python and data is exchanged.
+  prefs: []
+  type: TYPE_NORMAL
+- en: To remedy this, it is possible to directly write some C code that will be incorporated
+    into the code of the rest of the graph and compiled together.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'When implementing an operator directly in C, NumPy is the underlying library
+    to manage arrays, with the the NumPy-API extending Python C-API. The Python class
+    defining the new C operator does not have to implement the `perform()` method;
+    instead, it returns the C code to incorporate in the `c_code()`, `c_support_code()`
+    and `c_support_code_apply()` methods:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Let''s now discuss the different parts:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: When the `c_code_cache_version()` is implemented, Theano will cache the compiled
+    code to save some compilation time the next time the operator is incorporated
+    into a graph, but whenever we modify the code of the C op, the version number
+    has to be incremented.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The code placed in the `c_support_code()` and `c_support_code_apply()` methods
+    is included in the global scope of the C program. The code placed in the `c_support_code_apply()`
+    and `c_code()` methods has to be specific to each apply of the op in the graph;
+    in particular, in this case, they depend on the type of the input. And since the
+    `c_support_code_apply()` code is included in the global scope, the methods are
+    named after the op name.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`PyArray_NDIM`, `PyArray_DIMS`, `PyArray_STRIDES`, and `PyArray_DATA` are the
+    macros to access the number of dimensions, the dimensions, the strides of the
+    array, and the data in the array, respectively, for each NumPy array in C, `PyArrayObject`.
+    `PyArray_EMPTY` is the equivalent to the Python `numpy.empty()` method in C.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The NumPy `PyArrayObject` class inherits from the `PyObject` class from the
+    Python C-API. The `Py_XDECREF` macro enables us to decrement the reference count
+    to the output before memory is allocated for a new output array. As in the Python
+    C-API, the NumPy C-API requires to correctly count references to objects. Theano
+    does not guarantee that the output array has been allocated, nor does it guarantee
+    if it has been allocated with the correct shape. This is why a test is performed
+    at the beginning of the `c_code()`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note that arrays can be strided, since they can be a view (or a subtensor) of
+    an array (a tensor). It is possible to implement ops that create views or modify
+    the inputs, as well.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'There exist a few other possible methods to go further in the C implementation:
+    `c_libraries()` and `c_lib_dirs()` to use external libraries, `c_code_cleanup()`
+    to destroy memory allocations, and `c_init_code()` to execute some code at initialization.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Lastly, it is also possible to reference some C files inside the code to reduce
+    the burden on the Python class. We do not detail these three last specificities.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Theano Op in C for GPU
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'As you could have imagined, it is possible to combine both optimizations:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Reduce the Python/C overhead by programming directly in C
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Write the code for the GPU
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: To write CUDA code for GPU, the code that will be run in parallel on the numerous
+    cores of the GPU has to be packaged into a special function type named **kernel**.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For that purpose, the `__init__()`, `make_node()`, and `c_code_cache_version()`
+    methods stay the same as for our Python example for GPU, but with a new `gpu_kernels()`
+    method to define new GPU kernels and the `c_code()` method (which replaces the
+    `perform()` method again) to implement the C code, also named the **host code**,
+    that orchestrates how and when to call the different kernels on GPU:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: Note that I implemented the operator for matrix (that is, two-dimensional) inputs
+    only and the 256 threads will execute the same operations in parallel, while the
+    operations could have been split into different groups and assigned to different
+    threads.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The host code run on the CPU manages memory on both the CPU and GPU, and also
+    launches kernels which are functions executed on the GPU device.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The allocation of a new GPU array is performed with the `pygpu_zeros()` method,
+    which will from behind call the `cudamalloc()` method when using CUDA to allocate
+    the array directly in the GPU memory. The operator instance does not need to manage
+    the release of the memory allocated to outputs as well as data transfer between
+    GPU and CPU since this is the role of Theano optimization to decide when to insert
+    the transfer operators `HostFromGpu` and `GpuFromHost`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The call to the kernel in the C code is performed via `axpb_call()`, that is,
+    the name of the kernel followed by `_call()`. Note that there are four more arguments
+    in the call than in the definition of the kernel method. These four arguments
+    define how `libgpuarray` will execute or deploy the kernel on the cores.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To understand the GPU execution configuration for parallel programming, let''s
+    precise some basic concepts about a GPU first. A CUDA GPU is composed of **Streaming
+    Multiprocessors** (**SM**), with a specification given by the compute capability
+    in warp size, grid size, block size, the maximum number of threads per SM and
+    per block, shared and local memory size, and maximum number of registrars:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Theano Op in C for GPU](img/00270.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: '(Source: [https://en.wikipedia.org/wiki/CUDA](https://en.wikipedia.org/wiki/CUDA))'
+  prefs: []
+  type: TYPE_NORMAL
+- en: During execution, multiprocessors execute instructions for a group of 32 threads
+    (as described in the preceding table), named warp, in the **Single Instruction
+    Multiple Data** (**SIMD**) manner. When programming for parallel execution, you
+    need to organize your threads into blocks that are as close as possible to the
+    underlying architecture. For example, for an element-wise operation on matrices,
+    as our AXPBOp, you could say that each thread is going to perform the operation
+    on one element of the matrix. So, a computation on a 224 x 224 image will require
+    50,176 threads. Let's say that the GPU has 8 multiprocessors with 1024 cores each.
+    In the execution configuration, you can, for example, define a block size of 256
+    threads, and the number of blocks required to perform the complete computation
+    will be 196 blocks. In order to simplify the development of parallel programs,
+    blocks can be organized into a multidimensional grid (up to 3 dimensions for a
+    CC above 2.0, as shown in the preceding table), and in the case of an image input,
+    it would be natural to use a two-dimensional grid of 14 x 14 blocks. It is up
+    to you to organize the threads into blocks organized on a grid, but the best way
+    to organize the threads is to follow the dimensionality of the underlying data,
+    since it will be easier to split the data and affect it to different threads.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Each thread execution is provided with values to access its position in the
+    grid that you can use inside the code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`gridDim.x`, `gridDim.y`, `gridDim.z` the dimensions of the grid of blocks
+    of threads'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`blockIdx.x`, `blockIdx.y`, `blockIdx.z` the coordinate of the block on the
+    grid'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`blockDim.x`, `blockDim.y`, `blockDim.z` the dimensions of the block'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`threadIdx.x`, `threadIdx.y`, `threadIdx.z` the coordinate of the thread in
+    the block'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'In the case of our element-wise AXPBOp with one thread per element, the thread
+    can fetch the data element given by the following row indice:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'To deploy, the first new four parameters in the kernel call correspond to:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Dimensionality of the grid/blocks, in this case 2 for an image/matrice as input
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The sizes of launch grid, in this case is {14, 14}. Once the number of threads
+    per block is defined (256 in our case), the number of blocks per grid is then
+    determined by the problem size (here, the size of the matrix).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'The sizes of launch blocks, in this case {16, 16} to go for 256 threads per
+    block, as it is usually set to 128 or 256\. It is better to choose a multiple
+    of the warp size, since execution is performed per warp; if you set it to 250,
+    then, 201 of our blocks will underperform: one warp of each block will not be
+    used at its full parallel potential. It is possible to try different multiples
+    of 32 and make the choice on the most efficient runs.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The amount of dynamic shared memory to allocate, which is required when you
+    define a shared memory (with the `LOCAL_MEM` macro) that is dynamic (when the
+    amount of shared memory is not known at compile time). Shared memory designates
+    memory shared between threads belonging to the same block of threads. On devices
+    of compute capability 2.x and 3.x, each multiprocessor has 64 KB of on-chip memory
+    that can be partitioned between L1 cache and shared memory (16, 32, or 48K). The
+    L1 cache coalesces global memory accesses by threads in a warp into as few cache
+    lines as possible. The alignment differences between each thread have a negligible
+    effect on performance thanks to the cache. Inefficiencies arise in the strided
+    access for second and third dimensions; in this case, the use of shared memory
+    enables you to extract a 2D tile of a multidimensional array from global memory
+    in a coalesced fashion into shared memory and have contiguous threads stride through
+    the shared memory tile:![Theano Op in C for GPU](img/00271.jpeg)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Coalesced transpose via shared memory, NVIDIA parallel for all
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: When the dimension of the data is not divisible into a block size times a grid
+    size, threads dealing with data at the border will execute faster than other threads,
+    and the kernel code has to be written in a way to check for out-of-bounds memory
+    accesses.
+  prefs: []
+  type: TYPE_NORMAL
+- en: When programming in parallel, race conditions, as well as memory bank conflicts
+    in shared memory, and data that cannot stay local to the thread in the available
+    registrars are some new pains to check. Coalescing global memory accesses is by
+    far the most critical aspect of achieving good performance. The NVIDIA® Nsight™
+    tool will help you develop, debug, and profile the code that executes on CPU and
+    GPU.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Model conversions
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'When a model is saved, the resulting data is simply a list of arrays, that
+    is, weight vectors (for biases) and matrices (for multiplications) and a name
+    for each layer. It is quite simple to convert a model from one framework to another:
+    it consists of loading a numerical array and checking the layer names. Here are
+    a few conversion examples from and to Caffe Deep Learning framework written in
+    C++:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[https://github.com/an-kumar/caffe-theano-conversion](https://github.com/an-kumar/caffe-theano-conversion)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '[https://github.com/kencoken/caffe-model-convert](https://github.com/kencoken/caffe-model-convert)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '[https://github.com/piergiaj/caffe-to-theano](https://github.com/piergiaj/caffe-to-theano)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'To convert variables between the Torch Deep Learning framework (written in
+    Lua) and Theano, you simply need a tool to convert data from Lua to Python NumPy:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[https://github.com/imodpasteur/lutorpy](https://github.com/imodpasteur/lutorpy)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To convert models between Tensorflow and Theano, I would advise you to use
+    the Keras library, which will stay up-to-date and enable to train models either
+    in Theano or Tensorflow. For example, to convert a model from Tensorflow to Theano,
+    keep your Keras install configured with Theano as we have seen in [Chapter 5](part0060_split_000.html#1P71O2-ccdadb29edc54339afcb9bdf9350ba6b
+    "Chapter 5. Analyzing Sentiment with a Bidirectional LSTM"), *Analyzing Sentiment
+    with a Bidirectional LSTM*, load the Tensorflow weights, and modify the layer
+    names as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: A mirror sequence of operations enables us to do the contrary, from Theano to
+    Tensorflow.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Another advantage of designing networks in Keras is the possibility to train
+    them directly in the cloud, using the Google Cloud Machine Learning Engine, built
+    with **Tensor Processing Units** (**TPU**), an alternative to GPU, designed from
+    the ground for machine learning.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let's take our example from [Chapter 5](part0060_split_000.html#1P71O2-ccdadb29edc54339afcb9bdf9350ba6b
+    "Chapter 5. Analyzing Sentiment with a Bidirectional LSTM"), *Analyzing Sentiment
+    with a Bidirectional LSTM*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To train the model in the cloud, I create a project named *DeepLearning Theano*
+    in the Google console [https://console.cloud.google.com/iam-admin/projects](https://console.cloud.google.com/iam-admin/projects),
+    and in the API manager of the project, enable the Machine Learning Engine API.
+    A few installation requirements might be checked with instructions at: [https://cloud.google.com/ml-engine/docs/quickstarts/command-line](https://cloud.google.com/ml-engine/docs/quickstarts/command-line),
+    such as the Google Cloud SDK and the project configuration. With `gcloud` `init`
+    command, your SDK configuration can be re-initialize to switch to the *DeepLearning
+    Theano* project.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s upload the data in a newly created bucket in the cloud, given the region
+    you choose (here `europe-west1`):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Since the model is executed on a instance in the cloud, it is required:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: To modify the Python script to load the file stream from the remote bucket instead
+    of a local directory, with the library `tensorflow.python.lib.io.file_io.FileIO(train_file,
+    mode='r')` rather than the standard method `open(train_file, mode='r')`, with
+    the same usage of the mode argument for both, 'r' for reading, `w` for writing,
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'To define a `setup.py` file to configure the libraries required in the cloud
+    instance environment:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'To define a cloud deployment configuration file, `cloudml-gpu.yaml`:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'To check the training works locally before submitting it to Google ML Cloud,
+    run the following command:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'If everything works fine locally, let''s submit it to the cloud:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![Model conversions](img/00272.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Note
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Note that Google ML Cloud uses Tensorflow as backend.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The future of artificial intelligence
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '[Chapter 2](part0026_split_000.html#OPEK1-ccdadb29edc54339afcb9bdf9350ba6b
+    "Chapter 2. Classifying Handwritten Digits with a Feedforward Network"), *Classifying
+    Handwritten Digits with a Feedforward Network* presented diverse optimization
+    techniques (Adam, RMSProp, and so on) and mentioned second order optimization
+    techniques. A generalization would be to also learn the update rule:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![The future of artificial intelligence](img/00273.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Here, ![The future of artificial intelligence](img/00274.jpeg) is the parameter
+    of the optimizer ![The future of artificial intelligence](img/00275.jpeg) to learn
+    from different problem instances, a sort of *generalization* or *transfer learning*
+    of the optimizer from problems to learn better on new problems. The objective
+    to minimize under this *learning to learn* or *meta-learning* framework has to
+    optimize the time to learn correctly and, consequently, be defined on multiple
+    timesteps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![The future of artificial intelligence](img/00276.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Where:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![The future of artificial intelligence](img/00277.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: A recurrent neural network can be used as the optimizer model ![The future of
+    artificial intelligence](img/00275.jpeg). Such a generalization technique that
+    solves a multi-objective optimization problem improves the learning rate of the
+    neural networks in general.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Researchers have been looking one step further, searching for general artificial
+    intelligence, which aims for a human-level skill set with the capacity to improve
+    itself and acquire new skills in a gradual way, using its **intrinsic** and previously
+    learned skills to search for the solutions of new optimization problems.
+  prefs: []
+  type: TYPE_NORMAL
+- en: A **skill** could be defined as a tool of intelligence to narrow or constrain
+    the search space and restrict the behavior of the robot in the infinite world
+    of possibilities.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Building a **General Artificial Intelligence** requires you to define the architecture
+    of the intelligence with the intrinsic skills, which will be hardcoded by programmers
+    into the robot and help solve smaller subproblems, as well as to define the order
+    in which new skills will be acquired, the **curriculum roadmap** that could be
+    taught in a **School for AI**. While **gradual learning** learns skill incrementally
+    using simpler skills, **guided learning** involves a teacher who has already discovered
+    the skills and will teach them to other AI.
+  prefs: []
+  type: TYPE_NORMAL
+- en: On natural language translation tasks, smaller networks have been proven to
+    learn faster and better from a bigger network, the *mentor*, which would have
+    learned to translate and produce the translations for the smaller network to learn
+    from, rather than learning directly from a real set of human translations.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![The future of artificial intelligence](img/00278.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: The preceding figure represents GoodAI Roadmap Institute to evaluate the learning
+    roadmaps for AI.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Self exploration, communication with the mentor, and incorporation of negative
+    and positive feedback are among the ideas toward autonomous intelligence that
+    will develop itself, and the current Deep Learning networks open the way toward
+    this future.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Among the companies that work toward this goal, it would be worth to quote
+    GoodAI, as well as Amazon with its Echo product and the underlying voice control
+    assistant technology, Alexa, that has already learned more than 10,000 skills
+    in order to help you organize your life. Alexa''s knowledge has become so vast
+    that it becomes hard to dive deep into it and find its limitations. A test environment
+    for developers enables them to insert these skills into intelligence tools of
+    higher level:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![The future of artificial intelligence](img/00279.jpeg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Further reading
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'You can refer to the following articles to learn more:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*An E**asy Introduction to CUDA C and C++*, [https://devblogs.nvidia.com/parallelforall/easy-introduction-cuda-c-and-c/](https://devblogs.nvidia.com/parallelforall/easy-introduction-cuda-c-and-c/)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*How to Access Global Memory* *Efficiently in CUDA C/C++ Kernels*, [https://devblogs.nvidia.com/parallelforall/how-access-global-memory-efficiently-cuda-c-kernels/](https://devblogs.nvidia.com/parallelforall/how-access-global-memory-efficiently-cuda-c-kernels/)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Using Shared Memory in CUDA C/C++*, [https://devblogs.nvidia.com/parallelforall/using-shared-memory-cuda-cc/](https://devblogs.nvidia.com/parallelforall/using-shared-memory-cuda-cc/)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Just another Tensorflow beginner guide (Par**t4 - Google Cloud ML + GUP +
+    Keras),* [http://liufuyang.github.io/2017/04/02/just-another-tensorflow-beginner-guide-4.html](http://liufuyang.github.io/2017/04/02/just-another-tensorflow-beginner-guide-4.html)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Learning to learn by gradient descent by gradient descent, Marcin Andrychowicz,
+    Misha Denil, Sergio Gomez, Matthew W. Hoffman, David Pfau, Tom Schaul, Brendan
+    Shillingford, and Nando de Freitas, 2016
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: A Framework for Searching for General Artificial Intelligence, Marek Rosa, and
+    Jan Feyereisl, The GoodAI Collective, 2016
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: This chapter concludes our overview of Deep Learning with Theano.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The first set of extensions of Theano, in Python and C for the CPU and GPU,
+    has been exposed here to create new operators for the computation graph.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Conversion of the learned models from one framework to another is not a complicated
+    task. Keras, a high-level library presented many times in this book as an abstraction
+    on top of the Theano engine, offers a simple way to work with Theano and Tensorflow
+    as well as to push the training of models in the Google ML Cloud.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Lastly, all the networks presented in this book are at the base of General Intelligence,
+    which can use these first skills, such as vision or language understanding and
+    generation, to learn a wider range of skills, still from experiences on real-world
+    data or generated data.
+  prefs: []
+  type: TYPE_NORMAL

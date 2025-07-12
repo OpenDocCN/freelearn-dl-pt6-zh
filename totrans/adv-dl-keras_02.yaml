@@ -1,0 +1,997 @@
+- en: Chapter 2. Deep Neural Networks
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'In this chapter, we''ll be examining deep neural networks. These networks have
+    shown excellent performance in terms of the accuracy of their classification on
+    more challenging and advanced datasets like ImageNet, CIFAR10, and CIFAR100\.
+    For conciseness, we''ll only be focusing on two networks, **ResNet** [2][4] and
+    **DenseNet** [5]. While we will go into much more detail, it''s important to take
+    a minute to introduce these networks:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: ResNet introduced the concept of residual learning which enabled it to build
+    very deep networks by addressing the vanishing gradient problem in deep convolutional
+    networks.
+  prefs: []
+  type: TYPE_NORMAL
+- en: DenseNet improved the ResNet technique further by allowing every convolution
+    to have direct access to inputs, and lower layer feature maps. It's also managed
+    to keep the number of parameters low in deep networks by utilizing both the **Bottleneck**
+    and **Transition** layers.
+  prefs: []
+  type: TYPE_NORMAL
+- en: But why these two models, and not others? Well, since their introduction, there
+    have been countless models such as **ResNeXt** [6] and **FractalNet** [7] which
+    have been inspired by the technique used by these two networks. Likewise, with
+    an understanding of both ResNet and DenseNet, we'll be able to use their design
+    guidelines to build our own models. By using transfer learning, this will also
+    allow us to take advantage of pretrained ResNet and DenseNet models for our own purposes.
+    These reasons alone, along with their compatibility with Keras, make the two models
+    ideal for exploring and complimenting the advanced deep learning scope of this
+    book.
+  prefs: []
+  type: TYPE_NORMAL
+- en: While this chapter's focus is on deep neural networks; we'll begin this chapter
+    by discussing an important feature of Keras called the **Functional API**. This
+    API acts as an alternative method for building networks in Keras and enables us
+    to build more complex networks that cannot be accomplished by the sequential model.
+    The reason why we're focusing so much on this API is that it will become a very
+    useful tool for building deep networks such as the two we're focusing on in this
+    chapter. It's recommended that you've completed, [Chapter 1](ch01.html "Chapter 1. Introducing
+    Advanced Deep Learning with Keras"), *Introducing Advanced Deep Learning with
+    Keras*, before moving onto this chapter as we'll refer to introductory level code
+    and concepts explored in that chapter as we take them to an advanced level in
+    this chapter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The goals of this chapter is to introduce:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The Functional API in Keras, as well as exploring examples of networks running
+    it
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Deep Residual Networks (ResNet versions 1 and 2) implementation in Keras
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The implementation of Densely Connected Convolutional Networks (DenseNet) into
+    Keras
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Explore two popular deep learning models, **ResNet,** and **DenseNet**
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Functional API
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the sequential model that we first introduced in [Chapter 1](ch01.html "Chapter 1. Introducing
+    Advanced Deep Learning with Keras"), *Introducing Advanced Deep Learning with
+    Keras*, a layer is stacked on top of another layer. Generally, the model will
+    be accessed through its input and output layers. We also learned that there is
+    no simple mechanism if we find ourselves wanting to add an auxiliary input at
+    the middle of the network, or even to extract an auxiliary output before the last
+    layer.
+  prefs: []
+  type: TYPE_NORMAL
+- en: That model also had its downside, for example, it doesn't support graph-like
+    models or models that behave like Python functions. In addition, it's also difficult
+    to share layers between the two models. Such limitations are addressed by the
+    functional API and are the reason why it's a vital tool for anyone wanting to
+    work with deep learning models.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The Functional API is guided by the following two concepts:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: A layer is an instance that accepts a tensor as an argument. The output of a layer
+    is another tensor. To build a model, the layer instances are objects that are
+    chained to one another through both input and output tensors. This will have similar
+    end-result as would stacking multiple layers in the sequential model have. However,
+    using layer instances makes it easier for models to have either auxiliary or multiple
+    inputs and outputs since the input/output of each layer will be readily accessible.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: A model is a function between one or more input tensors and output tensors.
+    In between the model input and output, tensors are the layer instances that are
+    chained to one another by layer input and output tensors. A model is, therefore,
+    a function of one or more input layers and one or more output layers. The model
+    instance formalizes the computational graph on how the data flows from input(s)
+    to output(s).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'After you''ve completed building the functional API model, the training and
+    evaluation are then performed by the same functions used in the sequential model.
+    To illustrate, in a functional API, a 2D convolutional layer, `Conv2D`, with 32 filters
+    and with `x` as the layer input tensor and `y` as the layer output tensor can
+    be written as:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We''re also able to stack multiple layers to build our models. For example,
+    we can rewrite the CNN on MNIST code, the same code we created in the last chapter,
+    as shown in following listing:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You''ll find Listing 2.1.1, `cnn-functional-2.1.1.py`, as follows. This shows
+    us how we can convert the `cnn-mnist-1.4.1.py` code using the functional API:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: By default, `MaxPooling2D` uses `pool_size=2`, so the argument has been removed.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the preceding listing every layer is a function of a tensor. They each generate
+    a tensor as an output which becomes the input to the next layer. To create this
+    model, we can call `Model()` and supply both the `inputs` and `outputs` tensors,
+    or alternatively the lists of tensors. Everything else remains the same.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The same listing can also be trained and evaluated using the `fit()` and `evaluate()`
+    functions, similar to the sequential model. The `sequential` class is, in fact,
+    a subclass of the `Model` class. We need to remember that we inserted the `validation_data`
+    argument in the `fit()` function to see the progress of validation accuracy during
+    training. The accuracy ranges from 99.3% to 99.4% in 20 epochs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Creating a two-input and one-output model
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: We're now going to do something really exciting, creating an advanced model
+    with two inputs and one output. Before we start, it's important to know that this
+    is something that is not straightforward in the sequential model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let's suppose a new model for the MNIST digit classification is invented, and
+    it's called the **Y-Network,** as shown in *Figure 2.1.1*. The Y-Network uses
+    the same input twice, both on the left and right CNN branches. The network combines
+    the results using `concatenate` layer. The merge operation `concatenate` is similar
+    to stacking two tensors of the same shape along the concatenation axis to form
+    one tensor. For example, concatenating two tensors of shape (3, 3, 16) along the
+    last axis will result in a tensor of shape (3, 3, 32).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Everything else after the `concatenate` layer will remain the same as the previous
+    CNN model. That is `Flatten-Dropout-Dense`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Creating a two-input and one-output model](img/B08956_02_01.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 2.1.1: The Y-Network accepts the same input twice but processes the
+    input in two branches of convolutional networks. The outputs of the branches are
+    combined using the concatenate layer. The last layer prediction is going to be
+    similar to the previous CNN example.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: To improve the performance of the model in *Listing* *2.1.1*, we can propose
+    several changes. Firstly, the branches of the Y-Network are doubling the number
+    of filters to compensate for the halving of the feature maps size after `MaxPooling2D()`.
+    For example, if the output of the first convolution is (28, 28, 32), after max
+    pooling the new shape is (14, 14, 32). The next convolution will have a filter
+    size of 64 and output dimensions of (14, 14, 64).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Second, although both branches have the same kernel size of 3, the right branch
+    use a dilation rate of 2\. *Figure 2.1.2* shows the effect of different dilation
+    rates on a kernel with size 3\. The idea is that by increasing the coverage of
+    the kernel using dilation rate, the CNN will enable the right branch to learn
+    different feature maps. We''ll use the option `padding=''same''` to ensure that
+    we will not have negative tensor dimensions when the dilated CNN is used. By using
+    `padding=''same''`, we''ll keep the dimensions of the input the same as the output
+    feature maps. This is accomplished by padding the input with zeros to make sure
+    that the output has the *same* size:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Creating a two-input and one-output model](img/B08956_02_02.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 2.1.2: By increasing the dilate rate from 1, the effective kernel coverage
+    also increases'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Following listing shows the implementation of Y-Network. The two branches are
+    created by the two for loops. Both branches expect the same input shape. The two `for`
+    loops will create two 3-layer stacks of `Conv2D-Dropout-MaxPooling2D`. While we
+    used the `concatenate` layer to combine the outputs of the left and right branches,
+    we could also utilize the other merge functions of Keras, such as `add`, `dot`,
+    `multiply`. The choice of the merge function is not purely arbitrary but must
+    be based on a sound model design decision.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In the Y-Network, `concatenate` will not discard any portion of the feature
+    maps. Instead, we''ll let the `Dense` layer figure out what to do with the concatenated
+    feature maps. Listing 2.1.2, `cnn-y-network-2.1.2.py` shows the Y-Network implementation
+    using the Functional API:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: Taking a step back, we can note that the Y-Network is expecting two inputs for
+    training and validation. The inputs are identical, so `[x_train, x_train]` is
+    supplied.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Over the course of the 20 epochs, the accuracy of the Y-Network ranges from
+    99.4% to 99.5%. This is a slight improvement over the 3-stack CNN which achieved
+    a range between 99.3% and 99.4% accuracy range. However, this was at the cost
+    of both higher complexity and more than double the number of parameters. The following
+    figure, *Figure 2.1.3,* shows the architecture of the Y-Network as understood
+    by Keras and generated by the `plot_model()` function:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Creating a two-input and one-output model](img/B08956_02_03.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 2.1.3: The CNN Y-Network as implemented in Listing 2.1.2'
+  prefs: []
+  type: TYPE_NORMAL
+- en: This concludes our look at the Functional API. We should take this time to remember
+    that the focus of this chapter is building deep neural networks, specifically
+    ResNet and DenseNet. Therefore, we're only covering the Functional API materials
+    needed to build them, as to cover the entire API would be beyond the scope of
+    this book.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: The reader is referred to visit [https://keras.io/](https://keras.io/) for additional
+    information on functional API.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Deep residual networks (ResNet)
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: One key advantage of deep networks is that they have a great ability to learn
+    different levels of representations from both inputs and feature maps. In both
+    classification, segmentation, detection and a number of other computer vision
+    problems, learning different levels of features generally leads to better performance.
+  prefs: []
+  type: TYPE_NORMAL
+- en: However, you'll find that it's not easy to train deep networks as a result of
+    the gradient vanishes (or explodes) with depth in the shallow layers during backpropagation.
+    *Figure 2.2.1* illustrates the problem of vanishing gradient. The network parameters
+    are updated by backpropagation from the output layer to all previous layers. Since
+    backpropagation is based on the chain rule, there is a tendency for gradients
+    to diminish as they reach the shallow layers. This is due to the multiplication
+    of small numbers, especially for the small absolute value of errors and parameters.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The number of multiplication operations will be proportional to the depth of
+    the network. It's also worth noting that if the gradient degrades, the parameters
+    will not be updated appropriately.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Hence, the network will fail to improve its performance:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Deep residual networks (ResNet)](img/B08956_02_04.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 2.2.1: A common problem in deep networks is that the gradient vanishes
+    as it reaches the shallow layers during backpropagation.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Deep residual networks (ResNet)](img/B08956_02_05.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 2.2.2: A comparison between a block in a typical CNN and a block in
+    ResNet. To prevent degradation in gradients during backpropagation, a shortcut
+    connection is introduced.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: To alleviate the degradation of the gradient in deep networks, ResNet introduced
+    the concept of a deep residual learning framework. Let's analyze a block, a small
+    segment of our deep network.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The preceding figure shows a comparison between a typical CNN block and a ResNet
+    residual block. The idea of ResNet is that in order to prevent the gradient from
+    degrading, we'll let the information flow through the shortcut connections to reach
+    the shallow layers.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Next, we're going to look at more details within the discussion of the differences
+    between the two blocks. *Figure 2.2.3* shows more details of the CNN block of
+    another commonly used deep network, VGG[3], and ResNet. We'll represent the layer
+    feature maps as **x**. The feature maps at layer *l* are
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Deep residual networks (ResNet)](img/B08956_02_001.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: . The operations in the CNN layer are **Conv2D-Batch Normalization** (**BN**)-**ReLU**.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s suppose we represent this set of operations in the form of *H*() = Conv2D-Batch
+    Normalization(BN)-ReLU, that will then mean that:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Deep residual networks (ResNet)](img/B08956_02_002.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: (Equation 2.2.1)
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Deep residual networks (ResNet)](img/B08956_02_003.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: (Equation 2.2.2)
+  prefs: []
+  type: TYPE_NORMAL
+- en: In other words, the feature maps at layer *l* - 2 are transformed to
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Deep residual networks (ResNet)](img/B08956_02_004.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: by *H*() = Conv2D-Batch Normalization(BN)-ReLU. The same set of operations is
+    applied to transform
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Deep residual networks (ResNet)](img/B08956_02_005.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: to
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Deep residual networks (ResNet)](img/B08956_02_006.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: . To put this another way, if we have an 18-layer VGG, then there are 18 *H*()
+    operations before the input image is transformed to the 18^(th) layer feature
+    maps.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Generally speaking, we can observe that the layer *l* output feature maps are
+    directly affected by the previous feature maps only. Meanwhile, for ResNet:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Deep residual networks (ResNet)](img/B08956_02_007.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: (Equation 2.2.3)
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Deep residual networks (ResNet)](img/B08956_02_008.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: (Equation 2.2.4)
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Deep residual networks (ResNet)](img/B08956_02_06.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 2.2.3: A detailed layer operations for a plain CNN block and a Residual
+    block'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Deep residual networks (ResNet)](img/B08956_02_009.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: is made of `Conv2D-BN,` which is also known as the residual mapping. The **+**
+    sign is tensor element-wise addition between the shortcut connection and the output
+    of
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Deep residual networks (ResNet)](img/B08956_02_010.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: . The shortcut connection doesn't add extra parameters nor extra computational
+    complexity.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The add operation can be implemented in Keras by the `add()` merge function.
+    However, both the
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Deep residual networks (ResNet)](img/B08956_02_011.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: equation and **x** should have the same dimensions. If the dimensions are different,
+    for example, when changing the feature maps size, we should perform a linear projection
+    on **x** as to match the size of
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Deep residual networks (ResNet)](img/B08956_02_012.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: . In the original paper, the linear projection for the case, when the feature
+    maps size is halved, is done by a `Conv2D` with a 1 × 1 kernel and `strides=2`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Back in [Chapter 1](ch01.html "Chapter 1. Introducing Advanced Deep Learning
+    with Keras"), Introducing *Advanced Deep Learning with Keras*, we discussed that `stride
+    > 1` is equivalent to skipping pixels during convolution. For example, if `strides=2`,
+    we could skip every other pixel when we slide the kernel during the convolution
+    process.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The preceding *Equations* *2.2.3* and *2.2.4*, both model ResNet residual block
+    operations. They imply that if the deeper layers can be trained to have fewer
+    errors, then there is no reason why the shallower layers should have higher errors.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Knowing the basic building blocks of ResNet, we're able to design a deep residual
+    network for image classification. This time, however, we're going to tackle a
+    more challenging and advanced dataset.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In our examples, we''re going to consider CIFAR10, which was one of the datasets
+    the original paper was validated. In this example, Keras provides an API to conveniently
+    access the CIFAR10 dataset, as shown:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: Like MNIST, the CIFAR10 dataset has 10 categories. The dataset is a collection
+    of small (32 × 32) RGB real-world images of an airplane, automobile, bird, cat,
+    deer, dog, frog, horse, ship, and a truck corresponding to each of the 10 categories.
+    *Figure 2.2.4* shows sample images from CIFAR10.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In the dataset, there are 50,000 labeled train images and 10,000 labeled test
+    images for validation:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Deep residual networks (ResNet)](img/B08956_02_07.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 2.2.4: Sample images from the CIFAR10 dataset. The full dataset has
+    50,000 labeled train images and 10,000 labeled test images for validation.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: For the CIFAR10 data, ResNet can be built using different network architectures
+    as shown in *Table 2.2.1*. The values of both *n* and the corresponding architectures
+    of ResNet were validated in *Table 2.2.2*. *Table 2.2.1* means we have three sets
+    of residual blocks. Each set has *2n* layers corresponding to *n* residual blocks.
+    The extra layer in 32 × 32 is the first layer for the input image.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The kernel size is 3, except for the transition between two feature maps with
+    different sizes that implements a linear mapping. For example, a `Conv2D` with
+    a kernel size of 1 and `strides=2`. For the sake of consistency with DenseNet,
+    we'll use the term Transition layer when we join two residual blocks of different
+    sizes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ResNet uses `kernel_initializer='he_normal'` in order to aid the convergence
+    when backpropagation is taking place [1]. The last layer is made of `AveragePooling2D-Flatten-Dense`.
+    It's worth noting at this point that ResNet does not use dropout. It also appears
+    that the add merge operation and the 1 × 1 convolution have a self-regularizing
+    effect. *Figure 2.2.4* shows the ResNet model architecture for the CIFAR10 dataset
+    as described in *Table 2.2.1*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The following listing shows the partial ResNet implementation within Keras.
+    The code has been contributed to the Keras GitHub repository. From *Table 2.2.2*
+    we can also see that by modifying the value of `n`, we''re able to increase the
+    depth of the networks. For example, for `n = 18`, we already have ResNet110, a
+    deep network with 110 layers. To build ResNet20, we use `n = 3`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: The `resnet_v1()` method is a model builder for ResNet. It uses a utility function,
+    `resnet_layer()` to help build the stack of `Conv2D-BN-ReLU`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: It's referred to as version 1, as we will see in the next section, an improved
+    ResNet was proposed, and that has been called ResNet version 2, or v2\. Over ResNet,
+    ResNet v2 has an improved residual block design resulting in better performance.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '| Layers | Output Size | Filter Size | Operations |'
+  prefs: []
+  type: TYPE_TB
+- en: '| --- | --- | --- | --- |'
+  prefs: []
+  type: TYPE_TB
+- en: '| Convolution | 32 × 32 | 16 | ![Deep residual networks (ResNet)](img/B08956_02_013.jpg)
+    |'
+  prefs: []
+  type: TYPE_TB
+- en: '| Residual Block(1) | 32 × 32 |   | ![Deep residual networks (ResNet)](img/B08956_02_014.jpg)
+    |'
+  prefs: []
+  type: TYPE_TB
+- en: '| Transition Layer(1) | 32 × 32 |   | ![Deep residual networks (ResNet)](img/B08956_02_015.jpg)
+    |'
+  prefs: []
+  type: TYPE_TB
+- en: '| 16 × 16 |   |'
+  prefs: []
+  type: TYPE_TB
+- en: '| Residual Block(2) | 16 × 16 | 32 | ![Deep residual networks (ResNet)](img/B08956_02_016.jpg)
+    |'
+  prefs: []
+  type: TYPE_TB
+- en: '| Transition Layer(2) | 16 × 16 |   | ![Deep residual networks (ResNet)](img/B08956_02_017.jpg)
+    |'
+  prefs: []
+  type: TYPE_TB
+- en: '| 8 × 8 |   |'
+  prefs: []
+  type: TYPE_TB
+- en: '| Residual Block(3) | 8 × 8 | 64 | ![Deep residual networks (ResNet)](img/B08956_02_018.jpg)
+    |'
+  prefs: []
+  type: TYPE_TB
+- en: '| Average Pooling | 1 × 1 |   | ![Deep residual networks (ResNet)](img/B08956_02_019.jpg)
+    |'
+  prefs: []
+  type: TYPE_TB
+- en: 'Table 2.2.1: ResNet network architecture configuration'
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: '![Deep residual networks (ResNet)](img/B08956_02_08.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 2.2.4: The model architecture of ResNet for the CIFAR10 dataset classification'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '| # Layers | n | % Accuracy on CIFAR10 (Original paper) | % Accuracy on CIFAR10
+    (This book) |'
+  prefs: []
+  type: TYPE_TB
+- en: '| --- | --- | --- | --- |'
+  prefs: []
+  type: TYPE_TB
+- en: '| ResNet20 | 3 | 91.25 | 92.16 |'
+  prefs: []
+  type: TYPE_TB
+- en: '| ResNet32 | 5 | 92.49 | 92.46 |'
+  prefs: []
+  type: TYPE_TB
+- en: '| ResNet44 | 7 | 92.83 | 92.50 |'
+  prefs: []
+  type: TYPE_TB
+- en: '| ResNet56 | 9 | 93.03 | 92.71 |'
+  prefs: []
+  type: TYPE_TB
+- en: '| ResNet110 | 18 | 93.57 | 92.65 |'
+  prefs: []
+  type: TYPE_TB
+- en: 'Table 2.2.2: ResNet architectures validated with CIFAR10'
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: 'The following listing shows the partial code of `resnet-cifar10-2.2.1.py`,
+    which is the Keras model implementation of ResNet v1:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: There are some minor differences from the original implementation of ResNet.
+    In particular, we don't use SGD, and instead, we'll use Adam. This is because
+    ResNet is easier to converge with Adam. We'll also use a learning rate (`lr`)
+    scheduler, `lr_schedule()`, in order to schedule the decrease in `lr` at 80, 120,
+    160, and 180 epochs from the default 1e-3\. The `lr_schedule()` function will
+    be called after every epoch during training as part of the `callbacks` variable.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The other callback saves the checkpoint every time there is progress made in
+    the validation accuracy. When training deep networks, it is a good practice to
+    save the model or weight checkpoint. This is because it takes a substantial amount
+    of time to train deep networks. When you want to use your network, all you need
+    to do is simply reload the checkpoint, and the trained model is restored. This
+    can be accomplished by calling Keras `load_model()`. The `lr_reducer()` function
+    is included. In case the metric has plateaued before the schedule reduction, this
+    callback will reduce the learning rate by the factor if the validation loss has
+    not improved after `patience=5` epochs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `callbacks` variable is supplied when the `model.fit()` method is called.
+    Similar to the original paper, the Keras implementation uses data augmentation,
+    `ImageDataGenerator()`, in order to provide additional training data as part of
+    the regularization schemes. As the number of training data increases, generalization
+    will improve.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For example, a simple data augmentation is flipping the photo of the dog, as
+    shown in following figure (`horizontal_flip=True`). If it is an image of a dog,
+    then the flipped image is still an image of a dog. You can also perform other
+    transformation, such as scaling, rotation, whitening, and so on, and the label
+    will still remain the same:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Deep residual networks (ResNet)](img/B08956_02_09.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 2.2.5: A simple data augmentation is flipping the original image'
+  prefs: []
+  type: TYPE_NORMAL
+- en: It's often difficult to exactly duplicate the implementation of the original
+    paper, especially in the optimizer used and data augmentation, as there are slight
+    differences in the performance of the Keras ResNet implementation in this book and the
+    model in the original paper.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ResNet v2
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: After the release of the second paper on ResNet [4], the original model presented
+    in the previous section has been known as ResNet v1\. The improved ResNet is commonly
+    called ResNet v2\. The improvement is mainly found in the arrangement of layers
+    in the residual block as shown in following figure.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The prominent changes in ResNet v2 are:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The use of a stack of 1 × 1 - 3 × 3 - 1 × 1 `BN-ReLU-Conv2D`
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Batch normalization and ReLU activation come before 2D convolution
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '![ResNet v2](img/B08956_02_10.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 2.3.1: A comparison of residual blocks between ResNet v1 and ResNet
+    v2'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'ResNet v2 is also implemented in the same code as `resnet-cifar10-2.2.1.py`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'ResNet v2''s model builder is shown in the following code. For example, to
+    build ResNet110 v2, we''ll use `n = 12`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The accuracy of ResNet v2 is shown in following table:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '| # Layers | n | % Accuracy on CIFAR10 (Original paper) | % Accuracy on CIFAR10
+    (This book) |'
+  prefs: []
+  type: TYPE_TB
+- en: '| --- | --- | --- | --- |'
+  prefs: []
+  type: TYPE_TB
+- en: '| ResNet56 | 9 | NA | 93.01 |'
+  prefs: []
+  type: TYPE_TB
+- en: '| ResNet110 | 18 | 93.63 | 93.15 |'
+  prefs: []
+  type: TYPE_TB
+- en: In the Keras applications package, ResNet50 has been implemented as well with
+    the corresponding checkpoint for reuse. This is an alternative implementation
+    but tied to the 50-layer ResNet v1.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Densely connected convolutional networks (DenseNet)
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '![Densely connected convolutional networks (DenseNet)](img/B08956_02_11.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 2.4.1: A 4-layer Dense block in DenseNet. The input to each layer is
+    made of all the previous feature maps.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: DenseNet attacks the problem of vanishing gradient using a different approach.
+    Instead of using shortcut connections, all the previous feature maps will become
+    the input of the next layer. The preceding figure, shows an example of a dense
+    interconnection in one Dense block.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For simplicity, in this figure, we''ll only show four layers. Notice that the
+    input to layer *l* is the concatenation of all previous feature maps. If we designate
+    the `BN-ReLU-Conv2D` as the operation *H*(x), then the output of layer *l* is:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Densely connected convolutional networks (DenseNet)](img/B08956_02_020.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: (Equation 2.4.1)
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`Conv2D` uses a kernel of size 3\. The number of feature maps generated per
+    layer is called the growth rate, *k*. Normally, *k* = 12, but *k* = 24 is also
+    used in the paper, *Densely Connected Convolutional Networks*, Huang, and others,
+    2017 [5]. Therefore, if the number of feature maps'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Densely connected convolutional networks (DenseNet)](img/B08956_02_021.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: is
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Densely connected convolutional networks (DenseNet)](img/B08956_02_022.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: ', then the total number of feature maps at the end of the 4-layer Dense block
+    in *Figure 2.4.1* will be'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Densely connected convolutional networks (DenseNet)](img/B08956_02_023.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: .
+  prefs: []
+  type: TYPE_NORMAL
+- en: DenseNet also recommends that the Dense block is preceded by `BN-ReLU-Conv2D`,
+    along with the number of feature maps twice the growth rate,
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Densely connected convolutional networks (DenseNet)](img/B08956_02_024.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: '. Therefore, at the end of the Dense block, the total number of feature maps
+    will be 72\. We''ll also use the same kernel size, which is 3\. At the output
+    layer, DenseNet suggests that we perform an average pooling before the `Dense()`
+    and `softmax` classifier. If the data augmentation is not used, a dropout layer
+    must follow the Dense block `Conv2D`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Densely connected convolutional networks (DenseNet)](img/B08956_02_12.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 2.4.2: A layer in a Dense block of DenseNet, with and without the bottleneck
+    layer BN-ReLU-Conv2D(1). We''ll include the kernel size as an argument of Conv2D
+    for clarity.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: As the network gets deeper, two new problems will occur. Firstly, since every
+    layer contributes *k* feature maps, the number of inputs at layer *l* is
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Densely connected convolutional networks (DenseNet)](img/B08956_02_025.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: . Therefore, the feature maps can grow rapidly within deep layers, resulting
+    in the computation becoming slow. For example, for a 101-layer network this will
+    be 1200 + 24 = 1224 for *k* = 12.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Secondly, similar to ResNet, as the network gets deeper the feature maps size
+    will be reduced to increase the coverage of the kernel. If DenseNet uses concatenation
+    in the merge operation, it must reconcile the differences in size.
+  prefs: []
+  type: TYPE_NORMAL
+- en: To prevent the number of feature maps from increasing to the point of being
+    computationally inefficient, DenseNet introduced the Bottleneck layer as shown
+    in *Figure 2.4.2*. The idea is that after every concatenation; a 1 × 1 convolution
+    with a filter size equal to 4*k* is now applied. This dimensionality reduction
+    technique prevents the number of feature maps to be processed by `Conv2D(3)` from rapidly
+    increasing.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The Bottleneck layer then modifies the DenseNet layer as `BN-ReLU-Conv2D(1)-BN-ReLU-Conv2D(3)`,
+    instead of just `BN-ReLU-Conv2D(3)`. We've included the kernel size as an argument
+    of `Conv2D` for clarity. With the Bottleneck layer, every `Conv2D(3)` is processing
+    just the 4*k* feature maps instead of
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Densely connected convolutional networks (DenseNet)](img/B08956_02_026.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'for layer *l*. For example, for the 101-layer network, the input to the last
+    `Conv2D(3)` is still 48 feature maps for *k* = 12 instead of 1224 as computed
+    previously:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Densely connected convolutional networks (DenseNet)](img/B08956_02_13.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 2.4.3: The transition layer in between two Dense blocks'
+  prefs: []
+  type: TYPE_NORMAL
+- en: To solve the problem in feature maps size mismatch, DenseNet divides a deep
+    network into multiple dense blocks that are joined together by transition layers
+    as shown in the preceding figure. Within each dense block, the feature map size
+    (that is, width and height) will remain constant.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The role of the transition layer is to *transition* from one feature map size
+    to a smaller feature map size between two dense blocks. The reduction in size
+    is usually half. This is accomplished by the average pooling layer. For example,
+    an `AveragePooling2D` with default `pool_size=2` reduces the size from (64, 64,
+    256) to (32, 32, 256). The input to the transition layer is the output of the
+    last concatenation layer in the previous dense block.
+  prefs: []
+  type: TYPE_NORMAL
+- en: However, before the feature maps are passed to average pooling, their number
+    will be reduced by a certain compression factor,
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Densely connected convolutional networks (DenseNet)](img/B08956_02_027.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: ', using `Conv2D(1)`. DenseNet uses'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Densely connected convolutional networks (DenseNet)](img/B08956_02_028.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: in their experiment. For example, if the output of the last concatenation of
+    the previous dense block is (64, 64, 512), then after `Conv2D(1)` the new dimensions
+    of the feature maps will be (64, 64, 256). When compression and dimensionality
+    reduction are put together, the transition layer is made of `BN-Conv2D(1)-AveragePooling2D`
+    layers. In practice, batch normalization precedes the convolutional layer.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Building a 100-layer DenseNet-BC for CIFAR10
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: We're now going to build a **DenseNet-BC** (**Bottleneck-Compression**) with
+    100 layers for the CIFAR10 dataset, using the design principles that we discussed
+    above.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Following table, shows the model configuration, while *Figure 2.4.3* shows the
+    model architecture. *Listing* *2.4.1* shows us the partial Keras implementation
+    of DenseNet-BC with 100 layers. We need to take note that we use `RMSprop` since
+    it converges better than SGD or Adam when using DenseNet.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '| Layers | Output Size | DenseNet-100 BC |'
+  prefs: []
+  type: TYPE_TB
+- en: '| --- | --- | --- |'
+  prefs: []
+  type: TYPE_TB
+- en: '| Convolution | 32 x 32 | ![Building a 100-layer DenseNet-BC for CIFAR10](img/B08956_02_029.jpg)
+    |'
+  prefs: []
+  type: TYPE_TB
+- en: '| Dense Block(1) | 32 x 32 | ![Building a 100-layer DenseNet-BC for CIFAR10](img/B08956_02_030.jpg)
+    |'
+  prefs: []
+  type: TYPE_TB
+- en: '| Transition Layer(1) | 32 x 32 | ![Building a 100-layer DenseNet-BC for CIFAR10](img/B08956_02_031.jpg)
+    |'
+  prefs: []
+  type: TYPE_TB
+- en: '| 16 x 16 |'
+  prefs: []
+  type: TYPE_TB
+- en: '| Dense Block(2) | 16 x 16 | ![Building a 100-layer DenseNet-BC for CIFAR10](img/B08956_02_032.jpg)
+    |'
+  prefs: []
+  type: TYPE_TB
+- en: '| Transition Layer(2) | 16 x 16 | ![Building a 100-layer DenseNet-BC for CIFAR10](img/B08956_02_033.jpg)
+    |'
+  prefs: []
+  type: TYPE_TB
+- en: '| 8 x 8 |'
+  prefs: []
+  type: TYPE_TB
+- en: '| Dense Block(3) | 8 x 8 | ![Building a 100-layer DenseNet-BC for CIFAR10](img/B08956_02_034.jpg)
+    |'
+  prefs: []
+  type: TYPE_TB
+- en: '| Average Pooling | 1 x 1 | ![Building a 100-layer DenseNet-BC for CIFAR10](img/B08956_02_035.jpg)
+    |'
+  prefs: []
+  type: TYPE_TB
+- en: '| Classification Layer |   | `Flatten-Dense(10)-softmax` |'
+  prefs: []
+  type: TYPE_TB
+- en: 'Table 2.4.1: DenseNet-BC with 100 layers for CIFAR10 classification'
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: '![Building a 100-layer DenseNet-BC for CIFAR10](img/B08956_02_14.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 2.4.3: Model architecture of DenseNet-BC with 100 layers for CIFAR10
+    classification'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Listing 2.4.1, `densenet-cifar10-2.4.1.py`: Partial Keras implementation of DenseNet-BC
+    with 100 layers as shown in *Table 2.4.1*:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: Training the Keras implementation in *Listing* *2.4.1* for 200 epochs achieves
+    a 93.74% accuracy vs. the 95.49% as reported in the paper. Data augmentation is
+    used. We used the same callback functions in ResNet v1/v2 for DenseNet.
+  prefs: []
+  type: TYPE_NORMAL
+- en: For the deeper layers, the `growth_rate` and `depth` variables must be changed
+    using the table on the Python code. However, it will take a substantial amount
+    of time to train the network at a depth of 250, or 190 as done in the paper. To
+    give us an idea of training time, each epoch runs for about an hour on a 1060Ti
+    GPU. Though there is also an implementation of DenseNet in the Keras applications
+    module, it was trained on ImageNet.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Conclusion
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this chapter, we've presented Functional API as an advanced method for building
+    complex deep neural network models using Keras. We also demonstrated how the Functional
+    API could be used to build the multi-input-single-output Y-Network. This network,
+    when compared to a single branch CNN network, archives better accuracy. For the
+    rest of the book, we'll find the Functional API indispensable in building more
+    complex and advanced models. For example, in the next chapter, the Functional
+    API will enable us to build a modular encoder, decoder, and autoencoder.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We also spent a significant time exploring two important deep networks, ResNet
+    and DenseNet. Both of these networks have been used not only in classification
+    but also in other areas, such as segmentation, detection, tracking, generation,
+    and visual/semantic understanding. We need to remember that it's more important
+    that we understand the model design decisions in ResNet and DenseNet more closely
+    than just following the original implementation. In that manner, we'll be able
+    to use the key concepts of ResNet and DenseNet for our purposes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: References
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Kaiming He and others. *Delving Deep into Rectifiers: Surpassing Human-Level
+    Performance on ImageNet Classification*. Proceedings of the IEEE international
+    conference on computer vision, 2015 ([https://www.cv-foundation.org/openaccess/content_iccv_2015/papers/He_Delving_Deep_into_ICCV_2015_paper.pdf?spm=5176.100239.blogcont55892.28.pm8zm1&file=He_Delving_Deep_into_ICCV_2015_paper.pdf](https://www.cv-foundation.org/openaccess/content_iccv_2015/papers/He_Delving_Deep_into_ICCV_2015_paper.pdf?spm=5176.100239.blogcont55892.28.pm8zm1&file=He_Delving_Deep_into_ICCV_2015_paper.pdf)).'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Kaiming He and others. *Deep Residual Learning for Image Recognition*. Proceedings
+    of the IEEE conference on computer vision and pattern recognition, 2016a([http://openaccess.thecvf.com/content_cvpr_2016/papers/He_Deep_Residual_Learning_CVPR_2016_paper.pdf](http://openaccess.thecvf.com/content_cvpr_2016/papers/He_Deep_Residual_Learning_CVPR_2016_paper.)).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Karen Simonyan and Andrew Zisserman. *Very Deep Convolutional Networks for Large-Scale
+    Image Recognition*. ICLR, 2015([https://arxiv.org/pdf/1409.1556/](https://arxiv.org/pdf/1409.15)).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Kaiming He and others. *Identity Mappings in Deep Residual Networks*. European
+    Conference on Computer Vision. Springer International Publishing, 2016b([https://arxiv.org/pdf/1603.05027.pdf](https://arxiv.org/pdf/1603.05027.)).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Gao Huang and others. *Densely Connected Convolutional Networks*. Proceedings
+    of the IEEE conference on computer vision and pattern recognition, 2017([http://openaccess.thecvf.com/content_cvpr_2017/papers/Huang_Densely_Connected_Convolutional_CVPR_2017_paper.pdf](http://openaccess.thecvf.com/content_cvpr_2017/papers/Huang_Densely_Connected_Convolutional_CVPR_2017_paper.pdf)).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Saining Xie and others. *Aggregated Residual Transformations for Deep Neural
+    Networks*. Computer Vision and Pattern Recognition (CVPR), 2017 IEEE Conference
+    on. IEEE, 2017([http://openaccess.thecvf.com/content_cvpr_2017/papers/Xie_Aggregated_Residual_Transformations_CVPR_2017_paper.pdf](http://openaccess.thecvf.com/content_cvpr_2017/papers/Xie_Aggregated_Residual_Transformations_CVPR_2017_paper.pdf)).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Gustav Larsson, Michael Maire and Gregory Shakhnarovich. *Fractalnet: Ultra-Deep
+    Neural Networks Without Residuals*. arXiv preprint arXiv:1605.07648, 2016 ([https://arxiv.org/pdf/1605.07648.pdf](https://arxiv.org/pdf/1605.07648.pdf)).'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL

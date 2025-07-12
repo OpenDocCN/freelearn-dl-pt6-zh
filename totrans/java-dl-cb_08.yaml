@@ -1,0 +1,511 @@
+- en: Performing Anomaly Detection on Unsupervised Data
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this chapter, we will perform anomaly detection with the **Modified National
+    Institute of Standards and Technology** (**MNIST**) dataset using a simple autoencoder without
+    any pretraining. We will identify the outliers in the given MNIST data. Outlier digits
+    can be considered as most untypical or not normal digits. We will encode the MNIST
+    data and then decode it back in the output layer. Then, we will calculate the reconstruction
+    error for the MNIST data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The MNIST sample that closely resembles a digit value will have low reconstruction
+    error. We will then sort them based on the reconstruction errors and then display
+    the best samples and the worst samples (outliers) using the JFrame window. The
+    autoencoder is constructed using a feed-forward network. Note that we are not
+    performing any pretraining. We can process feature inputs in an autoencoder and
+    we won't require MNIST labels at any stage.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this chapter, we will cover the following recipes:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Extracting and preparing MNIST data
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Constructing dense layers for input
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Constructing output layers
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Training with MNIST images
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Evaluating and sorting the results based on the anomaly score
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Saving the resultant model
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Let's begin.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Technical requirements
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The code for this chapter can be found here: [https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/blob/master/08_Performing_Anomaly_detection_on_unsupervised%20data/sourceCode/cookbook-app/src/main/java/MnistAnomalyDetectionExample.java](https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/blob/master/08_Performing_Anomaly_detection_on_unsupervised%20data/sourceCode/cookbook-app/src/main/java/MnistAnomalyDetectionExample.java).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The JFrame-specific implementation can be found here:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/blob/master/08_Performing_Anomaly_detection_on_unsupervised%20data/sourceCode/cookbook-app/src/main/java/MnistAnomalyDetectionExample.java#L134](https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/blob/master/08_Performing_Anomaly_detection_on_unsupervised%20data/sourceCode/cookbook-app/src/main/java/MnistAnomalyDetectionExample.java#L134).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: After cloning our GitHub repository, navigate to the` Java-Deep-Learning-Cookbook/08_Performing_Anomaly_detection_on_unsupervised
+    data/sourceCode` directory. Then, import the `cookbook-app` project as a Maven
+    project by importing `pom.xml`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note that we use the MNIST dataset from here: [http://yann.lecun.com/exdb/mnist/](http://yann.lecun.com/exdb/mnist/).
+  prefs: []
+  type: TYPE_NORMAL
+- en: However, we don't have to download the dataset for this chapter: DL4J has a
+    custom implementation that allows us to fetch MNIST data automatically. We will
+    be using this in this chapter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Extracting and preparing MNIST data
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Unlike supervised image classification use cases, we will perform an anomaly
+    detection task on the MNIST dataset. On top of that, we are using an unsupervised
+    model, which means that we will not be using any type of label to perform the
+    training process. To start the ETL process, we will extract this unsupervised
+    MNIST data and prepare it so that it is usable for neural network training.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Create iterators for the MNIST data using `MnistDataSetIterator`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Use `SplitTestAndTrain` to split the base iterator into train/test iterators:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Create lists to store the feature sets from the train/test iterators:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Populate the values into the feature/label lists that were previously created:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Call `argmax()` for every iterator instance to convert the labels to one dimensional
+    data if it''s multidimensional:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: How it works...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In step 1, we have used `MnistDataSetIterator` to extract and load MNIST data
+    in one place. DL4J comes with this specialized iterator to load MNIST data without
+    having to worry about downloading the data on your own. You might notice that
+    MNIST data on the official website follows the `ubyte` format. This is certainly
+    not the desired format, and we need to extract all the images separately to load
+    them properly on the neural network.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Therefore, it is very convenient to have an MNIST iterator implementation such
+    as `MnistDataSetIterator` in DL4J. It simplifies the typical task of handling
+    MNIST data in the `ubyte` format. MNIST data has a total of 60,000 training digits,
+    10,000 test digits, and 10 labels. Digit images have a dimension of 28 x 28, the
+    shape of the data is in a flattened format: [`minibatch`, 784]. `MnistDataSetIterator`
+    internally uses the `MnistDataFetcher` and `MnistManager` classes to fetch the
+    MNIST data and load them into the proper format. In step 1, `binarize`: `true` or `false` indicates
+    whether to binarize the MNIST data.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note that in step 2, `numHoldOut` indicates the number of samples to be held
+    for training. If `miniBatchSize` is `100` and `numHoldOut` is `80`, then the remaining
+    20 samples are meant for testing and evaluation. We can use `DataSetIteratorSplitter`instead
+    of `SplitTestAndTrain` for splitting of data, as mentioned in step 2.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In step 3, we created lists to maintain the features and labels with respect
+    to training and testing. We need them for the training and evaluation stages,
+    respectively. We also created a list to store labels from the test set to map
+    the outliers with labels during the test and evaluation phases. These lists are
+    populated once in every occurrence of a batch. For example, in the case of `featuresTrain` or `featuresTest`,
+    a batch of features (after data splitting) is represented by an `INDArray` item.
+    We have also used an `argMax()` function from ND4J. This converts the labels array
+    into a one-dimensional array. MNIST labels from `0` to `9` effectively need just
+    one-dimensional space for representation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In the following code, `1`denotes the dimension:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: Also, note that we use the labels for mapping outliers to labels and not for
+    training.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Constructing dense layers for input
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The core of the neural network design is the layer architecture. For autoencoders,
+    we need to design dense layers that do encoding at the front and decoding at the
+    other end. Basically, we are reconstructing the inputs in this way. Accordingly,
+    we need to make our layer design.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let's start configuring our autoencoder using the default settings and then
+    proceed further by defining the necessary input layers for our autoencoder. Remember
+    that the number of incoming connections to the neural network will be equal to
+    the number of outgoing connections from the neural network.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Use `MultiLayerConfiguration` to construct the autoencoder network:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Create input layers using `DenseLayer`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: How it works...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'In step 1, while configuring generic neural network parameters, we set the
+    default learning rate as shown here:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: The `Adagrad` optimizer is based on how frequently a parameter gets updated
+    during training. `Adagrad` is based on a vectorized learning rate. The learning
+    rate will be small when there are many updates received. This is crucial for high-dimensional
+    problems. Hence, this optimizer can be a good fit for our autoencoder use case.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We are performing dimensionality reduction at the input layers in an autoencoder
+    architecture. This is also known as encoding the data. We want to ensure that
+    the same set of features are decoded from the encoded data. We calculate reconstruction
+    errors to measure how close we are compared to the real feature set before encoding.
+    In step 2, we are trying to encode the data from a higher dimension (`784`) to
+    a lower dimension (`10`).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Constructing output layers
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: As a final step, we need to decode the data back from the encoded state. Are
+    we able to reconstruct the input just the way it is? If yes, then it's all good.
+    Otherwise, we need to calculate an associated reconstruction error. Remember that
+    the incoming connections to the output layer should be the same as the outgoing
+    connections from the preceding layer.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Create an output layer using `OutputLayer`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Add `OutputLayer` to the layer definitions:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: How it works...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: We have mentioned the **mean square error** (**MSE**) as the error function
+    associated with the output layer. `lossFunction`, which is used in autoencoder
+    architecture, is MSE in most cases. MSE is optimal in calculating how close the
+    reconstructed input is to the original input. ND4J has an implementation for MSE,
+    which is `LossFunction.MSE`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the output layer, we get the reconstructed input in their original dimensions.
+    We will then use an error function to calculate the reconstruction error. In step
+    1, we're constructing an output layer that calculates the reconstruction error
+    for anomaly detection. It is important to keep the incoming and outgoing connections
+    the same at the input and output layers, respectively. Once the output layer definition
+    is created, we need to add it to a stack of layer configurations that is maintained
+    to create the neural network configuration. In step 2, we added the output layer
+    to the previously maintained neural network configuration builder. In order to
+    follow an intuitive approach, we have created configuration builders first, unlike
+    the straightforward approach here: [https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/blob/master/08_Performing_Anomaly_detection_on_unsupervised%20data/sourceCode/cookbook-app/src/main/java/MnistAnomalyDetectionExample.java](https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/blob/master/08_Performing_Anomaly_detection_on_unsupervised%20data/sourceCode/cookbook-app/src/main/java/MnistAnomalyDetectionExample.java).
+  prefs: []
+  type: TYPE_NORMAL
+- en: You can obtain a configuration instance by calling the `build()` method on the
+    `Builder` instance.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Training with MNIST images
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Once the layers are constructed and the neural network is formed, we can initiate
+    the training session. During the training session, we reconstruct the input multiple
+    times and evaluate the reconstruction error. In previous recipes, we completed
+    the autoencoder network configuration by defining the input and output layers
+    as required. Note that we are going to train the network with its own input features,
+    not the labels. Since we use an autoencoder for anomaly detection, we encode the
+    data and then decode it back to measure the reconstruction error. Based on that,
+    we list the most probable anomalies in MNIST data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Choose the correct training approach. Here is what is expected to happen during
+    the training instance:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: So, we need to train output against input (output ~ input, in an ideal case).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Train every feature set using the `fit()` method:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: How it works...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The `fit()` method accepts both features and labels as attributes for the first
+    and second attributes, respectively. We reconstruct the MNIST features against
+    themselves. In other words, we are trying to recreate the features once they are
+    encoded and check how much they vary from actual features. We measure the reconstruction
+    error during training and bother only about the feature values. So, the output
+    is validated against the input and resembles how an autoencoder functions. So,
+    step 1 is crucial for the evaluation stage as well.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Refer to this block of code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: That's the reason why we train the autoencoder against its own features (inputs)
+    as we call `fit()` in this way: `net.fit(data,data)` in step 2.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Evaluating and sorting the results based on the anomaly score
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: We need to calculate the reconstruction error for all the feature sets. Based
+    on that, we will find the outlier data for all the MNIST digits (0 to 9). Finally,
+    we will display the outlier data in the JFrame window. We also need feature values
+    from a test set for the evaluation. We also need label values from the test set,
+    not for evaluation, but for mapping anomalies with labels. Then, we can plot outlier
+    data against each label. The labels are only used for plotting outlier data in
+    JFrame against respective labels. In this recipe, we evaluate the trained autoencoder
+    model for MNIST anomaly detection, and then sort the results and display them.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Compose a map that relates each MNIST digit to a list of (score, feature) pairs:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Iterate through each and every test feature, calculate the reconstruction error,
+    make a score-feature pair for the purpose of displaying the sample with a low
+    reconstruction error:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Create a custom comparator to sort the map:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Sort the map using `Collections.sort()`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Collect the best/worst data to display in a JFrame window for visualization:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Use a custom JFrame implementation for visualization, such as `MNISTVisualizer`,
+    to visualize the results:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: How it works...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Using step 1 and step 2, for every MNIST digit, we maintain a list of (score,
+    feature) pairs. We composed a map that relates each MNIST digit to this list of
+    pairs. In the end, we just have to sort it to find the best/worst cases.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Also, we used the `score()` function to calculate the reconstruction error:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: During the evaluation, we reconstruct the test features and measure how much
+    it differs from actual feature values. A high reconstruction error indicates the
+    presence of a high percentage of outliers.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'After step 4, we should see JFrame visualization for reconstruction errors, as
+    shown here:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/48f96597-f613-4198-8ebf-2e049ba79953.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Visualization is JFrame dependent. Basically, what we do is take the *N* best/worst
+    pairs from the previously created map in step 1\. We make a list of best/worst
+    data and pass it to our JFrame visualization logic to display the outlier in the
+    JFrame window. The JFrame window on the right side represents the outlier data. We
+    are leaving the JFrame implementation aside as it is beyond the scope for this
+    book. For the complete JFrame implementation, refer to GitHub source mentioned
+    in the *Technical requirements* section.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Saving the resultant model
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Model persistence is very important as it enables the reuse of neural network
+    models without having to train more than once. Once the autoencoder is trained
+    to perform outlier detection, we can save the model to the disk for later use.
+    We explained the `ModelSerializer` class in a previous chapter. We use this to
+    save the autoencoder model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Use `ModelSerializer` to persist the model:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Add a normalizer to the persisted model:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs: []
+  type: TYPE_PRE
+- en: How it works...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'We officially target the DL4J version 1.0.0-beta 3 in this chapter. We used `ModelSerializer`
+    to save the models to disk. If you use the new version, 1.0.0-beta 4, there is
+    another recommended way to save the model by using the `save()` method offered
+    by `MultiLayerNetwork`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs: []
+  type: TYPE_PRE
+- en: Use `saveUpdater = true` if you want to train the network in the future.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There's more...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'To restore the network model, call the `restoreMultiLayerNetwork()` method:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Additionally, if you use the latest version, 1.0.0-beta 4, you can use the `load()` method
+    offered by `MultiLayerNetwork`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE25]'
+  prefs: []
+  type: TYPE_PRE

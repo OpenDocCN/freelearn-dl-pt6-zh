@@ -1,0 +1,1215 @@
+- en: Understanding PPO
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: We have avoided going too deep into the more advanced inner workings of the **proximal
+    policy optimization** (**PPO**) algorithm, even going so far as to avoid any policy-versus-model
+    discussion. If you recall, PPO is the **reduced level** (**RL**) method first
+    developed at OpenAI that powers ML-Agents, and is a policy-based algorithm. In
+    this chapter, we will look at the differences between policy-and model-based RL
+    algorithms, as well as the more advanced inner workings of the Unity implementation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The following is a list of the main topics we will cover in this chapter:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Marathon reinforcement learning
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The partially observable Markov decision process
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Actor-Critic and continuous action spaces
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Understanding TRPO and PPO
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Tuning PPO with hyperparameters
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The content in this chapter is at an advanced level, and assumes that you have
+    covered several previous chapters and exercises. For the purposes of this chapter,
+    we will also assume that you are is able to open and run a learning environment
+    in Unity with ML-Agents without difficulty.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Marathon RL
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: So far, our focus has been on discrete actions and episodic environments, where
+    the agent often learns to solve a puzzle or accomplish some task. The best examples
+    of such environments are GridWorld, and, of course, the Hallway/VisualHallway
+    samples, where the agent discretely chosses actions such as up, left, down, or
+    right, and, using those actions, has to navigate to some goal. While these are
+    great environments to play with and learn the basic concepts of RL, they can be
+    quite tedious environments to learn from, since results are not often automatic
+    and require extensive exploration. However, in marathon RL environments, the agent
+    is always learning by receiving rewards in the form of control feedback. In fact,
+    this form of RL is analogus to control systems for robotics and simulations. Since
+    these environments are rich with rewards in the form of feedback, they provide
+    us with better immediate feedback when we alter/tune hyperparameters, which will
+    make these types of environments perfect for our own learning purposes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Unity provides several examples of marathon RL environments, and at the time
+    of writing featured the Crawler, Reacher, Walker, and Humanoid example environments,
+    but these will likely be changed in the future.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Marathon environments are constructed differently, and we should probably understand
+    some of these differences before going any further. Open up the Unity editor and
+    your Python command window of choice, set up to run `mlagents-learn`, and complete
+    the following the exercise:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Open the `CrawlerDynamicTarget` example scene from the `Assets/ML-Agents/Examples/Crawler/Scenes`
+    folder. This example features an agent with four movable limbs, each with two
+    joints that can move as well. The goal is for the agent to move toward some dynamic
+    target that keeps changing.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Select the DynamicPlatform | Crawler object in the Hierarchy window and take
+    note of the Crawler Agent component and CrawlerDynamicLearning brain, as shown
+    in the following
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '**screenshot:**'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '![](img/45721812-4056-48f1-9b7a-cde4486d892d.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Inspecting the Crawler agent and brain
+  prefs: []
+  type: TYPE_NORMAL
+- en: Notice how the space size of the brain is 129 vector observations and 20 continuous
+    actions. A continuous action returns a value that determines the degree to which
+    a joint may rotate, thus allowing the agent to learn how to coordinate these joint
+    actions into movements that will allow it to crawl to a goal.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Click the target icon beside the Crawler Agent component, and from the context
+    menu, select **Edit Script**.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'After the script opens, scroll down and look for the `CollectObservations`
+    method:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: Again, the code is in C#, but it should be fairly self-explanatory as to what
+    inputs the agent is perceiving. We can first see that the agent takes the direction
+    to target, its up and forward, as well as observations from each body part as
+    input.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Select **Academy** in the scene and make sure the **Brain** configuration is
+    set for **Control** (learning).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'From your previously prepared command window or Anaconda window, run the `mlagents-learn`
+    script as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: Quite quickly after the training begins, you will see the agent making immediate
+    measurable progress.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: This agent can impressively train very quickly, and will be incredibly useful
+    for testing our knowledge of how RL works in the coming sections. Feel free to
+    look through and explore this sample, but avoid tuning any parameters, as we will
+    begin doing that in the next section.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The partially observable Markov decision process
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Back in [Chapter 5](6ca7a117-1a8c-49f9-89c0-ee2f2a1e8baf.xhtml), *Introducing
+    DRL*, we learned that a **Markov Decision Process** (**MDP**) is used to define
+    the state/model an agent uses to calculate an action/value from. In the case of
+    Q-learning, we have seen how a table or grid could be used to hold an entire MDP
+    for an environment such as the Frozen Pond or GridWorld. These types of RL are
+    model-based, meaning they completely model every state in the environment—every
+    square in a grid game, for instance. Except, in most complex games and environments,
+    being able to map physical or visual state becomes a partially observable problem,
+    or what we may refer to as a **partially observable Markov decision process** (**POMDP**).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'A POMDP defines a process where an agent never has a complete view of its environment,
+    but instead learns to conduct actions based on a derived general policy. This
+    is demonstrated well in the Crawler example, because we can see the agent learning
+    to move using only limited information—the direction to target. The following
+    table outlines the definition of Markov models we generally use for RL:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '|  | **No** | **Yes** |  |'
+  prefs: []
+  type: TYPE_TB
+- en: '| **All states observable?** | **No** | Markov Chain | MDP |'
+  prefs: []
+  type: TYPE_TB
+- en: '| **Yes** | Hidden Markov Model | POMDP |'
+  prefs: []
+  type: TYPE_TB
+- en: Since we provide our agent with control over its states in the form of actions,
+    the Markov models we study are the MDP and POMDP. Likewise, these processes will
+    also be often referred to as on or off model, while if an RL algorithm is completely
+    aware of state, we call it a model-based process. Conversely, a POMDP refers to
+    an off-model process, or what we will refer to as a policy-based method. Policy-based
+    algorithms, provide better generalization and have the ability to learn in environments
+    with an unknown or infinite number of observable states. Examples of partially
+    observable states are environments such as the Hallway, VisualHallway, and, of
+    course, Crawler.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Markov models provide a foundation for many aspects of machine learning, and
+    you may encounter their use in more advanced deep learning methods known as deep
+    probabilistic programming. Deep PPL, as it is referred to, is a combination or
+    variational inference and deep learning methods.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Model-free methods typically use an experienced buffer to store a set of experiences
+    that it will use later to learn a general policy from. This buffer is defined
+    by a few hyperparameters, called `time_horizon`, `batch_size`, and `buffer_size`.Definitions
+    of each of these parameters extracted from the ML-Agents documentation are given
+    here:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`time_horizon`: This corresponds to how many steps of experience to collect
+    per agent before adding them to the experience buffer. When this limit is reached
+    before the end of an episode, a value estimate is used to predict the overall
+    expected reward from the agent''s current state. As such, this parameter trades
+    off between a less biased, but higher variance estimate (long time horizon), and
+    a more biased, but less varied estimate (short time horizon). In cases where there
+    are frequent rewards within an episode, or episodes are prohibitively large, a
+    smaller number can be more ideal. This number should be large enough to capture
+    all the important behavior within a sequence of an agent''s actions:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Typical range: 32 – 2,048'
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`buffer_size`: This corresponds to how many experiences (agent observations,
+    actions, and rewards obtained) should be collected before we update the model
+    or do any learning. This should be a multiple of `batch_size`. Typically, a larger
+    `buffer_size` parameter corresponds to more stable training updates.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Typical range: 2,048 – 4,09,600'
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`batch_size`: This is the number of experiences used for one iteration of a
+    gradient descent update. This should always be a fraction of the `buffer_size` parameter.
+    If you are using a continuous action space, this value should be large (in the
+    order of thousands). If you are using a discrete action space, this value should
+    be smaller (in order of tens).'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Typical range (continuous): 512 – 5,120'
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Typical range (discrete): 32 – 512'
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'We can see how these values are set by looking at the `CrawlerDynamicLearning`
+    brain configuration, and altering this to see the effect this has on training.
+    Open up the editor and a properly configured Python window to the `CrawlerDynamicTarget`
+    scene and follow this exercise:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Open the `trainer_config.yaml` file located in the `ML-Agents/ml-agents/config`
+    folder.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Scroll down to the `CrawlerDynamicLearning` brain configuration section:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: Note the highlighted lines showing the `time_horizon`, `batch_size`, and `buffer_size`
+    parameters. If you recall from our earlier Hallway/VisualHallway examples, the
+    `time_horizon` parameter was only 32 or 64\. Since those examples used a discrete
+    action space, we could set a much lower value for `time_horizon`.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Double all the parameter values, as shown in the following code excerpt:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: Essentially, what we are doing here is doubling the amount of experiences the
+    agent will use to build a policy of the environment around it. In essence, we
+    are giving the agent a larger snapshot of experiences to train against.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Run the agent in training as you have done so many times before.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Let the agent train for as long as you ran the previous base sample. This will
+    give you a good comparison in training performance.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: One thing that will become immediately obvious is how much more stable the agent
+    trains, meaning the agent's mean reward will progress more steadily and jump around
+    less. Recall that we want to avoid training jumps, spikes, or wobbles, as this
+    could indicate poor convergence on the part of the network's optimization method.
+    This means that more gradual changes are generally better, and indicate good training
+    performance. By doubling `time_horizon` and associated parameters, we have doubled
+    the amount of experiences the agent used to learn from. This, in turn, had the
+    effect of stabilizing the training, but it is likely that you noticed the agent
+    took longer to train to the same number of iterations.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Partially observable RL algorithms are classed as policy-based, model-free,
+    or off-model, and are a foundation for PPO. In the next section, we will look
+    at the improvements in RL that deal with the additional complexities of managing
+    continuous action spaces better.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Actor-Critic and continuous action spaces
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Another complexity we introduced when looking at marathon RL or control learning
+    was the introduction of continuous action spaces. Continuous action spaces represent
+    a set of infinite possible actions an agent could take. Where our agent could
+    previously favor a discrete action, yes or no, it now has to select some points
+    within an infinite space of actions as an action for each joint. This mapping
+    from an infinite action space to an action is not easy to solve—however, we do
+    have neural networks at our disposal, and these provide us with an excellent solution
+    using an architecture not unlike the GANs we looked at in [Chapter 3](cb51d15b-9855-47e2-8e45-f74a115ebfa8.xhtml),
+    *GAN for* *Games*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'As we discovered in the chapter on GANs, we could propose a network architecture
+    composed of two competing networks. These competing networks would force each
+    network to learn by competing against each other for the best solution to mapping
+    a random space into a convincing forgery. A similar concept to a GAN can be applied
+    in this case as well, and is called the Actor-Critic model. A diagram of this
+    model is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/76a62795-5bcf-47ca-8854-38bec7a20d00.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Actor-Critic architecture
+  prefs: []
+  type: TYPE_NORMAL
+- en: What happens here is that the **Actor** selects an **action** from the policy
+    given a **state**. The **state** is first passed through a **Critic**, which values
+    the best action given the current **state**, provided some **error**. More simply
+    put, the **Critic** criticizes each action based on the current **state**, and
+    then the **Actor** chooses the best action given the **state**.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This method of action selection was first explored in an algorithm called **dueling
+    double Q networks** (**DDQN**). It is now the basis for most advanced RL algorithms.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Actor-Critic was essentially required to solve the continuous action space problem,
+    but, given its performance, this method has been incorporated into some advanced
+    discrete algorithms as well. ML-Agents uses an Actor-Critic model for continuous
+    spaces, but does not use one for discrete action spaces.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Using Actor-Critic requires, or works best with, additional layers and neurons
+    in our network, which is something we can configure in ML-Agents. The hyperparameter
+    definitions for these are pulled from the ML-Agents documents, and are as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`num_layers`: This corresponds to how many hidden layers are present after
+    the observation input, or after the CNN encoding of the visual observation. For
+    simple problems, fewer layers are likely to train faster and more efficiently.
+    More layers may be necessary for more complex control problems:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Typical range: 1 – 3'
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`hidden_units`: These correspond to how many units are in each fully-connected
+    layer of the neural network. For simple problems where the correct action is a
+    straightforward combination of the observation inputs, this should be small. For
+    problems where the action is a very complex interaction between the observation
+    variables, this should be larger:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Typical range: 32 – 512'
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Let''s open up a new ML-Agents marathon or control sample and see what effect
+    modifying these parameters has on training. Follow this exercise to understand
+    the effect of adding layers and neurons (units) to a control problem:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Open the Walker scene from the `Assets/ML-Agents/Examples/Walker/Scenes` folder.
+    This example features a walking humanoid animation.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Locate and select the WalkerAgent object in the Hierarchy window, and then
+    look to the Inspector window and examine the Agent and Brain settings, as shown
+    in the following screenshot:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![](img/ccf7c439-29cb-4b2d-8745-f26137f898dc.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The WalkerAgent and WalkerLearning properties
+  prefs: []
+  type: TYPE_NORMAL
+- en: Select `WalkerAcademy` in the Hierarchy window and make sure the Control option
+    is enabled for the `Brains` parameter.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Open the `trainer_config.yaml` file located in the `ML-Agents/ml-agents/config`
+    folder and scroll down to the `WalkerLearning` section as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: Notice how many layers and units this example is using. Is it more or fewer
+    than what we used for the discrete action problems?
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Save everything and set the sample up for training.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Launch a training session from your Python console with the following command:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: This agent may take considerably longer to train, but try and wait for about
+    100,000 iterations in order to get a good sense of its training progress.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Now that we have a better understanding of Actor-Critic and how it is used in
+    continuous action spaces, we can move on to exploring what effect changing the
+    network size has on training these more complex networks in the next section.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Expanding network architecture
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Actor-Critic architectures increase the complexity of the problem, and thus
+    the complexity and size of the networks needed to solve them. This is really no
+    different than the case in our earlier look at PilotNet, the multilayer CNN architecture
+    that was used by Nvidia to self-drive.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'What we want to see is the immediate effect that increasing the size of our
+    network has on a complex example such as the Walker example. Open Unity to the
+    `Walker` example and complete the following exercise:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Open `trainer_config.yaml` from where it is normally located.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Modify the `WalkerLearning` configuration, as shown in the following code:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Set `num_layers: 1` and `hidden_units: 128`. These are typical values that
+    we would use for discrete action space problems. You can confirm this by looking
+    at another discrete sample, such as the `VisualHallwayLearning` configuration,
+    as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: This sample uses the same settings as we just set our continuous action problem
+    to.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: When you are done editing, save everything and get ready for training.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Launch a training session, with a new `run-id` parameter. Remember to get in
+    the practice of changing the `run-id` parameter with every run so that it is easier
+    to discern each run in TensorBoard.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: As always, let the sample run for as long as you did the earlier unaltered run
+    for a good comparison.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: One of the things you may immediately notice when running this sample is how stable
+    the training is. The second thing you may notice is that training stability increases,
+    but performance slightly decreases. Remember that a smaller network has less weights
+    and will generally be more stable and quicker to train. However, in this problem,
+    while the training is more stable on the network and promises to be faster, you
+    may notice that training hits a wall. The agent, now limited by network size,
+    is able to optimize the smaller network faster, but without the fine control we
+    have seen before. In fact, this agent will never be as good as the first unaltered
+    run since it is now limited by a smaller network. This is another one of those
+    trade-offs you need to balance when building DRL agents for games/simulations.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the next section, we take a further look at what we call advantage functions
+    or those used like in Actor-Critic, and will first explore TRPO, and, of course,
+    PPO.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Understanding TRPO and PPO
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'There are many variations to the policy-and model-free algorithms that have
+    become popular for solving RL problems of optimizing predictions of future rewards.
+    As we have seen, many of these algorithms use an advantage function, such as Actor-Critic,
+    where we have two sides of the problem trying to converge to the optimum solution.
+    In this case, the advantage function is trying to find the maximum expected discounted
+    rewards. TRPO and PPO do this by using an optimization method called a **Minorize-Maximization**
+    (**MM)** algorithm. An example of how the MM algorithm solves a problem is shown
+    in the following diagram:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/2942a112-735d-42c4-8c0b-91d658772882.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Using the MM algorithm
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'This diagram was extracted from a series of blogs by Jonathon Hui that elegantly
+    describe the MM algorithm along with the TRPO and PPO methods in much greater
+    detail*.* See the following link for the source: ([https://medium.com/@jonathan_hui/rl-proximal-policy-optimization-ppo-explained-77f014ec3f12](https://medium.com/@jonathan_hui/rl-proximal-policy-optimization-ppo-explained-77f014ec3f12)).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Essentially, the MM algorithm finds the optimum pair function by interactively
+    maximizing and minimizing function parameters until it arrives at a converged
+    solution. In the diagram, the red line denotes the function we are looking to
+    approximate, and the blue line denotes the converging function. You can see the
+    progression as the algorithm picks min/max values that will find a solution.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The problem we encounter when using MM is that the function approximation can
+    sometimes fall off, or down into a valley. In order to understand this better,
+    let''s consider this as solving the problem of climbing an uneven hill using a
+    straight line. An example of such a scenario is seen here:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/7a561b98-be5b-4d4f-bf2f-b5ac4303dd07.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Attempting to climb a hill using linear methods
+  prefs: []
+  type: TYPE_NORMAL
+- en: You can see that using only linear paths to try and navigate this quite treacherous
+    ridge would, in fact, be dangerous. While the danger may not be as real, it is
+    still a big problem when using linear methods to solve MM, as it is if you were
+    hiking up a steep ridge using only a straight fixed path.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'TRPO solves the problem of using linear methods by using a quadratic method,
+    and by  limiting the amount of steps each iteration can take in a form of trust
+    region. That is, the algorithm makes sure that every position is positive and
+    safe. If we consider our hill climbing example again, we may consider TRPO as
+    placing a path or region of trust, like in the following photo:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/1f867818-2804-442b-9cec-fdd67792c95c.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: A trust region path up the hill
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the preceding photo, the path is shown for example purposes only as a connected
+    set of circles or regions; the real trust path may or may not be closer to the
+    actual peak or ridge. Regardless, this has the effect of allowing the agent to
+    learn at a more gradual and progressive pace. With TRPO, the size of the trust
+    region can be altered and made bigger or smaller to coincide with our preferred
+    policy convergence. The problem with TRPO is that it is quite complex to implement
+    since it requires the second-degree derivation of some complex equations.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'PPO addresses this issue by limiting or clipping the Kulbach-Leibler (**KL**)
+    divergence between two policies through each iteration. KL divergence measures
+    the difference in probability distributions and can be described through the following
+    diagram:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/15484cb4-865c-4d5b-b788-e193fbf80aeb.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Understanding KL divergence
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In the preceding diagram, **p(x)** and **q(x)** each represent a different
+    policy where the KL divergence is measured. The algorithm then, in turn, uses
+    this measure of divergence to limit or clip the amount of policy change that may
+    occur in an iteration. ML-Agents uses two hyperparameters that allow you to control
+    this amount of clipping applied to the objective or function that determines the
+    amount of policy change in an iteration. The following are the definitions for
+    the beta and epsilon parameters, as described in the Unity documentation:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Beta**: This corresponds to the strength of the entropy regularization, which
+    makes the policy *more random*. This ensures that agents properly explore the
+    action space during training. Increasing this will ensure that more random actions
+    are taken. This should be adjusted so that the entropy (measurable from TensorBoard)
+    slowly decreases alongside increases in reward. If entropy drops too quickly,
+    increase beta. If entropy drops too slowly, decrease beta:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Typical range: 1e-4 – 1e-2'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Epsilon**: This corresponds to the acceptable threshold of divergence between
+    the old and new policies during gradient descent updating. Setting this value
+    to be small will result in more stable updates, but will also slow the training
+    process:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Typical range: 0.1 – 0.3'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'The key thing to remember about these parameters is that they control how quickly
+    a policy changes from one iteration to the next. If you notice an agent training
+    somewhat erratically, it may be beneficial to tune these parameters to smaller
+    values. The default value for **epsilon** is **.2** and for **beta** is **1.0e-2**,
+    but, of course, we will want to explore how these values may affect training,
+    either in a positive or negative way. In the next exercise, we will modify these
+    policy change parameters and see what effect they have in training:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: For this example, we will open up the `CrawlerDynamic` scene from the `Assets/ML-Agents/Examples/Crawler/Scenes`
+    folder.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Open the `trainer_config.yaml` file located in the `ML-Agents/ml-agents/config`
+    folder. Since we have already evaluated the performance of this sample, there
+    are a couple of ways we will revert the training configuration and make some modification
+    to the beta and epsilon parameters.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Scroll down to the `CrawlerDynamicLearning` configuration section and modify
+    it as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: We modified the `epsilon` and `beta` parameters to higher values, meaning that
+    the training will be less stable. If you recall, however, these marathon examples
+    generally train in a more stable manner.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Open up a properly configured Python console and run the following command
+    to launch training:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: As usual, wait for a number of training sessions for a good comparison from
+    one example to the next.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: What you may find unexpected is that the agent appears to start regressing,
+    and in fact, it is. This is happening because we made those trust regions too
+    large (a large **beta**), and while we allowed the rate of change to be lower
+    (.1 **epsilon**), we can see the **beta** value is more sensitive to training.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Keep in mind that the Unity ML-Agents implementation uses a number of cross-features
+    in tandem, which comprise a powerful RL framework. In the next section, we will
+    take another quick look at a late-comer optimization parameter that Unity has
+    recently added.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Generalized advantage estimate
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The area of RL is seeing explosive growth due to constant research that is
+    pushing the envelope on what is possible. With every little advancement comes
+    additional hyperparameters and small tweaks that can be applied to stabilize and/or
+    improve training performance. Unity has recently add a new parameter called lambda,
+    and the definition taken from the documentation is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**lambda**: This corresponds to the lambda parameter used when calculating
+    the **Generalized Advantage Estimate** (**GAE**) [https://arxiv.org/abs/1506.02438](https://arxiv.org/abs/1506.02438).
+    This can be thought of as how much the agent relies on its current value estimate
+    when calculating an updated value estimate. Low values correspond to more reliance
+    on the current value estimate (which can be high bias), and high values correspond
+    to more reliance on the actual rewards received in the environment (which can
+    be high variance). The parameter provides a trade-off between the two, and the
+    right value can lead to a more stable training process:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Typical range: 0.9 – 0.95'
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'The GAE paper describes a function parameter called lambda that can be used
+    to shape the reward estimation function, and is best used for control or marathon
+    RL tasks. We won''t go too far into details, and interested readers should certainly
+    pull down the paper and review it on their own. However, we will explore how altering
+    this parameter can affect a control sample such as the `Walker` scene in the next
+    exercise:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Open the Unity editor to the `Walker` example scene.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Select the Academy object in the Hierarchy and confirm that the scene is still
+    set for training/learning. If it is, you won't have to do anything else. If the
+    scene isn't set up to learn, you know what to do.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Open the `trainer_config.yaml` file and modify `WalkerLearning` as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: Notice how we are setting the `lambd` parameters and make sure that `num_layers`
+    and `hidden_units` are reset to the original values. In the paper, the authors
+    describe optimum values from `.95` to `.99`, but this differs from the Unity documentation.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Save the file when you are done editing.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Open up a Python console setup for training and run it with the following command:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: Make sure that you let the sample run as long as you have previously to get
+    a good comparison.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: One thing you will notice after a log of training is that the agent does indeed
+    train almost 25% slower on this example. What this result tells us is that, by
+    increasing lambda, we are telling the agent to put more value on rewards. Now,
+    this may seem counter-intuitive, but in this sample or this type of environment,
+    the agent is receiving constant small positive rewards. This results in each reward
+    getting skewed, which, as we can see, skews training and impedes agent progress.
+    It may be an interesting exercise for interested readers to try and play with
+    the lambda parameter in the Hallway environment, where the agent only receives
+    a single positive episode reward.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The RL advantage function or functions come in many forms, and are in place
+    to address many of the issues with off-model or policy-driven algorithms such
+    as PPO. In the next section, we round off the chapter by modifying and creating
+    a new sample control/marathon learning environment on our own.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Learning to tune PPO
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'In this section, we are going to learn to tune a modified/new control learning
+    environment. This will allow us to learn more about some inner workings of the
+    Unity example, but will also show you how to modify a new or modified sample on
+    your own later. Let''s begin by opening up the Unity editor so we can complete
+    the following exercise:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Open the `Reacher` scene, set it for learning, and run it in training. You should
+    be able to do this part in your sleep now. Let the agent train for a substantial
+    amount of time so you can establish a baseline, as always.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: From the menu, select `Assets/Import Package/Custom Package`. Locate `Chapter_8_Assets.unitypackage`
+    from the `Chapter08` folder of the books downloaded to the source code.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Open up the Reacher_3_joint scene from the `Assets/HoDLG/Scenes` folder. This
+    is the modified scene, but we will go through its construction as well.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'First, notice that there is only a single **Reacher** arm active, but now with
+    three joints, as shown in the following screenshot:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![](img/e473ca06-9250-4c2f-90a8-ae6225372b74.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Inspecting the Agent game object
+  prefs: []
+  type: TYPE_NORMAL
+- en: Notice how the arm now has three sections, with the new section called Capsule(2)
+    and identified as Pendulum C. The order of the joints is now out of order, meaning
+    Pendulum C is actually the middle pendulum and not the bottom.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Select each of the Capsule objects and inspect their configuration and placement,
+    as summarized in the following screenshot:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![](img/909c7124-2b2d-427d-93ff-c5a7257beedb.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Inspecting the Capsule objects
+  prefs: []
+  type: TYPE_NORMAL
+- en: Be sure to note the Configurable Joint | Connected Body object for each of the
+    capsules as well. This property sets the body that the object will hinge or join
+    to. There are plenty of other properties on the Configurable Joint component that
+    would allow you to mimic this joint interaction in any form, perhaps even biological.
+    For example, you may want to make the joints in this arm to be more human-like
+    by only allowing certain angles of movement. Likewise, if you were designing a
+    robot with limited motion, then you could simulate that with this joint component
+    as well.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: At this stage, we can set up and run the example. Open and set up for training
+    a Python console or Anaconda window.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Run the sample in training and observe the progress of the agent. Let the agent
+    run for enough iterations in order to compare training performance with the baseline.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: At this stage, we have our sample up and running and we are ready to start tuning
+    new parameters in to optimize training. However, before we do that, we will step
+    back and take a look at the C# code changes required to make the last sample possible.
+    The next section covers the C# code changes, and is optional for those developers
+    not interested in the code. If you plan to build your own control or marathon
+    environments in Unity, you will need to read the next section.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Coding changes required for control projects
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: As we already mentioned, this section is optional and is for those curious about
+    getting into the details of building their own control sample using Unity C#.
+    It is also likely that, in the future, no coding changes will be required to modify
+    these types of samples, and that is the other reason this section is optional.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Complete the following exercise to go through the coding changes needed to
+    add a joint in the Reacher control example:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Select the Agent object in the Hierarchy window and then, in the Inspector window,
+    note the Reacher Agent_3 component. This is the modified script that we will be
+    inspecting.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Click the target icon beside the Reach Agent_3 component, and from the context
+    menu, select Edit Script.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: This will open the `ReacherAgent_3.cs` script in your C# code editor of choice.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'The first thing to note under the declarations is the addition of new variables,
+    highlighted in bold as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: Two new variables, `pendulumC` and `rbC`, are added for holding the new joints
+    GameObject and RigidBody. Now, `Rigidbody` in Unity physics denotes an object
+    that can be moved or manipulated by the physics engine.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Unity is in the process of performing an upgrade to their physics engine that
+    will alter some of the teachings here. The current version of ML-Agents uses the
+    old physics system, so this example will as well.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: 'The next thing of importance to note is the addition of additional agent observations,
+    as shown in the following `CollectObservations` method:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The section in bold is adding the new observations for `pendulumC` and `rbC`,
+    which total another 13 vectors. Recall that this means we also needed to switch
+    our brain from 33 vector observations to 46 observations, as shown in the following
+    screenshot:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![](img/15dec040-4804-44a0-9dac-cc20311fad51.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Inspecting the update ReacherLearning_3 brain
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Next, we will look to the `AgentAction` method; this is where the Python trainer
+    code calls the agent and tells it what movements it makes, and is as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: In this method, we are extending the code to allow the agent to move the new
+    joint in the form of `rigidbody rbC`. Did you notice that the new learning brain
+    also added more action space?
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Lastly, we look at the `AgentReset` method to see how the agent will reset
+    itself with the new limb, as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: All this code does is reset the position of the arm to its original position
+    and stop all movement.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: That covers the only required code changes for this example. Fortunately, only
+    one script needed to be modified. It is likely that in the future you won't have
+    to modify these scripts at all. In the next section, we will follow up by refining
+    the sample's training by tuning extra parameters and introducing another training
+    optimization for policy learning methods.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Multiple agent policy
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this section, we are going to look at how policy or off-model based methods
+    such as PPO can be improved on by introducing multiple agents to train the same
+    policy. The example exercise you will use in this section will be completely up
+    to you, and should be one that you are familiar with and/or interested in. For
+    our purposes, we will explore a sample that we have looked at extensively—the
+    Hallway/VisualHallway. If you have been following most of the exercises in this
+    book, you should be more than capable of adapting this example. However, note
+    that, for this exercise, we want to use a sample that is set up to use multiple
+    agents for training.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Previously, we avoided discussing the multiple agents; we avoided this aspect
+    of training before because it may complicate the discussion of on-model versus
+    off-model. Now that you understand the differences and reasons for using a policy-based
+    method, you can better appreciate that since our agents are using a policy-based
+    method, we can simultaneously train multiple agents against the same policy. However,
+    this can have repercussions for other training parameters and configuration, as
+    you may well imagine.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Open up the Unity editor to the `Hallway`/`VisualHallway` example scene, or
+    one of your choosing, and complete the following exercise:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Open up a Python or Anaconda console window and get it ready to train.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Select and enable the HallwayArea, selecting areas (1) to (19) so they become
+    active and viewable in the scene.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Select the Agent object in each **HallwayArea**, and make sure that **Hallway
+    Agent** | **Brain** is set to HallwayLearning and not HallwayPlayer. This will
+    turn on all the additional training areas.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Depending on your previous experience, you may or may not want to modify the
+    sample back to the original. Recall that in an earlier exercise, we modified the
+    HallwayAgent script to only scan a smaller section of angles. This may also require
+    you to alter the brain parameters as well.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: After you have the scene set up, save it and the project.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Run the scene in training using a unique `run-id` and wait for a number of training
+    iterations. This sample may train substantially slower, or even faster, depending
+    on your hardware.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Now that we have established a new baseline for the Hallway environment, we
+    can now determine what effect modifying some hyperparameters has on discrete action
+    samples. The two parameters we will revisit are the `num_epochs` (number of training
+    epochs) and `batch_size` (experiences per training epoch) parameters that we looked
+    at earlier with the continuous action (control) sample. In the documentation,
+    we noted that a larger batch size was preferred when training control agents.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Before we continue, let''s open the `trainer_config.yaml` file and inspect
+    the HallwayLearning configuration section as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the Unity documentation, it specifically mentions only increasing the number
+    of epochs when increasing the batch size, and this is in order to account for
+    additional training experiences. We learned that control examples generally benefit
+    from a larger batch size, and, consequently, a larger epoch size. However, one
+    last thing we want to determine is the effect of altering the `batch_size` and
+    `num_epoch` parameters in a discrete action example with multiple agents feeding
+    into and learning from the same policy.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For the purposes of this exercise, we are only going to modify `batch_size`
+    and `num_epoch` to values as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Update the `HallwayLearning` or brain configuration you are using to use the
+    following parameters:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: We set `num_epoch` to 10 and `batch_size` to `1000`. These settings are typical
+    for a control sample, as we have previously seen, but now we want to see the effect
+    in a discrete action example with multiple agents training the same policy.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Prepare the sample for training, and get the Python console ready and open.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Run the training session with the following command:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: Notice how we have set `run-id` using a helper prefix to name the iteration.
+    We used `e10` to represent that the `num_epoch` parameter is set to `10`, and
+    `b1000` represents the `batch_size` value of `1000`. This type of naming scheme
+    can be helpful, and is one we will continue using through this book.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'As the agent trains, try and answer the following questions:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Does the agent train better or worse than you expected?
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Why do you think that is?
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: It will be up to you to run the sample in order to learn the answer to those
+    questions. In the next section, we will look at helpful exercises you can do on
+    your own to help your understanding of these complex topics.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Exercises
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Attempt one or two of the following exercises on your own:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Run the CrawlerStaticTarget example scene and compare its performance to the
+    dynamic sample.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Double the `time_horizon`, `batch_size`, and `buffer_size` brain hyperparameters in
+    one of the other control examples:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: Perform the same modification of `time_horizon`, `batch_size`, and `buffer_size`
+    on another control sample and observe the combined effect.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Modify the `num_layers` and `hidden_units` brain hyperparameters to values we
+    used in a control sample and apply them to a discrete action example, such as
+    the Hallway example, as shown in the following code. How did it affect training?
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: Alter the `num_layers` and `hidden_units` hyperparameters on another continuous
+    or discrete action example and combine it with other parameter modifications.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Modify the lambda `lambd` brain hyperparameter in a discrete action example
+    to a value of `.99`. Remember that this will have the effect of strengthening
+    the rewards:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: Create your own control creature with joints and limbs. A good place to start
+    is using the Crawler example and modifying that.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Modify one of the control samples by adding new limbs or joints.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Modify the Walker control example to give the agent a weapon and a target. You
+    will have to combine elements of the Walker and Reacher examples.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Run the VisualHallwayLearning sample scene with altered `num_epoch` and `batch_size`
+    parameters. Are the results what you expected?
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: As we progress through the book, these exercises may become more and more tedious,
+    especially if you run them on an older and slower system. However, it is important
+    to understand how these parameters can alter an agent's training.
+  prefs: []
+  type: TYPE_NORMAL
+- en: When speaking to deep learning and RL practitioners, they will often compare
+    the subtlely of training to the difference between being a good or great cook.
+    A good cook may make things taste good and serve a completely acceptable meal,
+    but it takes a great cook, and their attention to detail, to make you an exceptional
+    meal that you will remember.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this chapter, we dug in and learned more of the inner workings of RL by understanding
+    the differences between model-based versus off-model and/or policy-based algorithms.
+    As we learned, Unity ML-Agents uses the PPO algorithm, a powerful and flexible
+    policy learning model that works exceptionally well when training control, or
+    what is sometimes referred to as marathon RL. After learning more basics, we jumped
+    into other RL improvements in the form of Actor-Critic, or advantage training,
+    and what options ML-Agents supports. Next, we looked at the evolution of PPO and
+    its predecessor, the TRPO algorithm, how they work at a basic level, and how they
+    affect training. This is where we learned how to modify one of the control samples
+    to create a new joint on the Reacher arm. We finished the chapter by looking at
+    how multi-agent policy training can be improved on, again by tuning hyperparameters.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We have covered many aspects and details of RL and how agents train, but we
+    have left the most important part of training, rewards, to the next chapter. In
+    the next chapter, we look into rewards, reward functions, and how rewards can
+    even be simulated.
+  prefs: []
+  type: TYPE_NORMAL

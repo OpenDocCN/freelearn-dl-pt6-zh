@@ -1,0 +1,1467 @@
+- en: Generative Networks
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the last chapter, we submerged ourselves in the world of autoencoding neural
+    networks. We saw how these models can be used to estimate parameterized functions
+    capable of reconstructing given inputs with respect to target outputs. While at
+    prima facie this may seem trivial, we now know that this manner of self-supervised
+    encoding has several theoretical and practical implications.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In fact, from a **machine learning** (**ML**) perspective, the ability to approximate
+    a connected set of points in a higher dimensional space on to a lower dimensional
+    space (that is, manifold learning) has several advantages, ranging from higher
+    data storage efficiency to more efficient memory consumption. Practically speaking,
+    this allows us to discover ideal coding schemes for different types of data, or
+    to perform dimensionality reduction thereupon, for use cases such as **Principal
+    Component Analysis** (**PCA**) or even information retrieval. The task of searching
+    for specific information using similar queries, for example, can be largely augmented
+    by learning useful representations from a set of data, stored in a lower dimensional
+    space. Moreover, the learned representations can even be used thereafter as feature
+    detectors to classify new, incoming data. This sort of application may allow us
+    to construct powerful databases capable of high-level inference and reasoning,
+    when presented with a query. Derivative implementations may include legal databases
+    used by lawyers to efficiently search for precedents by similarity to the current
+    case, or medical systems that allow doctors to efficiently diagnose patients based
+    on the noisy data available per patient. These latent variable models allow researchers
+    and businesses alike to address various use cases, ranging from sequence-to-sequence
+    machine translation, to attributing complex intents to customer reviews. Essentially,
+    with generative models, we attempt to answer this question: *How likely are these
+    features (*x*) present in an instance of data, given that it belongs to a certain
+    class (*y*)*? This is very different than asking this question: *How likely is
+    this instance part of a class (*y*), given the features (*x*) present?*, as we
+    would for supervised learning tasks. To better understand this reversal of roles,
+    we will further explore the idea behind latent variable modeling, introduced in
+    the previous chapter.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this chapter, we will see how we can take the concept of latent variables
+    a step further. Instead of simply learning a parameterized function, which maps
+    inputs to outputs, we can use neural networks to learn a function that represents
+    the probability distribution over the latent space. We can then sample from such
+    a probability distribution to generate novel, synthetic instances of the input
+    data. This is the core theoretical foundation behind generative modeling, as we
+    are about to discover.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this chapter, we will cover the following topics:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Replicating versus generating content
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Understand the notion of latent space
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Diving deeper into generative networks
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Using randomness to augment outputs
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Sampling from the latent space
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Understanding types of Generative Adversial Networks
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Understanding VAEs
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Designing VAEs in Keras
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Building the encoding module in a VAE
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Building the decoder module
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Visualizing the latent space
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Latent space sampling and output generation
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Exploring GANs
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Diving deeper into GANs
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Designing a GAN in Keras
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Designing the generator module
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Designing the discriminator module
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Putting the GAN together
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The training function
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Defining the discriminator labels
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Training the generator per batch
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Executing the training session
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Replicating versus generating content
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'While our autoencoding use cases in the last chapter were limited to image
+    reconstruction and denoising, these use cases are quite distinct from the one
+    we are about to address in this chapter. So far, we made our autoencoders reconstruct
+    some given inputs, by learning an arbitrary mapping function. In this chapter,
+    we want to understand how to train a model to create new instances of some content,
+    instead of simply replicating its inputs. In other words, what if we asked a neural
+    network to truly be creative and generate content just like human beings do?.
+    Can this even be achieved? The canonical answer common in the realm of **Artificial
+    Intelligence** (**AI**) is yes, but it is complicated. In the search for a more
+    detailed answer, we arrive at the topic of this chapter: generative networks.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: While a plethora of generative networks exist, ranging from the variations of
+    the **Deep Boltzman Machine** to **Deep Belief Networks**, most of them have fallen
+    out of fashion, given their restrictive applicability and the appearance of more
+    computationally efficient methods. A few, however, continue to remain in the spotlight,
+    due to their eerie ability to generate synthetic content, such as faces that have
+    never existed, movie reviews and news articles that were never written, or videos
+    that were never actually filmed! To better understand the mechanics behind this
+    wizardry, let's dedicate a few lines to the notion of latent spaces, to better
+    understand how these models transform their learned representations to create
+    something seemingly new.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Understanding the notion of latent space
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Recall from the previous chapter that a **latent space** is nothing but a compressed
+    representation of the input data in a lower dimensional space. It essentially
+    includes features that are crucial to the identification of the original input.
+    To better understand this notion, it is helpful to try to mentally visualize what
+    type of information may be encoded by the latent space. A useful analogy can be
+    to think of how we ourselves create content, with our imagination. Suppose you
+    were asked to create an imaginary animal. What information would you be relying
+    on to create this creature? You will sample features from animals you have previously
+    seen, features such as their color, or whether they are bi-pedal, quadri-pedal,
+    a mammal or reptile, land-or sea-dwelling, and so on. As it turns out, we ourselves
+    develop latent models of the world, as we navigate through it. When we attempt
+    to imagine a new instance of a class, we are actually sampling some latent variable
+    models, learned throughout the course of our existence.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Think about it. Throughout our lives, we came across countless animals of different
+    colors, sizes, and morphologies. We reduce these rich representations to more
+    manageable dimensions all the time. For example, we all know what a lion looks
+    like, because we have mentally encoded properties (or latent variables) that represent
+    a lion (such as their four legs, tail, furry coat, color, and so on). These learned
+    properties are a testament to how we store information in lower dimensions, to
+    create functional models of the world around us. We hypothesize that such information
+    is stored in lower dimensions, as most of us, for example, are not able to perfectly
+    recreate the image of a lion on paper. Some may not even come close to it, as
+    is the case for the author of this work. Yet, we are all instantly and collectively
+    able to agree on what the general morphology of a lion would be, just by mentioning
+    the word *lion*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Identifying concept vectors
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'This little thought experiment demonstrates the sheer power of latent variable
+    models, in creating functional representations of the world. Our brain would very
+    likely consume a lot more than the meagre 12 watts of energy, were it not constantly
+    downsampling the information received from our sensory inputs to create manageable
+    and realistic models of the world. Thus, using latent variable models essentially
+    allows us to query reduced representation (or properties) of the input, which
+    may in turn be recombined with other representations to generate a seemingly novel
+    output (for example: unicorn = body and face from horse + horn from rhino/narwhal).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Similarly, neural networks may also transform samples from a learned latent
+    space, to generate novel content. One way of achieving this is by identifying
+    concept vectors, embedded in the learned latent space. The idea here is quite
+    simple. Suppose we are to sample a face (*f*) from a latent space representing
+    faces. Then, another point, (*f + c*), can be thought of as the embedded representation
+    of the same face, along with some modification (that is, the presence of a smile,
+    or glasses, or facial hair, on top of the original face). These concept vectors
+    essentially encode various axes of disparities from the input data, and can then
+    be used to alter interesting properties of the input images. In other words, we
+    can probe the latent space for vectors that elude to a concept present within
+    the input data. After identifying such vectors, we can then modify them to change
+    properties of the input data. A smile vector, for example, can be learned and
+    used to modify the degree to which a person is smiling, in a given image. Similarly,
+    a gender vector could be used to modify the appearance of a person, to look more
+    female, than male, or vice versa. Now that we have a better idea of what kind
+    of information may be queried from latent spaces, and subsequently be modified
+    to generate new content, we can continue on our exploratory journey.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Diving deeper into generative networks
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: So, let's try to understand the core mechanics of generative networks and how
+    such approaches differ from the ones we already know. In our quest thus far, most
+    of the networks we have implemented are for the purpose of executing a deterministic
+    transformation of some inputs, in order to get to some sort of outputs. It was
+    not until we explored the topic of reinforcement learning ([Chapter 7](f011d850-2ed4-4506-8fc9-4930e6a85d85.xhtml),
+    *Reinforcement Learning with Deep Q-Networks*) that we learned the benefits of
+    introducing a degree of **stochasticity** (that is, randomness) to our modeling
+    efforts. This is a core notion that we will be further exploring as we familiarize
+    ourselves with the manner in which generative networks function. As we mentioned
+    earlier, the central idea behind generative networks is to use a deep neural network
+    to learn the probability distribution of variables over a reduced latent space.
+    Then, the latent space can be sampled and transformed in a quasi-random manner,
+    to generate some outputs (*y*).
+  prefs: []
+  type: TYPE_NORMAL
+- en: As you may notice, this is quite different than the approach we employed in
+    the previous chapter. With autoencoders, we simply estimated an arbitrary function,
+    mapping inputs (*x*) to a compressed latent space using an encoder, from which
+    we reconstructed outputs (*y*) using a decoder. In the case of generative networks,
+    we instead learn a latent variable model for our input data (*x*). Then, we can
+    transform samples from the latent space to get to our generated output. Neat,
+    don't you think? Yet, before we further explore how this concept is operationalized,
+    let's briefly go over the role of randomness in relation to generating creative
+    content.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Controlled randomness and creativity
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Recall that we introduced an element of randomness in the deep reinforcement
+    learning algorithm by using the **epsilon greedy selection** strategy, which basically
+    allowed our network to not rely too much on the same actions and allowed it to
+    explore new actions to solve the given environment. Introducing this randomness,
+    in a sense, brought creativity to the process, as our network was able to systematically
+    create novel state-action pairs without relying on what it had learned previously
+    learned. Do note, however, that labeling the consequence of introducing randomness
+    in a system as creativity may be the result of some anthropomorphism on our part.
+    In fact, the true processes that gave birth to creativity in humans (our go-to
+    benchmark) are still vastly elusive and poorly understood by the scientific community
+    at large. On the other hand, this link between randomness and creativity itself
+    is a long recognized one, especially in the realm of AI. As early as 1956, AI
+    researchers have been interested in transcending the seemingly deterministic limitations
+    of machines. Back then, the prominence of rule-based systems made it seem as though
+    notions such as creativity could only be observed in advanced biological organisms.
+    Despite this widespread belief, one of the paramount documents that shaped AI
+    history (arguably for the following century to come), the *Dartmouth Summer Research
+    Project Proposal* (1956), specifically mentioned the role of controlled randomness
+    in AI systems, and its link to generating creative content. While we encourage
+    you to read the entire document, we present an extract from it that is relevant
+    to the point at hand:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '"A fairly attractive and yet clearly incomplete conjecture is that the difference
+    between creative thinking and unimaginative competent thinking lies in the injection
+    of some randomness. The randomness must be guided by intuition to be efficient.
+    In other words, the educated guess or the hunch include controlled randomness
+    in otherwise orderly thinking."'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*- John McCarthy, Marvin L Minsky, Nathaniel Rochester, and Claude E Shannon*'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using randomness to augment outputs
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Over the years, we developed methods that operationalize this notion of injecting
+    some controlled randomness, which in a sense are guided by the intuition of the
+    inputs. When we speak of generative models, we essentially wish to implement a
+    mechanism that allows controlled and quasi-randomized transformations of our input,
+    to generate something new, yet still plausibly resembling the original input.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let's consider for a moment how this can be achieved. We wish to train a neural
+    network to use some input variables (*x*) to generate some output variables (*y*),
+    from a latent space produced by a model. An easy way to solve this is to simply
+    add an element of randomness as input to our generator network, defined here by
+    the variable (*z*). The value of *z* may be sampled from some probability distribution
+    (a Gaussian distribution, for example) and fed to a neural network along with
+    the inputs. Hence, this network will actually be estimating the function *f(x,
+    z)* and not simply *f(x)*. Naturally, to an independent observer who is not able
+    to measure the value of *z*, this function will seem stochastic, yet this will
+    not be the case in reality.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Sampling from the latent space
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'To further elaborate, suppose we had to draw some samples (*y*) from a probability
+    distribution of variables from a latent space, with a mean of (μ) and a variance
+    of (σ2):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Sampling operation**: *y ̴ N(μ , σ2)*'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Since we use a sampling process to draw from this distribution, each individual
+    sample may change every time the process is queried. We can''t exactly differentiate
+    the generated sample (*y*) with respect to the distribution parameters (μ and
+    σ2), since we are dealing with a sampling operation, and not a function. So, how
+    exactly can we backpropagate our model''s errors? Well, one solution could be
+    to redefine the sampling process, such as performing a transformation on a random
+    variable (*z*), to get to our generated output (*y*), like so:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Sampling equation**: *y = μ + σz*'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: This is a crucial step, as we can now use the backpropagation algorithm to compute
+    gradients of the generated output (*y*), with respect to the sampling operation
+    itself *(μ + σz)*. What changed? Essentially, we are now treating the sampling
+    operation as a deterministic one that includes the mean(μ) and standard deviation
+    (σ) from our probability distribution, as well as a random variable (*z*), whose
+    distribution is not related to that of any of the other variables we seek to estimate.
+    We use this method to estimate how changes in our distribution's mean (μ) or standard
+    deviation (σ) affect the generated output (*y*), given that the sampling operation
+    is reproduced with the same value of *z*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Learning a probability distribution
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Since we can now backpropagate through the sampling operation, we can include
+    this step as part of a larger network. By plugging this into a larger network,
+    we can then redefine the parameters of the earlier sampling operation (μ and σ),
+    as functions that can be estimated by parts of this larger neural network! More
+    mathematically put, we can redefine the mean and standard deviation of the probability
+    distribution as functions that can be approximated by the parameters of a neural
+    network (for example, *μ = f(x ;θ)* and *σ = g(x; θ)*, where the term *θ* denotes
+    the learnable parameters of a neural network). We can then use these defined functions
+    to generate an output (*y*):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Sample function**: *y = μ + σz*'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: In this function, *μ = f(x ;θ)* and *σ = g(x; θ)*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now that we know how to sample outputs (*y*), we can finally train our larger
+    network by differentiating a defined loss function, *J(y)*, with respect to these
+    outputs. Recall that we use the chain rule of differentiation to redefine this
+    process with respect to the intermediate layers, which here represent the parameterized
+    functions (*μ* and *σ*). Hence, differentiating this loss function provides us
+    with its derivatives, used to iteratively update the parameters of the network,
+    where the parameters themselves represent a probability distribution.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Great! Now we have an overarching theoretical understanding of how these models
+    can generate outputs. This entire process permits us to first estimate, and then
+    sample from, a probability distribution of densely encoded variables, generated
+    by an encoder function. Later in the chapter, we will further explore how different
+    generative networks learn by benchmarking their outputs, and perform weight updates
+    using the backpropagation algorithm.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Understanding types of generative networks
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: So, all we are actually doing here is generating an output by transforming a
+    sample taken from the probability distribution representing the encoded latent
+    space. In the last chapter, we saw how to produce such a latent space from some
+    input data using encoding functions. In this chapter, we will see how to learn
+    a continuous latent space (*l*), then sample from it to generate novel outputs.
+    To do this, we essentially learn a differentiable generator function, *g (l ;
+    θ(g) ),* which transforms samples from a continuous latent space (*l*) to generate
+    an output. Here, this function itself is what is being approximated by the neural
+    network.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The family of generative networks includes both **Variational Autoencoders**
+    (**VAEs**) as well as **Generative Adversarial Networks** (**GANs**). As we mentioned
+    before, there exist many types of generative models, but in this chapter, we will
+    focus on these two variations, given their widespread applicability across various
+    cognitive tasks (such as, computer vision and natural language generation). Notably,
+    VAEs distinguish themselves by coupling the generator network with an approximate
+    inference network, which is simply the encoding architecture we saw in the last
+    chapter. GANs, on the other hand, couple the generator network with a separate
+    discriminator network, which receives samples both from the actual training data
+    and the generated outputs, and is tasked with distinguishing the original image
+    from the computer-generated one. Once the generator is considered fooled, your
+    GAN is considered trained. Essentially, these two different types of generative
+    models employ different methodologies for learning the latent space. This gives
+    each of them unique applicability for different types of use cases. For example,
+    VAEs perform notably well at learning well-structured spaces, where significant
+    variations may be encoded due to the specific composition of the input data (as
+    we will see shortly, using the MNIST dataset). However, VAEs also suffer from
+    blurry reconstructions, the causes of which are not yet properly understood. GANs,
+    on the other hand, do much better at generating realistic content, despite sampling
+    from an unstructured and discontinuous latent space, as we will see later in the
+    chapter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Understanding VAEs
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Now we have a high-level understanding of what generative networks entail, we
+    can focus on a specific type of generative models. One of them is the VAE, proposed
+    by both Kingma and Welling (2013) as well as Rezende, Mohamed, and Wierstra (2014). 
+    This model is actually very similar to the autoencoders we saw in the last chapter,
+    but they come with a slight twist—well, several twists, to be more specific. For
+    one, the latent space being learned is no longer a discrete one, but a continuous
+    one by design! So, what's the big deal? Well, as we explained earlier, we will
+    be sampling from this latent space to generate our outputs. However, sampling
+    from a discrete latent space is problematic. The fact that it is discrete implies
+    that there will be regions in the latent space with discontinuities, meaning that
+    if these regions were to be randomly sampled, the output would look completely
+    unrealistic. On the other hand, learning a continuous latent space allows the
+    model to learn the transitions from one class to another in a probabilistic manner.
+    Furthermore, since the latent space being learned is continuous, it becomes possible
+    to identify and manipulate the concept vectors we spoke of earlier, which encodes
+    various axes of variance present in the input data in a meaningful way. At this
+    point, many of you may be wondering how a VAE exactly learns to model a continuous
+    latent space. Well, wonder no more.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Earlier, we saw how we can redefine the sampling process from a latent space,
+    so as to be able to plug it into a larger network to estimate a probability distribution.
+    We did this by breaking the latent space down by using parameterized functions
+    (that is, parts of a neural network) to estimate both the mean (μ) and the standard
+    deviation (σ) of variables in the latent space. In a VAE, its encoder function
+    does exactly this. This is what forces the model to learn a statistical distribution
+    of variables over a continuous latent space. This process permits us to presume
+    that the input image was generated in a probabilistic manner, given that the latent
+    space encodes a probability distribution. Thus, we can use the learned mean and
+    standard deviation parameters to randomly sample from the distribution, and decode
+    it on to the original dimension of the data. The illustration here helps us better
+    understand the workflow of a VAE:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/6ac4ab13-f5df-422a-afbd-bdf52e3127ab.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: This process is what allows us to first learn, and then sample from, a continuous
+    latent space, generating plausible outputs. Is this still a bit fuzzy? Well, perhaps
+    a demonstrative example is in order, to help clarify this notion. Let's begin
+    by building a VAE in Keras, and go over both the theory and implementational side
+    of things as we construct our model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Designing a VAE in Keras
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'For this exercise, we will go back to a well-known dataset that is easily available
+    to all: the MNIST dataset. The visual features of handwritten digits make this
+    dataset uniquely suited to experiment with VAEs, allowing us to better understand
+    how these models work. We start by importing the necessary libraries:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: Loading and pre-processing the data
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Next, we load the dataset, just as we did in [Chapter 3](46e25614-bb5a-4cca-ac3e-b6dfbe29eea5.xhtml), *Signal
+    Processing – Data Analysis with Neural Networks*. We also take the liberty to
+    define some variables that can be reused later, when designing our network. Here,
+    we simply define the image size used to define the original dimensions of the
+    images (784 pixels each). We choose an encoding dimension of `2` to represent
+    the latent space, and an intermediate dimension of `256`. These variables defined
+    here will be later fed to the dense layers of our VAE, defining the number of
+    neurons per layer:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: Then, we simply pre-process the images by first flattening them into 2D vectors
+    (of dimension (784) per image). Finally, we normalize the pixel values in these
+    2D vectors between 0 and 1.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Building the encoding module in a VAE
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Next, we will start building the encoding module of our VAE. This part is almost
+    identical to the shallow encoder we built in the last chapter, except that it
+    splits into two separate layers: one estimating the mean and the other estimating
+    the variance over the latent space:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'You could optionally add the `name` argument while defining a layer, to be
+    able to visualize our model intuitively. If we want, we can actually visualize
+    the network we have built so far, by initializing it already and summarizing it,
+    as shown here:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/c20c90de-b96d-4e59-8b8c-96983e8a7344.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Note how the outputs from the intermediate layer connect to both the mean estimation
+    layer (`z_mean`) and the variance estimation layer (`z_log_var`), both representing
+    the latent space encoded by the network. Together, these separate layers estimate
+    the probability distribution of variables over the latent space, as described
+    earlier in this chapter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: So, now we have a probability distribution being learned by the intermediate
+    layers of our VAE. Next, we need a mechanism to randomly sample from this probability
+    distribution, to generate our outputs. This brings us to the sampling equation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Sampling the latent space
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The idea behind this process here is quite simple. We defined a sample (*z*)
+    simply by using the learned mean (`z_mean`) and variance (`z_log_variance`) from
+    our latent space in an equation that may be formulated as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*z = z_mean + exp(z_log_variance) * epsilon*'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Here, *epsilon* is simply a random tensor consisting of very small values, ensuring
+    a degree of randomness seeps into the queried sample every time. Since it is a
+    tensor of very small values, it ensures that each decoded image will plausibly
+    resemble the input image.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The sampling function presented here simply takes the values (that is, mean
+    and variance) learned by the encoder network, defines a tensor of small values
+    matching the latent dimensions, and then returns a sample from the probability
+    distribution, using the sampling equation defined previously:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/5f70630a-5833-402a-971c-67687476c237.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Since Keras requires all operations to be nested in layers, we use a custom
+    Lambda layer to nest this sampling function, along with a defined output shape.
+    This layer, defined here as (`z`), will be responsible for generating samples
+    from the learned latent space.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Building the decoder module
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Now that we have a mechanism implemented to sample from the latent space, we
+    can proceed to build a decoder capable of mapping this sample to the output space,
+    thereby generating a novel instance of the input data. Recall that just as the
+    encoder funnels the data by narrowing the layer dimensions till the encoded representation
+    is reached, the decoder layers progressively enlarge the representations sampled
+    from the latent space, mapping them back to the original image dimension:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: Defining a custom variational layer
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Now that we have constructed both the encoder and the decoder modules of our
+    network, there remains but one implementational matter to divert our attention
+    to before we can start training our VAE. It is quite an important one, as it related
+    to how our network will calculate the loss and update itself to create more realistic
+    generations. This may seem a little odd at first glance. What are we comparing
+    our generations to? It's not as if we have a target representation to compare
+    our model's generations to, so how can we compute our model's errors? Well, the
+    answer is quite simple. We will use two separate `loss` functions, each tracking
+    our model's performance over different aspects of the generated image. The first
+    loss function is known as the reconstruction loss, which simply ensures that the
+    decoded output of our model matches the supplied inputs. The second `loss` function
+    is described as the regularization loss. This function actually aids our model
+    to not overfit on the training data by simply copying it, thereby learning ideally
+    composed latent spaces from the inputs. Unfortunately, these `loss` functions
+    are not implemented in Keras as it is, and hence require a little more technical
+    attention to operationalize.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We operationalize these two `loss` functions by building a custom variational
+    layer class, this will actually be the final layer of our network, and perform
+    the computation of the two different loss metrics, and use their mean value to
+    compute gradients of the loss with respect to the network parameters:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/ca004458-98df-4ad2-9ba8-199b86c8ba14.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: As you can see, the custom layer includes three functions. The first is for
+    initialization. The second function is responsible for computing both losses.
+    It uses the binary cross-entropy metric to compute the reconstruction loss, and
+    the **Kullback–Leibler** (**KL**) divergence formula to compute the regularization
+    loss. The KL-divergence term essentially allows us to compute the relative entropy
+    of the generated output, with respect to the sampled latent space (*z*). It allows
+    us to iteratively assess the difference in the probability distribution of the
+    outputs different than that of the latent space. The `vae_loss` function then
+    returns a combined loss value, which is simply the mean of both these computed
+    metrics.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Finally, the `call` function is used to implement the custom layer, by using
+    the built-in `add_loss` layer method. This part essentially defines the last layer
+    of our network as the loss layer, thereby using our arbitrarily defined `loss`
+    function to generate the loss value, with which backpropagation can be performed.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Compiling and inspecting the model
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Next, we define our network''s last layer (*y*) using the custom variational
+    layer class we just implemented, as shown here:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/8a5c1a25-1c15-44bf-9249-3e11e7058355.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Now we are ready to finally compile and train our model! First, we put together
+    the entire model, using the `Model` object from the functional API, and passing
+    it the input layer from our encoder module, as well as the last custom loss layer
+    we just defined. Then, we use the usual `compile` syntax on our initialized network,
+    equipping it with the `rmsprop` optimizer. Do note, however, that since we have
+    a custom loss function, the `compile` statement actually does not take any loss
+    metric, where one would usually be present. At this point, we can visualize the
+    entire model, by calling `.summary()` on the `vae` model object, as shown here:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/f2705dc9-4a46-4bdc-895e-f227bb7cc57c.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: As you can see, this architecture takes in the input images and funnels them
+    down to two distinct encoded representations: `z_mean` and `z_log_var` (that is,
+    a learned mean and variance over the latent space). This probability distribution
+    is then sampled using the added Lambda layer to produce a point in the latent
+    space. This point is then decoded by dense layers (`dense_5` and `dense_6`), before
+    a loss can be computed by our final custom-built loss layer. Now you have seen
+    everything.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Initiating the training session
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Now comes the time to actually train our network. There is nothing out of the
+    ordinary here, except for the fact that we do not have to specify a target variable
+    (that is, `y_train`). This is simply because the target is normally used to compute
+    the loss metrics, which is now being computed by our final custom layer. You may
+    also notice that the loss values displayed during training are quite large, compared
+    to previous implementations. Don''t be alarmed at their magnitude, as this is
+    simply the result of the manner in which loss is computed for this architecture:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/5e23a05f-6ce4-4751-93a2-71e3219fd149.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: This model is trained for 50 epochs, at the end of which we were able to attain
+    a validation loss of `151.71` and a training loss of `149.39`. Before we generate
+    some novel-looking handwritten digits, let's try visualizing the latent space
+    that our model was able to learn.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Visualizing the latent space
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Since we have a two-dimensional latent space, we can simply plot out the representations
+    as a 2D manifold where encoded instances of each digit class may be visualized
+    with respect to their proximity to other instances. This allows us to inspect
+    the continuous latent space that we spoke of before and see how the network relates
+    to different features in the 10-digit classes (0 to 9) to each other. To do this,
+    we revisit the encoding module from our VAE, which can now be used to produce
+    a compressed latent space from some given data. Thus, we use the encoder module
+    to make predictions on the test set, thereby encoding these images the latent
+    space. Finally, we can use a scatterplot from Matplotlib to plot out the latent
+    representation. Do note that each individual point represents an encoded instance
+    from the test set. The colors denote the different digit classes:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Following is the output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/be7dbbed-fb81-43fc-863a-253cf1bd3647.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Note how there is very little discontinuity, or gaps between the different
+    digit classes. Due to this, we can now sample from this encoded representation
+    to produce meaningful digits. Such an operation would not produce meaningful results
+    if the learned latent space were discrete, as was the case for the autoencoders
+    we built in the last chapter. The latent space for these models looks much different,
+    when compared to the one learned by the VAE:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/7c1af03c-318e-4c8c-9f87-54102b80461f.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Latent space sampling and output generation
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Finally, we can proceed to generate some novel handwritten digits with our
+    VAE. To do this, we simply revisit the decoder part of our VAE (which naturally
+    excludes the loss layer). We will be using it to decode samples from the latent
+    space and generate some handwritten digits that were never actually written by
+    anyone:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/621b3f8b-dfee-404f-84e2-cfc351b28d03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Next, we will display a grid of 15 x 15 digits, each of size 28\. To do this,
+    we initialize a matrix of zeros, matching the dimensions of the entire output
+    to be generated. Then, we use the `ppf` function from SciPy to transform some
+    linearly placed coordinates to get to the grid values of the latent variables
+    (`z`). After this, we enumerate through these grids to obtain a sampled (`z`)
+    value. We can now feed this sample to the generator network, which will decode
+    the latent representation, to subsequently reshape the output to the correct format,
+    resulting in the screenshot shown here:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/9034a8e3-8267-4dcd-8800-960886fe9bc5.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Do note that this grid demonstrates how sampling from a continuous space allows
+    us to literally visualize the underlining factors of variance in the input data.
+    We notice that digits transform into other digits, as we move along the *x* or
+    *y* axis. For example, consider moving from the center of the image. Moving to
+    the right can change the digit **8** into a **9**, while moving left will change
+    it into a **6**. Similarly, moving diagonally upward on the right-hand side changes
+    the **8** into a **5** first, and then finally a **1**. These different axes can
+    be thought of as representing the presence of certain properties on a given digit.
+    These properties become accentuated as we progress further and further in the
+    direction of a given axis, moulding the digit into an instance of a specific digit
+    class .
+  prefs: []
+  type: TYPE_NORMAL
+- en: Concluding remarks on VAEs
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: As we saw in our MNIST experiments, the VAE excels at learning a well-composed
+    continuous latent space, from which we may sample and decode outputs. These models
+    are excellent for editing images, or producing psychedelic transitions where images
+    mould into other images. Some businesses have even started experimenting with
+    VAE-based models to allow customers to try out fashion items such as jewelry,
+    sun glasses, or other apparel completely virtually, using the cameras on customers'
+    phones! This is due to the fact that VAEs are uniquely suited to learning and
+    editing concept vectors, as we discussed earlier. For instance, if you want to
+    generate a new sample halfway between a 1 and a 0, we can simply compute the difference
+    between their mean vectors from the latent space and add half the difference to
+    the original before decoding it. This will produce a 6, as we can see in the previous
+    screenshot. The same concept applies to a VAE trained on images of faces (using
+    the CelebFaces dataset, for example), as we can sample a face between two different
+    celebrities, to then create their synthetic sibling. Similarly, if we wanted to
+    generate specific features, such as a mustache on a face, all we would have to
+    do is find a sample of a face with and without a mustache. Then, we can retrieve
+    their respective encoded vectors using the encoding function, and simply save
+    the difference between these two vectors. Now our saved mustache vector is ready
+    to be applied to any image, by adding it to the encoded space of the new image,
+    before decoding it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Other amusing use cases with VAEs involve swapping faces on a live feed, or
+    adding additional elements for the sake of entertainment. These networks are quite
+    unique in their ability to realistically modify images and produce ones that never
+    originally existed. Naturally, it makes you wonder whether such technologies can
+    be used for less-amusing purposes; misusing these models to misrepresent people
+    or situations could potentially lead to some dire outcomes. However, since we
+    can train neural networks to fool humans, we can also train them to help us distinguish
+    such forgeries. This brings us to the next topic of this chapter: **GANs**.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Exploring GANs
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The idea behind GANs is much more understandable when compared to other similar
+    models. In essence, we use several neural networks to play a rather elaborate
+    game. Just like in the movie C*atch-me-if-you-can*. For those who are not familiar
+    with the plot of this film, we apologize in advance for any missed allusions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We can think of a GAN as a system of two actors. On one side, we have a Di Caprio-like
+    network that attempts to recreate some Monets and Dalis and ship them off to unsuspecting
+    art dealers. We also have a vigilant Tom Hanks-style network that intercepts these
+    shipments and identifies any forgeries present. As time goes by, both individuals
+    become better at what they do, leading to realistic forgeries on the conman's
+    side, and a keen eye for them on the cop's side. This variation of a commonly
+    used analogy indeed does well at introducing the idea behind these architectures.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'A GAN essentially has two parts: a generator and a discriminator. Each of these
+    parts can be thought of as separate neural networks, which work together by checking
+    each other''s outputs as the model trains. The generator network is tasked to
+    generate fake data points, by sampling random vectors from a latent space. Then,
+    the discriminator receives these generated data points, along with actual data
+    points, and proceeds to distinguish which one of the data points is real, and
+    which are not (hence the name, *discriminator*). As our network trains, both the
+    generator and the discriminator get better at creating synthetic data and recognizing
+    synthetic data, respectively:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/0797705e-f322-4fe7-99f9-2c7dea54b923.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Utility and practical applications for GANS
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'This architecture was first introduced by Goodfellow and others, 2014, and
+    it has since been popularized by researchers spanning several domains. Their rise
+    to fame was due to their ability to generate synthetic images that are virtually
+    indistinguishable from real ones. While we have discussed some of the more amusing
+    and mundane applications that derive from such methods, more complex ones also
+    exist. For instance, while GANs are mostly used for computer vision tasks such
+    as texture editing and image modification, they are increasingly becoming popular
+    in a multitude of academic disciplines, making appearances in more and more research
+    methodologies. Nowadays, you may find GANs being used for medical image synthesis,
+    or even in domains such as particle physics and astrophysics. The same methodology
+    for generating synthetic data can be used to regenerate denoised images from galaxies
+    far, far away or to simulate realistic radiation patterns that would arise from
+    high-energy particle collisions. The true utility of GANs lies in their ability
+    to learn underlining statistical distributions in data, allowing them to generate
+    synthetic instances of the original inputs. Such an approach is especially useful
+    for researchers when collecting real data, but this may be prohibitively expensive,
+    or physically impossible. Furthermore, the utility of GANs is not limited to the
+    domain of computer vision. Other applications have included using variations of
+    these networks to generate fine-grained images from natural language data, such
+    as a sentence describing some scenery:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/08bc6c1d-aaa9-4497-b53c-6c87d163b7b4.png)[https://arxiv.org/pdf/1612.03242v1.pdf](https://arxiv.org/pdf/1612.03242v1.pdf)'
+  prefs: []
+  type: TYPE_IMG
+- en: These use cases all show how GANs permit us to address novel tasks, with creative
+    as well as practical implications. Yet, these architectures are not all fun and
+    games. They are notoriously difficult to train, and those who have ventured deep
+    into these waters describe it as more of an art than a science.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For more information on this subject, refer to the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Original paper by Goodfellow and others**: [http://papers.nips.cc/paper/5423-generative-adversarial-nets](http://papers.nips.cc/paper/5423-generative-adversarial-nets)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**GAN in astrophysics**: [https://academic.oup.com/mnrasl/article/467/1/L110/2931732](https://academic.oup.com/mnrasl/article/467/1/L110/2931732)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**GAN in particle physics**: [https://link.springer.com/article/10.1007/s41781-017-0004-6](https://link.springer.com/article/10.1007/s41781-017-0004-6)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Fine-grained text-to-image generation**: [http://openaccess.thecvf.com/content_cvpr_2018/html/Xu_AttnGAN_Fine-Grained_Text_CVPR_2018_paper.html](http://openaccess.thecvf.com/content_cvpr_2018/html/Xu_AttnGAN_Fine-Grained_Text_CVPR_2018_paper.html)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Diving deeper into GANs
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'So, let''s try to better understand how the different parts of the GAN work
+    together to generate synthetic data. Consider the parameterized function (*G*)
+    (you know, the kind we usually approximate using a neural network). This will
+    be our generator, which samples its input vectors (*z*) from some latent probability
+    distribution, and transforms them into synthetic images. Our discriminator network
+    (*D*), will then be presented with some synthetic images produced by our generator,
+    mixed among real images, and attempt to classify real from forgery. Hence, our
+    discriminator network is simply a binary classifier, equipped with something like
+    a sigmoid activation function. Ideally, we want the discriminator to output high
+    values when presented with real images, and low values when presented with generated
+    fakes. Conversely, we want our generator network to try to fool the discriminator
+    network, by making it output high values for the generated fakes as well. These
+    concepts bring us to the mathematical formulation of training a GAN, which is
+    essentially a battle between two neural networks (*D* and *G*), each trying to
+    one-up the other:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/4a9a9cd4-0a21-4a4c-ba43-1bb3ed86478e.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: In the given formulation, the first term actually denotes the entropy relating
+    to a data point (*x*) from the real distribution, presented to the discriminator.
+    The goal of the discriminator is to try maximize this term to 1, as it wishes
+    to correctly identify real images. Furthermore, the second term in the formulation
+    denotes the entropy relating to a randomly sampled point, transformed into a synthetic
+    image by the generator, *G(z)*, presented to the discriminator, *D(G(z))*. The
+    discriminator wants none of this, and hence it seeks to maximize the log probability
+    of the data point being fake (that is, the second term), to 0\. Hence, we can
+    state that the discriminator is trying to maximize the entire *V *function. The
+    generator function, on the other hand, will be doing quite the contrary. The generator's
+    goal is to try to minimize the first term and maximize the second term so that
+    the discriminator is not able to tell real from fake. And so begins the laborious
+    game between cop and thief.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Problems with optimizing GANs
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Interestingly, since both networks take turns to optimize their own metric,
+    the GAN has a dynamic loss landscape. This is different than all other examples
+    we have seen in this book, where the loss hyperplane would remain the same, as
+    we descended it by backpropagating our model errors, converging to more ideal
+    parameters. Here, however, since both networks get a go at optimizing their parameters,
+    each step down the hyperplane changes the landscape a tiny bit, until an equilibrium
+    is reached between the two optimization constraints. As with many things in life,
+    this equilibrium is not easily achieved, and it requires a lot of attention and
+    effort. In the case of GANs, attention to aspects such as layer weight initialization,
+    usage of `LeakyRelu` and `tanh` instead of **Rectified Linear Unit** (**ReLU**) and
+    sigmoid activation functions, implementing batch normalization and dropout layers,
+    and so on, are but a few among the vast array of considerations that may improve
+    your GAN's ability to attain equilibrium. Yet, there is no better way of familiarizing
+    ourselves with these issues than to get our hands on some code and actually implement
+    an instance of these fascinating architectures.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For more information on this subject, refer to the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Improved techniques for training GANs**: [https://arxiv.org/pdf/1606.03498.pdf](https://arxiv.org/pdf/1606.03498.pdf)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Photo-realistic image generation**: [http://openaccess.thecvf.com/content_cvpr_2017/html/Ledig_Photo-Realistic_Single_Image_CVPR_2017_paper.html](http://openaccess.thecvf.com/content_cvpr_2017/html/Ledig_Photo-Realistic_Single_Image_CVPR_2017_paper.html)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Designing a GAN in Keras
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'For this exercise, suppose you were part of a research team working for a large
+    automobile manufacturer. Your boss wants you to come up with a way to generate
+    synthetic designs for cars, to systematically inspire the design team. You have
+    heard all the hype about GANs and have decided to investigate whether they can
+    be used for the task at hand. To do this, you want to first do a proof of concept,
+    so you quickly get a hold of some low-resolution pictures of cars and design a
+    basic GAN in Keras to see whether the network is at least able to recreate the
+    general morphology of cars. Once you can establish this, you can convince your
+    manager to invest in a few *Titan x GUPs* for the office, get some higher-resolution
+    data, and develop some more complex architectures. So, let''s start by implementing
+    this proof of concept by first getting our hands on some pictures of cars. For
+    this demonstrative use case, we use the good old CIFAR-10 dataset, and restrict
+    ourselves to the commercial automobile category. We start our implementation exercise
+    by importing some libraries, as shown here:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/6c878754-2a18-4486-a873-2b59dad91701.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Preparing the data
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'We proceed by simply loading up the data through Keras, and selecting only
+    car images (index = 1). Then, we check the shape of our training and test arrays.
+    We see that there are 5,000 training images and 1,000 test images:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/4639fcd3-f2f9-4040-b49e-90cb00f67c4c.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Visualizing some instances
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'We will now take a look at the real images from the dataset, using Matplotlib.
+    Remember these, as soon we will be generating some fakes for comparison:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Following is the output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/bf4f02f7-26c2-4027-af00-eb18fe6f2254.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Pre-processing the data
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Next, we simply normalize our pixel values. Unlike previous attempts, however,
+    this time, we normalize the pixel values between -1 and 1 (instead of between
+    0 and 1). This is due to the fact that we will be using a `tanh` activation function
+    for the generator network. This specific activation function outputs values between
+    -1 and 1; hence, normalizing the data in a similar manner makes the learning process
+    smoother:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/5cde634d-ac51-456d-b8ae-46b1dbcfaf3f.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: We encourage you to try different normalization strategies to explore how this
+    affects learning as the network trains. Now we have all the components in place
+    to start constructing the GAN architecture.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Designing the generator module
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Now comes the fun part. We will be implementing a **Deep Convolutional Generative
+    Adversarial Network** (**DCGAN**). We start with the first part of the DCGAN:
+    the generator network. The generator network will essentially learn to recreate
+    realistic car images, by transforming a sample from some normal probability distribution,
+    representing a latent space.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We will again use the functional API to defile our model, nesting it in a function
+    with three different arguments. The first argument, `latent_dim`, refers to the
+    dimension of the input data randomly sampled from a normal distribution. The `leaky_alpha`
+    argument simply refers to the alpha parameter provided to the `LeakyRelu` activation
+    function used throughout the network. Finally, the argument `init_stddev` simply
+    refers to the standard deviation with which to initialize the random weights of
+    the network, used to define the `kernel_initializer` argument, when constructing
+    a layer:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Note the number of considerations taken while designing this model here. For
+    instance, the `LeakyReLU` activation function is chosen in penultimate layers
+    due to their ability to relax the sparsity constraint on outputs, when compared
+    to the ReLU. This is simply due to the fact that `LeakyReLU` tolerates some small
+    negative gradient values as well, whereas the ReLU simply squishes all negative
+    values to zero. Gradient sparsity is usually considered a desirable property when
+    training neural networks, yet this does not hold true for GANs. This is the same
+    reason why max-pooling operations are not very popular in DCGANs, since this downsampling
+    operation often produces sparse representations. Instead, we will be using the
+    stride convolutions with the Conv2D transpose layer, for our downsampling needs.
+    We also implemented batch normalization layers (with a moment for moving the mean
+    and variance set to 0.8), as we noticed that this had a considerable effect on
+    improving the quality of the generated images. You will also notice that the size
+    of the convolutional kernels is set to be divisible by the stride, for each convolutional
+    layer. This has been also noted to improve generated images, while reducing discrepancy
+    between areas of the generated image, since the convolutional kernel is allowed
+    to equally sample all regions. Finally, the last layer of the network is equipped
+    with a `tanh` activation function, as this has consistently shown to produce better
+    results with the GAN architecture. The next screenshot depicts the entire generator
+    module of our GAN, which will produce the 32 x 32 x 3 synthetic images of cars,
+    subsequently used to try fool the discriminator module:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/659b480f-a5d1-42b4-a02d-882354a05b1f.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Designing the discriminator module
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Next, we continue our journey designing the discriminator module, which will
+    be responsible for telling the real images from the fake ones supplied by the
+    generator module we just designed. The concept behind the architecture is quite
+    similar to that of the generator, with some key differences. The discriminator
+    network receives images of a 32 x 32 x 3 dimension, which it then transforms into
+    various representations as information propagates through deeper layers, until
+    the dense classification layer is reached, equipped with one neuron and a sigmoid
+    activation function. It has one neuron, since we are dealing with the binary classification
+    task of distinguishing fake from real. The `sigmoid` function ensures a probabilistic
+    output between 0 and 1, indicating how fake or real the network thinks a given
+    image may be. Do also note the inclusion of the dropout layer before the dense
+    classifier layer, introduced for the sake of robustness and generalizability:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: Once again, we encourage you to experiment with as many model hyperparameters
+    as possible, to better get a grip of how altering these different hyperparameters
+    affects the learning and the outputs generated by our GAN model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Putting the GAN together
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Next, we weave together the two modules using this function shown here. As
+    arguments, it takes the size of the latent samples for the generator, which will
+    be transformed by the generator network to produce synthetic images. It also accepts
+    a learning rate and a decay rate for both the generator and discriminator networks.
+    Finally, the last two arguments denote the alpha value for the `LeakyReLU` activation
+    function used, as well as a standard deviation value for the random initialization
+    of network weights:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: We simply ensure that no previous Keras session is running by calling `.clear_session()`
+    on the imported backend object, `K`. Then, we can define the generator and discriminator
+    networks by calling their respective functions that we designed earlier and supplying
+    them with the appropriate arguments. Note that the discriminator is compiled,
+    while the generator is not.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Do note that the functions are designed in a way that encourage fast experimentation
+    by changing different model hyperparameters using the arguments.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Finally, after compiling the discriminator network with a binary cross-entropy
+    loss function, we merge the two separate networks together. We do this using the
+    sequential API, which allows you to merge two fully connected models together
+    with much ease. Then, we can compile the entire GAN, again using the same loss
+    and optimizer, yet with a different learning rate. We chose the `Adam` optimizer
+    in our experiments, with a learning rate of 0.0001 for our GAN, and 0.001 for
+    the discriminator network, which happened to work well for the task at hand.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Helper functions for training
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Next, we will define some helper functions that will aid us in the training
+    process. The first among them simply makes a sample of latent variables from a
+    normal probability distribution. Next, we have the `make_trainable()` function,
+    which helps us train the discriminator and generator networks in turn. In other
+    words, it allows us to freeze the layer weights of one module (the discriminator
+    or the generator), while the other one is trained. The trainable argument for
+    this function is just a Boolean variable (true or false). Finally, the `make_labels()`
+    function simply returns labels to train the discriminator module. These labels
+    are binary, where `1` stands for real, and `0` for fake:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: Helper functions to display output
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The next two helper functions allow us to visualize our losses at the end of
+    the training session, as well as plot an image out at the end of each epoch, to
+    visually assess how the network is doing. Since the loss landscape is dynamically
+    changing, the loss values have much less meaning. As is often the case with generative
+    networks, evaluation of their output is mostly left to visual inspection by human
+    observers. Hence, it is important that we are able to visually inspect the model''s
+    performance during the training session:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: The first function simply accepts a list of loss values for the discriminator
+    and the generator network over the training session, to transpose and plot them
+    out over the epochs. The second function allows us to visualize a grid of generated
+    images at the end of each epoch.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The training function
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Next comes the training function. Yes, it is a big one. Yet, as you will soon
+    see, it is quite intuitive, and basically combines everything we have implemented
+    so far:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: Arguments in the training function
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'You are already familiar with most of the arguments of the training function.
+    The first four arguments simply refer to the learning rate and decay rate used
+    for the generator and the discriminator networks, respectively. Similarly, the
+    `leaky_alpha` parameter is the negative slope coefficient we implemented for our
+    `LeakyReLU` activation function, used in both networks. The smooth argument that
+    follows represents the implementation of one-sided label smoothing, as proposed
+    by Goodfellow and others, 2016\. The idea behind this is to replace the real (1)
+    target values for the discriminator module with smoothed values, such as 0.9,
+    as this has shown to reduce the susceptibility of neural networks to fail at adversarial
+    examples:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: Next, we have four more parameters, which are quite simple to follow. The first
+    among them is `sample_size`, referring to the size of the sample taken from the
+    latent space. Next, we have the number of training epochs and `batch_size` in
+    which to perform weight updates. Finally, we have the `eval_size` argument, which
+    refers to the number of generated images to evaluate at the end of each training
+    epoch.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Defining the discriminator labels
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Next, we define the label arrays to be used for the training and evaluation
+    images, by calling the `make_labels()` function, and using the appropriate batch
+    dimension. This will return us arrays with the labels 1 and 0 for each instance
+    of the training and evaluation image:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: Initializing the GAN
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Following this, we initialize the GAN network by calling the `make_DCGAN()`
+    function we defined earlier and providing it with the appropriate arguments:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: Training the discriminator per batch
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Thereafter, we define a list to collect the loss values for each network during
+    training. To train this network, we will actually use the `.train_on_batch()`
+    method, which allows us to selectively manipulate the training process, as is
+    required for our use case. Essentially, we will implement a double `for` loop:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: Hence, for each batch in each epoch, we will first train the discriminator,
+    and then the generator, on the given batch of data. We begin by taking the first
+    batch of real training images, as well as sampling a batch of latent variables
+    from a normal distribution. Then, we use the generator module to make a prediction
+    on the latent sample, essentially generating a synthetic image of a car.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Following this, we allow the discriminator to be trained on both batches (that
+    is, of real and generated images), using the `make_trainable()` function. This
+    is where the discrimator is given the opportunity to learn to tell real from fake.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Training the generator per batch
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'After this, we freeze the layers of the discriminator, again using the `make_trainable()`
+    function, this time to train the rest of the network only. Now it is the generator''s
+    turn to try beat the discriminator, by generating a realistic image:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: Evaluate results per epoch
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Next, we exit the `nested` loop to perform some actions at the end of each
+    epoch. We randomly sample some real images as well as latent variables, and then
+    generate some fake images to plot out. Do note that we used the `.test_on_batch()`
+    method to obtain the loss values of the discriminator and the GAN and append them
+    to our loss list. At the end of each epoch, we print out the discriminator and
+    generator loss and plot out a grid of 16 samples. Now all that is left is to call
+    this function:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'For more information, refer to the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Improved techniques for training GANs**: [https://arxiv.org/pdf/1606.03498.pdf](https://arxiv.org/pdf/1606.03498.pdf)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Executing the training session
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'We finally initiate the training session with the respective arguments. You
+    will notice the tqdm  module displaying a percentage bar indicating the number
+    of processed batches per epoch. At the end of the epoch, you will be able to visualize
+    a 4 x 4 grid (shown next) of samples generated from the GAN network. And there
+    you have it, now you know how to implement a GAN in Keras. On a side note, it
+    can be very beneficial to have `tensorflow-gpu` along with CUDA set up, if you''re
+    running the code on a local machine with access to a GPU. We ran this code for
+    200 epochs, yet it would not be uncommon to let it run for thousands of epochs,
+    given the resources and time. Ideally, the longer the two networks battle, the
+    better the results should get. Yet, this may not always be the case, and hence,
+    such attempts may also require careful monitoring of the loss values:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/712e4234-0e06-482b-9327-e60681bf9f45.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Interpreting test loss during training
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'As you can see next, the loss values on the test set change at quite an unstable
+    rate. We expect different optimizers to exhibit smother or rougher loss curves,
+    and we encourage you to test these assumptions using different loss functions
+    (RMSProp is an excellent one to start off with, for example). While looking at
+    the plotted losses is not too intuitive, visualizing the generated images across
+    the epochs allows some meaningful evaluation of this exercise:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/7c11a597-c793-4fd5-90bc-8f32080b94c0.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Visualizing results across epochs
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'In the following, we present eight snapshots of the 16 x 16 grids of generated
+    samples, spread across different times during the training session. While the
+    images themselves are pretty small, they undeniably resemble the morphology of
+    cars toward the end of the training session:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/8ac24243-b52d-4174-8b57-3c9efd186b3e.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'And there you have it. As you can see, the GAN becomes quite good at generating
+    realistic car images after a while, as it gets better and better at fooling the
+    discriminator. Towards the final epochs, it is even hard for the human eye to
+    distinguish real from fake, at least at first glance. Furthermore, we achieved
+    this with a relatively simple and straightforward implementation. This feat seems
+    even more remarkable when we consider the fact that the generator network never
+    actually sees a single real image. Recall that it is simply sampling from a random
+    probability distribution, and uses only the feedback from the discriminator to
+    better its own output! As we saw, the process of training a DCGAN involved a lot
+    of consideration regarding minute detail and choosing specific model constraints
+    and hyperparameters. For interested readers, you may find more details on how
+    to optimize and fine-tune your GANs in the following research papers:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Original paper on GANs**: [http://papers.nips.cc/paper/5423-generative-adversarial-nets](http://papers.nips.cc/paper/5423-generative-adversarial-nets)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Unsupervised representation learning with DCGAN**: [https://arxiv.org/abs/1511.06434](https://arxiv.org/abs/1511.06434)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Photo-realistic super resolution GAN**: [http://openaccess.thecvf.com/content_cvpr_2017/papers/Ledig_Photo-Realistic_Single_Image_CVPR_2017_paper.pdf](http://openaccess.thecvf.com/content_cvpr_2017/papers/Ledig_Photo-Realistic_Single_Image_CVPR_2017_paper.pdf)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Conclusion
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'In this section of the chapter, we implemented a specific type of GAN (that
+    is, the DCGAN) for a specific use case (image generation). The idea of using two
+    networks in parallel to keep each other in check, however, can be applied to various
+    types of networks, for very different use cases. For example, if you wish to generate
+    synthetic timeseries data, we can implement the same concepts we learned here
+    with recurrent neural networks to design a generative adversarial model! There
+    have been several attempts at this in the research community, with quite successful
+    results. A group of Swedish researchers, for example, used recurrent neural networks
+    in a generative adversarial setup to produce synthetic segments of classical music!
+    Other prominent ideas with GANs involve using attention models (a topic unfortunately
+    not covered by this book) to orient network perception, as well as directing memory
+    access to finer details of an image, for example. Indeed, the fundamental theory
+    we covered in this part of the chapter can be applied in many different realms,
+    using different types of networks so solve more and more complex problems. The
+    core idea remains the same: use two different function approximators, each trying
+    to stay ahead of the other. Next, we present a few links for the interested reader
+    to further familiarize themselves with different GAN-based architectures and their
+    respective uses. We also include a link to a very interesting tool developed by
+    Google and Georgia Tech university, that allows you to visualize the entire training
+    process of a GAN using different types of data distributions and sampling considerations!'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For more information, refer to the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Music with C-RNN_GAN**: [http://mogren.one/publications/2016/c-rnn-gan/mogren2016crnngan.pdf](http://mogren.one/publications/2016/c-rnn-gan/mogren2016crnngan.pdf)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Self- attention GANs**: [https://arxiv.org/abs/1805.08318](https://arxiv.org/abs/1805.08318)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**OpenAI blog on generative networks**: [https://openai.com/blog/generative-models/](https://openai.com/blog/generative-models/)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**GAN Lab**: [https://poloclub.github.io/ganlab/?fbclid=IwAR0JrixZYr1Ah3c08YjC6q34X0e38J7_mPdHaSpUsrRSsi0v97Y1DNQR6eU](https://poloclub.github.io/ganlab/?fbclid=IwAR0JrixZYr1Ah3c08YjC6q34X0e38J7_mPdHaSpUsrRSsi0v97Y1DNQR6eU)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this chapter, we saw how to augment neural networks with randomness in a
+    systematic manner, in order to make them output instances of what we humans deem
+    *creative*. With VAEs, we saw how parameterized function approximation using neural
+    networks can be used to learn a probability distribution, over a continuous latent
+    space. We then saw how to randomly sample from such a distribution and generate
+    synthetic instances of the original data. In the second part of the chapter, we
+    saw how two networks can be trained in an adversarial manner for a similar task.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The methodology of training GANs is simply a different strategy for learning
+    a latent space compared to their counterpart, the VAE. While GANs have some key
+    benefits for the use case of synthetic image generation, they do have some downsides
+    as well. GANs are notoriously difficult to train and often generate images from
+    unstructured and discontinuous latent spaces, as opposed to VAEs, making GANs
+    harder to use for mining concept vectors. Many other considerations also exist
+    when deciding to choose among these generative networks. The field of generative
+    modeling is continuously expanding, and while we were able to cover some of the
+    fundamental conceptual notions involved, new ideas and techniques surface almost
+    daily, making it an exciting time to be interested in such models.
+  prefs: []
+  type: TYPE_NORMAL

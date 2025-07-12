@@ -1,0 +1,956 @@
+- en: Getting Data into Your Neural Network
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: There are many techniques you can use to load data to train a neural network
+    or make predictions. What technique you use depends on how large your dataset
+    is and in what format you've stored your data. In the previous chapter, we've
+    seen how to feed data into a CNTK trainer manually. In this chapter, we will learn
+    more ways to feed data into your neural network.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The following topics will be covered in this chapter:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Training your neural network efficiently with minibatches
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Working with small in-memory datasets
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Working with large datasets
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Taking control over the minibatch loop
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Technical requirements
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: We assume you have a recent version of Anaconda installed on your computer and
+    have followed the steps in [Chapter 1](9a2c8c46-f9a0-4e05-86ef-31300a28a7ba.xhtml),
+    *Getting Started with CNTK*, to install CNTK on your computer. The sample code
+    for this chapter can be found in our GitHub repository at [https://github.com/PacktPublishing/Deep-Learning-with-Microsoft-Cognitive-Toolkit-Quick-Start-Guide/tree/master/ch3](https://github.com/PacktPublishing/Deep-Learning-with-Microsoft-Cognitive-Toolkit-Quick-Start-Guide/tree/master/ch3).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this chapter, we''ll work on a few examples stored in Jupyter notebooks.
+    To access the sample code, run the following commands inside an Anaconda prompt
+    in the directory where you''ve downloaded the code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: We'll mention the relevant notebooks in each of the sections so you can follow
+    along and try out different techniques yourself.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Check out the following video to see the code in action:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[http://bit.ly/2UczHuH](http://bit.ly/2UczHuH)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Training a neural network efficiently with minibatches
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the previous chapter, we discussed how to build and train a neural network.
+    In this chapter, we'll discuss various ways to feed data to the CNTK trainer.
+    Before we dive into the details of each data processing method, let's take a closer
+    look at what happens with the data when you train a neural network.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You need a couple of things to train a neural network. As we discussed in the
+    previous chapter, you need to have a basic structure for your model and a loss
+    function. The `trainer` and the `learner` are the final pieces to the puzzle and
+    are responsible for controlling the training process.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The `trainer` performs four steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: It takes a number of training samples and feeds them through the network and
+    `loss` function
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Next, it takes the output of the `loss` function and feeds it through the `learner`
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: It then uses the `learner` to get a set of gradients for the parameters in the
+    network
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Finally, it uses the gradients to determine the new value of each parameter
+    in the network
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: This process is repeated for all samples in your dataset to train the network
+    for a full epoch. Usually, you need to train the network for multiple epochs to
+    get the best result.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We previously only talked about single samples when training a neural network.
+    But that is not what happens inside CNTK.
+  prefs: []
+  type: TYPE_NORMAL
+- en: CNTK and many other frameworks use minibatches to train neural networks. A minibatch
+    is a set of samples taken from your dataset. Essentially, a minibatch is a very
+    small table of samples. It contains a predefined number of samples for the input
+    features and an equal number of samples for the targets of your neural network.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The minibatch is passed through the network during training to calculate the
+    output of the loss function. The output for the `loss` function is no longer a
+    single value, but rather a list of values equal to the number of rows in the minibatch.
+    This list of values is then passed through the `learner` to obtain a set of gradients
+    for each of the parameters in the neural network.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, there's a problem with working with minibatches. We want one gradient per
+    parameter to optimize its value. But we get a list of gradients instead. We can
+    solve this by calculating the average over the gradients for each parameter. The
+    average gradients are then used to update the parameters in the neural network.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Working with minibatches speeds up the training process but comes at a cost.
+    Because we now have to deal with averages, we lose some resolution in calculating
+    the gradients for the parameters in the model. It is quite possible to have a
+    gradient of zero in a single minibatch as a result of averaging all the calculated
+    gradients. When you use minibatches to train your neural network, you will get
+    a lower quality model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You need to set the number of samples per minibatch yourself before you start
+    to train your neural network. Choosing a higher minibatch size will result in
+    faster training at the cost of quality. A lower minibatch size is slower but produces
+    better models. Choosing the right minibatch size is a matter of experimentation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There's also a memory aspect to choosing the minibatch size. The minibatch size
+    depends on how much memory you have available in your machine. You will find that
+    you can fit fewer samples in the memory of your graphics card than you can in
+    regular computer memory.
+  prefs: []
+  type: TYPE_NORMAL
+- en: All methods described the next sections will use minibatches automatically.
+    Later in the chapter, in the section, *Taking control over the minibatch loop,*
+    we will discuss how to take control of the minibatch loop yourself should you
+    need to.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Working with small in-memory datasets
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: There are many ways in which you can feed data to the CNTK trainer. Which technique
+    you should use depends on the size of the dataset and the format of the data.
+    Let's take a look at how to work with smaller in-memory datasets first.
+  prefs: []
+  type: TYPE_NORMAL
+- en: When you work with in-memory data in Python you will most likely use a framework
+    such as Pandas or NumPy. These frameworks work with vectors and matrices of floating
+    point or object data at their core and offer various levels of convenience when
+    it comes to working with data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let's go over each of these libraries and explore how you can use data stored
+    in these libraries to train your neural network.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Working with numpy arrays
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The first library we'll explore is numpy. Numpy is the most basic library available
+    in Python for performing mathematical operations on n-dimensional arrays. It features
+    an efficient way to store matrices and vectors in computer memory. The numpy library
+    defines a large number of operators to manipulate these n-dimensional arrays.
+    For example, it has built-in functions to calculate the average value over a whole
+    matrix or rows/columns in a matrix.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You can follow along with any of the code in this section by opening the `Training
+    using numpy arrays.ipynb` notebook in your browser using the instructions described
+    at the start of this chapter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s take a look at how to work with a numpy-based dataset in CNTK. As an
+    example, we''ll use a randomly generated dataset. We''ll simulate data for a binary
+    classification problem. Imagine that we have a set of observations with four features.
+    We want to predict two possible labels with our model. First, we need to generate
+    a set of labels that contain a one-hot vector representation of the labels that
+    we want to predict. Next, we''ll also need a set of features that will serve as
+    the input features for our model:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Follow the given steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: First, import the `numpy` package under the `np` alias
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Then, generate a `label mapping` using the `np.eye` function
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: After that, collect `20,000` random samples from the generated `label mapping`
+    using the `np.random.choice` function
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Finally, generate an array of random floating point values using the `np.random.random`
+    function
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'The generated label mapping is a one-hot representation of the possible classes
+    that we support and looks like this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: The generated matrices need to be converted to 32-bit floating point numbers
+    in order to match the format expected by CNTK. Without this step, you will see
+    an error telling you the format is not of the expected type. CNTK expects that
+    you provide double-precision or float 32 data points.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s define a basic model that fits the dataset we just generated:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Follow the given steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: First, import the `Dense` and `Sequential` layer function from the `layers`
+    module
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Then, import the `sigmoid` as the activation function for the layers in the
+    network
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: After that, import the `binary_cross_entropy` function as the `loss` function
+    to train the network
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Next, define the default options for the network providing the `sigmoid` activation
+    function as a default setting
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Now, create the model using the `Sequential` layer function.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Use two `Dense` layers, one with `6` neurons and another one with `2` neurons
+    which will serve as the output layer
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Initialize an `input_variable` with `4` input features, which will serve as
+    the input for the network.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Finally, connect the `features` variable to the neural network to complete it.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: This model will have four inputs and two outputs matching the format of our
+    randomly generated dataset. For demonstration purposes, we inserted an additional
+    hidden layer with six neurons.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now that we have a neural network, let''s train it using our in-memory dataset:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Follow the given steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: First, import the `sgd` learner from the `learners` module
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Next, import the `ProgressPrinter` from the `logging` module
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Define a new `input_variable` for the labels
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: To train the model, define a `loss` using the `binary_cross_entropy` function
+    and provide it the model `z` and the `labels` variable
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Next, initialize the `sgd` learner and provide it with the parameters of the
+    model and the `labels` variable
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Finally, call the `train` method on the `loss` function and provide it with
+    the input data, the `sgd` learner and the `progress_printer` as a callback
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: You're not required to provide callbacks for the `train` method. But it can
+    be useful to plug in a progress writer so you can monitor the training process.
+    Without this, you can't really see what is happening during training.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'When you run the sample code, it will produce output similar to this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: It lists the learning average loss per minibatch, the loss since the last minibatch,
+    and the metrics. Since we didn't provide metrics, the values in the metrics columns
+    will remain `0`. In the last column, the number of examples seen by the neural
+    network is listed.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In the previous example, we''ve executed the `learner` with a default batch
+    size. You can control the batch size using the `minibatch_size` keyword argument:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: Setting `minibatch_size` to a larger value will increase the speed of training
+    but at the cost of a slightly worse model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Try experimenting with different minibatch sizes in the sample code and see
+    how it affects the performance of the model. Even with a model trained with random
+    data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Working with pandas DataFrames
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Numpy arrays are the most basic way of storing data. Numpy arrays are very limited
+    in what they can contain. A single n-dimensional array can contain data of a single
+    data type. For many real-world cases, you need a library that can handle more
+    than one data type in a single dataset. For example, you will find many datasets
+    online where the label column is a string while the rest of the columns in the
+    dataset contain floating point numbers.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The pandas library makes it easier to work with these kinds of datasets and
+    is used by many developers and data scientists. It's a library that allows you
+    to load datasets from disk stored in many different formats as DataFrames. For
+    example, you can read DataFrames stored as JSON, CSV, and even Excel.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Pandas introduces the concept of a dataframe and with it introduces a large
+    amount of mathematical and statistical functions that you can run against a data
+    frame. Let''s take a look at the structure of a pandas DataFrame to see how this
+    library works:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/f8b34cd7-f296-4aea-b136-3f3036e6f091.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: A DataFrame in pandas is a collection of series that define the individual columns.
+    Each DataFrame also has an index that allows you to look up specific rows in the
+    DataFrame by a key value stored in the index.
+  prefs: []
+  type: TYPE_NORMAL
+- en: What makes a DataFrame unique is the large collection of methods defined on
+    both the series and the dataset itself. For example, you can call `describe` on
+    the DataFrame to get summary statistics for the whole DataFrame at once.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Invoking the `describe` method on a single series will get you the same summary
+    statistics for that specific column in your DataFrame.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Pandas is widely used by data scientists and developers to work with data in
+    Python. Because it is so widely used, it is good to know how to handle data stored
+    in pandas with CNTK.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the previous chapter, we've loaded a dataset that contains samples of Iris
+    flowers and used that dataset to train a classification model. Before, we used
+    a trainer instance to train the neural network. This is what happens too when
+    you call `train` on a `loss` function. The `train` method will automatically create
+    a trainer and a session for you so you don't have to do it manually.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In [chapter 2](4c9da7a9-6873-4de9-99a9-43de693d65f8.xhtml), *Building Neural
+    Networks with CNTK*, we talked about classifying three possible species of iris
+    flowers based on four properties. You can either get the file from the sample
+    code included with this book or by downloading the dataset from the UCI datasets
+    archive at [https://archive.ics.uci.edu/ml/datasets/Iris](https://archive.ics.uci.edu/ml/datasets/Iris).
+    Let''s see how we can use the `train` method on the `loss` function to train the
+    network that we created in the previous chapter:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: The model we used previously to classify flowers contains one hidden layer and
+    an output layer with three neurons to match the number of classes we can predict.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In order to train the model, we need to load and preprocess the iris dataset
+    so that it matches the expected layout and data format for the neural network:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Follow the givens steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: First, load the dataset into memory using the `read_csv` function
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Next, create a dictionary mapping the labels in the dataset with their corresponding
+    numeric representation
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Select the first four columns using the `iloc` indexer on the `DataFrame`
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Select the species columns as the labels for the dataset
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Map the labels in the dataset using the `label_mapping` and use `one_hot` encoding
+    to convert them into one-hot encoded arrays
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Convert both the features and the mapped labels to floats so you can use them
+    with CNTK
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'The labels are stored in the dataset as strings, CNTK can''t work with these
+    string values it needs one-hot encoded vectors representing the labels. To encode
+    the labels we''ll need to use the mapping table and the `one_hot` function which
+    you can create using the following code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Follow the given steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Use the `np.zeros` function to create a new vector of size `length` and fill
+    it with zeros
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Select the element at the provided `index` and set its value to `1`
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Return the `result` so it can be used in the dataset
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Once we have the numpy arrays in the right format, we can use them as before
+    to train our model:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Follow the given steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Import the `cross_entropy_with_softmax` function as the loss for the model.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Then, import the `sgd` learner to optimize the parameters.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: After that, import the `ProgressPrinter` from the `logging` module to visualize
+    the training progress.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Next, create a new instance of the `ProgressPrinter` to log the output of the
+    optimizer.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Create a new `input_variable` to store the labels for training.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Initialize the `sgd` learner and give it the parameters of the model and a learning
+    rate of `0.1`.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Finally, invoke the `train` method on the loss and feed it the training data,
+    the `learner` and the `progress_writer`. In addition to this provide the `train`
+    method with a `minibatch_size` of `16` and set the `max_epochs` keyword argument
+    to `5`.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: The `max_epochs` keyword argument for the `train` method on the `loss` function
+    is optional. When you leave it out, the `trainer` will train the model for one
+    epoch.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We''re using `ProgressWriter` to generate output from the training process
+    so we can monitor the progress of the training session. You can leave this out,
+    but it''s a great help to get a sense of what is happening during training. With
+    the progress writer configured, the output will look similar to this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: Since we're using the same method to train the network as with regular numpy
+    arrays, we can control the batch size too. We'll leave it up to you to try different
+    settings for the batch size and discover what produces the best model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Working with large datasets
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: We've looked at NumPy and Pandas as ways to feed in-memory dataset to CNTK for
+    training. But not every dataset is small enough to fit into memory. This is especially
+    true for datasets that contain images, video samples, or sound samples. When you
+    work with larger datasets, you only want to load small portions of the dataset
+    at a time into memory. Usually, you will only load enough samples into memory
+    to run a single minibatch of training.
+  prefs: []
+  type: TYPE_NORMAL
+- en: CNTK supports working with larger datasets through the use of `MinibatchSource`.
+    Now, `MinibatchSource` is a component that can load data from disk in chunks.
+    It can automatically randomize samples read from the data source. This is useful
+    for preventing your neural network from overfitting due to a fixed order in the
+    training dataset.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`MinibatchSource` has a built-in transformation pipeline. You can use this
+    pipeline to augment your data. This is a useful feature when you work with data
+    such as images. When you are training a model based on images, you want to make
+    sure that an image is recognized even at a funny angle. The transformation pipeline
+    allows you to generate extra samples by rotating the original images read from
+    disk.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: A unique feature of `MinibatchSource` is that it loads data on a background
+    thread separate from the training process. By loading data in a separate thread,
+    it can load minibatches ahead of time so that your graphics card doesn't get stalled
+    on this process.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this chapter, we'll limit ourselves to the basic usage of `MinibatchSource`.
+    In [Chapter 5](9d91a0e4-3870-4a2f-b483-82fdb8849bc2.xhtml), *Working with Images**,*
+    and [Chapter 6](a5da9ef2-399a-4c30-b751-318d64939369.xhtml), *Working with Time
+    Series Data*, we'll look at how you can use the `MinibatchSource` component with
+    images and time series data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let's explore how to use a minibatch source with out-of-memory data to work
+    with larger datasets and use it to feed data for training a neural network.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Creating a MinibatchSource instance
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'In the section, *Working with pandas DataFrames*, we worked on the iris flower
+    example. Let''s go back and replace the code that uses data from a pandas DataFrame
+    with `MinibatchSource`. The first step is to create a basic `MinibatchSource`
+    instance:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Follow the given steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: First, import the components for the minibatch source from the `io` module.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Next, create a stream definition for the labels using the `StreamDef` class.
+    Use the labels field and set it to read `3` features from the stream. Make sure
+    to use the `is_sparse` keyword argument and set it to `False`.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Then, create another `StreamDef` instance and read the features field from the
+    input file. This stream has `4` features. Use the `is_sparse` keyword argument
+    to specify that the data is stored as dense vectors.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: After that, initialize the `deserializer`. Provide the `iris.ctf` file as the
+    input and feed it the stream definitions by wrapping them in a `StreamDefs` instance.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Finally, create a `MinibatchSource` instance using the `deserializer`.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Creating CTF files
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The data that we''re using comes from the file `iris.ctf` and is stored in
+    a file format called **CNTK Text Format** (**CTF**). This is a file format that
+    looks like this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: Each line contains a single sample for our neural network. Each line can contain
+    values for multiple inputs of our model. Each input is preceded by a vertical
+    pipe. The values for each input are separated by a space.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `CTFDeserializer` can read the file by using the stream definitions that
+    we initialized in the code sample.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In order to get the data for the `MinibatchSource` instance we just created,
+    you need to create a CTF file for our dataset. There's no official converter to
+    turn data formats such as **Comma-Separated Value** (**CSV**) into CTF files,
+    so you need to write some Python code. You can find the code to prepare a CTF
+    file for training with a minibatch size in the `Creating a CTF file.ipynb` notebook
+    in the sample code for this chapter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s explore how to create a CTF file using Python. The first step is to
+    load the data into memory and convert it to the correct format:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Follow the given steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Before we start to process the data, import the `pandas` and `numpy` packages
+    to get access to the data processing functions.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: First, load the `iris.csv` file into memory and store it in the `df_source`
+    variable.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Then, take the contents of the first four columns using the `iloc` indexer as
+    the features.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Next, use the data from species column as the labels for our dataset.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Now create a `label_mapping` dictionary to create a mapping between the label
+    name and its numeric representation.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Finally, convert the labels to a set of one-hot encoded vectors using a Python
+    list comprehension and the `one_hot` function.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'To encode the labels we''ll use a utility function called `one_hot` that you
+    can create using the following code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Follow the given steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Generate a new empty vector with the specified `length` using the `np.zeros`
+    function
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Next, take the element at the specified `index` and set it to `1`
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Finally, return the newly generated one-hot encoded vector so you can use it
+    in the rest of your code
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Once we have loaded and preprocessed the data, we can store it on disk in the
+    CTF file format:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Follow the given steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: First, we open the `iris.ctf` file for writing
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Then, iterate over all the records in the dataset
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: For each record, create a new string containing the serialized values for the
+    `features` vector
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Next, serialize the `labels` to a string using a Python list comprehension
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Finally, write the `features` and `labels` to the file
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: The elements in the `features` and `labels` vector should be separated by a
+    space. Note that each of the serialized pieces of data gets prefixed by a pipe-character
+    and its name in the output file.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Feeding data into a training session
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'To train with `MinibatchSource`, we can use the same training logic as before.
+    Only this time, we''ll use `MinibatchSource` as the input for the `train` method
+    on the `loss` function:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Follow the given steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: First, import the `ProgressPrinter` so we can log the output of the training
+    session.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Next, import the `trainer` and the `training_session`, you'll need these to
+    set up the training session.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Then, define a set of constants for the training code. The `minibatch_size`
+    to control the number of samples per batch, `samples_per_epoch` to control the
+    number of samples in a single epoch and finally the `num_epochs` setting to control
+    the number of epochs to train for.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Define a mapping between the input variables for the network and the streams
+    in the minibatch source so CNTK knows how to read data during training.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Then, initialize the `progress_writer` variable with a new `ProgressPrinter`
+    instance to log the output of the training process.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Finally, invoke the `train` method on the `loss` providing the `MinibatchSource`
+    and the `input_map` in the `model_inputs_to_stream keyword` argument.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'You can run the code from this section when you open `Training with a minibatch
+    source.ipynb` from the sample code for this chapter. We''ve included a `progress
+    printer` instance to visualize the output of the training session. When you run
+    the code, you will get output similar to this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: Taking control over the minibatch loop
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the previous section, we've seen how to use the CTF format with `MinibatchSource`
+    to feed data to the CNTK trainer. But most datasets don't come in this format.
+    So, you can't really use this format unless you create your own dataset or convert
+    the original dataset to the CTF format.
+  prefs: []
+  type: TYPE_NORMAL
+- en: CNTK currently supports a limited set of `deserializers` for images, text, and
+    speech. You can't extend the deserializers at the moment, which limits what you
+    can do with the standard `MinibatchSource`. You can create your own `UserMinibatchSource`,
+    but this is a complicated process. So, instead of showing you how to build a custom
+    `MinibatchSource`, let's look at how to feed data into the CNTK trainer manually.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s first recreate the model we used to classify Iris flowers:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: The model remains the same as in previous sections; it is a basic classification
+    model with four input neurons and three output neurons. We'll be using a categorical
+    cross-entropy loss since this is a multi-class classification problem.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s train the model using a manual minibatch loop:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Follow the given steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: First, import the components needed for training the neural network.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Next, define an `input _variable` to store the labels.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Then, define the `loss` function using the `cross_entropy_with_softmax` function
+    and connect the output of the neural network and the labels variable to it.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: After that, initialize the `learner` with the parameters of the neural network
+    and a learning rate of `0.1`.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Create a new instance of the `ProgressWriter` to log the output of the training
+    process.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Next, create a new instance of the `Trainer` class and initialize it with the
+    network, the `loss`, the `learner` and the `progress_writer`.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: After you've initialized the network, Load the dataset from disk and use the
+    `chunksize` keyword argument so it is read in chunks rather than loading the dataset
+    into memory in one operation.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Now create a new `for` loop to iterate over the chunks of the dataset.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Process each chunk by extracting the `labels` and `features` from it in the
+    appropriate format. Use the first four columns as the input features for the neural
+    network and the last column as the labels.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Convert the label values to one-hot encoded vectors using the `one_hot` function
+    from the section *Working with pandas DataFrames.*
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Finally, call the `train_minibatch` method on the `trainer` and feed it the
+    `features` and `labels`.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Note that we didn't write any code to run multiple epochs of training. If you
+    want, you can introduce this into the code by wrapping the logic for reading and
+    processing minibatches from the CSV file in another `for` loop. Check out the
+    `Training with a manual minibatch loop.ipynb` notebook in the sample code for
+    this chapter to give it a try.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You will find that preparing a single minibatch is a lot more work with a manual
+    minibatch loop. This comes mainly from the fact that we're not using the automatic
+    chunking that comes with the standard `MinibatchSource` logic. Also, since we
+    haven't preprocessed the dataset beforehand, we need to encode the labels during
+    training.
+  prefs: []
+  type: TYPE_NORMAL
+- en: When you have to work with a large dataset and can't use `MinibatchSource`,
+    a manual minibatch loop is your last resort. It is, however, much more powerful
+    because you get a lot more control over how your model is trained. Using a manual
+    minibatch loop can be very useful if you want to perform complex operations on
+    each minibatch or change settings as the training progresses.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this chapter, we've explored how you can train your neural networks with
+    both small and large datasets. For smaller datasets, we've looked at how you can
+    quickly train a model by calling the `train` method on the `loss` function. For
+    larger datasets, we've explored how you can use both `MinibatchSource` and a manual
+    minibatch loop to train your network.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using the right method of training can make a big difference in how long it
+    takes to train your model and how good your model will be in the end. You can
+    now make an informed choice between using in-memory data and reading data in chunks.
+    Make sure you experiment with the minibatch size settings to see what works best
+    for your model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Up until this chapter, we haven't looked at methods to monitor your model. We
+    did see some fragments with a progress writer to help you visualize the training
+    process. But that's pretty limited.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the next chapter, we'll learn how to measure the performance of neural networks.
+    We'll also explore how to monitor and debug CNTK models using different visualization
+    and monitoring tools.
+  prefs: []
+  type: TYPE_NORMAL

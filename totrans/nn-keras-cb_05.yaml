@@ -1,0 +1,1317 @@
+- en: Transfer Learning
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the previous chapter, we learned about recognizing the class that an image
+    belongs to in a given image. In this chapter, we will learn about one of the drawbacks
+    of CNN and also about how we can overcome it using certain pre-trained models.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this chapter, we will cover the following recipes:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Gender classification of a person in an image using CNNs
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Gender classification of a person in image using the VGG16 architecture-based
+    model
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Visualizing the output of the intermediate layers of a neural network
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Gender classification of a person in image using the VGG19 architecture-based
+    model
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Gender classification of a using the ResNet architecture-based model
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Gender classification of a using the inception architecture-based model
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Detecting the key points within image of a face
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Gender classification of the person in an image using CNNs
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: To understand some of the limitations of CNNs, let's go through an example where
+    we try to identify whether the given image contains the image of a cat or a dog.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'We will gain an intuition of how a CNN predicts the class of object present
+    in the image through the following steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'A convolution filter is activated by certain parts of the image:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: For example, certain filters might activate if the image has a certain pattern—it
+    contains a circular structure, for example
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'A pooling layer ensures that image translation is taken care of:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: This ensures that even if an image is big, over an increased number of pooling
+    operations, the size of the image becomes small and the object can then be detected
+    as the object is now expected to be in the smaller portion of the image (as it
+    is pooled multiple times)
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The final flatten layer flattens all the patterns that are extracted by various
+    convolution and pooling operations
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Let's impose a scenario where the number of images in a training dataset is
+    small. In such a case, the model does not have enough data points for it to generalize
+    on a test dataset.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Additionally, given that the convolutions are learning various features from
+    scratch, it could potentially take many epochs before the model starts to fit
+    on top of the training dataset if the training dataset contains images that have
+    a large shape (width and height).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Hence, in the next section, we will code the following scenario of building
+    a CNN, where there are a few images (~1,700 images) and test the accuracy on different
+    shapes of images:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Accuracy in 10 epochs where the image size is 300 X 300
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Accuracy in 10 epochs where the image size is 50 X 50
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this section, we will fetch a dataset and perform classification analysis
+    where the image size in one scenario is 300 x 300, while in the other scenario,
+    it is 50 x 50. (Please refer to `Transfer_learning.ipynb` file in GitHub while
+    implementing the code.)
+  prefs: []
+  type: TYPE_NORMAL
+- en: Scenario 1 – big images
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Fetch the dataset. For this analysis, we will continue with the male versus
+    female classification dataset that we have downloaded in the Gender classification
+    case study in [Chapter 4](750fdf81-d758-47c9-a3b3-7cae6aae1576.xhtml), *Building
+    a Deep Convolutional Neural Network*:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Extract the image paths and then prepare the input and output data:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'A sample of the images is as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![](img/45f228ee-b2bc-43e1-af97-beb22587efb2.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Note that all the images are 300 x 300 x 3 in size.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Create the input and output dataset arrays:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the preceding step, we are looping through all the images (one at a time),
+    reading the image into an array (we could have gotten away without this step in
+    this iteration. However, in the next scenario of resizing the image, we will resize
+    images in this step). Additionally, we are storing the labels of each image.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Prepare the input array so that it can be passed to a CNN. Additionally, prepare
+    the output array:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: Here, we are converting the list of arrays into a numpy array so that it can
+    then be passed to the neural network.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Scale the input array and create input and output arrays:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Create train and test datasets:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Define the model and compile it:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the preceding code, we are building a model that has multiple layers of convolution,
+    pooling, and dropout. Furthermore, we are passing the output of final dropout
+    through a flattening layer and then connecting the flattened output to a 512 node
+    hidden layer before connecting the hidden layer to the output layer.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'A summary of the model is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/d240df6a-7253-411a-bfd8-ee5b457bb19b.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'In the following code, we are compiling the model to reduce binary cross entropy
+    loss, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Fit the model:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In the preceding step, you can see that the model does not train over increasing
+    epochs, as shown in the following graph (the code for this diagram is the same
+    as we saw in the *Scaling input data* section in [Chapter 2](2846fd6b-a2c2-4ebe-b36a-17f061b4cfa4.xhtml), *Building
+    a Deep Feedforward Neural Network*, and it can be found in the GitHub repository
+    of this chapter):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/d79e7aad-4074-4f56-a06d-feaf5337835d.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: In the preceding graph, you can see that the model hardly learned anything,
+    as the loss did not vary much. Also, the accuracy was stuck near the 51% mark
+    (which is roughly the distribution of male versus female images in the original
+    dataset).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Scenario 2 – smaller images
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'In this scenario, we will modify the following in the model:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Input image size:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: We will reduce the size from 300 X 300 to 50 X 50
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Model architecture:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The structure of the architecture remains the same as what we saw in **Scenario
+    1 – big images**
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Create a dataset with the input of the reduced image size (50 X 50 X 3) and
+    output labels. For this, we will continue from *step 4* of Scenario 1:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Create the input and output arrays for the train, test datasets:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Build and compile the model:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'A summary of the model is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/55212a46-0138-4e44-9c56-04382a0bad47.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Fit the model:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The accuracy and loss of the model training across train and test datasets
+    over increasing epochs is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/46cf59b8-b7ce-4522-8730-c564a321597a.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Note that, while the accuracy increased and the loss decreased steadily in both
+    the training and test datasets initially, over increasing epochs, the model started
+    to overfit (specialize) on training data and had an accuracy of ~76% on the test
+    dataset.
+  prefs: []
+  type: TYPE_NORMAL
+- en: From this, we can see that the CNN works when the input size is small and thus
+    the filters had to learn from a smaller portion of the image. However, as, the
+    image size increased, the CNN had a tough time learning.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Given that we have discovered that the image size has an impact on model accuracy,
+    in the new scenario, let's use aggressive pooling to ensure that the bigger image
+    (300 x 300 shape) reduces to a smaller one quickly.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Scenario 3 – aggressive pooling on big images
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the following code, we will retain the analysis we have done until step 6
+    in Scenario 1\. However, the only change will be the model architecture; in the
+    following model architecture, we have more aggressive pooling than what we used
+    in Scenario 1.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In the following architecture, having a bigger window of pooling in each layer
+    ensures that we capture the activations in a larger area compared to the scenario
+    of having lower pool sizes. The architecture of the model is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Note that in this architecture, the pool size is 3 x 3 and not 2 x 2, as we
+    had in the previous scenario:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/754dcf89-b23c-4d37-adec-f09749e89b81.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Once we fit a model on the input and output arrays, the variation of accuracy
+    and loss on the train and test datasets is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The following is the output of the preceding code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/97fe1ba4-eb37-476a-9328-3b3f225d9952.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: We can see that the test data has ~70% accuracy in correctly classifying gender
+    in images.
+  prefs: []
+  type: TYPE_NORMAL
+- en: However, you can see that there is a considerable amount of overfitting on top
+    of the training dataset (as the loss decreases steadily on the training dataset,
+    while not on the test dataset).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Gender classification of the person in image using the VGG16 architecture-based
+    model
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'In the previous section on gender classification using CNN, we saw that when
+    we build a CNN model from scratch, we could encounter some of the following scenarios:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The number of images that were passed is not sufficient for the model to learn
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Convolutions might not be learning all the features in our images when the images
+    are big in size
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The first problem could be tackled by performing our analysis on a large dataset.
+    The second one could be tackled by training a larger network on the larger dataset
+    for a longer number of epochs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: However, while we are able to perform all of this, more often than not, we do
+    not have the amount of data that is needed to perform such an analysis. Transfer
+    learning using pre-trained models comes to the rescue in such scenarios.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ImageNet is a popular competition where participants are asked to predict the
+    various classes of an image, where the images are of various sizes and also contain
+    multiple classes of objects.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There were multiple research teams that competed in this competition to come
+    up with a model that is able to predict images of multiple classes where there
+    are millions of images in a dataset. Given that there were millions of images,
+    the first problem of a limited dataset is resolved. Additionally, given the huge
+    networks the research teams have built, the problem of coming up with convolutions
+    that learn a variety of features is also resolved.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Hence, we are in a position to reuse the convolutions that were built on a different
+    dataset, where the convolutions are learning to predict the various features in
+    an image and then pass them through a hidden layer so that we can predict the
+    class of an image for our specific dataset. There are multiple pre-trained models
+    that were developed by different groups. We will go through VGG16 here.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this section, let's try to understand how we can leverage the VGG16 pre-trained
+    network for our gender classification exercise.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The VGG16 model''s architecture is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/c55e5a9b-e05e-4c31-9943-aeb2a6ae4c83.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Notice that the model's architecture is very similar to the model that we trained
+    in the Gender classification using CNNs section. The major difference is that
+    this model is deeper (more hidden layers). Additionally, the weights of the VGG16
+    network are obtained by training on millions of images.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We'll ensure that the VGG16 weights are frozen from updating while training
+    our model to classify gender in an image. The output of passing an image in the
+    gender classification exercise (which is of 300 x 300 x 3 in shape) is 9 x 9 x
+    512 in shape.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We shall keep the weights as they were in the original network, extract the
+    9 x 9 x 512 output, pass it through another convolution pooling operation, flatten
+    it, connect it to a hidden layer, and then pass it through the sigmoid activation
+    to determine whether the image is of a male or a female.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Essentially, by using the convolution and pooling layers of the VGG16 model,
+    we are using the filters that were trained on a much bigger dataset. Ultimately,
+    we will be fine-tuning the output of these convolution and pooling layers for
+    the objects that we are trying to predict.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'With this strategy in place, let''s code up our solution as follows (Please
+    refer to `Transfer_learning.ipynb` file in GitHub while implementing the code):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Import the pre-trained model:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: Note that we are excluding the last layer in the VGG16 model. This is to ensure
+    that we fine-tune the VGG16 model for the problem that we are trying solve. Additionally,
+    given that our input image shape is 300 X 300 X 3, we are specifying the same
+    while downloading the VGG16 model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Preprocess the set of images. This preprocessing step ensures that the images
+    are processed in a manner that the pre-trained model can take as input. For example,
+    in the following code, we are performing preprocessing for one of the images,
+    named `img`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: We are preprocessing the image as per the preprocessing requirement in VGG16
+    using the `preprocess_input` method.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Create the input and output datasets. For this exercise, we will continue from
+    the end of step 3 in Scenario 1 of Gender classification using CNN. Here, the
+    process of creating input and output datasets remains the same as what we have
+    already done, with a minor modification of extracting features using the VGG16
+    model.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'We will pass each image through `vgg16_model` so that we take the output of `vgg16_model` as
+    the processed input. Additionally, we will be performing the preprocessing on
+    top of the input as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now, we pass the pre-processed input to the VGG16 model to extract features,
+    as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the preceding code, in addition to passing the image through VGG16 model,
+    we have also stored the input values in a list.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Convert the input and output to NumPy arrays and create training and test datasets:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Build and compile the model:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The summary of the model is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/05928ce6-c892-492b-87f5-bdb7ba98730c.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Compile the model:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Fit the model while scaling the input data:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Once we fit the model, we should see that we are able to attain an accuracy
+    of ~89% on the test dataset in the first few epochs:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/1d5465bb-b9da-4905-a985-3d0a7c1d6b23.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Contrast this with the models we built in the Gender classification using CNN
+    section, where in any of the scenarios, we were not able to reach 80% accuracy
+    in classification in 10 epochs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'A sample of some of the images where the model mis-classified is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/fcb824ca-4791-478c-9d65-7d2f63cec26c.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Note that, in the preceding picture, the model potentially mis-classified when
+    the input image is either a part of a face or if the object in the image occupies
+    a much smaller portion of the total image or potentially, if the label was provided
+    incorrectly.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Visualizing the output of the intermediate layers of a neural network
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the previous section, we built a model that learns to classify gender from
+    images with an accuracy of 89%. However, as of now, it is a black box for us in
+    terms of what the filters are learning.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this section, we will learn how to extract what the various filters in a
+    model are learning. Additionally, we will contrast the scenario of what the filters
+    in the initial layers are learning with what the features in the last few layers
+    are learning.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'To understand how to extract what the various filters are learning, let''s
+    adopt the following strategy:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We will select an image on which to perform analysis.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: We will select the first convolution to understand what the various filters
+    in the first convolution are learning.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Calculate the output of the convolution of weights in the first layer and the
+    input image:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'In this step, we will extract the intermediate output of our model:'
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: We will be extracting the output of the first layer of the model.
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'To extract the output of first layer, we will use the functional API:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The input to the functional API is the input image, and the output will be the
+    output of the first layer.
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: This returns the output of the intermediate layer across all the channels (filters).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: We will perform these steps on both the first layer and the last layer of the
+    convolution.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Finally, we will visualize the output of the convolution operations across all
+    channels.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: We will also visualize the output of a given channel across all images.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this section, we will code up the process of visualizing what the filters
+    are learning across the convolution filters of the initial layers as well as the
+    final layers.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We''ll reuse the data that we prepared in the *Gender classification using
+    CNN* recipe''s Scenario 1 from *step 1* to *step 4* (please refer to `Transfer_learning.ipynb`
+    file in GitHub while implementing the code):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Identify an image for which you want to visualize the intermediate output:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE25]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![](img/009c041f-b3c5-40f0-973f-726d4f649b44.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Define the functional API that takes the image as an input, and the first convolution
+    layer''s output as output:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE26]'
+  prefs: []
+  type: TYPE_PRE
+- en: We have defined an intermediate model named `activation_model`, where we are
+    passing the image of interest as input and extracting the first layer's output
+    as the model's output.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Once we have defined the model, we will extract the activations of the first
+    layer by passing the input image through the model. Note that we will have to
+    reshape the input image so that it is the shape the model expects.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s visualize the first 36 filters in the output, as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE27]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In the preceding code, we created a 6 x 6 frame on which we can plot 36 images.
+    Furthermore, we are looping through all the channels in `first_layer_activation`
+    and plotting the output of the first layer, as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![](img/ae741c21-6feb-427e-abbf-692edf9c8774.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Here, we can see that certain filters extract the contours of the original image
+    (filter 0, 4, 7, 10, for example). Additionally, certain filters have learned
+    to recognize only a few aspects, such as ears, eyes, and nose (filter 30, for
+    example).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s validate our understanding that certain filters are able to extract
+    contours of the original image by going through the output of filter 7 for 36
+    images, as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE28]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In the preceding code, we are looping through the first 36 images and plotting
+    the output of the first convolution layer for all 36 images:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/1d4d36d6-33c2-45aa-9a20-ace2c48fa515.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Note that, across all the images, the seventh filter is learning the contours
+    within an image.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s try to understand what the filters in the last convolution layer are
+    learning. To understand where the last convolution layer is located in our model,
+    let''s extract the various layers in our model:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE29]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The following layers name will be displayed by executing the preceding code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/2eec4bdc-3084-42c3-bb48-c6718498c6d0.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Note that the last convolution layer is the ninth output of our model and can
+    be extracted as follows:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE30]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The size of the image has now shrunk considerably (to 1, 9,9,512), due to the
+    multiple pooling operations that were performed on top of the image. A visualization
+    of what the various filters in the last convolution layer are learning is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/a9768459-b4fe-4a48-9f37-be7dcaf450fb.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Note that, in this iteration, it is not as clear to understand what the last
+    convolution layer's filters are learning (as the contours are not easy to attribute
+    to one of the parts of original image), as these are more granular than the contours
+    that were learned in the first convolution layer.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Gender classification of the person in image using the VGG19 architecture-based
+    model
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the previous section, we learned about how VGG16 works. VGG19 is an improved
+    version of VGG16, with a greater number of convolution and pooling operations.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The architecture of the VGG19 model is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/6d17d7c6-4df1-4ad0-8e47-16e93e90cadd.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Note that the preceding architecture has more layers, as well as more parameters.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note that the 16 and 19 in the VGG16 and VGG19 architectures stand for the number
+    of layers in each of these networks. Once we extract the 9 x 9 x 512 output after
+    we pass each image through the VGG19 network, that output will be the input for
+    our model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Additionally, the process of creating input and output datasets and then building,
+    compiling, and fitting a model will remain the same as what we saw in the Gender
+    classification using a VGG16 model-based architecture recipe.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'In this section, we will code up the VGG19 pre-trained model, as follows (Please
+    refer to `Transfer_learning.ipynb` file in GitHub while implementing the code):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Prepare the input and output data (we''ll continue from *step 3* in Scenario
+    1 of the *Gender classification using CNN* recipe):'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE31]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Convert the input and output into their corresponding arrays and create the
+    training and test datasets:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE32]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Build and compile the model:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE33]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'A visualization of the model is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/62ec64d6-36d0-41c4-9855-8692eb6c3594.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '[PRE34]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Fit the model while scaling the input data:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE35]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Let''s plot the training and test datasets'' loss and accuracy measures:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/42a19290-8e44-4746-92c9-acc35015a8f5.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: We should note that we were able to achieve ~89% accuracy on the test dataset
+    when we used the VGG19 architecture, which is very similar to that of the VGG16
+    architecture.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'A sample of mis-classified images is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/73d219f5-a4bd-412c-b609-880880dfe98e.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Note that, VGG19 seems to mis-classify based on the space occupied by a person
+    in an image. Additionally, it seems to give higher weightage to predict that a
+    male with long hair is a female.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Gender classification using the Inception v3 architecture-based model
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the previous recipes, we implemented gender classification based on the VGG16
+    and VGG19 architectures. In this section, we'll implement the classification using
+    the Inception architecture.
+  prefs: []
+  type: TYPE_NORMAL
+- en: An intuition of how inception model comes in handy, is as follows.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There will be images where the object occupies the majority of the image. Similarly,
+    there will be images where the object occupies a small portion of the total image.
+    If we have the same size of kernels in both scenario, we are making it difficult
+    for the model to learn – some images might have objects that are small and others
+    might have objects that are larger.
+  prefs: []
+  type: TYPE_NORMAL
+- en: To address this problem, we will have filters of multiple sizes that operate
+    at the same layer.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In such a scenario, the network essentially gets wide rather than getting deep,
+    as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/54cce575-4a32-480d-bedf-29f96bb1f82e.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'In the preceding diagram, note that we are performing convolutions of multiple
+    filters in a given layer. The inception v1 module has nine such modules stacked
+    linearly, as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/80aeb9f6-c85e-4033-83a1-15593f4127c7.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Source: http://joelouismarino.github.io/images/blog_images/blog_googlenet_keras/googlenet_diagram.png
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note that this architecture is fairly deep as well as wide. This is likely to
+    result in a vanishing gradient problem (as we saw in the case for batch normalization
+    in [Chapter 2](2846fd6b-a2c2-4ebe-b36a-17f061b4cfa4.xhtml), *Building a Deep Feedforward
+    Neural Network*).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To get around the problem of a vanishing gradient, inception v1 has two auxiliary
+    classifiers that stem out of the inception modules. The overall loss of inception based
+    network tries to minimize is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE36]'
+  prefs: []
+  type: TYPE_PRE
+- en: Note that auxiliary losses are used only during training and are ignored during
+    the prediction process.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Inception v2 and v3 are improvements on top of the inception v1 architecture
+    where in v2, the authors have performed optimizations on top of convolution operations
+    to process images faster and in v3, the authors have added 7 x 7 convolutions
+    on top of the existing convolutions so that they can be concatenated together.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The process in which we code up inception v3 is very similar to the way in
+    which we built the VGG19 model-based classifier (Please refer to `Transfer_learning.ipynb`
+    file in GitHub while implementing the code):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Download the pre-trained Inception model:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE37]'
+  prefs: []
+  type: TYPE_PRE
+- en: Note that we would need an input image that is at least 300 x 300 in shape for
+    the inception v3 pre-trained model to work.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Create the input and output datasets (we''ll continue from step 3 in Scenario
+    1 of the *Gender classification using CNNs* recipe):'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE38]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Create the input and output arrays, along with the training and test datasets:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE39]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Build and compile the model:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE40]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The preceding model can be visualized as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/e6af6840-948a-4ae5-81f1-54292efc2e7e.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Fit the model while scaling the input data:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE41]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The variation of accuracy and loss values is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/24d5c932-1897-4540-af2c-c99ea772fbd1.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: You should notice that the accuracy in this scenario too is also ~90%.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Gender classification of the person in image using the ResNet 50 architecture-based
+    model
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: From VGG16 to VGG19, we have increased the number of layers and generally, the
+    deeper the neural network, the better its accuracy. However, if merely increasing
+    the number of layers is the trick, then we could keep on adding more layers (while
+    taking care to avoid over-fitting) to the model to get a more accurate results.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Unfortunately, that does not turn out to be true and the issue of the vanishing
+    gradient comes into the picture. As the number of layers increases, the gradient
+    becomes so small as it traverses the network that it becomes hard to adjust the
+    weights, and the network performance deteriorates.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ResNet comes into the picture to address this specific scenario.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Imagine a scenario where a convolution layer does nothing but pass the output
+    of the previous layer to the next layer if the model has nothing to learn. However,
+    if the model has to learn a few other features, the convolution layer takes the
+    previous layer's output as input and learns the additional features that need
+    to be learnt to perform classification.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The term residual is the additional feature that the model is expected to learn
+    from one layer to the next layers.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'A typical ResNet architecture looks as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/4e8186c6-17ab-4d77-9351-bca12d65e3f5.jpg)'
+  prefs: []
+  type: TYPE_IMG
+- en: Source: https://arxiv.org/pdf/1512.03385.pdf
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note that we have skip connections that are connecting a previous layer to a
+    layer down the line, along with the traditional convolution layers in this network.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Furthermore, the 50 in ResNet50 comes from the fact that we have a total of
+    50 layers in the network.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The ResNet50 architecture is built as follows (please refer to `Transfer_learning.ipynb`
+    file in GitHub while implementing the code):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Download the pre-trained inception model:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE42]'
+  prefs: []
+  type: TYPE_PRE
+- en: Note that we need an input image that is at least 224 x 224 in shape for the
+    ResNet50 pre-trained model to work.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Create the input and output datasets (we''ll continue from *step 3* in Scenario
+    1 of the *Gender classification using CNNs* recipe):'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE43]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Create the input and output arrays, along with the training and test datasets:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE44]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Build and compile the model:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE45]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'A summary of the model is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/a10c5097-edd5-4d36-ac78-482437730971.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Fit the model while scaling the input data:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE46]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The variation of the accuracy and loss values is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/69d8c163-2be3-4ace-90ef-5e3bcb0fb8b6.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Note that the preceding model gives an accuracy of 92%.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There is no considerable difference in the accuracy levels of multiple pre-trained
+    models on gender classification, as potentially they were trained to extract the
+    general features, but not necessarily the features to classify gender.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Detecting the key points within image of a face
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this recipe, we will learn about detecting the key points of a human face,
+    which are the boundaries of the left and right eyes, the nose, and the four coordinates
+    of the mouth.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Here are two sample pictures with the key points:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/a1d5652b-4dc0-4a50-81d8-212f94cd0d87.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Note that the key points that we are expected to detect are plotted as dots
+    in this picture. A total of 68 key points are detected on the image of face, where
+    the key points of the face include - Mouth, right eyebrow, left eyebrow, right
+    eye, left eye, nose, jaw.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this case study, we will leverage the VGG16 transfer learning technique that
+    we learned in the *Gender classification in image using the VGG16 architecture-based
+    model* section to detect the key points on the face.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting ready
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: For the key-point detection task, we will work on a dataset where we annotate
+    the points that we want to detect. For this exercise, the input will be the image
+    on which we want to detect the key points and the output will be the *x* and *y*
+    coordinates of the key points. The dataset can be downloaded from here: [https://github.com/udacity/P1_Facial_Keypoints](https://github.com/udacity/P1_Facial_Keypoints).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The steps we''ll follow are as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Download the dataset
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Resize the images to a standard shape
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: While resizing the images, ensure that the key points are modified so that they
+    represent the modified (resized) image
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Pass the resized images through VGG16 model
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Create input and output arrays, where the input array is the output of passing
+    image through VGG16 model and the output array is the modified facial key point
+    locations
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Fit a model that minimizes the absolute error value of the difference between
+    predicted and actual facial key points
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: How to do it...
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The strategy that we discussed is coded as follows (Please refer to `Facial_keypoints.ipynb`
+    file in GitHub while implementing the code):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Download and import the dataset:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE47]'
+  prefs: []
+  type: TYPE_PRE
+- en: Inspect this dataset.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/fa5e1b6c-254b-4440-88d1-6829589e3257.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: There are a total of 137 columns of which the first column is the name of image
+    and the rest of 136 columns represent the x and y co-ordinate values of the 68
+    key points of face of the corresponding image.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Preprocess the dataset to extract the image, resized image, VGG16 features
+    of image, modified key point locations as the output:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Initialize lists that will be appended to create input and output arrays:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE48]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Loop through the images and read them:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE49]'
+  prefs: []
+  type: TYPE_PRE
+- en: Capture the key point values and store them
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE50]'
+  prefs: []
+  type: TYPE_PRE
+- en: Resize the images
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE51]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Preprocess the image so that it can be passed through VGG16 model and extract
+    features:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE52]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Append the input and output values to corresponding lists:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE53]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Create input and output arrays:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE54]'
+  prefs: []
+  type: TYPE_PRE
+- en: Build and compile a model
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE55]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![](img/e415b00a-b498-468b-b3ff-023188db2dd0.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Compile the model:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE56]'
+  prefs: []
+  type: TYPE_PRE
+- en: Fit the model
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE57]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Note that, we are dividing the input array with maximum value of input array
+    so that we scale the input dataset. The variation of training and test loss over
+    increasing epochs is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/07513580-4052-4792-9a44-5b2731f5769b.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Predict on a test image. In the following code, we are predicting on the second
+    image from last in input array (note that, as `validation_split` is `0.1`, second
+    image from last was not supplied to model while training). We are ensuring that
+    we are passing our image through `preprocess_input` method and then through `VGG16_model`
+    and finally, the scaled version of `VGG16_model` output to the `model_vgg16` that
+    we built:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE58]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The preceding prediction on test image can be visualized as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/cee845d9-96bf-44a9-a7fa-5fa46fbeecda.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: We can see that the key points are detected very accurately on the test image.
+  prefs: []
+  type: TYPE_NORMAL
