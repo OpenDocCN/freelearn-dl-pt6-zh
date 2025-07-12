@@ -1,48 +1,70 @@
 - en: Understanding PPO
+  id: totrans-0
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 理解 PPO
 - en: We have avoided going too deep into the more advanced inner workings of the **proximal
     policy optimization** (**PPO**) algorithm, even going so far as to avoid any policy-versus-model
     discussion. If you recall, PPO is the **reduced level** (**RL**) method first
     developed at OpenAI that powers ML-Agents, and is a policy-based algorithm. In
     this chapter, we will look at the differences between policy-and model-based RL
     algorithms, as well as the more advanced inner workings of the Unity implementation.
+  id: totrans-1
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们避免深入探讨 **近端策略优化**（**PPO**）算法的更高级的内部工作原理，甚至避免讨论策略与模型的对比。如果你记得的话，PPO 是最早在 OpenAI
+    开发的 **简化级别**（**RL**）方法，支撑着 ML-Agents，并且是一种基于策略的算法。在本章中，我们将探讨基于策略和基于模型的强化学习算法之间的差异，以及
+    Unity 实现的更高级的内部工作原理。
 - en: 'The following is a list of the main topics we will cover in this chapter:'
+  id: totrans-2
   prefs: []
   type: TYPE_NORMAL
+  zh: 以下是本章我们将覆盖的主要主题：
 - en: Marathon reinforcement learning
+  id: totrans-3
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 马拉松强化学习
 - en: The partially observable Markov decision process
+  id: totrans-4
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 部分可观察马尔可夫决策过程
 - en: Actor-Critic and continuous action spaces
+  id: totrans-5
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: Actor-Critic 和连续动作空间
 - en: Understanding TRPO and PPO
+  id: totrans-6
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 理解 TRPO 和 PPO
 - en: Tuning PPO with hyperparameters
+  id: totrans-7
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 使用超参数调优 PPO
 - en: The content in this chapter is at an advanced level, and assumes that you have
     covered several previous chapters and exercises. For the purposes of this chapter,
     we will also assume that you are is able to open and run a learning environment
     in Unity with ML-Agents without difficulty.
+  id: totrans-8
   prefs: []
   type: TYPE_NORMAL
+  zh: 本章内容属于高级内容，假设你已经学习过前几章和相关练习。为了本章的目的，我们还假设你能够在 Unity 中使用 ML-Agents 顺利打开并运行学习环境。
 - en: Marathon RL
+  id: totrans-9
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 马拉松强化学习（RL）
 - en: So far, our focus has been on discrete actions and episodic environments, where
     the agent often learns to solve a puzzle or accomplish some task. The best examples
     of such environments are GridWorld, and, of course, the Hallway/VisualHallway
@@ -56,97 +78,136 @@
     these environments are rich with rewards in the form of feedback, they provide
     us with better immediate feedback when we alter/tune hyperparameters, which will
     make these types of environments perfect for our own learning purposes.
+  id: totrans-10
   prefs: []
   type: TYPE_NORMAL
+  zh: 到目前为止，我们的关注点一直在离散动作和情景化环境上，其中智能体通常学习解决谜题或完成某些任务。最典型的环境包括 GridWorld，以及当然的 Hallway/VisualHallway
+    示例，智能体在这些环境中离散地选择诸如上、左、下或右等动作，并且利用这些动作必须导航到某个目标。虽然这些是很好的环境，用来练习并学习强化学习的基本概念，但它们也可能是比较枯燥的学习环境，因为结果往往不是自动产生的，需要大量的探索。然而，在马拉松强化学习环境中，智能体始终通过控制反馈的奖励不断学习。事实上，这种形式的强化学习类似于机器人控制系统和仿真系统。由于这些环境充满了反馈奖励，因此当我们调整/调整超参数时，它们为我们提供了更好的即时反馈，这使得这些类型的环境非常适合我们的学习目的。
 - en: Unity provides several examples of marathon RL environments, and at the time
     of writing featured the Crawler, Reacher, Walker, and Humanoid example environments,
     but these will likely be changed in the future.
+  id: totrans-11
   prefs: []
   type: TYPE_NORMAL
+  zh: Unity 提供了几个马拉松强化学习（RL）环境示例，在撰写本文时，包含了 Crawler、Reacher、Walker 和 Humanoid 示例环境，但这些环境在未来可能会有所更改。
 - en: 'Marathon environments are constructed differently, and we should probably understand
     some of these differences before going any further. Open up the Unity editor and
     your Python command window of choice, set up to run `mlagents-learn`, and complete
     the following the exercise:'
+  id: totrans-12
   prefs: []
   type: TYPE_NORMAL
+  zh: 马拉松环境的构建方式不同，我们应该在深入之前了解这些差异。打开 Unity 编辑器和你选择的 Python 命令窗口，设置以运行 `mlagents-learn`，并完成以下练习：
 - en: Open the `CrawlerDynamicTarget` example scene from the `Assets/ML-Agents/Examples/Crawler/Scenes`
     folder. This example features an agent with four movable limbs, each with two
     joints that can move as well. The goal is for the agent to move toward some dynamic
     target that keeps changing.
+  id: totrans-13
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 打开 `Assets/ML-Agents/Examples/Crawler/Scenes` 文件夹中的 `CrawlerDynamicTarget` 示例场景。这个示例展示了一个具有四个可移动肢体的智能体，每个肢体都有两个可以移动的关节。目标是让智能体朝着一个不断变化的动态目标移动。
 - en: Select the DynamicPlatform | Crawler object in the Hierarchy window and take
     note of the Crawler Agent component and CrawlerDynamicLearning brain, as shown
     in the following
+  id: totrans-14
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 在层级窗口中选择DynamicPlatform | Crawler对象，并注意爬行者代理组件和CrawlerDynamicLearning脑部，如下所示。
 - en: '**screenshot:**'
+  id: totrans-15
   prefs:
   - PREF_IND
   type: TYPE_NORMAL
+  zh: '**截图：**'
 - en: '![](img/45721812-4056-48f1-9b7a-cde4486d892d.png)'
+  id: totrans-16
   prefs: []
   type: TYPE_IMG
+  zh: '![](img/45721812-4056-48f1-9b7a-cde4486d892d.png)'
 - en: Inspecting the Crawler agent and brain
+  id: totrans-17
   prefs: []
   type: TYPE_NORMAL
+  zh: 检查爬行者代理和脑部
 - en: Notice how the space size of the brain is 129 vector observations and 20 continuous
     actions. A continuous action returns a value that determines the degree to which
     a joint may rotate, thus allowing the agent to learn how to coordinate these joint
     actions into movements that will allow it to crawl to a goal.
+  id: totrans-18
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 请注意，脑部的空间大小为129个向量观察和20个连续动作。一个连续动作返回一个值，确定关节可能旋转的程度，从而让智能体学习如何将这些关节动作协调成能够让它爬行到目标的动作。
 - en: Click the target icon beside the Crawler Agent component, and from the context
     menu, select **Edit Script**.
+  id: totrans-19
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 点击爬行者代理组件旁边的目标图标，在上下文菜单中选择**编辑脚本**。
 - en: 'After the script opens, scroll down and look for the `CollectObservations`
     method:'
+  id: totrans-20
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 打开脚本后，向下滚动并寻找`CollectObservations`方法：
 - en: '[PRE0]'
+  id: totrans-21
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE0]'
 - en: Again, the code is in C#, but it should be fairly self-explanatory as to what
     inputs the agent is perceiving. We can first see that the agent takes the direction
     to target, its up and forward, as well as observations from each body part as
     input.
+  id: totrans-22
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 再次提醒，代码是用C#编写的，但智能体感知的输入应该是相当直观的。我们首先看到智能体接收目标方向、向上和向前的方向，以及每个身体部位的观察作为输入。
 - en: Select **Academy** in the scene and make sure the **Brain** configuration is
     set for **Control** (learning).
+  id: totrans-23
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 在场景中选择**Academy**，并确保**Brain**配置设置为**Control**（学习模式）。
 - en: 'From your previously prepared command window or Anaconda window, run the `mlagents-learn`
     script as follows:'
+  id: totrans-24
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 从你之前准备好的命令窗口或Anaconda窗口，按如下方式运行`mlagents-learn`脚本：
 - en: '[PRE1]'
+  id: totrans-25
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE1]'
 - en: Quite quickly after the training begins, you will see the agent making immediate
     measurable progress.
+  id: totrans-26
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 训练开始后不久，你会看到智能体立即取得可度量的进展。
 - en: This agent can impressively train very quickly, and will be incredibly useful
     for testing our knowledge of how RL works in the coming sections. Feel free to
     look through and explore this sample, but avoid tuning any parameters, as we will
     begin doing that in the next section.
+  id: totrans-27
   prefs: []
   type: TYPE_NORMAL
+  zh: 这个智能体能够非常快速地进行训练，并将在接下来的章节中极大地帮助我们测试对强化学习工作原理的理解。可以自由浏览和探索这个示例，但避免调整任何参数，因为我们将在下一部分开始做这件事。
 - en: The partially observable Markov decision process
+  id: totrans-28
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 部分可观察马尔可夫决策过程
 - en: Back in [Chapter 5](6ca7a117-1a8c-49f9-89c0-ee2f2a1e8baf.xhtml), *Introducing
     DRL*, we learned that a **Markov Decision Process** (**MDP**) is used to define
     the state/model an agent uses to calculate an action/value from. In the case of
@@ -156,24 +217,35 @@
     square in a grid game, for instance. Except, in most complex games and environments,
     being able to map physical or visual state becomes a partially observable problem,
     or what we may refer to as a **partially observable Markov decision process** (**POMDP**).
+  id: totrans-29
   prefs: []
   type: TYPE_NORMAL
+  zh: 在[第五章](6ca7a117-1a8c-49f9-89c0-ee2f2a1e8baf.xhtml)《引入DRL》中，我们了解到**马尔可夫决策过程**（**MDP**）用于定义智能体计算动作/价值所用的状态/模型。在Q学习的情况下，我们已经看到如何通过表格或网格来存储一个完整的MDP，用于像Frozen
+    Pond或GridWorld这样的环境。这些类型的强化学习是基于模型的，意味着它们完全建模环境中的每一个状态——例如，网格游戏中的每一个方格。然而，在大多数复杂的游戏和环境中，能够映射物理或视觉状态会变成一个部分可观察问题，或者我们可能称之为**部分可观察马尔可夫决策过程**（**POMDP**）。
 - en: 'A POMDP defines a process where an agent never has a complete view of its environment,
     but instead learns to conduct actions based on a derived general policy. This
     is demonstrated well in the Crawler example, because we can see the agent learning
     to move using only limited information—the direction to target. The following
     table outlines the definition of Markov models we generally use for RL:'
+  id: totrans-30
   prefs: []
   type: TYPE_NORMAL
+  zh: POMDP定义了一种过程，其中智能体永远无法完全看到其环境，而是学会基于派生的通用策略进行行动。这个过程在爬行者示例中得到了很好的展示，因为我们可以看到智能体只通过有限的信息——目标方向——来学习如何移动。下表概述了我们通常用于强化学习的马尔可夫模型定义：
 - en: '|  | **No** | **Yes** |  |'
+  id: totrans-31
   prefs: []
   type: TYPE_TB
+  zh: '|  | **否** | **是** |  |'
 - en: '| **All states observable?** | **No** | Markov Chain | MDP |'
+  id: totrans-32
   prefs: []
   type: TYPE_TB
+  zh: '| **所有状态可观察？** | **否** | 马尔可夫链 | MDP |'
 - en: '| **Yes** | Hidden Markov Model | POMDP |'
+  id: totrans-33
   prefs: []
   type: TYPE_TB
+  zh: '| **是** | 隐马尔可夫模型 | POMDP |'
 - en: Since we provide our agent with control over its states in the form of actions,
     the Markov models we study are the MDP and POMDP. Likewise, these processes will
     also be often referred to as on or off model, while if an RL algorithm is completely
@@ -183,21 +255,27 @@
     with an unknown or infinite number of observable states. Examples of partially
     observable states are environments such as the Hallway, VisualHallway, and, of
     course, Crawler.
+  id: totrans-34
   prefs: []
   type: TYPE_NORMAL
+  zh: 由于我们通过动作控制智能体的状态，因此我们研究的马尔可夫模型包括MDP和POMDP。同样，这些过程也常常被称为开模型或关模型，如果一个强化学习算法完全了解状态，我们称之为基于模型的过程。相反，POMDP则指的是关模型过程，或者我们所说的基于策略的方法。基于策略的算法提供了更好的泛化能力，并且能够在具有未知或无限可观察状态的环境中进行学习。部分可观察状态的示例包括走廊环境、视觉走廊环境，以及当然还有爬行者。
 - en: Markov models provide a foundation for many aspects of machine learning, and
     you may encounter their use in more advanced deep learning methods known as deep
     probabilistic programming. Deep PPL, as it is referred to, is a combination or
     variational inference and deep learning methods.
+  id: totrans-35
   prefs: []
   type: TYPE_NORMAL
+  zh: 马尔可夫模型为机器学习的许多方面提供了基础，你可能会在更先进的深度学习方法中遇到它们的应用，这些方法被称为深度概率编程。深度PPL，正如它所称，是变分推断和深度学习方法的结合。
 - en: 'Model-free methods typically use an experienced buffer to store a set of experiences
     that it will use later to learn a general policy from. This buffer is defined
     by a few hyperparameters, called `time_horizon`, `batch_size`, and `buffer_size`.Definitions
     of each of these parameters extracted from the ML-Agents documentation are given
     here:'
+  id: totrans-36
   prefs: []
   type: TYPE_NORMAL
+  zh: 无模型方法通常使用经验缓冲区来存储一组经验，这些经验将在以后用于学习通用策略。这个缓冲区由一些超参数定义，称为`time_horizon`、`batch_size`和`buffer_size`。以下是从ML-Agents文档中提取的这些参数的定义：
 - en: '`time_horizon`: This corresponds to how many steps of experience to collect
     per agent before adding them to the experience buffer. When this limit is reached
     before the end of an episode, a value estimate is used to predict the overall
@@ -207,91 +285,125 @@
     are frequent rewards within an episode, or episodes are prohibitively large, a
     smaller number can be more ideal. This number should be large enough to capture
     all the important behavior within a sequence of an agent''s actions:'
+  id: totrans-37
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '`time_horizon`：这对应于每个智能体在将经验添加到经验缓冲区之前收集的步数。当在一个回合结束之前达到了此限制时，将使用一个值估计来预测智能体当前状态的整体预期奖励。因此，该参数在较长时间跨度（较少偏差但较高方差的估计）和较短时间跨度（较大偏差但较少变化的估计）之间进行权衡。在回合内存在频繁奖励，或者回合过大时，较小的数字可能更为理想。这个数字应该足够大，以捕捉智能体动作序列中的所有重要行为：'
 - en: 'Typical range: 32 – 2,048'
+  id: totrans-38
   prefs:
   - PREF_IND
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 典型范围：32 – 2,048
 - en: '`buffer_size`: This corresponds to how many experiences (agent observations,
     actions, and rewards obtained) should be collected before we update the model
     or do any learning. This should be a multiple of `batch_size`. Typically, a larger
     `buffer_size` parameter corresponds to more stable training updates.'
+  id: totrans-39
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '`buffer_size`：这对应于在我们更新模型或进行任何学习之前，需要收集的经验数量（智能体的观察、动作和奖励）。它应该是`batch_size`的倍数。通常，较大的`buffer_size`参数对应于更稳定的训练更新。'
 - en: 'Typical range: 2,048 – 4,09,600'
+  id: totrans-40
   prefs:
   - PREF_IND
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 典型范围：2,048 – 409,600
 - en: '`batch_size`: This is the number of experiences used for one iteration of a
     gradient descent update. This should always be a fraction of the `buffer_size` parameter.
     If you are using a continuous action space, this value should be large (in the
     order of thousands). If you are using a discrete action space, this value should
     be smaller (in order of tens).'
+  id: totrans-41
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '`batch_size`：这是用于一次梯度下降更新的经验数量。它应该始终是`buffer_size`参数的一部分。如果你使用的是连续动作空间，那么这个值应该很大（通常在千级别）。如果你使用的是离散动作空间，那么这个值应该较小（通常在十级别）。'
 - en: 'Typical range (continuous): 512 – 5,120'
+  id: totrans-42
   prefs:
   - PREF_IND
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 典型范围（连续型）：512 – 5,120
 - en: 'Typical range (discrete): 32 – 512'
+  id: totrans-43
   prefs:
   - PREF_IND
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 典型范围（离散型）：32 – 512
 - en: 'We can see how these values are set by looking at the `CrawlerDynamicLearning`
     brain configuration, and altering this to see the effect this has on training.
     Open up the editor and a properly configured Python window to the `CrawlerDynamicTarget`
     scene and follow this exercise:'
+  id: totrans-44
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们可以通过查看`CrawlerDynamicLearning`大脑配置来了解这些值是如何设置的，并通过修改它来观察它对训练的影响。打开编辑器并在正确配置的Python窗口中进入`CrawlerDynamicTarget`场景，按照以下步骤操作：
 - en: Open the `trainer_config.yaml` file located in the `ML-Agents/ml-agents/config`
     folder.
+  id: totrans-45
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 打开位于`ML-Agents/ml-agents/config`文件夹中的`trainer_config.yaml`文件。
 - en: 'Scroll down to the `CrawlerDynamicLearning` brain configuration section:'
+  id: totrans-46
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 向下滚动到`CrawlerDynamicLearning`大脑配置部分：
 - en: '[PRE2]'
+  id: totrans-47
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE2]'
 - en: Note the highlighted lines showing the `time_horizon`, `batch_size`, and `buffer_size`
     parameters. If you recall from our earlier Hallway/VisualHallway examples, the
     `time_horizon` parameter was only 32 or 64\. Since those examples used a discrete
     action space, we could set a much lower value for `time_horizon`.
+  id: totrans-48
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 注意突出显示的行，显示了`time_horizon`、`batch_size`和`buffer_size`参数。如果你还记得我们早期的Hallway/VisualHallway示例，`time_horizon`参数仅为32或64。由于这些示例使用了离散动作空间，我们可以为`time_horizon`设置一个较低的值。
 - en: 'Double all the parameter values, as shown in the following code excerpt:'
+  id: totrans-49
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 翻倍所有参数值，如以下代码片段所示：
 - en: '[PRE3]'
+  id: totrans-50
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE3]'
 - en: Essentially, what we are doing here is doubling the amount of experiences the
     agent will use to build a policy of the environment around it. In essence, we
     are giving the agent a larger snapshot of experiences to train against.
+  id: totrans-51
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 本质上，我们在这里做的是将智能体用于构建其周围环境策略的经验量翻倍。实际上，我们是在给智能体提供更多的经验快照来进行训练。
 - en: Run the agent in training as you have done so many times before.
+  id: totrans-52
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 按照之前的操作，运行智能体进行训练。
 - en: Let the agent train for as long as you ran the previous base sample. This will
     give you a good comparison in training performance.
+  id: totrans-53
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 让智能体训练的时间与运行之前的基础示例相同。这将为你提供一个良好的训练性能对比。
 - en: One thing that will become immediately obvious is how much more stable the agent
     trains, meaning the agent's mean reward will progress more steadily and jump around
     less. Recall that we want to avoid training jumps, spikes, or wobbles, as this
@@ -301,18 +413,24 @@
     the amount of experiences the agent used to learn from. This, in turn, had the
     effect of stabilizing the training, but it is likely that you noticed the agent
     took longer to train to the same number of iterations.
+  id: totrans-54
   prefs: []
   type: TYPE_NORMAL
+  zh: 一件很明显的事情是，智能体训练的稳定性提高了，这意味着智能体的平均奖励将更加稳定地增长，且波动更小。回想一下，我们希望避免训练中的跳跃、尖峰或波动，因为这些可能表示网络优化方法的收敛性差。这意味着渐进的变化通常更好，并且表明训练表现良好。通过将`time_horizon`及相关参数翻倍，我们增加了智能体用于学习的经验量。反过来，这有助于稳定训练，但你可能会注意到，智能体需要更长的时间才能完成相同次数的迭代训练。
 - en: Partially observable RL algorithms are classed as policy-based, model-free,
     or off-model, and are a foundation for PPO. In the next section, we will look
     at the improvements in RL that deal with the additional complexities of managing
     continuous action spaces better.
+  id: totrans-55
   prefs: []
   type: TYPE_NORMAL
+  zh: 部分可观察的强化学习算法被归类为基于策略、无模型或离模型的算法，是PPO的基础。在接下来的章节中，我们将探讨强化学习中的改进，重点是更好地管理连续动作空间带来的额外复杂性。
 - en: Actor-Critic and continuous action spaces
+  id: totrans-56
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: Actor-Critic和连续动作空间
 - en: Another complexity we introduced when looking at marathon RL or control learning
     was the introduction of continuous action spaces. Continuous action spaces represent
     a set of infinite possible actions an agent could take. Where our agent could
@@ -322,186 +440,262 @@
     have neural networks at our disposal, and these provide us with an excellent solution
     using an architecture not unlike the GANs we looked at in [Chapter 3](cb51d15b-9855-47e2-8e45-f74a115ebfa8.xhtml),
     *GAN for* *Games*.
+  id: totrans-57
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们在查看马拉松强化学习或控制学习时引入的另一个复杂性是连续动作空间的引入。连续动作空间表示智能体可以采取的无限可能动作的集合。在之前，我们的智能体可能会选择一个离散动作，比如是或否，现在它必须从一个无限的动作空间中为每个关节选择一个点作为动作。将无限动作空间映射到一个具体动作并不容易解决——然而，我们有神经网络可供使用，这为我们提供了一个非常好的解决方案，采用的架构与我们在[第3章](cb51d15b-9855-47e2-8e45-f74a115ebfa8.xhtml)中看到的*生成对抗网络*（*GAN*）类似。
 - en: 'As we discovered in the chapter on GANs, we could propose a network architecture
     composed of two competing networks. These competing networks would force each
     network to learn by competing against each other for the best solution to mapping
     a random space into a convincing forgery. A similar concept to a GAN can be applied
     in this case as well, and is called the Actor-Critic model. A diagram of this
     model is as follows:'
+  id: totrans-58
   prefs: []
   type: TYPE_NORMAL
+  zh: 正如我们在生成对抗网络（GAN）章节中发现的那样，我们可以提出一种由两个竞争网络组成的网络架构。这些竞争网络将迫使每个网络通过相互竞争，寻找最佳解决方案，将一个随机空间映射到一个可信的伪造物。类似的概念也可以应用于这种情况，这被称为**演员-评论家模型**。该模型的示意图如下：
 - en: '![](img/76a62795-5bcf-47ca-8854-38bec7a20d00.png)'
+  id: totrans-59
   prefs: []
   type: TYPE_IMG
+  zh: '![](img/76a62795-5bcf-47ca-8854-38bec7a20d00.png)'
 - en: Actor-Critic architecture
+  id: totrans-60
   prefs: []
   type: TYPE_NORMAL
+  zh: 演员-评论家架构
 - en: What happens here is that the **Actor** selects an **action** from the policy
     given a **state**. The **state** is first passed through a **Critic**, which values
     the best action given the current **state**, provided some **error**. More simply
     put, the **Critic** criticizes each action based on the current **state**, and
     then the **Actor** chooses the best action given the **state**.
+  id: totrans-61
   prefs: []
   type: TYPE_NORMAL
+  zh: 这里发生的事情是，**演员**根据给定的**状态**从策略中选择一个**动作**。然后**状态**首先通过一个**评论家**，评论家根据当前**状态**评估最佳的动作，并给出一定的**误差**。更简单地说，**评论家**根据当前**状态**批评每一个动作，然后**演员**根据**状态**选择最佳动作。
 - en: This method of action selection was first explored in an algorithm called **dueling
     double Q networks** (**DDQN**). It is now the basis for most advanced RL algorithms.
+  id: totrans-62
   prefs: []
   type: TYPE_NORMAL
+  zh: 这种动作选择方法最早在一种叫做**对抗双Q网络**（**DDQN**）的算法中进行了探索。现在它已成为大多数高级强化学习算法的基础。
 - en: Actor-Critic was essentially required to solve the continuous action space problem,
     but, given its performance, this method has been incorporated into some advanced
     discrete algorithms as well. ML-Agents uses an Actor-Critic model for continuous
     spaces, but does not use one for discrete action spaces.
+  id: totrans-63
   prefs: []
   type: TYPE_NORMAL
+  zh: 演员-评论家模型本质上是为了解决连续动作空间问题，但鉴于其性能，这种方法也已被融入到一些高级离散算法中。ML-Agents使用演员-评论家模型处理连续空间，但不使用离散动作空间的演员-评论家模型。
 - en: 'Using Actor-Critic requires, or works best with, additional layers and neurons
     in our network, which is something we can configure in ML-Agents. The hyperparameter
     definitions for these are pulled from the ML-Agents documents, and are as follows:'
+  id: totrans-64
   prefs: []
   type: TYPE_NORMAL
+  zh: 使用演员-评论家方法需要，或者在我们的网络中最有效的是，额外的层和神经元，这是我们可以在ML-Agents中配置的内容。这些超参数的定义来自ML-Agents文档，具体如下：
 - en: '`num_layers`: This corresponds to how many hidden layers are present after
     the observation input, or after the CNN encoding of the visual observation. For
     simple problems, fewer layers are likely to train faster and more efficiently.
     More layers may be necessary for more complex control problems:'
+  id: totrans-65
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '`num_layers`：这对应于在观测输入之后，或者在视觉观测的CNN编码之后存在的隐藏层数量。对于简单的问题，较少的层可能会训练得更快、更高效。对于更复杂的控制问题，可能需要更多的层：'
 - en: 'Typical range: 1 – 3'
+  id: totrans-66
   prefs:
   - PREF_IND
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 典型范围：1 – 3
 - en: '`hidden_units`: These correspond to how many units are in each fully-connected
     layer of the neural network. For simple problems where the correct action is a
     straightforward combination of the observation inputs, this should be small. For
     problems where the action is a very complex interaction between the observation
     variables, this should be larger:'
+  id: totrans-67
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '`hidden_units`：这些对应于神经网络中每个全连接层的单元数。对于那些正确动作是观测输入的简单组合的问题，这个值应该较小。对于那些动作是观测变量间复杂交互的问题，这个值应该更大：'
 - en: 'Typical range: 32 – 512'
+  id: totrans-68
   prefs:
   - PREF_IND
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 典型范围：32 – 512
 - en: 'Let''s open up a new ML-Agents marathon or control sample and see what effect
     modifying these parameters has on training. Follow this exercise to understand
     the effect of adding layers and neurons (units) to a control problem:'
+  id: totrans-69
   prefs: []
   type: TYPE_NORMAL
+  zh: 让我们打开一个新的ML-Agents马拉松或控制示例，看看修改这些参数对训练的影响。按照这个练习来理解向控制问题中添加层和神经元（单元）的效果：
 - en: Open the Walker scene from the `Assets/ML-Agents/Examples/Walker/Scenes` folder.
     This example features a walking humanoid animation.
+  id: totrans-70
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 打开`Assets/ML-Agents/Examples/Walker/Scenes`文件夹中的Walker场景。这个示例展示了一个行走的类人动画。
 - en: 'Locate and select the WalkerAgent object in the Hierarchy window, and then
     look to the Inspector window and examine the Agent and Brain settings, as shown
     in the following screenshot:'
+  id: totrans-71
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 在层次窗口中找到并选择WalkerAgent对象，然后查看检查器窗口并检查Agent和Brain设置，如下图所示：
 - en: '![](img/ccf7c439-29cb-4b2d-8745-f26137f898dc.png)'
+  id: totrans-72
   prefs: []
   type: TYPE_IMG
+  zh: '![](img/ccf7c439-29cb-4b2d-8745-f26137f898dc.png)'
 - en: The WalkerAgent and WalkerLearning properties
+  id: totrans-73
   prefs: []
   type: TYPE_NORMAL
+  zh: WalkerAgent和WalkerLearning属性
 - en: Select `WalkerAcademy` in the Hierarchy window and make sure the Control option
     is enabled for the `Brains` parameter.
+  id: totrans-74
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 在层级窗口中选择`WalkerAcademy`，并确保为`Brains`参数启用了Control选项。
 - en: 'Open the `trainer_config.yaml` file located in the `ML-Agents/ml-agents/config`
     folder and scroll down to the `WalkerLearning` section as follows:'
+  id: totrans-75
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 打开位于`ML-Agents/ml-agents/config`文件夹中的`trainer_config.yaml`文件，向下滚动至`WalkerLearning`部分，如下所示：
 - en: '[PRE4]'
+  id: totrans-76
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE4]'
 - en: Notice how many layers and units this example is using. Is it more or fewer
     than what we used for the discrete action problems?
+  id: totrans-77
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 注意这个示例使用了多少层和单位。是更多还是更少于我们为离散动作问题使用的数量？
 - en: Save everything and set the sample up for training.
+  id: totrans-78
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 保存所有内容并为训练设置样本。
 - en: 'Launch a training session from your Python console with the following command:'
+  id: totrans-79
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 从Python控制台启动训练会话，使用以下命令：
 - en: '[PRE5]'
+  id: totrans-80
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE5]'
 - en: This agent may take considerably longer to train, but try and wait for about
     100,000 iterations in order to get a good sense of its training progress.
+  id: totrans-81
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 这个代理可能需要更长的训练时间，但请尝试等待大约100,000次迭代，以便更好地了解它的训练进度。
 - en: Now that we have a better understanding of Actor-Critic and how it is used in
     continuous action spaces, we can move on to exploring what effect changing the
     network size has on training these more complex networks in the next section.
+  id: totrans-82
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在我们更好地理解了Actor-Critic及其在连续动作空间中的应用，我们可以继续探索改变网络大小对训练这些更复杂网络的影响，接下来会讲到这一部分。
 - en: Expanding network architecture
+  id: totrans-83
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 扩展网络架构
 - en: Actor-Critic architectures increase the complexity of the problem, and thus
     the complexity and size of the networks needed to solve them. This is really no
     different than the case in our earlier look at PilotNet, the multilayer CNN architecture
     that was used by Nvidia to self-drive.
+  id: totrans-84
   prefs: []
   type: TYPE_NORMAL
+  zh: Actor-Critic架构增加了问题的复杂性，因此也增加了解决这些问题所需的网络的复杂性和规模。这与我们之前对PilotNet的分析没有太大区别，PilotNet是Nvidia用于自驾的多层CNN架构。
 - en: 'What we want to see is the immediate effect that increasing the size of our
     network has on a complex example such as the Walker example. Open Unity to the
     `Walker` example and complete the following exercise:'
+  id: totrans-85
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们想要看到的是，增加网络大小对复杂示例（如Walker示例）产生的即时效果。打开Unity中的`Walker`示例并完成以下练习：
 - en: Open `trainer_config.yaml` from where it is normally located.
+  id: totrans-86
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 打开通常存放的`trainer_config.yaml`文件。
 - en: 'Modify the `WalkerLearning` configuration, as shown in the following code:'
+  id: totrans-87
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 修改`WalkerLearning`配置，如下所示的代码：
 - en: '[PRE6]'
+  id: totrans-88
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE6]'
 - en: 'Set `num_layers: 1` and `hidden_units: 128`. These are typical values that
     we would use for discrete action space problems. You can confirm this by looking
     at another discrete sample, such as the `VisualHallwayLearning` configuration,
     as follows:'
+  id: totrans-89
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: '设置`num_layers: 1`和`hidden_units: 128`。这些是我们在离散动作空间问题中常用的典型值。你可以通过查看另一个离散样本，如`VisualHallwayLearning`配置，来确认这一点，具体如下：'
 - en: '[PRE7]'
+  id: totrans-90
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE7]'
 - en: This sample uses the same settings as we just set our continuous action problem
     to.
+  id: totrans-91
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 这个样本使用了我们刚才为连续动作问题设置的相同设置。
 - en: When you are done editing, save everything and get ready for training.
+  id: totrans-92
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 编辑完成后，保存所有内容并准备开始训练。
 - en: Launch a training session, with a new `run-id` parameter. Remember to get in
     the practice of changing the `run-id` parameter with every run so that it is easier
     to discern each run in TensorBoard.
+  id: totrans-93
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 启动一个新的训练会话，并使用新的`run-id`参数。记住，每次运行时都更改`run-id`参数，这样在TensorBoard中更容易区分每次运行。
 - en: As always, let the sample run for as long as you did the earlier unaltered run
     for a good comparison.
+  id: totrans-94
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 和往常一样，让样本运行的时间与之前未经修改的运行时间相同，以便进行良好的比较。
 - en: One of the things you may immediately notice when running this sample is how stable
     the training is. The second thing you may notice is that training stability increases,
     but performance slightly decreases. Remember that a smaller network has less weights
@@ -512,17 +706,23 @@
     have seen before. In fact, this agent will never be as good as the first unaltered
     run since it is now limited by a smaller network. This is another one of those
     trade-offs you need to balance when building DRL agents for games/simulations.
+  id: totrans-95
   prefs: []
   type: TYPE_NORMAL
+  zh: 你可能会立即注意到运行这个示例时，训练的稳定性非常好。第二个你可能会注意到的是，虽然训练稳定性增加了，但性能略微下降。请记住，较小的网络有更少的权重，通常会更稳定且训练速度更快。然而，在这个问题中，虽然网络的训练更稳定且速度更快，但你可能会注意到训练会遇到瓶颈。现在，受限于网络规模，智能体能够更快地优化较小的网络，但却没有以前看到的精细控制。事实上，这个智能体永远不会像第一次未修改的运行那样好，因为它现在受限于一个较小的网络。这是构建深度强化学习（DRL）智能体时需要平衡的另一个权衡点，尤其是在游戏和仿真中。
 - en: In the next section, we take a further look at what we call advantage functions
     or those used like in Actor-Critic, and will first explore TRPO, and, of course,
     PPO.
+  id: totrans-96
   prefs: []
   type: TYPE_NORMAL
+  zh: 在下一部分，我们将进一步探讨我们所说的优势函数，或者像演员-评论家中使用的那些，并首先探索 TRPO，当然还有 PPO。
 - en: Understanding TRPO and PPO
+  id: totrans-97
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 理解 TRPO 和 PPO
 - en: 'There are many variations to the policy-and model-free algorithms that have
     become popular for solving RL problems of optimizing predictions of future rewards.
     As we have seen, many of these algorithms use an advantage function, such as Actor-Critic,
@@ -531,57 +731,82 @@
     rewards. TRPO and PPO do this by using an optimization method called a **Minorize-Maximization**
     (**MM)** algorithm. An example of how the MM algorithm solves a problem is shown
     in the following diagram:'
+  id: totrans-98
   prefs: []
   type: TYPE_NORMAL
+  zh: 有许多变体的策略和无模型算法已经变得流行，用于解决强化学习（RL）问题，优化未来奖励的预测。正如我们所见，许多算法使用优势函数，例如演员-评论家（Actor-Critic），其中有两方试图收敛到最优解。在这种情况下，优势函数试图找到最大期望的折扣奖励。TRPO
+    和 PPO 通过使用一种叫做**最小化最大化（MM）**的优化方法来实现这一目标。下面的图表展示了 MM 算法如何解决这个问题：
 - en: '![](img/2942a112-735d-42c4-8c0b-91d658772882.png)'
+  id: totrans-99
   prefs: []
   type: TYPE_IMG
+  zh: '![](img/2942a112-735d-42c4-8c0b-91d658772882.png)'
 - en: Using the MM algorithm
+  id: totrans-100
   prefs: []
   type: TYPE_NORMAL
+  zh: 使用 MM 算法
 - en: 'This diagram was extracted from a series of blogs by Jonathon Hui that elegantly
     describe the MM algorithm along with the TRPO and PPO methods in much greater
     detail*.* See the following link for the source: ([https://medium.com/@jonathan_hui/rl-proximal-policy-optimization-ppo-explained-77f014ec3f12](https://medium.com/@jonathan_hui/rl-proximal-policy-optimization-ppo-explained-77f014ec3f12)).'
+  id: totrans-101
   prefs: []
   type: TYPE_NORMAL
+  zh: 这个图表摘自 Jonathon Hui 的一系列博客，这些博客优雅地描述了 MM 算法，并且详细讲解了 TRPO 和 PPO 方法*。* 详细来源请见以下链接：[https://medium.com/@jonathan_hui/rl-proximal-policy-optimization-ppo-explained-77f014ec3f12](https://medium.com/@jonathan_hui/rl-proximal-policy-optimization-ppo-explained-77f014ec3f12)。
 - en: Essentially, the MM algorithm finds the optimum pair function by interactively
     maximizing and minimizing function parameters until it arrives at a converged
     solution. In the diagram, the red line denotes the function we are looking to
     approximate, and the blue line denotes the converging function. You can see the
     progression as the algorithm picks min/max values that will find a solution.
+  id: totrans-102
   prefs: []
   type: TYPE_NORMAL
+  zh: 本质上，MM 算法通过交互式地最大化和最小化函数参数，直到达到收敛的解，从而找到最优配对函数。在图表中，红线表示我们希望逼近的函数，蓝线表示收敛的函数。你可以看到算法如何通过选择最小值/最大值来找到一个解的过程。
 - en: 'The problem we encounter when using MM is that the function approximation can
     sometimes fall off, or down into a valley. In order to understand this better,
     let''s consider this as solving the problem of climbing an uneven hill using a
     straight line. An example of such a scenario is seen here:'
+  id: totrans-103
   prefs: []
   type: TYPE_NORMAL
+  zh: 使用 MM 时我们遇到的问题是函数逼近有时会偏离，或者掉入一个谷底。为了更好地理解这个问题，我们可以将其视为使用直线爬升不平的山丘。以下是这种情况的示例：
 - en: '![](img/7a561b98-be5b-4d4f-bf2f-b5ac4303dd07.png)'
+  id: totrans-104
   prefs: []
   type: TYPE_IMG
+  zh: '![](img/7a561b98-be5b-4d4f-bf2f-b5ac4303dd07.png)'
 - en: Attempting to climb a hill using linear methods
+  id: totrans-105
   prefs: []
   type: TYPE_NORMAL
+  zh: 尝试使用线性方法爬升山丘
 - en: You can see that using only linear paths to try and navigate this quite treacherous
     ridge would, in fact, be dangerous. While the danger may not be as real, it is
     still a big problem when using linear methods to solve MM, as it is if you were
     hiking up a steep ridge using only a straight fixed path.
+  id: totrans-106
   prefs: []
   type: TYPE_NORMAL
+  zh: 你可以看到，仅仅使用线性路径来尝试穿越这条危险的山脊实际上是非常危险的。虽然危险可能不那么明显，但当使用线性方法来解决MM问题时，它仍然是一个大问题，就像你在陡峭的山脊上只使用直线固定路径进行徒步旅行一样。
 - en: 'TRPO solves the problem of using linear methods by using a quadratic method,
     and by  limiting the amount of steps each iteration can take in a form of trust
     region. That is, the algorithm makes sure that every position is positive and
     safe. If we consider our hill climbing example again, we may consider TRPO as
     placing a path or region of trust, like in the following photo:'
+  id: totrans-107
   prefs: []
   type: TYPE_NORMAL
+  zh: TRPO通过使用二次方法解决了使用线性方法的问题，并通过限制每次迭代可以采取的步骤数，形成一个信任区域。也就是说，算法确保每个位置都是正的且安全的。如果我们再次考虑我们的爬坡示例，我们可以将TRPO看作是设置一条路径或信任区域，如下图所示：
 - en: '![](img/1f867818-2804-442b-9cec-fdd67792c95c.png)'
+  id: totrans-108
   prefs: []
   type: TYPE_IMG
+  zh: '![](img/1f867818-2804-442b-9cec-fdd67792c95c.png)'
 - en: A trust region path up the hill
+  id: totrans-109
   prefs: []
   type: TYPE_NORMAL
+  zh: 一条信任区域路径沿着山坡
 - en: In the preceding photo, the path is shown for example purposes only as a connected
     set of circles or regions; the real trust path may or may not be closer to the
     actual peak or ridge. Regardless, this has the effect of allowing the agent to
@@ -589,20 +814,28 @@
     region can be altered and made bigger or smaller to coincide with our preferred
     policy convergence. The problem with TRPO is that it is quite complex to implement
     since it requires the second-degree derivation of some complex equations.
+  id: totrans-110
   prefs: []
   type: TYPE_NORMAL
+  zh: 在前面的照片中，路径仅作为示例展示，表示一组连接的圆圈或区域；真实的信任路径可能靠近实际的峰顶或山脊，也可能不靠近。不管怎样，这种方式的效果是使代理能够以更渐进和逐步的速度学习。通过TRPO，信任区域的大小可以调整，使其变大或变小，以配合我们偏好的策略收敛。TRPO的问题在于它相当复杂，因为它需要对一些复杂方程进行二次导数计算。
 - en: 'PPO addresses this issue by limiting or clipping the Kulbach-Leibler (**KL**)
     divergence between two policies through each iteration. KL divergence measures
     the difference in probability distributions and can be described through the following
     diagram:'
+  id: totrans-111
   prefs: []
   type: TYPE_NORMAL
+  zh: PPO通过限制或裁剪两种策略之间的Kulbach-Leibler（**KL**）散度来解决这个问题，KL散度在每次迭代中进行测量。KL散度衡量的是概率分布之间的差异，可以通过以下图示描述：
 - en: '![](img/15484cb4-865c-4d5b-b788-e193fbf80aeb.png)'
+  id: totrans-112
   prefs: []
   type: TYPE_IMG
+  zh: '![](img/15484cb4-865c-4d5b-b788-e193fbf80aeb.png)'
 - en: Understanding KL divergence
+  id: totrans-113
   prefs: []
   type: TYPE_NORMAL
+  zh: 理解KL散度
 - en: 'In the preceding diagram, **p(x)** and **q(x)** each represent a different
     policy where the KL divergence is measured. The algorithm then, in turn, uses
     this measure of divergence to limit or clip the amount of policy change that may
@@ -610,32 +843,42 @@
     this amount of clipping applied to the objective or function that determines the
     amount of policy change in an iteration. The following are the definitions for
     the beta and epsilon parameters, as described in the Unity documentation:'
+  id: totrans-114
   prefs: []
   type: TYPE_NORMAL
+  zh: 在前面的图示中，**p(x)** 和 **q(x)** 各自代表不同的策略，其中KL散度被衡量。算法随后使用这种散度的度量来限制或裁剪每次迭代中可能发生的策略变化量。ML-Agents使用两个超参数，允许你控制应用于目标或确定每次迭代中策略变化量的函数的裁剪量。以下是Unity文档中描述的beta和epsilon参数的定义：
 - en: '**Beta**: This corresponds to the strength of the entropy regularization, which
     makes the policy *more random*. This ensures that agents properly explore the
     action space during training. Increasing this will ensure that more random actions
     are taken. This should be adjusted so that the entropy (measurable from TensorBoard)
     slowly decreases alongside increases in reward. If entropy drops too quickly,
     increase beta. If entropy drops too slowly, decrease beta:'
+  id: totrans-115
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '**Beta**：这对应于熵正则化的强度，使策略变得*更加随机*。这确保了代理在训练过程中能正确地探索动作空间。增加这个值将确保采取更多的随机动作。应该调整此值，使得熵（可以从TensorBoard中衡量）随着奖励的增加而缓慢减少。如果熵下降得太快，请增加beta。如果熵下降得太慢，请减少beta：'
 - en: 'Typical range: 1e-4 – 1e-2'
+  id: totrans-116
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 典型范围：1e-4 – 1e-2
 - en: '**Epsilon**: This corresponds to the acceptable threshold of divergence between
     the old and new policies during gradient descent updating. Setting this value
     to be small will result in more stable updates, but will also slow the training
     process:'
+  id: totrans-117
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '**Epsilon**：这对应于梯度下降更新过程中，旧策略和新策略之间可接受的散度阈值。将此值设置为较小将导致更稳定的更新，但也会减慢训练过程：'
 - en: 'Typical range: 0.1 – 0.3'
+  id: totrans-118
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 典型范围：0.1 – 0.3
 - en: 'The key thing to remember about these parameters is that they control how quickly
     a policy changes from one iteration to the next. If you notice an agent training
     somewhat erratically, it may be beneficial to tune these parameters to smaller
@@ -643,10 +886,12 @@
     but, of course, we will want to explore how these values may affect training,
     either in a positive or negative way. In the next exercise, we will modify these
     policy change parameters and see what effect they have in training:'
+  id: totrans-119
   prefs: []
   type: TYPE_NORMAL
 - en: For this example, we will open up the `CrawlerDynamic` scene from the `Assets/ML-Agents/Examples/Crawler/Scenes`
     folder.
+  id: totrans-120
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
@@ -654,33 +899,42 @@
     folder. Since we have already evaluated the performance of this sample, there
     are a couple of ways we will revert the training configuration and make some modification
     to the beta and epsilon parameters.
+  id: totrans-121
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: 'Scroll down to the `CrawlerDynamicLearning` configuration section and modify
     it as follows:'
+  id: totrans-122
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: '[PRE8]'
+  id: totrans-123
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE8]'
 - en: We modified the `epsilon` and `beta` parameters to higher values, meaning that
     the training will be less stable. If you recall, however, these marathon examples
     generally train in a more stable manner.
+  id: totrans-124
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: 'Open up a properly configured Python console and run the following command
     to launch training:'
+  id: totrans-125
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: '[PRE9]'
+  id: totrans-126
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE9]'
 - en: As usual, wait for a number of training sessions for a good comparison from
     one example to the next.
+  id: totrans-127
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
@@ -688,15 +942,18 @@
     and in fact, it is. This is happening because we made those trust regions too
     large (a large **beta**), and while we allowed the rate of change to be lower
     (.1 **epsilon**), we can see the **beta** value is more sensitive to training.
+  id: totrans-128
   prefs: []
   type: TYPE_NORMAL
 - en: Keep in mind that the Unity ML-Agents implementation uses a number of cross-features
     in tandem, which comprise a powerful RL framework. In the next section, we will
     take another quick look at a late-comer optimization parameter that Unity has
     recently added.
+  id: totrans-129
   prefs: []
   type: TYPE_NORMAL
 - en: Generalized advantage estimate
+  id: totrans-130
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
@@ -705,6 +962,7 @@
     additional hyperparameters and small tweaks that can be applied to stabilize and/or
     improve training performance. Unity has recently add a new parameter called lambda,
     and the definition taken from the documentation is as follows:'
+  id: totrans-131
   prefs: []
   type: TYPE_NORMAL
 - en: '**lambda**: This corresponds to the lambda parameter used when calculating
@@ -715,10 +973,12 @@
     to more reliance on the actual rewards received in the environment (which can
     be high variance). The parameter provides a trade-off between the two, and the
     right value can lead to a more stable training process:'
+  id: totrans-132
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: 'Typical range: 0.9 – 0.95'
+  id: totrans-133
   prefs:
   - PREF_IND
   - PREF_UL
@@ -729,44 +989,56 @@
     pull down the paper and review it on their own. However, we will explore how altering
     this parameter can affect a control sample such as the `Walker` scene in the next
     exercise:'
+  id: totrans-134
   prefs: []
   type: TYPE_NORMAL
 - en: Open the Unity editor to the `Walker` example scene.
+  id: totrans-135
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: Select the Academy object in the Hierarchy and confirm that the scene is still
     set for training/learning. If it is, you won't have to do anything else. If the
     scene isn't set up to learn, you know what to do.
+  id: totrans-136
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: 'Open the `trainer_config.yaml` file and modify `WalkerLearning` as follows:'
+  id: totrans-137
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: '[PRE10]'
+  id: totrans-138
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE10]'
 - en: Notice how we are setting the `lambd` parameters and make sure that `num_layers`
     and `hidden_units` are reset to the original values. In the paper, the authors
     describe optimum values from `.95` to `.99`, but this differs from the Unity documentation.
+  id: totrans-139
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: Save the file when you are done editing.
+  id: totrans-140
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: 'Open up a Python console setup for training and run it with the following command:'
+  id: totrans-141
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: '[PRE11]'
+  id: totrans-142
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE11]'
 - en: Make sure that you let the sample run as long as you have previously to get
     a good comparison.
+  id: totrans-143
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
@@ -779,15 +1051,18 @@
     It may be an interesting exercise for interested readers to try and play with
     the lambda parameter in the Hallway environment, where the agent only receives
     a single positive episode reward.
+  id: totrans-144
   prefs: []
   type: TYPE_NORMAL
 - en: The RL advantage function or functions come in many forms, and are in place
     to address many of the issues with off-model or policy-driven algorithms such
     as PPO. In the next section, we round off the chapter by modifying and creating
     a new sample control/marathon learning environment on our own.
+  id: totrans-145
   prefs: []
   type: TYPE_NORMAL
 - en: Learning to tune PPO
+  id: totrans-146
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
@@ -796,50 +1071,61 @@
     Unity example, but will also show you how to modify a new or modified sample on
     your own later. Let''s begin by opening up the Unity editor so we can complete
     the following exercise:'
+  id: totrans-147
   prefs: []
   type: TYPE_NORMAL
 - en: Open the `Reacher` scene, set it for learning, and run it in training. You should
     be able to do this part in your sleep now. Let the agent train for a substantial
     amount of time so you can establish a baseline, as always.
+  id: totrans-148
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: From the menu, select `Assets/Import Package/Custom Package`. Locate `Chapter_8_Assets.unitypackage`
     from the `Chapter08` folder of the books downloaded to the source code.
+  id: totrans-149
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: Open up the Reacher_3_joint scene from the `Assets/HoDLG/Scenes` folder. This
     is the modified scene, but we will go through its construction as well.
+  id: totrans-150
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: 'First, notice that there is only a single **Reacher** arm active, but now with
     three joints, as shown in the following screenshot:'
+  id: totrans-151
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: '![](img/e473ca06-9250-4c2f-90a8-ae6225372b74.png)'
+  id: totrans-152
   prefs: []
   type: TYPE_IMG
 - en: Inspecting the Agent game object
+  id: totrans-153
   prefs: []
   type: TYPE_NORMAL
 - en: Notice how the arm now has three sections, with the new section called Capsule(2)
     and identified as Pendulum C. The order of the joints is now out of order, meaning
     Pendulum C is actually the middle pendulum and not the bottom.
+  id: totrans-154
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: 'Select each of the Capsule objects and inspect their configuration and placement,
     as summarized in the following screenshot:'
+  id: totrans-155
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: '![](img/909c7124-2b2d-427d-93ff-c5a7257beedb.png)'
+  id: totrans-156
   prefs: []
   type: TYPE_IMG
 - en: Inspecting the Capsule objects
+  id: totrans-157
   prefs: []
   type: TYPE_NORMAL
 - en: Be sure to note the Configurable Joint | Connected Body object for each of the
@@ -850,16 +1136,19 @@
     by only allowing certain angles of movement. Likewise, if you were designing a
     robot with limited motion, then you could simulate that with this joint component
     as well.
+  id: totrans-158
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: At this stage, we can set up and run the example. Open and set up for training
     a Python console or Anaconda window.
+  id: totrans-159
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: Run the sample in training and observe the progress of the agent. Let the agent
     run for enough iterations in order to compare training performance with the baseline.
+  id: totrans-160
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
@@ -869,9 +1158,11 @@
     The next section covers the C# code changes, and is optional for those developers
     not interested in the code. If you plan to build your own control or marathon
     environments in Unity, you will need to read the next section.
+  id: totrans-161
   prefs: []
   type: TYPE_NORMAL
 - en: Coding changes required for control projects
+  id: totrans-162
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
@@ -879,92 +1170,116 @@
     getting into the details of building their own control sample using Unity C#.
     It is also likely that, in the future, no coding changes will be required to modify
     these types of samples, and that is the other reason this section is optional.
+  id: totrans-163
   prefs: []
   type: TYPE_NORMAL
 - en: 'Complete the following exercise to go through the coding changes needed to
     add a joint in the Reacher control example:'
+  id: totrans-164
   prefs: []
   type: TYPE_NORMAL
 - en: Select the Agent object in the Hierarchy window and then, in the Inspector window,
     note the Reacher Agent_3 component. This is the modified script that we will be
     inspecting.
+  id: totrans-165
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: Click the target icon beside the Reach Agent_3 component, and from the context
     menu, select Edit Script.
+  id: totrans-166
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: This will open the `ReacherAgent_3.cs` script in your C# code editor of choice.
+  id: totrans-167
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: 'The first thing to note under the declarations is the addition of new variables,
     highlighted in bold as follows:'
+  id: totrans-168
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: '[PRE12]'
+  id: totrans-169
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE12]'
 - en: Two new variables, `pendulumC` and `rbC`, are added for holding the new joints
     GameObject and RigidBody. Now, `Rigidbody` in Unity physics denotes an object
     that can be moved or manipulated by the physics engine.
+  id: totrans-170
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: Unity is in the process of performing an upgrade to their physics engine that
     will alter some of the teachings here. The current version of ML-Agents uses the
     old physics system, so this example will as well.
+  id: totrans-171
   prefs:
   - PREF_IND
   type: TYPE_NORMAL
 - en: 'The next thing of importance to note is the addition of additional agent observations,
     as shown in the following `CollectObservations` method:'
+  id: totrans-172
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: '[PRE13]'
+  id: totrans-173
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE13]'
 - en: 'The section in bold is adding the new observations for `pendulumC` and `rbC`,
     which total another 13 vectors. Recall that this means we also needed to switch
     our brain from 33 vector observations to 46 observations, as shown in the following
     screenshot:'
+  id: totrans-174
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: '![](img/15dec040-4804-44a0-9dac-cc20311fad51.png)'
+  id: totrans-175
   prefs: []
   type: TYPE_IMG
 - en: Inspecting the update ReacherLearning_3 brain
+  id: totrans-176
   prefs: []
   type: TYPE_NORMAL
 - en: 'Next, we will look to the `AgentAction` method; this is where the Python trainer
     code calls the agent and tells it what movements it makes, and is as follows:'
+  id: totrans-177
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: '[PRE14]'
+  id: totrans-178
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE14]'
 - en: In this method, we are extending the code to allow the agent to move the new
     joint in the form of `rigidbody rbC`. Did you notice that the new learning brain
     also added more action space?
+  id: totrans-179
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: 'Lastly, we look at the `AgentReset` method to see how the agent will reset
     itself with the new limb, as follows:'
+  id: totrans-180
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: '[PRE15]'
+  id: totrans-181
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE15]'
 - en: All this code does is reset the position of the arm to its original position
     and stop all movement.
+  id: totrans-182
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
@@ -973,9 +1288,11 @@
     to modify these scripts at all. In the next section, we will follow up by refining
     the sample's training by tuning extra parameters and introducing another training
     optimization for policy learning methods.
+  id: totrans-183
   prefs: []
   type: TYPE_NORMAL
 - en: Multiple agent policy
+  id: totrans-184
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
@@ -988,6 +1305,7 @@
     book, you should be more than capable of adapting this example. However, note
     that, for this exercise, we want to use a sample that is set up to use multiple
     agents for training.
+  id: totrans-185
   prefs: []
   type: TYPE_NORMAL
 - en: Previously, we avoided discussing the multiple agents; we avoided this aspect
@@ -997,24 +1315,29 @@
     method, we can simultaneously train multiple agents against the same policy. However,
     this can have repercussions for other training parameters and configuration, as
     you may well imagine.
+  id: totrans-186
   prefs: []
   type: TYPE_NORMAL
 - en: 'Open up the Unity editor to the `Hallway`/`VisualHallway` example scene, or
     one of your choosing, and complete the following exercise:'
+  id: totrans-187
   prefs: []
   type: TYPE_NORMAL
 - en: Open up a Python or Anaconda console window and get it ready to train.
+  id: totrans-188
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: Select and enable the HallwayArea, selecting areas (1) to (19) so they become
     active and viewable in the scene.
+  id: totrans-189
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: Select the Agent object in each **HallwayArea**, and make sure that **Hallway
     Agent** | **Brain** is set to HallwayLearning and not HallwayPlayer. This will
     turn on all the additional training areas.
+  id: totrans-190
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
@@ -1022,16 +1345,19 @@
     sample back to the original. Recall that in an earlier exercise, we modified the
     HallwayAgent script to only scan a smaller section of angles. This may also require
     you to alter the brain parameters as well.
+  id: totrans-191
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: After you have the scene set up, save it and the project.
+  id: totrans-192
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: Run the scene in training using a unique `run-id` and wait for a number of training
     iterations. This sample may train substantially slower, or even faster, depending
     on your hardware.
+  id: totrans-193
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
@@ -1041,15 +1367,19 @@
     epochs) and `batch_size` (experiences per training epoch) parameters that we looked
     at earlier with the continuous action (control) sample. In the documentation,
     we noted that a larger batch size was preferred when training control agents.
+  id: totrans-194
   prefs: []
   type: TYPE_NORMAL
 - en: 'Before we continue, let''s open the `trainer_config.yaml` file and inspect
     the HallwayLearning configuration section as follows:'
+  id: totrans-195
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE16]'
+  id: totrans-196
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE16]'
 - en: In the Unity documentation, it specifically mentions only increasing the number
     of epochs when increasing the batch size, and this is in order to account for
     additional training experiences. We learned that control examples generally benefit
@@ -1057,130 +1387,164 @@
     last thing we want to determine is the effect of altering the `batch_size` and
     `num_epoch` parameters in a discrete action example with multiple agents feeding
     into and learning from the same policy.
+  id: totrans-197
   prefs: []
   type: TYPE_NORMAL
 - en: 'For the purposes of this exercise, we are only going to modify `batch_size`
     and `num_epoch` to values as follows:'
+  id: totrans-198
   prefs: []
   type: TYPE_NORMAL
 - en: 'Update the `HallwayLearning` or brain configuration you are using to use the
     following parameters:'
+  id: totrans-199
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: '[PRE17]'
+  id: totrans-200
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE17]'
 - en: We set `num_epoch` to 10 and `batch_size` to `1000`. These settings are typical
     for a control sample, as we have previously seen, but now we want to see the effect
     in a discrete action example with multiple agents training the same policy.
+  id: totrans-201
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: Prepare the sample for training, and get the Python console ready and open.
+  id: totrans-202
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: 'Run the training session with the following command:'
+  id: totrans-203
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: '[PRE18]'
+  id: totrans-204
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE18]'
 - en: Notice how we have set `run-id` using a helper prefix to name the iteration.
     We used `e10` to represent that the `num_epoch` parameter is set to `10`, and
     `b1000` represents the `batch_size` value of `1000`. This type of naming scheme
     can be helpful, and is one we will continue using through this book.
+  id: totrans-205
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: 'As the agent trains, try and answer the following questions:'
+  id: totrans-206
   prefs: []
   type: TYPE_NORMAL
 - en: Does the agent train better or worse than you expected?
+  id: totrans-207
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: Why do you think that is?
+  id: totrans-208
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: It will be up to you to run the sample in order to learn the answer to those
     questions. In the next section, we will look at helpful exercises you can do on
     your own to help your understanding of these complex topics.
+  id: totrans-209
   prefs: []
   type: TYPE_NORMAL
 - en: Exercises
+  id: totrans-210
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
 - en: 'Attempt one or two of the following exercises on your own:'
+  id: totrans-211
   prefs: []
   type: TYPE_NORMAL
 - en: Run the CrawlerStaticTarget example scene and compare its performance to the
     dynamic sample.
+  id: totrans-212
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: 'Double the `time_horizon`, `batch_size`, and `buffer_size` brain hyperparameters in
     one of the other control examples:'
+  id: totrans-213
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: '[PRE19]'
+  id: totrans-214
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE19]'
 - en: Perform the same modification of `time_horizon`, `batch_size`, and `buffer_size`
     on another control sample and observe the combined effect.
+  id: totrans-215
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: Modify the `num_layers` and `hidden_units` brain hyperparameters to values we
     used in a control sample and apply them to a discrete action example, such as
     the Hallway example, as shown in the following code. How did it affect training?
+  id: totrans-216
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: '[PRE20]'
+  id: totrans-217
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE20]'
 - en: Alter the `num_layers` and `hidden_units` hyperparameters on another continuous
     or discrete action example and combine it with other parameter modifications.
+  id: totrans-218
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: 'Modify the lambda `lambd` brain hyperparameter in a discrete action example
     to a value of `.99`. Remember that this will have the effect of strengthening
     the rewards:'
+  id: totrans-219
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: '[PRE21]'
+  id: totrans-220
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE21]'
 - en: Create your own control creature with joints and limbs. A good place to start
     is using the Crawler example and modifying that.
+  id: totrans-221
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: Modify one of the control samples by adding new limbs or joints.
+  id: totrans-222
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: Modify the Walker control example to give the agent a weapon and a target. You
     will have to combine elements of the Walker and Reacher examples.
+  id: totrans-223
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: Run the VisualHallwayLearning sample scene with altered `num_epoch` and `batch_size`
     parameters. Are the results what you expected?
+  id: totrans-224
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: As we progress through the book, these exercises may become more and more tedious,
     especially if you run them on an older and slower system. However, it is important
     to understand how these parameters can alter an agent's training.
+  id: totrans-225
   prefs: []
   type: TYPE_NORMAL
 - en: When speaking to deep learning and RL practitioners, they will often compare
@@ -1188,9 +1552,11 @@
     A good cook may make things taste good and serve a completely acceptable meal,
     but it takes a great cook, and their attention to detail, to make you an exceptional
     meal that you will remember.
+  id: totrans-226
   prefs: []
   type: TYPE_NORMAL
 - en: Summary
+  id: totrans-227
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
@@ -1205,11 +1571,13 @@
     affect training. This is where we learned how to modify one of the control samples
     to create a new joint on the Reacher arm. We finished the chapter by looking at
     how multi-agent policy training can be improved on, again by tuning hyperparameters.
+  id: totrans-228
   prefs: []
   type: TYPE_NORMAL
 - en: We have covered many aspects and details of RL and how agents train, but we
     have left the most important part of training, rewards, to the next chapter. In
     the next chapter, we look into rewards, reward functions, and how rewards can
     even be simulated.
+  id: totrans-229
   prefs: []
   type: TYPE_NORMAL
