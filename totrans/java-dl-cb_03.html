@@ -1,0 +1,832 @@
+<html><head></head><body>
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Building Deep Neural Networks for Binary Classification</h1>
+                </header>
+            
+            <article>
+                
+<p>In this chapter, we are going to develop a <strong>Deep Neural Network</strong> (<strong>DNN</strong>) using the standard feedforward network architecture. We will add components and changes to the application while we progress through the recipes. Make sure to revisit <a href="f88b350b-16e2-425b-8425-4631187c7803.xhtml" target="_blank">Chapter 1</a>, <em>Introduction to Deep Learning in Java</em>, and <a href="6ac5dff5-cc98-4d52-bc59-1da01b2aeded.xhtml" target="_blank">Chapter 2</a>, <em>Data Extraction, Transformation, and Loading</em>, if you have not already done so. This is to ensure better understanding of the recipes in this chapter.</p>
+<p>We will take an example of a customer retention prediction for the demonstration of the standard feedforward network. This is a crucial real-world problem that every business wants to solve. Businesses would like to invest more in happy customers, who tend to stay customers for longer periods of time. At the same time, predictions of losing customers will make businesses focus more on decisions that encourage customers not to take their business elsewhere.</p>
+<p>Remember that a feedforward network doesn't really give you any hints about the actual features that decide the outcome. It just predicts whether a customer continues to patronize the organization or not. The actual feature signals are hidden, and it is left to the neural network to decide. If you want to record the actual feature signals that control the prediction outcome, then you could use an autoencoder for the task. Let's examine how to construct a feedforward network for our aforementioned use case.</p>
+<p class="mce-root">In this chapter, we will cover the following recipes:</p>
+<ul>
+<li>Extracting data from CSV input</li>
+<li>Removing anomalies from the data</li>
+<li>Applying transformations to the data</li>
+<li>Designing input layers for the neural network model</li>
+<li>Designing hidden layers for the neural network model</li>
+<li>Designing output layers for the neural network model</li>
+<li>Training and evaluating the neural network model for CSV data</li>
+<li>Deploying the neural network model and using it as an API</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Technical requirements</h1>
+                </header>
+            
+            <article>
+                
+<p><span>Make sure the following requirements are satisfied:<br/></span></p>
+<ul>
+<li>JDK 8 is installed and added to <kbd>PATH</kbd>. Source code requires JDK 8 for execution. </li>
+<li>Maven is installed/added to <kbd>PATH</kbd>. We use Maven to build the application JAR file afterward.</li>
+</ul>
+<p><span>Concrete implementation for the use case discussed in this chapter (Customer retention prediction) can be found at </span><a href="https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/blob/master/03_Building_Deep_Neural_Networks_for_Binary_classification/sourceCode/cookbookapp/src/main/java/com/javadeeplearningcookbook/examples/CustomerRetentionPredictionExample.java">https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/blob/master/03_Building_Deep_Neural_Networks_for_Binary_classification/sourceCode/cookbookapp/src/main/java/com/javadeeplearningcookbook/examples/CustomerRetentionPredictionExample.java</a>.</p>
+<p>After cloning our GitHub repository, navigate to the <kbd>Java-Deep-Learning-Cookbook/03_Building_Deep_Neural_Networks_for_Binary_classification/sourceCode</kbd> directory. Then import the <kbd>cookbookapp</kbd> project into your IDE as a Maven project by importing <kbd>pom.xml</kbd>.</p>
+<p>Dataset is already included in the <kbd>resources</kbd> directory (<kbd>Churn_Modelling.csv</kbd>) of the <kbd>cookbookapp</kbd> project.</p>
+<p><span>However, the dataset can be downloaded at <a href="https://www.kaggle.com/barelydedicated/bank-customer-churn-modeling/downloads/bank-customer-churn-modeling.zip/1">https://www.kaggle.com/barelydedicated/bank-customer-churn-modeling/downloads/bank-customer-churn-modeling.zip/1</a>.<br/></span></p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Extracting data from CSV input</h1>
+                </header>
+            
+            <article>
+                
+<p><span><strong>ETL</strong> (short for <strong>Extract, Transform and Load</strong>) is the first stage prior to network training. Customer churn data is in CSV format. We need to extract it and put it in a record reader object to process further. In this recipe, we extract the data from a CSV file.</span></p>
+<p class="mce-root"/>
+<p class="mce-root"/>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How to do it...</h1>
+                </header>
+            
+            <article>
+                
+<ol>
+<li>Create <kbd>CSVRecordReader</kbd> to hold customer churn data:</li>
+</ol>
+<pre style="padding-left: 60px">RecordReader recordReader = new CSVRecordReader(1,',');</pre>
+<ol start="2">
+<li>Add data to <kbd>CSVRecordReader</kbd>:</li>
+</ol>
+<pre style="padding-left: 60px">File file = new File("Churn_Modelling.csv");<br/>   recordReader.initialize(new FileSplit(file)); </pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How it works...</h1>
+                </header>
+            
+            <article>
+                
+<p><span>The CSV data from the dataset has 14 features. Each row represents a customer/record, as shown in the following screenshot:</span></p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1404 image-border" src="assets/9530d8be-7666-495f-aafc-18676893e788.png" style="width:52.17em;height:27.42em;"/></p>
+<p>Our dataset is a CSV file containing 10,000 customer records, where each record is labeled as to whether the customer left the business or not. <span class="s1">Columns 0 to 13 represent input features. The 14<sup>th</sup> column</span>, <kbd>Exited</kbd>, in<span class="s1">dicates the label or prediction outcome</span><span class="s1">. </span><span class="s1">We're dealing with a supervised model, and each prediction is labeled with</span> <kbd><span class="s2">0</span></kbd><span class="s1"> or</span> <kbd><span class="s2">1</span></kbd><span class="s1">, where</span> <kbd><span class="s2">0</span></kbd><span class="s1"> indicates a happy customer, and</span> <kbd><span class="s2">1</span></kbd><span class="s1"> indicates an unhappy customer who has left the business. </span>The first row in the dataset is just feature labels, and we don't need them while processing the data. So, we have skipped the first line while we created the record reader instance <span>in step 1</span>. In step 1, <kbd>1</kbd> is the number of rows to be skipped on the dataset. Also, we have mentioned a comma delimiter <span>(</span><kbd>,</kbd><span>) </span>because we are using a CSV file. In step 2, we used <kbd>FileSplit</kbd> to mention the customer churn dataset file. We can also deal with multiple dataset files using other <kbd>InputSplit</kbd> implementations, such as <span><kbd>CollectionInputSplit</kbd>, <kbd>NumberedFileInputSplit</kbd>, and so on. </span></p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Removing anomalies from the data</h1>
+                </header>
+            
+            <article>
+                
+<p>For supervised datasets, manual inspection works fine for datasets with fewer features. As the feature count goes high, manual inspection becomes impractical. We need to perform feature selection techniques, such as chi-square test, random forest, and so on, to deal with the volume of features. We can also use<span> an </span><span>autoencoder</span><span> </span><span>to narrow down the relevant features. Remember that each feature should have a fair contribution toward the prediction outcomes. So, we need to remove noise features from the raw dataset and keep everything else as is, including any uncertain features. In this recipe, we will walk through the steps to identify anomalies in the data.</span></p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How to do it...</h1>
+                </header>
+            
+            <article>
+                
+<ol>
+<li>Leave out all the noise features before training the neural network. Remove noise features at the schema transformation stage:</li>
+</ol>
+<pre style="padding-left: 60px">TransformProcess transformProcess = new TransformProcess.Builder(schema)<br/> .removeColumns("RowNumber","CustomerId","Surname")<br/> .build();    </pre>
+<ol start="2">
+<li>Identify the missing values using the DataVec analysis API:</li>
+</ol>
+<pre style="padding-left: 60px">DataQualityAnalysis analysis = AnalyzeLocal.analyzeQuality(schema,recordReader);<br/> System.out.println(analysis); </pre>
+<p class="mce-root"/>
+<ol start="3">
+<li>Remove null values using a schema transformation:</li>
+</ol>
+<pre style="padding-left: 60px">Condition condition = new NullWritableColumnCondition("columnName");<br/> TransformProcess transformProcess = new TransformProcess.Builder(schema)<br/>   .conditionalReplaceValueTransform("columnName",new IntWritable(0),condition)<br/> .build();</pre>
+<ol start="4">
+<li>Remove NaN values using a schema transformation:</li>
+</ol>
+<pre style="padding-left: 60px">Condition condition = new NaNColumnCondition("columnName");<br/> TransformProcess transformProcess = new TransformProcess.Builder(schema)<br/>   .conditionalReplaceValueTransform("columnName",new IntWritable(0),condition)<br/> .build();</pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How it works...</h1>
+                </header>
+            
+            <article>
+                
+<p><span>If you recall our customer churn dataset, there are 14 features:</span></p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1405 image-border" src="assets/5dee1e86-791a-445c-9737-deaf4dca7527.png" style="width:52.08em;height:27.33em;"/></p>
+<p><span class="s1">After performing step 1, you have 11 valid features remaining. The following marked features have zero significance on the prediction outcome. For example, the customer name doesn't influence whether a customer would leave the organization or not.</span></p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1348 image-border" src="assets/40ca2a93-1976-4b5f-93b3-d99d95d8c993.png" style="width:53.50em;height:5.08em;"/></p>
+<p>In the above screenshot, we have marked the features that are not required for the training. These features can be removed from the dataset as it doesn't have any impact on outcome. </p>
+<p class="p1"><span class="s1">In step 1, we tagged the noise feature</span>s (<kbd>RowNumber</kbd>, <kbd>Customerid</kbd>, and <kbd>Surname</kbd>) in our dataset for removal during the schema transformation process u<span class="s1">sing the </span><kbd><span class="s2">removeColumns()</span></kbd><span class="s1"> method.<br/></span></p>
+<div class="packt_infobox"><span>The customer churn dataset used in this chapter has only 14 features. Also, the feature labels are meaningful. So, a manual inspection was just enough. In the case of a large number of features, you might need to consider using <strong>PCA</strong> (short for <strong>Principal Component Analysis</strong>), as explained in the previous chapter. </span></div>
+<p class="p1"><span class="s1">In step 2, we used the <kbd>AnalyzeLocal</kbd> utility class to find the missing values in the dataset by calling <span><kbd>analyzeQuality()</kbd>. You should see the following result when you print out the information in the <kbd>DataQualityAnalysis</kbd> object: </span></span></p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1406 image-border" src="assets/621c3773-9d43-498e-967a-efe1e0b9a104.png" style="width:53.25em;height:11.42em;"/></p>
+<p class="p1"><span class="s1">As you can see in the preceding screenshot, each of the features is analyzed for its quality (in terms of invalid/missing data), and the count is displayed for us to decide if we need to normalize it further. Since all features</span> appeared to be OK, we <span class="s1">can proceed further. </span></p>
+<p class="mce-root"/>
+<p class="p1"><span class="s1">There are two ways in which missing values can be handled. Either we remove the entire record or replace them with a value. In most cases, we don't remove records; instead, we replace them with a value to indicate absence. We can do it during the transformation process using </span><kbd>conditionalReplaceValueTransform()</kbd> or <kbd>conditionalReplaceValueTransformWithDefault()</kbd>. In step 3/4, we removed missing or invalid values from the dataset. Note t<span class="s1">hat the feature needs to be known beforehand. We cannot check the whole set of features for this purpose. At the moment, DataVec doesn't support this functionality. You may perform step 2 to identify features that need attention. </span></p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">There's more...</h1>
+                </header>
+            
+            <article>
+                
+<p><span>We discussed earlier in this chapter how to use the <kbd>AnalyzeLocal</kbd> utility class to find out missing values. We can also perform extended data analysis using <kbd>AnalyzeLocal</kbd>. We can create a data analysis object that holds information on each column present in the dataset. It can be created by calling <kbd>analyze()</kbd>, as we discussed in the previous chapter. If you try to print out the information on the data analysis object, it will look like the following:</span></p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1352 image-border" src="assets/9107f6f7-a7c4-4830-9296-a068771ee108.png" style="width:52.17em;height:10.58em;"/></p>
+<p><span>It will calculate the standard deviation, mean, and the min/max values for all the features in the dataset. The count of features is also calculated, which will be helpful toward identifying missing or invalid values in features.</span></p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1407 image-border" src="assets/8a761959-3786-4d70-a828-462ebf049e10.png" style="width:48.33em;height:13.58em;"/></p>
+<p><span>Both screenshots on the above indicate the data analysis results returned by calling <kbd>analyze()</kbd> method. For the customer churn dataset, we should have a total count of 10,000 for all features as the total number of records present in our dataset is 10,000. <br/></span></p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Applying transformations to the data</h1>
+                </header>
+            
+            <article>
+                
+<p>Data transformation is a crucial data normalization procedure that must be done before we feed the data to a neural network. We need to transform non-numeric features to numeric values and handle missing values. In this recipe, we will perform schema transformation, and create dataset iterators after transformation. </p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How to do it...</h1>
+                </header>
+            
+            <article>
+                
+<ol>
+<li>Add features and labels into the schema:</li>
+</ol>
+<pre style="padding-left: 60px">Schema.Builder schemaBuilder = new Schema.Builder();<br/> schemaBuilder.addColumnString("RowNumber")<br/> schemaBuilder.addColumnInteger("CustomerId")<br/> schemaBuilder.addColumnString("Surname")<br/> schemaBuilder.addColumnInteger("CreditScore");</pre>
+<ol start="2">
+<li>Identify and add categorical features to the schema:</li>
+</ol>
+<pre style="padding-left: 60px">schemaBuilder.addColumnCategorical("Geography", Arrays.asList("France","Germany","Spain"))<br/> schemaBuilder.addColumnCategorical("Gender", Arrays.asList("Male","Female"));</pre>
+<ol start="3">
+<li>Remove noise features from the dataset:</li>
+</ol>
+<pre style="padding-left: 60px">Schema schema = schemaBuilder.build();<br/> TransformProcess.Builder transformProcessBuilder = new TransformProcess.Builder(schema);<br/> transformProcessBuilder.removeColumns("RowNumber","CustomerId","Surname");</pre>
+<ol start="4">
+<li>Transform categorical variables:</li>
+</ol>
+<pre style="padding-left: 60px">transformProcessBuilder.categoricalToInteger("Gender");</pre>
+<p class="mce-root"/>
+<ol start="5">
+<li>Apply one-hot encoding by calling <kbd>categoricalToOneHot()</kbd>:</li>
+</ol>
+<pre style="padding-left: 60px">transformProcessBuilder.categoricalToInteger("Gender")<br/> transformProcessBuilder.categoricalToOneHot("Geography");<br/> </pre>
+<ol start="6">
+<li>Remove the correlation dependency on the <kbd>Geography</kbd> feature by calling <kbd>removeColumns()</kbd>:</li>
+</ol>
+<pre style="padding-left: 60px">transformProcessBuilder.removeColumns("Geography[France]")</pre>
+<p style="padding-left: 60px">Here, we selected <kbd>France</kbd> as the correlation variable.</p>
+<ol start="7">
+<li>Extract the data and apply the transformation using <kbd>TransformProcessRecordReader</kbd>:</li>
+</ol>
+<pre style="padding-left: 60px">TransformProcess transformProcess = transformProcessBuilder.build();<br/> TransformProcessRecordReader transformProcessRecordReader = new TransformProcessRecordReader(recordReader,transformProcess);</pre>
+<ol start="8">
+<li>Create a dataset iterator to train/test:</li>
+</ol>
+<pre style="padding-left: 60px">DataSetIterator dataSetIterator = new RecordReaderDataSetIterator.Builder(transformProcessRecordReader,batchSize) .classification(labelIndex,numClasses)<br/> .build();</pre>
+<ol start="9">
+<li>Normalize the dataset:</li>
+</ol>
+<pre style="padding-left: 60px">DataNormalization dataNormalization = new NormalizerStandardize();<br/> dataNormalization.fit(dataSetIterator);<br/> dataSetIterator.setPreProcessor(dataNormalization);</pre>
+<ol start="10">
+<li>Split the main dataset iterator to train and test iterators:</li>
+</ol>
+<pre style="padding-left: 60px">DataSetIteratorSplitter dataSetIteratorSplitter = new DataSetIteratorSplitter(dataSetIterator,totalNoOfBatches,ratio);</pre>
+<ol start="11">
+<li>Generate train/test iterators from <kbd>DataSetIteratorSplitter</kbd>:</li>
+</ol>
+<pre style="padding-left: 60px">DataSetIterator trainIterator = dataSetIteratorSplitter.getTrainIterator();<br/> DataSetIterator testIterator = dataSetIteratorSplitter.getTestIterator();<span><br/></span></pre>
+<p class="mce-root"/>
+<p class="mce-root"/>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How it works...</h1>
+                </header>
+            
+            <article>
+                
+<p>All features and labels need to be added to the schema as mentioned in step 1 and step 2. If we don't do that, then DataVec will throw runtime errors during data extraction/loading.</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1355 image-border" src="assets/73912ea2-ea7a-4786-ab3b-953c6202b743.png" style="width:57.17em;height:6.58em;"/></p>
+<p>In the preceding screenshot, the runtime exception is thrown by DataVec because of unmatched count of features. This will happen if we provide a different value for input neurons instead of the actual count of features in the dataset. </p>
+<p>From the error description, it is clear that we have only added 13 features in the schema, which ended in a runtime error during execution. <span class="s1">The first three features, nam</span>ed <kbd>Rownumber</kbd>, <kbd>Customerid</kbd>, an<span class="s1">d </span><kbd>Surname</kbd>, are to <span class="s1">be added to the schema. Note that we need to tag these features in the schema, even though we found them to be noise features. You can also remove these features manually from the dataset. If you do that, you don't have to add them in the schema, and, thus, there is no need to handle them in the transformation stage</span></p>
+<p><span class="s1">For large datasets, you may add all features from the dataset to the schema, unless your analysis identifies them as noise. </span><span class="s1">Similarly, we need to add the other feature variables such as</span> <kbd>Age</kbd>, <kbd>Tenure</kbd>, <kbd>Balance</kbd>, <kbd>NumOfProducts</kbd>, <kbd>HasCrCard</kbd>, <kbd>IsActiveMember</kbd>, <kbd>EstimatedSalary</kbd>, and <kbd>Exited</kbd>. Note the variable types while adding them to schema. For example, <kbd>Balance</kbd> and <kbd>EstimatedSalary</kbd> have floating po<span class="s1">int precision, so consider their datatype a</span>s double and <span class="s1">use </span><kbd><span class="s2">addColumnDouble()</span></kbd><span class="s1"> to add them to schema.</span></p>
+<p><span class="s1">We have two features named g</span><span class="s2">ender</span><span class="s1"> and g</span><span class="s2">eography</span><span class="s1"> that require special treatment. These two features are non-numeric and their feature values represent categorical values compared to other fields in the dataset. Any non-numeric features need to transform numeric values so that the neural network can perform statistical computations on feature values</span><span class="s1">. In step 2, we added categorical variables to the schema using </span><kbd><span class="s2">addColumnCategorical()</span></kbd><span class="s1">. We need to specify the categorical values in a list, and </span><kbd><span class="s2">addColumnCategorical()</span></kbd><span class="s1"> will tag the integer values based on the feature values mentioned. For example, the</span> <kbd>Male</kbd> and <kbd>Female</kbd> values in the categorical variable <kbd>Gender</kbd> will be tagged as <kbd>0</kbd> and <kbd>1</kbd> respectively. In step 2, we added the possible values for the categorical variables in a list. If your dataset has any other unknown value present for a categorical variable (other than the ones mentioned in the schema), DataVec will throw an error during execution.</p>
+<p>In step 3, we <span class="s1">marked the noise features </span><span class="s1">for removal during the transformation process by calling <span><kbd>removeColumns()</kbd>.</span></span></p>
+<p>In step 4, <span>we performed one-hot encoding f</span>or the <kbd>Geography</kbd> <span>categorical variable.</span><br/>
+<kbd>Geography</kbd> <span class="s1">has three categorical values, and hence it will take the </span><span class="s2">0</span><span class="s1">, </span><span class="s2">1</span><span class="s1">, and </span><span class="s2">2 values</span><span class="s1"> after the transformation. The ideal way of transforming non-numeric values is to convert them to a value of zero (</span><span class="s2">0</span><span class="s1">) and one (</span><span class="s2">1</span><span class="s1">). It would significantly ease the effort of the neural network. Also, the normal integer encoding is applicable only if there exists an ordinal relationship between the variables. The risk here is we're assuming that there exists natural ordering between the variables. Such an assumption can result in the neural network showing unpredictable behavior</span><span class="s3">. So, we have <span>removed the correlation variable in step 6. For the demonstration, we picked </span><kbd>France</kbd><span> as a correlation variable in step 6. However, you can choose any one among the three categorical values. This is to remove any correlation dependency that affects neural network performance and stability. After step 6, </span></span>the resultant schema for the <kbd>Geography</kbd><span> </span><span>feature </span>will look like the following:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1356 image-border" src="assets/7be56c83-76d3-420b-9f58-f2a314822f5b.png" style="width:13.92em;height:5.42em;"/></p>
+<p class="CDPAlignLeft CDPAlign"><span class="s3"><span>In step 8, we created dataset iterators from the record reader objects. Here are the attributes for the <kbd>RecordReaderDataSetIterator</kbd> builder method and their respective roles:<br/></span></span></p>
+<ul>
+<li><kbd><span class="s2">labelIndex</span></kbd><span class="s3">: The index location in the CSV data where our labels (outcomes) are located.</span></li>
+<li class="li1"><kbd><span class="s2">numClasses</span></kbd><span class="s3">: The number of labels (outcomes) from the dataset.</span></li>
+<li class="li1"><kbd><span class="s2">batchSize</span></kbd><span class="s3">: The block of data that passes through the neural network. If you specify a batch size of </span><span class="s2">10</span><span class="s3"> and there are 10,000 records, then there will be 1,000 batches holding 10 records each.</span></li>
+</ul>
+<p><span class="s3"><span>Also, w</span></span><span class="s1">e have a binary classification problem here, and so we used the </span><kbd><span class="s2">classification()</span></kbd><span class="s1"> method to specify the label index and number of labels.</span></p>
+<p>For some of the features in the dataset, you might observe huge differences in the feature value ranges. Some of the features have small numeric values, while some have very large numeric values. These large/small values can be interpreted in the wrong way by the neural network. Neural networks can falsely assign high/low priority to these features and that results in wrong or fluctuating predictions. In order to avoid this situation, we have to normalize the dataset before feeding it to the neural network. Hence we performed normalization as in step 9.</p>
+<p class="mce-root"/>
+<p>In step 10, we used <span><kbd>DataSetIteratorSplitter</kbd> to split the main dataset for a training or test purpose. </span></p>
+<p class="p1"><span class="s1">The following are the parameters of </span><kbd><span class="s2">DataSetIteratorSplitter</span></kbd><span class="s1">:</span></p>
+<ul class="ul1">
+<li class="li2"><kbd><span class="s2">totalNoOfBatches</span></kbd><span class="s1">: If you specify a batch size of </span><span class="s2">10</span><span class="s1"> for 10,000 records, then you need to specify </span><span class="s2">1,000 as the total number of batches</span><span class="s1">.</span></li>
+<li class="li2"><kbd><span class="s2">ratio</span></kbd><span class="s1">: This is the ratio at which the splitter splits the iterator set. If you specify </span><span class="s2">0.8</span><span class="s1">, then it means 80% of data will be used for training and the remaining 20% will be used for testing/evaluation.<br/></span></li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Designing input layers for the neural network model</h1>
+                </header>
+            
+            <article>
+                
+<p>Input layer design requires an understanding of how the data flows into the system. We have CSV data as input, and we need to inspect the features to decide on the input attributes. Layers are core components in neural network architecture. In this recipe, we will configure input layers for the neural network. </p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Getting ready</h1>
+                </header>
+            
+            <article>
+                
+<p><span>We need to decide the number of input neurons before designing the input layer.</span><span> It can be derived from the feature shape. For i</span><span>nstance, we have 13 input features (excluding the label).</span><span> </span><span>But a</span><span class="s1">fter applying the transformation, we have a total of 11 feature columns present in the dataset. Noise features are removed and categorical variables are <span>transformed </span>during the schema transformation. So, the final transformed data will have 11 input features. There are no specific requirements for outgoing neurons from the input layer. If we assign the wrong number of incoming neurons at the input layer, we may end up with a runtime error:</span></p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1357 image-border" src="assets/c3ddc74c-a677-46b4-a5e1-c95d2beebdc4.png" style="width:55.17em;height:8.25em;"/></p>
+<p>The DL4J error stack is pretty much self-explanatory as to the possible reason. It points out the exact layer where it needs a fix (<kbd>layer0</kbd>, in the preceding example). </p>
+<p class="mce-root"/>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How to do it...</h1>
+                </header>
+            
+            <article>
+                
+<ol>
+<li>Define the neural network configuration using <kbd>MultiLayerConfiguration</kbd>:</li>
+</ol>
+<pre style="padding-left: 60px">MultiLayerConfiguration.Builder builder = new NeuralNetConfiguration.Builder().weightInit(WeightInit.RELU_UNIFORM)<br/> .updater(new Adam(0.015D))<br/> .list();<br/> </pre>
+<ol start="2">
+<li>Define the input layer configuration using <kbd>DenseLayer</kbd>:</li>
+</ol>
+<pre style="padding-left: 60px">builder.layer(new DenseLayer.Builder().nIn(incomingConnectionCount).nOut(outgoingConnectionCount).activation(Activation.RELU)<br/>.build())<br/>.build();</pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How it works...</h1>
+                </header>
+            
+            <article>
+                
+<p>We added layers to the network by calling the<span> </span><kbd>layer()</kbd><span> </span>method as mentioned in step 2. Input layers are added using <kbd>DenseLayer</kbd><em>. </em>Also, we need to add an activation function for the input layer. We specified the activation function by calling the <kbd>activation()</kbd><span> </span>method. We discussed activation functions in<span> </span><a href="f88b350b-16e2-425b-8425-4631187c7803.xhtml" target="_blank">Chapter 1</a>,<span> </span><em>Introduction to Deep Learning in Java</em>. You can use one of the available activation functions in DL4J to the <kbd>activation()</kbd><span> </span>method. The most generic activation function used is<span> </span><kbd>RELU</kbd>. Here are roles of other methods in layer design:</p>
+<ul>
+<li><kbd>nIn()</kbd>: This refers to the number of inputs for the layer. For an input layer, this is nothing but the number of input features.</li>
+<li><kbd>nOut()</kbd>: <span>This r</span>efers to number of outputs to next dense layer in neural network.</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Designing hidden layers for the neural network model</h1>
+                </header>
+            
+            <article>
+                
+<p>Hidden layers are the heart of a neural network. The actual decision process happens there. The design of the hidden layers is based on hitting a level beyond which a neural network cannot be optimized further. This level can be defined as the optimal number of hidden layers that produce optimal results.</p>
+<p>Hidden layers are the place where the neural network transforms the inputs into a different format that the output layer can consume and use to make predictions. In this recipe, we will design hidden layers for a neural network.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How to do it...</h1>
+                </header>
+            
+            <article>
+                
+<ol>
+<li>Determine the incoming/outgoing connections. Set the following:</li>
+</ol>
+<pre style="padding-left: 60px">incoming neurons = outgoing neurons from preceding layer.<br/> outgoing neurons = incoming neurons for the next hidden layer.</pre>
+<ol start="2">
+<li>Configure hidden layers using <kbd>DenseLayer</kbd>:</li>
+</ol>
+<pre style="padding-left: 60px">builder.layer(new DenseLayer.Builder().nIn(incomingConnectionCount).nOut(outgoingConnectionCount).activation(Activation.RELU).build());<span><br/></span></pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How it works...</h1>
+                </header>
+            
+            <article>
+                
+<p>For step 1, i<span class="s1">f the neural network has only single hidden layer, then the number of neurons (inputs) in the hidden layer should be the same as the number of outgoing connections from the preceding layer. If you have multiple hidden layers, you will also need to confirm this for the preceding hidden layers.</span></p>
+<p>After you make sure that the number of input neurons are the same as number of the outgoing neurons in the preceding layer, you can create hidden layers using <kbd>DenseLayer</kbd>. In step 2, we used <kbd>DenseLayer</kbd> to create hidden layers for the input layers. In practice, we need to evaluate the model multiple times to understand the network performance. There's no constant layer configuration that works well for all the models. Also, <kbd>RELU</kbd> is the preferred activation function for hidden layers, due to its nonlinear nature.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Designing output layers for the neural network model</h1>
+                </header>
+            
+            <article>
+                
+<p><span>Output layer design requires an understanding of the expected output. We have CSV data as input, and the output layer relies on the number of labels in the dataset. </span>Output layers are the place where the actual prediction is formed based on the learning process that happened in the hidden layers.</p>
+<p>In this recipe, we will design output layers for the neural network.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How to do it...</h1>
+                </header>
+            
+            <article>
+                
+<ol>
+<li> Determine the incoming/outgoing connections. Set the following:</li>
+</ol>
+<pre style="padding-left: 60px">incoming neurons = outgoing neurons from preceding hidden layer.<br/> outgoing neurons = number of labels<br/> </pre>
+<ol start="2">
+<li>Configure the output layer for the neural network:</li>
+</ol>
+<pre style="padding-left: 60px">builder.layer(new OutputLayer.Builder(new LossMCXENT(weightsArray)).nIn(incomingConnectionCount).nOut(labelCount).activation(Activation.SOFTMAX).build())<kbd><span><br/></span></kbd></pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How it works...</h1>
+                </header>
+            
+            <article>
+                
+<p>For step 1, we need to make sure that <kbd><span class="s2">nOut()</span></kbd><span class="s1"> for the preceding layer should have the same number of neurons as </span><kbd><span class="s2">nIn()</span></kbd><span class="s1"> for the output layer.</span></p>
+<p><span class="s1">So, <span><kbd>incomingConnectionCount</kbd> should be the same as <kbd>outgoingConnectionCount</kbd> from the preceding layer.</span></span></p>
+<p>We discussed the <kbd>SOFTMAX</kbd> activation function earlier in <a href="f88b350b-16e2-425b-8425-4631187c7803.xhtml" target="_blank">Chapter 1</a>, <em>Introduction to Deep Learning in Java</em>. Our use case (customer churn) is an example for the binary classification model. We are looking for a probabilistic outcome, that is, the probability of a customer being labeled <em>happy</em> or <em>unhappy, </em>where <kbd>0</kbd> represents a happy customer and <kbd>1</kbd> represents an unhappy customer. This probability will be evaluated, and the neural network will train itself during the training process. </p>
+<p>The proper activation function at the output layer would be <kbd><span>SOFTMAX</span></kbd>. This is because we need the probability of the occurrence of labels and the probabilities should sum to 1. <kbd>SOFTMAX</kbd> along with the log loss function produces good results for classification models. <span>The introduction of </span><kbd>weightsArray</kbd> <span>is to enforce a preference for a particular label among others in case of any data imbalance. In step 2, output layers are </span><span class="s1">created using the </span><span class="s2"><kbd>OutputLayer</kbd> class</span><span class="s1">. The only difference is that <kbd><span>OutputLayer</span></kbd> expects an error function to calculate the error rate while making predictions. In our case, we used <span><kbd>LossMCXENT</kbd>, which is a multi-class cross entropy error function. Our customer churn example follows a binary classification model; however, we can still use this error function since we have two classes (labels) in our example. In step 2, <kbd>labelCount</kbd> would be 2.</span></span></p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Training and evaluating the neural network model for CSV data</h1>
+                </header>
+            
+            <article>
+                
+<p class="mce-root">During the training process, the neural network learns to perform the expected task. For every iteration/epoch, the neural network will evaluate its training knowledge. Accordingly, it will re-iterate the layers with updated gradient values to minimize the error produced at the output layer. Also, note that labels (<kbd>0</kbd> and <kbd>1</kbd> ) are not uniformly distributed across the dataset. So, we might need to consider adding weights to the label that appears less in the dataset. This is highly recommended before we proceed with the actual training session. In this recipe, we will train the neural network and evaluate the resultant model.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How to do it...</h1>
+                </header>
+            
+            <article>
+                
+<ol>
+<li>Create an array to assign weights to minor labels:</li>
+</ol>
+<pre style="padding-left: 60px">INDArray weightsArray = Nd4j.create(new double[]{0.35, 0.65});</pre>
+<ol start="2">
+<li>Modify <kbd>OutPutLayer</kbd> to evenly balance the labels in the dataset:</li>
+</ol>
+<pre style="padding-left: 60px">new OutputLayer.Builder(new LossMCXENT(<span>weightsArray</span><span>)).nIn(incomingConnectionCount).nOut(labelCount).activation(Activation.SOFTMAX))<br/></span>.build();</pre>
+<ol start="3">
+<li class="mce-root">Initialize the neural network and add the training listen<span>ers:</span></li>
+</ol>
+<pre style="padding-left: 60px"><span>MultiLayerConfiguration configuration = builder.build();<br/></span>   MultiLayerNetwork multiLayerNetwork = new MultiLayerNetwork(configuration);<br/> multiLayerNetwork.init();<br/> multiLayerNetwork.setListeners(new ScoreIterationListener(iterationCount));</pre>
+<ol start="4">
+<li>Add the DL4J UI Maven dependency to analyze the training process:</li>
+</ol>
+<pre style="padding-left: 60px">&lt;dependency&gt;<br/> &lt;groupId&gt;org.deeplearning4j&lt;/groupId&gt;<br/> &lt;artifactId&gt;deeplearning4j-ui_2.10&lt;/artifactId&gt;<br/> &lt;version&gt;1.0.0-beta3&lt;/version&gt;<br/> &lt;/dependency&gt;</pre>
+<ol start="5">
+<li>Start the UI server and add temporary storage to store the model information:</li>
+</ol>
+<pre style="padding-left: 60px">UIServer uiServer = UIServer.getInstance();<br/> StatsStorage statsStorage = new InMemoryStatsStorage();</pre>
+<p style="padding-left: 60px">Replace <kbd>InMemoryStatsStorage</kbd> with <kbd>FileStatsStorage</kbd> (in case of memory restrictions):</p>
+<pre style="padding-left: 60px">multiLayerNetwork.setListeners(new ScoreIterationListener(100),<br/> new StatsListener(statsStorage));</pre>
+<ol start="6">
+<li>Assign the temporary storage space to the UI server:</li>
+</ol>
+<pre style="padding-left: 60px">uiServer.attach(statsStorage);</pre>
+<ol start="7">
+<li>Train the neural network by calling <kbd>fit()</kbd>:</li>
+</ol>
+<pre style="padding-left: 60px">multiLayerNetwork.fit(dataSetIteratorSplitter.getTrainIterator(),100);</pre>
+<ol start="8">
+<li>Evaluate the model by calling <kbd>evaluate()</kbd>:</li>
+</ol>
+<pre style="padding-left: 60px">Evaluation evaluation = multiLayerNetwork.evaluate(dataSetIteratorSplitter.getTestIterator(),Arrays.asList("0","1"));<br/> System.out.println(evaluation.stats()); //printing the evaluation metrics</pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How it works...</h1>
+                </header>
+            
+            <article>
+                
+<p class="mce-root">A neural network increases its efficiency when it improves its generalization power. A neural network should not just memorize a certain decision-making process in favor of a particular label. If it does, our outcomes will be biased and wrong. So, it is good to have a dataset where the labels are uniformly distributed. If they're not uniformly distributed, then we might have to adjust a few things while calculating the error rate. For this purpose, we introduced a <kbd><span>weightsArray</span></kbd> in step 1 and added to <kbd>OutputLayer</kbd> in step 2.</p>
+<p class="mce-root">For <kbd>weightsArray = {0.35, 0.65}</kbd>, the network gives more priority to the outcomes of<span> </span><kbd>1</kbd> (customer unhappy). As we discussed earlier in this chapter, the <kbd>Exited</kbd> column represents the label. If we observe the dataset, it is evident that outcomes<span> </span><span>labeled </span><span><kbd>0</kbd> (</span>customer happy) have <span>more records in the dataset </span>compared to<span> </span><kbd>1</kbd>. Hence, we need to assign additional priority to<span> </span><kbd>1</kbd><span> </span>to evenly balance the dataset. <span>Unless we do that, our neural network may over fit and will be biased toward the <kbd>1</kbd> label.</span></p>
+<p>In step 3, we added<span class="s1"> </span><kbd><span class="s2">ScoreIterationListener</span></kbd><span class="s1"> to log the training process on the console. Note that <kbd><span>iterationCount</span></kbd> is the number of iterations in which it should log the network score.</span> <span class="s1">Remember, <kbd><span>iterationCount</span></kbd></span><span class="s1"><kbd> </kbd>is not the epoch. We say a</span>n epoch has <span class="s1">happened when the entire dataset has traveled back and forth (backpropagation) once through the whole neural network.</span></p>
+<p>In step 8, we used <span><kbd>dataSetIteratorSplitter</kbd> to obtain the training dataset iterator and trained our model on top of it. </span><span>If you configured loggers properly, you should see the training instance is progressing as shown here:</span></p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1409 image-border" src="assets/5ecf204a-abe2-4e43-b91b-322a0cc52540.png" style="width:55.50em;height:18.83em;"/></p>
+<div>
+<p>The score referred to in the screenshot is not the success rate; it is the error rate calculated by the error function for each iteration.</p>
+<p>We configured the DL4J <strong>user interface</strong> (<strong>UI</strong>) in step 4, 5, and 6. <span class="s1">DL4J provides a UI to visualize the <span>current network status and training</span></span> progress in your browser (real-time monitoring). Thi<span class="s1">s will help further tuning the neural network trainin</span>g. <kbd>StatsListener</kbd> will be responsib<span class="s2">le for triggering the UI monitoring while the training starts. </span><span class="s1">The port number for UI server is</span> <kbd><span class="s2">9000</span></kbd><span class="s1">. </span><span>While the training is in progress, hit the UI server at</span> <kbd>localhost:9000</kbd><span>. </span><span>We should be able to see something like the following:</span></p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1359 image-border" src="assets/17bebe0a-7847-4d9a-9bd1-2b548b788b06.png" style="width:54.58em;height:26.08em;"/></p>
+<p class="CDPAlignLeft CDPAlign"><span>We can refer to the first graph seen in the</span><span> </span><span class="packt_screen">Overview</span><span> </span><span>section for the</span><span> </span><span class="packt_screen">Model Score</span><span> </span><span>analysis. The </span><span class="packt_screen">Iteration</span><span> </span><span>is plotted on the </span><em>x</em><span> </span><span>axis, and the</span><span> </span><span class="packt_screen">Model Score</span><span> </span><span>is on the </span><em>y </em><span>axis in the graph.</span></p>
+<p class="CDPAlignLeft CDPAlign">We can also further expand our research on how the<span> </span><span class="packt_screen">Activations</span>,<span> </span><span class="packt_screen">Gradients</span>, and the <span class="packt_screen">Updates</span><span> </span><span>parameters</span> performed during the training process by inspecting the parameter values plotted on graphs:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1360 image-border" src="assets/4c1035e0-e297-43a7-a888-ab4c9e8c935e.png" style="width:57.25em;height:21.75em;"/></p>
+<p>The<span> </span><em>x</em><span> </span>axis refers to the number of iterations in both the graphs. The<span> </span><em>y</em><span> </span>axis in the <span>parameter update graph</span><span> </span>refers to the parameter update ratio, and the <em>y</em><span> </span>axis in <span>the activation/gradient graphs</span><span> </span>refers to the standard deviation.</p>
+<p>It is possible to have layer-wise analysis. We just need to click on the<span> </span><span class="packt_screen">Model</span> tab on the left sidebar and choose the layer of choice for further analysis:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1408 image-border" src="assets/77ed7dd4-5797-4cae-b87c-fd26f1bf72a2.png" style="width:56.08em;height:32.17em;"/></p>
+<p class="CDPAlignLeft CDPAlign"><span>For analysis of memory consumption and JVM, we can</span> navigate <span>to the</span><span> </span><span class="packt_screen">System</span><span> </span><span>tab on the left sidebar:</span></p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1362 image-border" src="assets/5a7cc605-7c53-45af-8f80-4cb47ba58eec.png" style="width:44.75em;height:26.33em;"/></p>
+</div>
+<p>We can also review the hardware/software metrics in detail at the same place:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1411 image-border" src="assets/832323a4-3b9d-4ac1-bcdf-b02d2aaccb33.png" style="width:44.83em;height:26.42em;"/></p>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p>This is very useful for benchmarking as well. As we can see, the memory consumption of the neural network is clearly marked and the JVM/off-heap memory consumption is mentioned in the UI to analyze how well the benchmarking is done. </p>
+<p><span>After step 8, evaluation results will be displayed on console:</span></p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1364 image-border" src="assets/67b76595-73b8-49a8-81b5-14b956783fda.png" style="width:51.33em;height:21.00em;"/></p>
+<div>
+<p>In the above screenshot, the console shows various evaluation metrics by which the model is evaluated. We cannot rely on a specific metrics in all the cases; hence, it is good to evaluate the model against multiple metrics. </p>
+<p>Our model is showing an accuracy level of 85.75% at the moment. We have four different performance metrics, named accuracy, precision, recall, and F1 score. As you can see in the preceding screenshot, recall metrics are not so good, which means our model still has false negative cases. The F1 score is also significant here, since our dataset has an uneven proportion of output classes. We will not discuss these metrics in detail, since they are outside the scope of this book. Just remember that all these metrics are important for consideration, rather than just relying on accuracy alone. Of course, the evaluation trade-offs vary depending upon the problem. The current code has already been optimized. Hence, you will find almost stable accuracy from the evaluation metrics. F<span>or a well-trained network model, t</span>hese performance metrics will have values close to<span> </span><kbd>1</kbd>.</p>
+<div class="packt_tip"><span>It is important to check how stable our evaluation metrics are. If we notice unstable evaluation metrics for unseen data, then we need to reconsider changes in the network configuration.<br/>
+<br/></span> <span>Activation functions on the output layer have influence on the stability of the outputs. Hence, a good understanding on output requirements will definitely save you a lot of time choosing an appropriate output function (loss function). We need to ensure stable predictive power from our neural network.</span></div>
+</div>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">There's more...</h1>
+                </header>
+            
+            <article>
+                
+<p>Learning rate is one of the factors that decides the efficiency of the neural network. A high learning rate will diverge from the actual output, while a low learning rate will result in slow learning due to slow convergence. Neural network efficiency also depends on the weights that we assign to the neurons in every layer. Hence, a uniform distribution of weights during the early stages of training might help. </p>
+<p>The most commonly followed approach is to introduce dropouts to the layers. This forces the neural network to ignore some of the neurons during the training process. This will effectively prevent the neural network from memorizing the prediction process. How do we find out if a network has memorized the results? Well, we just need to expose the network to new data. If your accuracy metrics become worse after that, then you've got a case of overfitting.</p>
+<p>Another possibility for increasing the efficiency of the neural network (and thus reducing overfitting) is to try for L1/L2 regularization in the network layers. When we add L1/L2 regularization to network layers, it will add an extra penalty term to the error function. L1 penalizes with the sum of the absolute value of the weights in the neurons, while L2 penalizes using the sum of squares of the weights. L2 regularization will give much better predictions when the output variable is a function of all input features. However, L1 regularization is preferred when the dataset has outliers and if not all the attributes are contributing to predicting the output variable. In most cases, the major reason for overfitting is the issue of memorization. Also, if we drop too many neurons, it will eventually underfit the data. This means we lose more useful data than we need to.</p>
+<div class="packt_infobox">Note that the trade-off can vary depending on the different kinds of problems. Accuracy alone cannot ensure a good model performance every time. It is good to measure precision if we cannot afford the cost of a false positive prediction (such as in spam email detection). It is good to measure recall if we cannot afford the cost of a false negative prediction (such as in fraudulent transaction detection). The F1 score is optimal if there's an uneven distribution of the classes in the dataset. ROC curves are good to measure when there are approximately equal numbers of observations for each output class.</div>
+<p class="CDPAlignLeft CDPAlign"><span>Once the evaluations are stable, we can check on the means to optimize the efficiency of the neural network. There are multiple methods to choose from. We can perform several training sessions to try to find out the optimal number of hidden layers, epochs, dropouts, and activation functions.</span></p>
+<p class="CDPAlignLeft CDPAlign"><span>The following screenshot points to various hyper parameters that can influence neural network efficiency:</span><span><br/></span></p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1365 image-border" src="assets/7069f9da-c4bb-47a3-a704-6266367bfe9b.png" style="width:52.17em;height:8.50em;"/></p>
+<p><span>Note that <kbd>dropOut(0.9)</kbd> means we ignore 10% of neurons during training.</span></p>
+<p><span>Other attributes/methods in the screenshot are the following:</span></p>
+<ul>
+<li><span><kbd>weightInit()</kbd> : This is to specify how the weights are assigned neurons at each layer.</span></li>
+<li><span><kbd>updater()</kbd>: This is to specify the gradient updater configuration. <kbd>Adam</kbd> is a gradient update algorithm.</span></li>
+</ul>
+<p><span>In <a href="0db31248-e40b-4479-9939-0baccb0e11d1.xhtml" target="_blank">Chapter 12</a>, </span><em>Benchmarking and Neural Network Optimization</em><span>, we will walk through an example of hyperparameter optimization to automatically find the optimal parameters for you. It simply performs multiple training sessions on our behalf to find the optimal values by a single program execution. You may refer to <a href="0db31248-e40b-4479-9939-0baccb0e11d1.xhtml" target="_blank">Chapter 12</a>, <em>Benchmarking and Neural Network Optimization,</em> if you're interested in applying benchmarks to the application. </span><span><br/></span></p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Deploying the neural network model and using it as an API</h1>
+                </header>
+            
+            <article>
+                
+<p>After the training instance, we should be able to persist the model and then reuse its capabilities as an API. API access to the customer churn model will enable an external application to predict the customer retention. <span>We wil</span>l use Spring Boot, along with Thymeleaf, for the UI demonstration. We will deploy and r<span>un the application locally for the demonstration. </span>In this recipe, we will create an API for a customer churn example.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Getting ready</h1>
+                </header>
+            
+            <article>
+                
+<p>As a prerequisite for API creation, you need to run the main example source code:<br/>
+<a href="https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/blob/master/03_Building_Deep_Neural_Networks_for_Binary_classification/sourceCode/cookbookapp/src/main/java/com/javadeeplearningcookbook/examples/CustomerRetentionPredictionExample.java">https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/blob/master/03_Building_Deep_Neural_Networks_for_Binary_classification/sourceCode/cookbookapp/src/main/java/com/javadeeplearningcookbook/examples/CustomerRetentionPredictionExample.java</a></p>
+<p><span class="s1">DL4J has a utility class called </span><kbd><span class="s2">ModelSerializer</span></kbd><span class="s1"> to save and restore models. </span>We have used <strong><span><kbd>ModelSerializer</kbd></span></strong> to persist the model to disk, as follows:</p>
+<pre>File file = new File("model.zip");<br/> ModelSerializer.writeModel(multiLayerNetwork,file,true);<br/> ModelSerializer.addNormalizerToModel(file,dataNormalization);</pre>
+<p><span>For more information, refer to:</span></p>
+<p><span> </span><a href="https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/blob/master/03_Building_Deep_Neural_Networks_for_Binary_classification/sourceCode/cookbookapp/src/main/java/com/javadeeplearningcookbook/examples/CustomerRetentionPredictionExample.java#L124">https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/blob/master/03_Building_Deep_Neural_Networks_for_Binary_classification/sourceCode/cookbookapp/src/main/java/com/javadeeplearningcookbook/examples/CustomerRetentionPredictionExample.java#L124</a>.</p>
+<p>Also, note that we need to persist the normalizer preprocessor along with the model. Then we can reuse the same to normalize user inputs on the go. In the previously mentioned code, we persisted the normalizer by calling <kbd>addNormalizerToModel()</kbd> from <kbd>ModelSerializer</kbd>. </p>
+<p><span><span>You also need to be aware of the following</span></span> input attributes to the <kbd>addNormalizerToModel()</kbd> method:</p>
+<ul class="ul1">
+<li class="li1"><kbd><span class="s2">multiLayerNetwork</span></kbd><span class="s3">: The model that the neural network was trained on</span></li>
+<li class="li1"><kbd><span class="s5">dataNormalization</span></kbd><span class="s3">: The normalizer that we used for our training</span></li>
+</ul>
+<p class="mce-root"/>
+<p>Please refer to the following example for a concrete API implementation:<br/>
+<a href="https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/blob/master/03_Building_Deep_Neural_Networks_for_Binary_classification/sourceCode/cookbookapp/src/main/java/com/javadeeplearningcookbook/api/CustomerRetentionPredictionApi.java">https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/blob/master/03_Building_Deep_Neural_Networks_for_Binary_classification/sourceCode/cookbookapp/src/main/java/com/javadeeplearningcookbook/api/CustomerRetentionPredictionApi.java</a></p>
+<p>In our API example, we restore the model file (model that was persisted before) to generate predictions. </p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How to do it...</h1>
+                </header>
+            
+            <article>
+                
+<ol>
+<li>Create a method to generate a schema for the user input:</li>
+</ol>
+<pre style="padding-left: 60px">private static Schema generateSchema(){<br/> Schema schema = new Schema.Builder()<br/> .addColumnString("RowNumber")<br/> .addColumnInteger("CustomerId")<br/> .addColumnString("Surname")<br/> .addColumnInteger("CreditScore")<br/> .addColumnCategorical("Geography", Arrays.asList("France","Germany","Spain"))<br/> .addColumnCategorical("Gender", Arrays.asList("Male","Female"))<br/> .addColumnsInteger("Age", "Tenure")<br/> .addColumnDouble("Balance")<br/> .addColumnsInteger("NumOfProducts","HasCrCard","IsActiveMember")<br/> .addColumnDouble("EstimatedSalary")<br/> .build();<br/> return schema;<br/> }</pre>
+<ol start="2">
+<li>Create a <kbd>TransformProcess</kbd> from the schema:</li>
+</ol>
+<pre style="padding-left: 60px">private static RecordReader applyTransform(RecordReader recordReader, Schema schema){<br/> final TransformProcess transformProcess = new TransformProcess.Builder(schema)<br/> .removeColumns("RowNumber","CustomerId","Surname")<br/> .categoricalToInteger("Gender")<br/> .categoricalToOneHot("Geography")<br/> .removeColumns("Geography[France]")<br/> .build();<br/> final TransformProcessRecordReader transformProcessRecordReader = new TransformProcessRecordReader(recordReader,transformProcess);<br/> return transformProcessRecordReader;<br/>}</pre>
+<p class="mce-root"/>
+<ol start="3">
+<li>Load the data into a record reader instance:</li>
+</ol>
+<pre style="padding-left: 60px">private static RecordReader generateReader(File file) throws IOException, InterruptedException {<br/> final RecordReader recordReader = new CSVRecordReader(1,',');<br/> recordReader.initialize(new FileSplit(file));<br/> final RecordReader transformProcessRecordReader=applyTransform(recordReader,generateSchema());</pre>
+<ol start="4">
+<li>Restore the model using <kbd>ModelSerializer</kbd>:</li>
+</ol>
+<pre style="padding-left: 60px">File modelFile = new File(modelFilePath);<br/> MultiLayerNetwork network = ModelSerializer.restoreMultiLayerNetwork(modelFile);<br/> NormalizerStandardize normalizerStandardize = ModelSerializer.restoreNormalizerFromFile(modelFile);<br/> </pre>
+<ol start="5">
+<li>Create an iterator to traverse through the entire set of input records:</li>
+</ol>
+<pre style="padding-left: 60px">DataSetIterator dataSetIterator = new RecordReaderDataSetIterator.Builder(recordReader,1).build();<br/> normalizerStandardize.fit(dataSetIterator);<br/> dataSetIterator.setPreProcessor(normalizerStandardize); </pre>
+<ol start="6">
+<li>Design an API function to generate output from user input:</li>
+</ol>
+<pre style="padding-left: 60px">public static INDArray generateOutput(File inputFile, String modelFilePath) throws IOException, InterruptedException {<br/> File modelFile = new File(modelFilePath);<br/> MultiLayerNetwork network = ModelSerializer.restoreMultiLayerNetwork(modelFile);<br/>   RecordReader recordReader = generateReader(inputFile);<br/> NormalizerStandardize normalizerStandardize = ModelSerializer.restoreNormalizerFromFile(modelFile);<br/> DataSetIterator dataSetIterator = new RecordReaderDataSetIterator.Builder(recordReader,1).build();<br/> normalizerStandardize.fit(dataSetIterator);<br/> dataSetIterator.setPreProcessor(normalizerStandardize);<br/> return network.output(dataSetIterator);<br/> }</pre>
+<p style="padding-left: 60px">For a further example, see: <a href="https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/blob/master/03_Building_Deep_Neural_Networks_for_Binary_classification/sourceCode/cookbookapp/src/main/java/com/javadeeplearningcookbook/api/CustomerRetentionPredictionApi.java">https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/blob/master/03_Building_Deep_Neural_Networks_for_Binary_classification/sourceCode/cookbookapp/src/main/java/com/javadeeplearningcookbook/api/CustomerRetentionPredictionApi.java </a></p>
+<ol start="7">
+<li>Build a shaded JAR of your DL4J API project by running the Maven command:</li>
+</ol>
+<pre style="padding-left: 60px"><strong>mvn clean install</strong></pre>
+<ol start="8">
+<li>Run the Spring Boot project included in the source directory. Import the Maven project to your IDE: <a href="https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/tree/master/03_Building_Deep_Neural_Networks_for_Binary_classification/sourceCode/spring-dl4j">https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/tree/master/03_Building_Deep_Neural_Networks_for_Binary_classification/sourceCode/spring-dl4j</a>.</li>
+</ol>
+<p style="padding-left: 60px">Add the following VM options in under run configurations:</p>
+<pre style="padding-left: 60px">-DmodelFilePath={PATH-TO-MODEL-FILE}</pre>
+<p style="padding-left: 60px"><kbd>PATH-TO-MODEL-FILE</kbd> is the locatio<span>n where you stored the actual model file. It can be on your local disk or in a cloud as well. </span></p>
+<p style="padding-left: 60px">Then, run the <kbd>SpringDl4jApplication.java</kbd> file:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1366 image-border" src="assets/6b90ef87-fda2-44ee-a975-7dfe1effeb85.png" style="width:54.42em;height:13.00em;"/></p>
+<ol start="9">
+<li>Test your Spring Boot app at <kbd>http://localhost:8080/</kbd>:</li>
+</ol>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1367 image-border" src="assets/48d532f3-0671-4d86-b898-2595035b3407.png" style="width:49.33em;height:15.92em;"/></p>
+<ol start="10">
+<li>Verify the functionality by uploading an input CSV file.</li>
+</ol>
+<p style="padding-left: 60px">Use a sample CSV file to upload into the web application: <strong><a href="https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/blob/master/03_Building_Deep_Neural_Networks_for_Binary_classification/sourceCode/cookbookapp/src/main/resources/test.csv">https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/blob/master/03_Building_Deep_Neural_Networks_for_Binary_classification/sourceCode/cookbookapp/src/main/resources/test.csv</a>.</strong></p>
+<p style="padding-left: 60px"><span>The pre</span>diction results w<span>ill be displayed as shown here:</span></p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1412 image-border" src="assets/0ebc2020-8ab6-4743-baab-b22d16011c10.png" style="width:53.83em;height:27.67em;"/></p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How it works...</h1>
+                </header>
+            
+            <article>
+                
+<p class="p1"><span class="s1">We need to create an API to take the inputs from end users and generate the output. The end user will upload a CSV file with the inputs, and API returns the prediction output back to the user.</span></p>
+<p class="p1">In step 1, we added schema for the input data. User input should follow the schema structure in which we trained the model except that the <kbd>Exited</kbd> label is not added because that is the expected task for the trained model. In step 2, we have created <kbd>TransformProcess</kbd> from <kbd>Schema</kbd> that was created in step 1.</p>
+<p class="p1">In step 3, we used <kbd>TransformProcess</kbd> from step 2 to create a record reader instance. This is to load the data from the dataset. </p>
+<p class="p1"><span>We expect the end users to upload batches of inputs to generate outcomes. So, an iterator needs to be created as per step 5 to traverse through the entire set of input records. We set th</span>e preprocessor for the iterator using the pretrained model from step 4. Also, we used a <kbd>batchSize</kbd> value of <kbd>1</kbd>. If you have more input samples, you can specify a reasonable batch size.</p>
+<p class="p1"><span class="s1">In step 6, we used a file path named <span><kbd>modelFilePath</kbd> to represent the model file location</span></span><span>. We pass this as a command-line argument from the Spring application. Thereby you can configure your own custom path where the model file is persisted. </span><span class="s1">After step 7, a shaded JAR with all DL4J dependencies will be created and saved in the local Maven repository. You can also view the JAR file in the p</span>roject target repository. </p>
+<p class="p1">Dependencies of customer retention API are added to the <kbd>pom.xml</kbd> file of the Spring B<span class="s1">oot</span> <span class="s1">project, as shown here:</span></p>
+<pre class="p1">&lt;dependency&gt;<br/>   &lt;groupId&gt;com.javadeeplearningcookbook.app&lt;/groupId&gt;<br/>   &lt;artifactId&gt;cookbookapp&lt;/artifactId&gt;<br/>   &lt;version&gt;1.0-SNAPSHOT&lt;/version&gt;<br/> &lt;/dependency&gt;</pre>
+<p class="p1"><span class="s1">Once you have created a shaded JAR for the API by following step 7, the Spring Boot project will be able to fetch the dependencies from your local repository. So, you need to build the API project first before importing the Spring Boot project. Also, make sure to add the model file path as a VM argument, as mentioned in step 8.</span></p>
+<p class="p1"><span class="s1">In a nutshell, these are the steps required to run the use case:</span></p>
+<ol>
+<li>Import and build the Customer Churn API project: <a href="https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/blob/master/03_Building_Deep_Neural_Networks_for_Binary_classification/sourceCode/cookbookapp/">https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/blob/master/03_Building_Deep_Neural_Networks_for_Binary_classification/sourceCode/cookbookapp/.</a></li>
+<li>Run the main example to train the model and persist the model file: <a href="https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/blob/master/03_Building_Deep_Neural_Networks_for_Binary_classification/sourceCode/cookbookapp/src/main/java/com/javadeeplearningcookbook/examples/CustomerRetentionPredictionExample.java">https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/blob/master/03_Building_Deep_Neural_Networks_for_Binary_classification/sourceCode/cookbookapp/src/main/java/com/javadeeplearningcookbook/examples/CustomerRetentionPredictionExample.java.</a></li>
+</ol>
+<ol start="3">
+<li>Build the customer churn API project: <a href="https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/tree/master/03_Building_Deep_Neural_Networks_for_Binary_classification/sourceCode/cookbookapp">https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/blob/master/03_Building_Deep_Neural_Networks_for_Binary_classification/sourceCode/cookbookapp/.</a></li>
+<li>Run the Spring Boot project by running the Starter here (with the earlier mentioned VM arguments): <a href="https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/blob/master/03_Building_Deep_Neural_Networks_for_Binary_classification/sourceCode/spring-dl4j/src/main/java/com/springdl4j/springdl4j/SpringDl4jApplication.java">https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/blob/master/03_Building_Deep_Neural_Networks_for_Binary_classification/sourceCode/spring-dl4j/src/main/java/com/springdl4j/springdl4j/SpringDl4jApplication.java.</a></li>
+</ol>
+
+
+            </article>
+
+            
+        </section>
+    </body></html>

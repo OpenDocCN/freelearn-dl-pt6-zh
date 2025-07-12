@@ -1,0 +1,446 @@
+<html><head></head><body>
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Applying Transfer Learning to Network Models</h1>
+                </header>
+            
+            <article>
+                
+<p class="mce-root"><span>In this chapter, we will talk about transfer learning methods, which are essential to reuse a model that was previously developed. We will see how we can apply transfer learning to the model created in <a href="5cf01186-c9e3-46e7-9190-10cd43933694.xhtml" target="_blank">Chapter 3</a>, <em>Building Deep Neural Networks for Binary Classification</em>, as well as a pre-trained model from the</span> DL4J Model Z<span>oo API. We ca</span>n use the DL4J transfer learn<span>ing API to modify the network architecture, hold specific layer parameters while training, and fine-tune model configurations. Transfer learning enables improved performance and can develop skillful models. We pass learned parameters learned from another model to the current training session. If you have already set up the DL4J workspace for previous chapters, then you don't have to add any new dependencie</span>s in <kbd>pom.xml</kbd>; otherwise, you need to add the basic Deeplearning4j Maven dependency in <kbd>pom.xml</kbd>, <span>as specified in <a href="5cf01186-c9e3-46e7-9190-10cd43933694.xhtml" target="_blank">Chapter 3</a>, <em>Building Deep Neural Networks for Binary Classification</em>.</span></p>
+<p class="mce-root"><span>In this chapter, we will cover the following recipes:</span></p>
+<ul>
+<li>Modifying an existing customer retention model</li>
+<li>Fine-tuning the learning configurations</li>
+<li>Implementing frozen layers</li>
+<li>Importing and loading Keras models and layers</li>
+</ul>
+<p class="mce-root"/>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Technical requirements</h1>
+                </header>
+            
+            <article>
+                
+<p>This chapter's source code can be located here: <a href="https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/tree/master/11_Applying_Transfer_Learning_to_network_models/sourceCode/cookbookapp/src/main/java">https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/tree/master/11_Applying_Transfer_Learning_to_network_models/sourceCode/cookbookapp/src/main/java</a>.</p>
+<p><span>After clon</span>ing the GitHub repository, navigate to the <kbd>Java-Deep-Learning-Cookbook/11_Applying_Transfer_Learning_to_network_models/sourceCode</kbd> directory, then import the <kbd>cookbookapp</kbd> project as a Maven project by importing <kbd>pom.xml</kbd><em>.</em><span> </span></p>
+<div class="packt_infobox">You need to have the pre-trained model from <a href="5cf01186-c9e3-46e7-9190-10cd43933694.xhtml" target="_blank">Chapter 3</a>, <em>Building Deep Neural Networks for Binary Classification</em>, to run the transfer learning example. The model file should be saved in your local system once the <a href="5cf01186-c9e3-46e7-9190-10cd43933694.xhtml" target="_blank">Chapter 3</a>, <em>Building Deep Neural Networks for Binary Classification</em> source code is executed. You need to load the model here while executing the source code in this chapter. Also, for the <kbd>SaveFeaturizedDataExample</kbd> example, you need to update the train/test directories where the application will be saving featurized datasets. </div>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Modifying an existing customer retention model</h1>
+                </header>
+            
+            <article>
+                
+<p>We created a customer churn model in <a href="5cf01186-c9e3-46e7-9190-10cd43933694.xhtml" target="_blank">Chapter 3</a>, <em><span>Building Deep Neural Networks for Binary Classification</span></em><span>,</span> that is capable of predicting whether a customer will leave an organization based on specified data. We might want to train the existing model on newly available data. Transfer learning occurs when an existing model is exposed to fresh training on a similar model. We used the <kbd>ModelSerializer</kbd> class <span>to save the model after training the neural network. We used a feed-forward network architecture to build a customer retention model. </span></p>
+<p><span>In this recipe, we will import an existing customer retention model and further optimize it using the DL4J transfer learning API.</span></p>
+<p class="mce-root"/>
+<p class="mce-root"/>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How to do it...</h1>
+                </header>
+            
+            <article>
+                
+<ol>
+<li>Call the <kbd>load()</kbd> method to import the model from the saved location:</li>
+</ol>
+<pre style="padding-left: 60px">File savedLocation = new File("model.zip");<br/> boolean saveUpdater = true;<br/> MultiLayerNetwork restored = MultiLayerNetwork.load(savedLocation, saveUpdater);</pre>
+<ol start="2">
+<li>Add the required <kbd>pom</kbd> dependency to use the <kbd>deeplearning4j-zoo</kbd> module:</li>
+</ol>
+<pre style="padding-left: 60px">&lt;dependency&gt;<br/> &lt;groupId&gt;org.deeplearning4j&lt;/groupId&gt;<br/> &lt;artifactId&gt;deeplearning4j-zoo&lt;/artifactId&gt;<br/> &lt;version&gt;1.0.0-beta3&lt;/version&gt;<br/> &lt;/dependency&gt;</pre>
+<ol start="3">
+<li>Add the fine-tuning configuration for <kbd>MultiLayerNetwork</kbd> using the <kbd>TransferLearning</kbd> API:</li>
+</ol>
+<pre style="padding-left: 60px">MultiLayerNetwork newModel = new TransferLearning.Builder(oldModel)<br/> .fineTuneConfiguration(fineTuneConf)<br/> .build();</pre>
+<ol start="4">
+<li>Add the fine-tuning configuration for <kbd>ComputationGraph</kbd> using the <kbd>TransferLearning</kbd> API:</li>
+</ol>
+<pre style="padding-left: 60px">ComputationGraph newModel = new TransferLearning.GraphBuilder(oldModel).<br/> .fineTuneConfiguration(fineTuneConf)<br/> .build();</pre>
+<ol start="5">
+<li>Configure the training session using <kbd>TransferLearningHelper</kbd>. <kbd>TransferLearningHelper</kbd> can be created in two ways:
+<ul>
+<li>Pass in the model object that was created using the transfer learning builder (step 2) with the frozen layers mentioned:</li>
+</ul>
+</li>
+</ol>
+<pre style="padding-left: 120px"> TransferLearningHelper tHelper = new TransferLearningHelper(newModel);</pre>
+<ol>
+<li style="list-style-type: none">
+<ul>
+<li>Create it directly from the imported model by specifying the frozen layers explicitly:</li>
+</ul>
+</li>
+</ol>
+<pre style="padding-left: 120px">TransferLearningHelper tHelper = new TransferLearningHelper(oldModel, "layer1")</pre>
+<p class="mce-root"/>
+<ol start="6">
+<li>Featurize the train/test data using the <kbd>featurize()</kbd> method:</li>
+</ol>
+<pre style="padding-left: 60px">  while(iterator.hasNext()) {<br/>         DataSet currentFeaturized = transferLearningHelper.featurize(iterator.next());<br/>         saveToDisk(currentFeaturized); //save the featurized date to disk <br/>        }</pre>
+<ol start="7">
+<li>Create train/test iterators by using <kbd>ExistingMiniBatchDataSetIterator</kbd>:</li>
+</ol>
+<pre style="padding-left: 60px">DataSetIterator existingTrainingData = new ExistingMiniBatchDataSetIterator(new File("trainFolder"),"churn-"+featureExtractorLayer+"-train-%d.bin");<br/> DataSetIterator existingTestData = new ExistingMiniBatchDataSetIterator(new File("testFolder"),"churn-"+featureExtractorLayer+"-test-%d.bin");</pre>
+<ol start="8">
+<li>Start the training instance on top of the featurized data by calling <kbd>fitFeaturized()</kbd>:</li>
+</ol>
+<pre style="padding-left: 60px"> transferLearningHelper.fitFeaturized(existingTrainingData);</pre>
+<ol start="9">
+<li>Evaluate the model by calling <kbd>evaluate()</kbd> for unfrozen layers:</li>
+</ol>
+<pre style="padding-left: 60px"> transferLearningHelper.unfrozenMLN().evaluate(existingTestData);</pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How it works...</h1>
+                </header>
+            
+            <article>
+                
+<p>In step 1, <span>the value of </span><kbd>saveUpdater</kbd><span> is going to be </span><kbd>true</kbd> if we <span>plan to train the model at a later point. We have also discussed pre-trained models provided by DL4J's model zoo API. </span>Once we add the dependency for <kbd>deeplearning4j-zoo</kbd>, as mentioned in step 1, we can load pre-trained models such as VGG16, as follows:</p>
+<pre>ZooModel zooModel = VGG16.builder().build();<br/> ComputationGraph pretrainedNet = (ComputationGraph)    zooModel.initPretrained(PretrainedType.IMAGENET);</pre>
+<p class="mce-root"/>
+<p>DL4J has support for many more pre-trained models under its transfer learning API.</p>
+<p>Fine-tuning a configuration is the process of taking a model that was trained to perform a task and training it to perform another similar task. Fine-tuning configurations is specific to transfer learning. In steps 3 and 4, we added a fine-tuning configuration specific to the type of neural network. The following are possible changes that can be made using the DL4J transfer learning API:</p>
+<ul>
+<li>Update the weight initialization scheme, gradient update strategy, and the optimization algorithm (fine-tuning)</li>
+<li>Modify specific layers without altering other layers</li>
+<li>Attach new layers to the model</li>
+</ul>
+<p class="mce-root"/>
+<p>All these modifications can be applied using the transfer learning API. The DL4J transfer learning API comes with a builder class to support these modifications.<span> We will add a fine-tuning configuration by calling the <kbd>fineTuneConfiguration()</kbd> builder method.</span></p>
+<p><span>As we saw earlier, in step 4 we us</span>e <kbd>GraphBuilder</kbd> for transfer learning with computation graphs. Refer to our GitHub repository for concrete examples. Note that the transfer learning API returns an instance of the model from the imported model after applying all the modifications that were specified. The regular <kbd>Builder</kbd> class will build an instance of <kbd>MultiLayerNetwork</kbd> while <kbd>GraphBuilder</kbd> will build an instance of <kbd>ComputationGraph</kbd>.</p>
+<p>We may also be interested in making changes only in certain layers rather than making global changes across layers. The main motive is to apply further optimization to certain layers that are identified for further optimization. That also begs another question: How do we know the model details of a stored model? In order to specify layers that are to be kept unchanged, the transfer learning API requires layer attributes such as the layer name/layer number.</p>
+<p><span>We can get these using the <kbd>getLayerWiseConfigurations()</kbd> method, as shown here:</span></p>
+<pre>oldModel.getLayerWiseConfigurations().toJson()</pre>
+<p><span>Once we execute the preceding, you should see the network configuration mentioned as follows: </span></p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1227 image-border" src="assets/439ce467-8a8e-4ad1-9005-46b639006f7b.png" style="width:40.83em;height:37.92em;"/></p>
+<p><span>Gist URL for complete network configuration JSON is at <a href="https://gist.github.com/rahul-raj/ee71f64706fa47b6518020071711070b">https://gist.github.com/rahul-raj/ee71f64706fa47b6518020071711070b</a>.</span></p>
+<p><span>Neural network configurations such as the learning rate, the weights used in neurons, optimization algorithms used, layer-specific configurations, and so on can be verified from the displayed JSON content.</span></p>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p><span>The following are some possible configurations from the DL4J transfer learning API to support model modifications. We need layer details (name/ID) in order to invoke these methods: </span></p>
+<ul>
+<li><span><kbd>setFeatureExtractor()</kbd>: To freeze the changes on specific layers</span></li>
+<li><span><kbd>addLayer()</kbd>: To add one or more layers to the model</span></li>
+<li><span><kbd>nInReplace()/nOutReplace()</kbd>: Modifies the architecture of the specified layer by changing th</span>e <kbd>nIn</kbd> or <kbd>nOut</kbd> o<span>f the specified layer</span></li>
+<li><span> <kbd>removeLayersFromOutput()</kbd>: Removes the last <kbd>n</kbd> layers from the model (from the point where an output layer must be added back)</span></li>
+</ul>
+<div class="packt_tip packt_infobox"><span>Note that the last layer in the imported transfer learning model is a <em>dense</em> layer. because the DL4J tra</span>nsfer learning API doesn't enforce training configuration on imported model. So, we <span>need to add an output layer to the model using th</span>e <kbd>addLayer()</kbd> method.</div>
+<ul>
+<li><span><kbd>setInputPreProcessor()</kbd>: Adds the specified preprocessor to the specified layer</span></li>
+</ul>
+<p>In step 5, we saw another way to apply transfer learning in DL4J, by using <kbd>TransferLearningHelper</kbd>. We discussed two ways in which it can be implemented. When you create <kbd>TransferLearningHelper</kbd> from the transfer learning builder, you need to specify <kbd>FineTuneConfiguration</kbd> as well. Values configured in <kbd>FineTuneConfiguration</kbd> will override for all non-frozen layers.</p>
+<p>There's a reason why <kbd>TransferLearningHelper</kbd> stands out from the regular way of handling transfer learning. T<span>ransfer learning models usually have frozen layers with constant values across training sessions. The purpose of frozen layers depends on the observation being made in the existing model performance. We have also mentioned th</span>e <kbd>setFeatureExtractor()</kbd> method, w<span>hich is used to freeze specific layers.</span> <span>Layers can be skipped using this method. However, the model instance still holds the entire frozen and unfrozen part. So</span><span><span>, we still use the entire model (including both the frozen and unfrozen parts) for computations during training. </span></span></p>
+<p class="mce-root"/>
+<p><span><span>Usin</span></span>g <kbd>TransferLearningHelper</kbd>, we can reduce <span><span>the overall training time by creating a model instance of just the unfrozen part. The frozen dataset (with all the frozen parameters) is saved to disk and we use the model instance that refers to the unfrozen part for the training. If all we have to train is just one epoch, t</span></span>hen <kbd>setFeatureExtractor()</kbd> and the tran<span><span>sfer learning helper API will have almost the same performance. Let's say we have 100 layers with 99 frozen layers and we are doing <em>N</em> epochs of training. If we us</span></span>e <kbd>setFeatureExtractor()</kbd>, then we wi<span><span>ll end up doing a forward pass for those 99 layers <em>N</em> times, which essentially takes additional time and memory.</span></span></p>
+<p>In order to save training time, we create the model instance after saving the activation results of the frozen layers using the transfer learning helper API. This process is also known as featurization. The motive is to skip computations for frozen layers and train on unfrozen layers.</p>
+<div class="packt_infobox">As a prerequisite, frozen layers need to be defined using the transfer learning builder or explicitly mentioned in the transfer learning helper.</div>
+<p><kbd>TransferLearningHelper</kbd> was created in step 3, as shown here:</p>
+<pre>TransferLearningHelper tHelper = new TransferLearningHelper(oldModel, "layer2")</pre>
+<p><span>In the preceding case, we explicitly specified freezing all of the layers u</span>p to <kbd>layer2</kbd> in <span>the layer structure.</span></p>
+<p><span>In step 6, we discussed saving the dataset afte</span>r featurization. After featurization, we save the data to disk. We will need to fetch this featurized data to train on top of it. Training/evaluation will be easier if we separate it and then save it to disk. The dataset c<span>an be saved to disk using the </span><kbd>save()</kbd><span> method, as follows:</span></p>
+<pre>currentFeaturized.save(new File(fileFolder,fileName));</pre>
+<p><kbd>saveTodisk()</kbd> is the customary way to save a dataset for training or testing. The implementation is straightforward as it's all about creating two different directories (train/test) and deciding on the range of files that can be used for train/test. We'll leave that implementation to you. You can refer to our example in the GitHub repository (<kbd>SaveFeaturizedDataExample.java</kbd>): <a href="https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/blob/master/11_Applying_Transfer_Learning_to_network_models/sourceCode/cookbookapp/src/main/java/SaveFeaturizedDataExample.java">https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/blob/master/11_Applying%20Transfer%20Learning%20to%20network%20models/sourceCode/cookbookapp/src/main/java/SaveFeaturizedDataExample.java.</a></p>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p><span>In steps 7/8, we discussed training our neural network on top of featurized data.</span> <span>Our customer retention model follows</span> <kbd>MultiLayerNetwork</kbd> archi<span>tecture. This training instance will alter the network configuration for the unfrozen layers. Hence, we need to evaluate the unfrozen layers. In step 5, we evaluated just the model on the featurized test data as shown here:</span></p>
+<pre>transferLearningHelper.unfrozenMLN().evaluate(existingTestData);</pre>
+<p><span>If your network h</span>as the <kbd>ComputationGraph</kbd> structu<span>re, then you can use th</span>e <kbd>unfrozenGraph()</kbd> method i<span>nstead of <kbd>unfrozenMLN()</kbd> to achieve the same result. </span></p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">There's more...</h1>
+                </header>
+            
+            <article>
+                
+<p>Here are some important pre-trained models offered by the DL4J Model Zoo API:</p>
+<ul>
+<li><strong>VGG16</strong>: VGG-16 referred to in this<span> </span><span>paper: </span><a href="https://arxiv.org/abs/1409.1556">https://arxiv.org/abs/1409.1556</a>.</li>
+</ul>
+<p style="padding-left: 60px">This is a very deep convolutional neural network targeting large-scale image recognition tasks. We can use transfer learning to train the model further. All we have to do is import VGG16 from the model zoo: </p>
+<pre style="padding-left: 60px">ZooModel zooModel =VGG16.builder().build();<br/> ComputationGraph network = (ComputationGraph)zooModel.initPretrained();</pre>
+<p style="padding-left: 60px">Note that<span> the</span><span> underlying</span><span> </span>architecture of the VGG16 model in the DL4J Model Zoo API is <kbd>ComputationGraph</kbd>. </p>
+<ul>
+<li><strong>TinyYOLO</strong>: TinyYOLO is referred to in this<span> </span><span>paper: </span><a href="https://arxiv.org/pdf/1612.08242.pdf">https://arxiv.org/pdf/1612.08242.pdf</a><span>.</span></li>
+</ul>
+<p style="padding-left: 60px">This is a real-time object detection model for fast and accurate image classification. We can apply transfer learning to this model as well after importing from it the model zoo, as shown here:</p>
+<pre style="padding-left: 60px">ComputationGraph pretrained = (ComputationGraph)TinyYOLO.builder().build().initPretrained();</pre>
+<p style="padding-left: 60px"><span>Note that the underlying architecture of the TinyYOLO model in the DL4J model zoo</span> API is <kbd>ComputationGraph</kbd>. </p>
+<ul>
+<li><strong>Darknet19</strong>: Darknet19 is referred to in this paper: <a href="https://arxiv.org/pdf/1612.08242.pdf">https://arxiv.org/pdf/1612.08242.pdf</a>.</li>
+</ul>
+<p style="padding-left: 60px">This is also known as YOLOV2, a faster object detection model for real-time object detection. We can apply transfer learning to this model after importing it from the model zoo, as shown here:</p>
+<pre style="padding-left: 60px"> ComputationGraph pretrained = (ComputationGraph) Darknet19.builder().build().initPretrained();<span><br/></span></pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Fine-tuning the learning configurations</h1>
+                </header>
+            
+            <article>
+                
+<p>While performing transfer learning, we might want to update the strategy for how weights are initialized, which gradients are updated, which activation functions are to be used, and so on. For that purpose, we fine-tune the configuration. In this recipe, we will fine-tune the configuration for transfer learning.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How to do it...</h1>
+                </header>
+            
+            <article>
+                
+<ol>
+<li>Use <kbd>FineTuneConfiguration()</kbd> to manage modifications in the model configuration:</li>
+</ol>
+<pre style="padding-left: 60px">FineTuneConfiguration fineTuneConf = new FineTuneConfiguration.Builder()<br/> .optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)<br/> .updater(new Nesterovs(5e-5))<br/> .activation(Activation.RELU6)<br/> .biasInit(0.001)<br/> .dropOut(0.85)<br/> .gradientNormalization(GradientNormalization.RenormalizeL2PerLayer)<br/> .l2(0.0001)<br/> .weightInit(WeightInit.DISTRIBUTION)<br/> .seed(seed)<br/> .build();</pre>
+<ol start="2">
+<li>Cal<span>l </span><span><kbd><span>fineTuneConfiguration()</span></kbd></span> <span>to fine-tune the model configuration:</span></li>
+</ol>
+<pre style="padding-left: 60px">MultiLayerNetwork newModel = new TransferLearning.Builder(oldModel)<br/>.fineTuneConfiguration(fineTuneConf)<br/>.build();</pre>
+<p class="mce-root"/>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How it works...</h1>
+                </header>
+            
+            <article>
+                
+<p>We saw a sample fine-tuning implementation in step 1. Fine-tuning configurations are intended for default/global changes that are applicable across layers. So, if we want to remove specific layers from being considered for fine-tuning configuration, then we need to make those layers frozen. Unless we do that, all the current values for the specified modification type (gradients, activation, and so on) will be overridden in the new model. </p>
+<div class="packt_infobox"><span>All the fine-tuning configurations mentioned above will be applied to all unfrozen layers, includi</span>ng output layers. So, you might get errors due to the addition of the <kbd>activation()</kbd> and <kbd>dropOut()</kbd> methods. Dropouts are relevant to hidden layers and we may have a different value range for output activation as well. A quick fix would be to remove these unless <span>really needed. Otherwise, remove output layers from the model using the transfer learning helper API, apply fine-tuning, and then add the output layer back with a specific activation. </span></div>
+<p>In step 2, if our original <kbd>MultiLayerNetwork</kbd> model has convolutional layers, then it is possible to make modifications in the convolution mode as well. As you might have guessed, this is applicable if you perform transfer learning for the image classification model from <a href="4a688ef9-2dd8-47de-abaf-456fa88bcfc2.xhtml" target="_blank">Chapter 4</a>, <em>Building Convolutional Neural Networks</em>. Also, if your convolutional neural network is supposed to run in CUDA-enabled GPU mode, then you can also mention the cuDNN algo mode with your transfer learning API. We can specify an algorithmic approach (<kbd>PREFER_FASTEST</kbd>, <kbd>NO_WORKSPACE</kbd>, or <kbd>USER_SPECIFIED</kbd>) for cuDNN. It will impact the performance and memory usage of cuDNN. Use the <kbd>cudnnAlgoMode()</kbd> method with the <kbd>PREFER_FASTEST</kbd> mode to achieve performance improvements. </p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Implementing frozen layers</h1>
+                </header>
+            
+            <article>
+                
+<p>We might want to keep the training instance limited to certain layers, which means some layers can be kept frozen for the training instance, so we can focus on optimizing other layers while frozen layers are kept unchanged. We saw two ways of implementing frozen layers earlier: using the regular transfer learning builder and using the transfer learning helper.<span> </span><span>In this recipe, we will implement frozen layers for transfer layers.</span></p>
+<p class="mce-root"/>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How to do it...</h1>
+                </header>
+            
+            <article>
+                
+<ol>
+<li>Define frozen layers by calling <kbd>setFeatureExtractor()</kbd>:</li>
+</ol>
+<pre style="padding-left: 60px">MultiLayerNetwork newModel = new TransferLearning.Builder(oldModel)<br/> .setFeatureExtractor(featurizeExtractionLayer)<br/> .build();</pre>
+<ol start="2">
+<li>Call <kbd>fit()</kbd> to start the training instance:</li>
+</ol>
+<pre style="padding-left: 60px">newModel.fit(numOfEpochs);<strong><br/></strong></pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How it works...</h1>
+                </header>
+            
+            <article>
+                
+<div>
+<p>In step 1, we used <kbd>MultiLayerNetwork</kbd> for demonstration purposes. For <kbd>MultiLayerNetwork</kbd>, <kbd>featurizeExtractionLayer</kbd> refers to the layer number (integer). For <kbd>ComputationGraph</kbd>, <kbd>featurizeExtractionLayer</kbd> refers to the layer name (<kbd>String</kbd>). By shifting frozen layer management to the transfer learning builder, it can be grouped along with all the other transfer learning functions, such as fine-tuning. This gives better modularization. However, the transfer learning helper has its own advantages, as we discussed in the previous recipe.</p>
+</div>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Importing and loading Keras models and layers</h1>
+                </header>
+            
+            <article>
+                
+<p>There can be times when you want to import a model that is not available in the DL4J Model Zoo API. You might have created your own model in Keras/TensorFlow, or you might be using a pre-trained model from Keras/TensorFlow. Either way, we can still load models from Keras/TensorFlow using the DL4J model import API.</p>
+<p class="mce-root"/>
+<p class="mce-root"/>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Getting ready</h1>
+                </header>
+            
+            <article>
+                
+<p>This recipe assumes that you already have the Keras model (pre-trained/not pre-trained) set up and ready to be imported to DL4J. We will skip the details about how to save Keras models to disk as it is beyond the scope of this book. Usually, Keras models are stored in <kbd>.h5</kbd> format, but that isn't a restriction as the model-import API can import from other formats as well. As a prerequisite, we need to add the following Maven dependency in <kbd>pom.xml</kbd>:</p>
+<pre>&lt;dependency&gt;<br/>   &lt;groupId&gt;org.deeplearning4j&lt;/groupId&gt;<br/>   &lt;artifactId&gt;deeplearning4j-modelimport&lt;/artifactId&gt;<br/>   &lt;version&gt;1.0.0-beta3&lt;/version&gt;<br/> &lt;/dependency&gt;</pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How to do it...</h1>
+                </header>
+            
+            <article>
+                
+<ol>
+<li>Use <kbd>KerasModelImport</kbd> to load an external <kbd>MultiLayerNetwork</kbd> model:</li>
+</ol>
+<pre style="padding-left: 60px">String modelFileLocation = new ClassPathResource("kerasModel.h5").getFile().getPath();<br/> MultiLayerNetwork model = KerasModelImport.importKerasSequentialModelAndWeights(modelFileLocation);</pre>
+<ol start="2">
+<li>Use <kbd>KerasModelImport</kbd> to load an external <kbd>ComputationGraph</kbd> model:</li>
+</ol>
+<pre style="padding-left: 60px">String modelFileLocation = new ClassPathResource("kerasModel.h5").getFile().getPath();<br/> ComputationGraph model = KerasModelImport.importKerasModelAndWeights(modelFileLocation);</pre>
+<ol start="3">
+<li>Use <kbd>KerasModelBuilder</kbd> to import an external model:</li>
+</ol>
+<pre style="padding-left: 60px">KerasModelBuilder builder = new KerasModel().modelBuilder().modelHdf5Filename(modelFile.getAbsolutePath())<br/> .enforceTrainingConfig(trainConfigToEnforceOrNot);<br/> if (inputShape != null) {<br/> builder.inputShape(inputShape);<br/> }<br/> KerasModel model = builder.buildModel();<br/> ComputationGraph newModel = model.getComputationGraph();</pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How it works...</h1>
+                </header>
+            
+            <article>
+                
+<p>In step 1, we used <kbd>KerasModelImport</kbd> to load the external Keras model from disk. <span>If the model was saved separately by calling </span><kbd>model.to_json()</kbd><span> and </span><kbd>model.save_weights()</kbd><span>  (in Keras), then we need to use the following variant:</span></p>
+<pre>String modelJsonFileLocation = new ClassPathResource("kerasModel.json").getFile().getPath();<br/> String modelWeightsFileLocation = new ClassPathResource("kerasModelWeights.h5").getFile().getPath();<br/> MultiLayerNetwork model = KerasModelImport.importKerasSequentialModelAndWeights(modelJsonFileLocation, modelWeightsFileLocation, enforceTrainConfig);</pre>
+<p>Note the following:</p>
+<ul>
+<li><kbd>importKerasSequentialModelAndWeights()</kbd><span>:</span> <span>Imports and creat</span>es <kbd>MultiLayerNetwork</kbd> from the Ke<span>ras model</span></li>
+<li><kbd>importKerasModelAndWeights()</kbd><span>:</span> <span>Imports and crea</span>tes <kbd>ComputationGraph</kbd> from the Keras mo<span>del</span></li>
+</ul>
+<p>Consider the following implementation for the <kbd>importKerasModelAndWeights()</kbd> <span>method to perform step 2:</span></p>
+<pre>KerasModelImport.importKerasModelAndWeights(modelJsonFileLocation,modelWeightsFileLocation,enforceTrainConfig);</pre>
+<p><span>The third attribute, <kbd>enforceTrainConfig</kbd>, is</span> a Boolean typ<span>e, which indicates whether to enforce a training configuration or not. Again, if the model was saved separately using the <kbd>model.to_json()</kbd> and <kbd>model.save_weights()</kbd> Keras calls, then we need to use the following variant:</span></p>
+<pre>String modelJsonFileLocation = new ClassPathResource("kerasModel.json").getFile().getPath();<br/> String modelWeightsFileLocation = new ClassPathResource("kerasModelWeights.h5").getFile().getPath();<br/> ComputationGraph model = KerasModelImport.importKerasModelAndWeights(modelJsonFileLocation,modelWeightsFileLocation,enforceTrainConfig);</pre>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p>In step 3, we discussed how to load <kbd>ComputationGraph</kbd> from the external model using <kbd>KerasModelBuilder</kbd>. One of the builder methods is <kbd>inputShape()</kbd>. <span>It assigns input shape to the imported Keras model. DL4J requires the input shape to be specified. However, you don't have to deal with these if you go for the first two methods, discussed earlier, for the Keras model import. Those methods (</span><kbd>importKerasModelAndWeights()</kbd><span> and </span><kbd>importKerasSequentialModelAndWeights()</kbd><span>) internally make use o</span>f <kbd>KerasModelBuilder</kbd> to <span>import models. </span></p>
+
+
+            </article>
+
+            
+        </section>
+    </body></html>

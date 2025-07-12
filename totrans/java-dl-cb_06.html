@@ -1,0 +1,494 @@
+<html><head></head><body>
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Constructing an LSTM Network for Time Series</h1>
+                </header>
+            
+            <article>
+                
+<p><span>In this chapter, we will discuss how to construct a <strong>long short-term memory</strong> (<strong>LSTM</strong>) neural network to solve a medical time series problem. We will be using data from 4,000 <strong>i</strong><strong>ntensive care unit</strong> (<strong>ICU</strong>) patients. Our goal is to predict the mortality of patients using a given set of generic and sequential features. We have six generic features, such as age, gender, and weight. Also, we have 37 sequential features, such as cholesterol level, temperature, pH, and glucose level. Each patient has multiple measurements recorded against these sequential features. The number of measurements taken from each patient differs.</span> <span>Furthermore, the time between measurements also differs among patients.</span></p>
+<p><span>LSTM is well-suited to this type of problem due to the sequential nature of the data. We could also solve it using a regular <strong>recurrent neural network</strong> (<strong>RNN</strong>), but the purpose of LSTM is to avoid vanishing and exploding gradients. LSTM is capable of capturing long-term dependencies because of its cell</span><span> </span><span>state.</span></p>
+<p class="mce-root">In this chapter, we will cover the following recipes:</p>
+<ul>
+<li>Extracting and reading clinical data</li>
+<li>Loading and transforming data</li>
+<li>Constructing input layers for a network</li>
+<li>Constructing output layers for a network</li>
+<li>Training time series data</li>
+<li>Evaluating the LSTM network's efficiency</li>
+</ul>
+<p class="mce-root"/>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Technical requirements</h1>
+                </header>
+            
+            <article>
+                
+<p>A concrete implementation of the use case discussed in this chapter can be found here: <a href="https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/blob/master/06_Constructing_LSTM_Network_for_time_series/sourceCode/cookbookapp-lstm-time-series/src/main/java/LstmTimeSeriesExample.java">https://github.com/PacktPublishing/Java-Deep-Learning-Cookbook/blob/master/06_Constructing_LSTM_Network_for_time_series/sourceCode/cookbookapp-lstm-time-series/src/main/java/LstmTimeSeriesExample.java</a>.</p>
+<p>After cloning the GitHub repository, navigate to the <kbd>Java-Deep-Learning-Cookbook/06_Constructing_LSTM_Network_for_time_series/sourceCode</kbd> <span>directory. </span><span>Then, import the <kbd>cookbookapp-lstm-time-series</kbd> project </span><span>as a Maven project</span><span> </span><span>by importing</span><span> </span><span><kbd>pom.xml</kbd>.</span></p>
+<p class="CDPAlignLeft CDPAlign">Download the clinical time series data<span> </span>from here:<span> </span><a href="https://skymindacademy.blob.core.windows.net/physionet2012/physionet2012.tar.gz">https://skymindacademy.blob.core.windows.net/physionet2012/physionet2012.tar.gz</a>. The dataset is from<span> the </span>PhysioNet Cardiology Challenge 2012.</p>
+<p class="CDPAlignLeft CDPAlign">Unzip the package after the download. You should see the following directory structure:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1165 image-border" src="assets/008ce812-7845-46e1-bb46-a61d4f155a8c.png" style="width:51.92em;height:23.75em;"/></p>
+<p class="CDPAlignLeft CDPAlign"><span>The features are contained in a directory called <kbd>sequence</kbd> and the labels are contained in a directory called <kbd>mortality</kbd>. Ignore the other directories for now. You need to update file paths to features/labels in the source code to run the example.</span></p>
+<p class="mce-root"/>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Extracting and reading clinical data</h1>
+                </header>
+            
+            <article>
+                
+<p><strong>ETL</strong> (short for <strong>Extract, Transform, and Load</strong>) is the most important step in any deep learning problem. We're focusing on data extraction in this recipe, where we will discuss how to extract and process clinical time series data. We have learned about regular data types, such as normal CSV/text data and images, in previous chapters. Now, let's discuss how to deal with time series data. We will use clinical time series data to predict the mortality of patients.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How to do it...</h1>
+                </header>
+            
+            <article>
+                
+<ol>
+<li>Create an instance of <kbd>NumberedFileInputSplit</kbd>  to club all feature files together:</li>
+</ol>
+<pre style="padding-left: 60px">new NumberedFileInputSplit(FEATURE_DIR+"/%d.csv",0,3199);</pre>
+<ol start="2">
+<li>Create an instance of <kbd>NumberedFileInputSplit</kbd>  to club all label files <span>together</span>:</li>
+</ol>
+<pre style="padding-left: 60px">new NumberedFileInputSplit(LABEL_DIR+"/%d.csv",0,3199);</pre>
+<ol start="3">
+<li>Create record readers for features/labels:</li>
+</ol>
+<pre style="padding-left: 60px">SequenceRecordReader trainFeaturesReader = new CSVSequenceRecordReader(1, ",");<br/> trainFeaturesReader.initialize(new NumberedFileInputSplit(FEATURE_DIR+"/%d.csv",0,3199));<br/> SequenceRecordReader trainLabelsReader = new CSVSequenceRecordReader();<br/> trainLabelsReader.initialize(new NumberedFileInputSplit(LABEL_DIR+"/%d.csv",0,3199));<strong><strong><strong><br/> <br/></strong></strong></strong></pre>
+<p class="mce-root"/>
+<p class="mce-root"/>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How it works...</h1>
+                </header>
+            
+            <article>
+                
+<p>Time series data is three-dimensional. Each sample is represented by its own file. Feature values in columns are measured on different time steps denoted by rows. For instance, in step 1, we saw the following snapshot, where time series data is displayed:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1422 image-border" src="assets/aaad59fe-f05f-47be-9ca0-94fa113e7b3a.png" style="width:41.00em;height:26.83em;"/></p>
+<p class="CDPAlignLeft CDPAlign">Each file represents a different sequence. When you open the file, you will see the observations (features) recorded on different time steps, as shown here:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1419 image-border" src="assets/ff49eeb2-399f-4e88-8194-03612a69d5f1.png" style="width:87.08em;height:29.50em;"/></p>
+<p class="mce-root"/>
+<p class="CDPAlignLeft CDPAlign"><span>The labels are contained in a single CSV file, which contains a value of <kbd>0</kbd>, indicating death, or a value of <kbd>1</kbd>, indicating survival. For example, for the features in <kbd>1.csv</kbd>, the output labels are in <kbd>1.csv</kbd> under the mortality directory. </span><span>Note that we have a total of 4,000 samples. We divide the entire dataset into train/test sets so that our training data has 3,200 examples and the testing data has 800 examples.</span></p>
+<p class="CDPAlignLeft CDPAlign">In step 3, we used <kbd>NumberedFileInputSplit</kbd><strong> </strong><span>to read and club all the files (features/labels) with a numbered format.</span></p>
+<p><kbd>CSVSequenceRecordReader</kbd> is to read sequences of data in CSV format, where each sequence is defined in its own file.</p>
+<p><span>As you can see in the preceding screenshots, the first row is just meant for feature labels and needs to be bypassed. </span></p>
+<p>Hence, we have created the following CSV sequence reader:</p>
+<pre class="CDPAlignLeft CDPAlign">SequenceRecordReader trainFeaturesReader = new CSVSequenceRecordReader(1, ",");</pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Loading and transforming data</h1>
+                </header>
+            
+            <article>
+                
+<p>After the data extraction phase, we need to transform the data before loading it into a neural network. During data transformation, it is very important to ensure that any non-numeric fields in the dataset are transformed into numeric fields. The role of data transformation doesn't end there. We can also remove any noise in the data and adjust the values. In this recipe, we load the data into a dataset iterator and transform the data as required.</p>
+<p>We extracted the time series data into record reader instances in the previous recipe. Now, let's create train/test iterators from them. We will also analyze the data and transform it if needed.</p>
+<p class="mce-root"/>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Getting ready</h1>
+                </header>
+            
+            <article>
+                
+<p>Before we proceed, refer to the dataset in the following screenshot to understand how every sequence of the data looks:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1420 image-border" src="assets/509bb04f-9227-4878-87d5-d1211bd1d1dc.png" style="width:86.17em;height:28.67em;"/></p>
+<p class="CDPAlignLeft CDPAlign"><span>Firstly, we need to </span><span>check for the existence of any non-numeric features in the data. We need to load the data into the neural network for training, and it should be in a format that the neural network can understand.</span> W<span>e have a sequenced dataset and it appears that non-numeric values are not present. </span>All 37 features are numeric. If you look at the range of feature data, it is close to a normalized format.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How to do it...</h1>
+                </header>
+            
+            <article>
+                
+<ol>
+<li>Create the training iterator using <kbd>SequenceRecordReaderDataSetIterator</kbd>:</li>
+</ol>
+<pre style="padding-left: 60px">DataSetIterator trainDataSetIterator = new SequenceRecordReaderDataSetIterator(trainFeaturesReader,trainLabelsReader,batchSize,numberOfLabels,false, SequenceRecordReaderDataSetIterator.AlignmentMode.ALIGN_END);</pre>
+<ol start="2">
+<li>Create the test iterator using <kbd>SequenceRecordReaderDataSetIterator</kbd>:</li>
+</ol>
+<pre style="padding-left: 60px">DataSetIterator testDataSetIterator = new SequenceRecordReaderDataSetIterator(testFeaturesReader,testLabelsReader,batchSize,numberOfLabels,false, SequenceRecordReaderDataSetIterator.AlignmentMode.ALIGN_END);</pre>
+<p class="mce-root"/>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How it works...</h1>
+                </header>
+            
+            <article>
+                
+<p>In steps 1 and 2, we used <kbd>AlignmentMode</kbd> while creating the iterators for the training and test datasets. The <span><kbd>AlignmentMode</kbd> </span>deals with input/labels of varying lengths (for example, one-to-many and many-to-one situations). Here are some types of alignment modes:</p>
+<ul>
+<li><kbd>ALIGN_END</kbd>: This is intended to align labels or input at the last time step. Basically, it adds zero padding at the end of either the input or the labels.</li>
+<li><kbd>ALIGN_START</kbd>: This is intended to align labels or input at the first time step. Basically, it adds zero padding at the end of the input or the labels.</li>
+<li><kbd>EQUAL_LENGTH</kbd>: This assumes that the input time series and label are of the same length, and all examples are the same length.</li>
+<li><kbd>SequenceRecordReaderDataSetIterator</kbd>: This helps to generate a time series dataset from the record reader passed in. The record reader should be based on sequence data and is optimal for time series data. Check out the attributes passed to the constructor:</li>
+</ul>
+<pre style="padding-left: 60px">DataSetIterator testDataSetIterator = new SequenceRecordReaderDataSetIterator(testFeaturesReader,testLabelsReader,batchSize,numberOfLabels,false, SequenceRecordReaderDataSetIterator.AlignmentMode.ALIGN_END);</pre>
+<p><span><kbd>testFeaturesReader</kbd> and <kbd>testLabelsReader</kbd> are record reader objects for input data (features) and labels (for evaluation), respectively. The Boolean attribute (</span><kbd>false</kbd><span>) refers to whether we have regression samples. Since we are talking about time series classification, this is going to be false. For regression data, this has to be set to <kbd>true</kbd>. </span></p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Constructing input layers for the network</h1>
+                </header>
+            
+            <article>
+                
+<p><span>LSTM layers will have gated cells that are capable of capturing long-term dependencies, unlike regular RNN. Let's discuss how we can add a special LSTM layer in our network configuration. We can use a multilayer network or computation graph to create the model.</span></p>
+<p><span>In this recipe, we will discuss how to create input layers for our LSTM neural network. In the following example, we will construct a computation graph and add custom layers to it.</span></p>
+<p class="mce-root"/>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How to do it...</h1>
+                </header>
+            
+            <article>
+                
+<ol start="1">
+<li>Configure the neural network using <kbd>ComputationGraph</kbd>, as shown here:</li>
+</ol>
+<pre style="padding-left: 60px">ComputationGraphConfiguration.GraphBuilder builder = new NeuralNetConfiguration.Builder()<br/> .seed(RANDOM_SEED)<br/> .optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)<br/> .weightInit(WeightInit.XAVIER)<br/> .updater(new Adam())<br/> .dropOut(0.9)<br/> .graphBuilder()<br/> .addInputs("trainFeatures");</pre>
+<ol start="2">
+<li>Configure the LSTM layer:</li>
+</ol>
+<pre style="padding-left: 60px">new LSTM.Builder()<br/> .nIn(INPUTS)<br/> .nOut(LSTM_LAYER_SIZE)<br/> .forgetGateBiasInit(1)<br/> .activation(Activation.TANH)<br/> .build(),"trainFeatures");</pre>
+<ol start="3">
+<li>Add the LSTM layer to the <kbd>ComputationGraph</kbd> configuration:</li>
+</ol>
+<pre style="padding-left: 60px">builder.addLayer("L1", new LSTM.Builder()<br/> .nIn(86)<br/> .nOut(200)<br/> .forgetGateBiasInit(1)<br/> .activation(Activation.TANH)<br/> .build(),"trainFeatures");</pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How it works...</h1>
+                </header>
+            
+            <article>
+                
+<p>In step 1, we defined a graph vertex input as the following after calling the <kbd>graphBuilder()</kbd> method:</p>
+<pre>builder.addInputs("trainFeatures");</pre>
+<p><span class="s2">By calling <kbd>graphBuilder()</kbd>, we are actually constructing </span><span class="s1">a graph builder to create a computation graph configuration.</span></p>
+<p class="mce-root"/>
+<p>Once the LSTM layers are added into the <kbd>ComputationGraph</kbd> configuration in step 3, they will act as input layers in the <kbd>ComputationGraph</kbd><span> configuration. </span>We pass the previously mentioned graph vertex input (<kbd>trainFeatures</kbd>) to our LSTM layer, as follows:</p>
+<pre>builder.addLayer("L1", new LSTM.Builder()<br/>     .nIn(INPUTS)<br/>     .nOut(LSTM_LAYER_SIZE)<br/>     .forgetGateBiasInit(1)<br/>     .activation(Activation.TANH)<br/>     .build(),"trainFeatures");</pre>
+<p>The last attribute, <kbd>trainFeatures</kbd>, refers to the graph vertex input. Here, we're specifying that the <kbd>L1</kbd> layer is the input layer.</p>
+<p>The main purpose of the LSTM neural network is to capture the long-term dependencies in the data. The derivatives of a <kbd>tanh</kbd> function can sustain for a long range before reaching the zero value. Hence, we use <kbd>Activation.TANH</kbd> as the activation function for the LSTM layer.</p>
+<p>The <kbd>forgetGateBiasInit()</kbd><em> </em><span>set forgets gate bias initialization. Values in the range of <kbd>1</kbd> to <kbd>5</kbd> could potentially help with learning or long-term dependencies.<br/>
+<br/>
+We use the</span><span> </span><kbd>Builder</kbd><strong> </strong><span>strategy to define the LSTM layers along with the required attributes, such as</span><span> </span><kbd>nIn</kbd><span> and </span><kbd>nOut</kbd><span>.</span><span><em> </em>These are input/output neurons, as we saw in <a href="5cf01186-c9e3-46e7-9190-10cd43933694.xhtml" target="_blank">Chapters 3</a>, <em>Building Deep Neural Networks for Binary Classification</em>, and <a href="4a688ef9-2dd8-47de-abaf-456fa88bcfc2.xhtml" target="_blank">Chapter 4</a>, <em>Building Convolutional Neural Networks</em>. We add LSTM layers using the <kbd>addLayer</kbd> method.<br/></span></p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Constructing output layers for the network</h1>
+                </header>
+            
+            <article>
+                
+<p><span><span>The output layer design is the last step in configuring the neural network layer. Our aim is to implement a time series prediction model. We need to develop a time series classifier to predict patient mortality. The output layer design should reflect this purpose. In this recipe, we will discuss how to construct the output layer for our use case.</span></span></p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How to do it...</h1>
+                </header>
+            
+            <article>
+                
+<ol>
+<li>Design the output layer using <kbd>RnnOutputLayer</kbd>:</li>
+</ol>
+<pre style="padding-left: 60px">new RnnOutputLayer.Builder(LossFunctions.LossFunction.MCXENT)<br/> .activation(Activation.SOFTMAX)<br/> .nIn(LSTM_LAYER_SIZE).nOut(labelCount).build()</pre>
+<p class="mce-root"/>
+<ol start="2">
+<li>Use the <kbd>addLayer()</kbd> method to add an output layer to the network configuration:</li>
+</ol>
+<pre style="padding-left: 60px">builder.addLayer("predictMortality", new RnnOutputLayer.Builder(LossFunctions.LossFunction.MCXENT)<br/> .activation(Activation.SOFTMAX)<br/> .nIn(LSTM_LAYER_SIZE).nOut(labelCount).build(),"L1");<strong><span><br/> <br/></span></strong></pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How it works...</h1>
+                </header>
+            
+            <article>
+                
+<p><span>While constructing the output layer, m</span><span>ake note of the </span><kbd>nOut</kbd><span> value of the preceding LSTM input layer. This will be taken as </span><kbd>nIn</kbd><span> for the output layer. <kbd>nIn</kbd> should be the same as <kbd>nOut</kbd> of the preceding LSTM input layer.</span></p>
+<p>In steps 1 and step 2, w<span>e are essentially creating an LSTM neural network, an extended version of a regular RNN. We used gated cells to have some sort of internal memory to hold long-term dependencies. </span>For a predictive model to make predictions (patient mortality), we need to have probability produced by the output layer. In step 2, we see that <kbd>SOFTMAX</kbd> is used at the <span>output layer of a neural network. This activation function is very helpful for computing the probability for the specific label. <kbd>MCXENT</kbd> i</span>s the ND4J i<span>mplementation for the negative loss likelihood error function. Since we use the negative loss likelihood loss function</span><span>, it will push the results when the probability value is found to be high for a label on a particular iteration.</span></p>
+<p><kbd>RnnOutputLayer</kbd><strong> </strong>is more like an extended version of regular output layers found in feed-forward networks. We can also use <kbd>RnnOutputLayer</kbd> for one-dimensional CNN layers. There is also another output layer, named <kbd>RnnLossLayer</kbd>,<strong> </strong>where the input and output activations are the same. In the case of <kbd>RnnLossLayer</kbd>, we have three dimensions with the <kbd>[miniBatchSize,nIn,timeSeriesLength]</kbd> and <kbd>[miniBatchSize,nOut,timeSeriesLength]</kbd> shape, respectively.</p>
+<p>Note that we'll have to specify the input layer that is to be connected to the output layer. Take a look at this code again:</p>
+<pre>builder.addLayer("predictMortality", new RnnOutputLayer.Builder(LossFunctions.LossFunction.MCXENT)<br/> .activation(Activation.SOFTMAX)<br/> .nIn(LSTM_LAYER_SIZE).nOut(labelCount).build(),"L1")</pre>
+<p>We mentioned that the <kbd>L1</kbd> layer is the input layer to the output layer.</p>
+<p class="mce-root"/>
+<p class="mce-root"/>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Training time series data</h1>
+                </header>
+            
+            <article>
+                
+<p><span>So far, we have constructed network layers and parameters to define the model configuration. Now it's time to train the model and see the results. We can then check whether any of the previously-defined model configuration can be altered to obtain optimal results. Be sure to run the training instance multiple times before making any conclusions from the very first training session. We need to observe a consistent output to ensure stable performance.</span></p>
+<p>In this recipe, we train our LSTM neural network against the loaded time series data.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How to do it...</h1>
+                </header>
+            
+            <article>
+                
+<ol>
+<li>Create the <kbd>ComputationGraph</kbd> model from the previously-created model configuration:</li>
+</ol>
+<pre style="padding-left: 60px">ComputationGraphConfiguration configuration = builder.build();<br/>   ComputationGraph model = new ComputationGraph(configuration);</pre>
+<ol start="2">
+<li>Load the iterator and train the model using the <kbd>fit()</kbd> method:</li>
+</ol>
+<pre style="padding-left: 60px">for(int i=0;i&lt;epochs;i++){<br/>   model.fit(trainDataSetIterator);<br/> }</pre>
+<p style="padding-left: 60px">You can use the following approach as well:</p>
+<pre style="padding-left: 60px">model.fit(trainDataSetIterator,epochs);<span><strong><br/></strong></span></pre>
+<p style="padding-left: 60px">We can then avoid using a <kbd>for</kbd> loop by directly specifying the <kbd>epochs</kbd> parameter in the <kbd>fit()</kbd> method. </p>
+<p class="mce-root"/>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How it works...</h1>
+                </header>
+            
+            <article>
+                
+<p>In step 2, we pass both the dataset iterator and epoch count to start the training session. We use a very large time series dataset, hence a large epoch value will result in more training time. Also, a large epoch may not always guarantee good results, and may end up overfitting. So, we need to run the training experiment multiple times to arrive at an optimal value for epochs and other important hyperparameters. An optimal value would be the bound where you observe the maximum performance for the neural network.</p>
+<p>Effectively, we are optimizing our training process using memory-gated cells in layers. As we discussed earlier, in the <em>Constructing input layers for the network</em> <span>recipe</span>, LSTMs are good for holding long-term dependencies in datasets. </p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Evaluating the LSTM network's efficiency</h1>
+                </header>
+            
+            <article>
+                
+<p>After each training iteration, the network's efficiency is measured by evaluating the model against a set of evaluation metrics. We optimize the model further on upcoming training iterations based on the evaluation metrics. We use the test dataset for evaluation. Note that w<span>e are performing binary classification for the given use case. We predict the chances of that patient surviving. For classification problems, we can plot a </span><strong>Receiver Operating Characteristics</strong><span> (</span><strong>ROC</strong><span>) curve and calculate the </span><strong>Area Under The Curve</strong><span> (</span><strong>AUC</strong><span>) score to evaluate the model's performance. The AUC score ranges from </span>0<span> to </span>1<span>. An AUC score of </span>0<span> represents 100% failed predictions and </span>1<span> represents 100% successful predictions.</span></p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How to do it...</h1>
+                </header>
+            
+            <article>
+                
+<ol>
+<li>Use ROC for the model evaluation:</li>
+</ol>
+<pre style="padding-left: 60px">ROC evaluation = new ROC(thresholdSteps);</pre>
+<ol start="2">
+<li>Generate output from features in the test data:</li>
+</ol>
+<pre style="padding-left: 60px">DataSet batch = testDataSetIterator.next();<br/> INDArray[] output = model.output(batch.getFeatures());</pre>
+<ol start="3">
+<li>Use the ROC evaluation instance to perform the evaluation by calling <kbd>evalTimeseries()</kbd>:</li>
+</ol>
+<pre style="padding-left: 60px">INDArray actuals = batch.getLabels();<br/>   INDArray predictions = output[0]<br/>   evaluation.evalTimeSeries(actuals, predictions);</pre>
+<ol start="4">
+<li>Display the AUC score (evaluation metrics) by calling <kbd>calculateAUC()</kbd>:</li>
+</ol>
+<pre style="padding-left: 60px">System.out.println(evaluation.calculateAUC());<span><br/></span></pre>
+<p class="mce-root"/>
+<p class="mce-root"/>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">How it works...</h1>
+                </header>
+            
+            <article>
+                
+<p>In step 3, <kbd>actuals</kbd> are the actual output for the test input, and <kbd>predictions</kbd> are the observed output for the test input. </p>
+<p>The evaluation metrics are based on the difference between <kbd>actuals</kbd> and <kbd>predictions</kbd>. We used ROC evaluation metrics to find this difference. An ROC evaluation is ideal for binary classification problems with datasets that have a uniform distribution of the output classes. Predicting patient mortality is just another binary classification puzzle. </p>
+<p><kbd>thresholdSteps</kbd> in the parameterized constructor of <kbd>ROC</kbd> is the number of threshold steps to be used for the ROC calculation. When we decrease the threshold, we get more positive values. It increases the sensitivity and means that the neural network will be less confident in uniquely classifying an item under a class. </p>
+<p>In step 4, we printed the ROC evaluation metrics by calling <span><kbd>calculateAUC()</kbd></span>:</p>
+<pre class="CDPAlignLeft CDPAlign">evaluation.calculateAUC();</pre>
+<p>The <kbd>calculateAUC()</kbd> method will calculate the area under the ROC curve plotted from the test data. If you print the results, you should see a probability value between<span> </span><kbd>0</kbd><span> </span>and<span> </span><kbd>1</kbd>. We can also call the<span> </span><kbd>stats()</kbd><span> </span>method to display the whole ROC evaluation metrics, as shown here:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1421 image-border" src="assets/94b354c8-da4b-4ceb-b51a-cc76d468a60a.png" style="width:55.75em;height:27.67em;"/></p>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p>The <kbd>stats()</kbd> method will display the AUC score along with the <strong>AUPRC</strong> (short for <strong>Area Under Precision/Recall Curve</strong>) metrics. AUPRC is another performance metric where the curve represents the trade-off between precision and recall values. For a model with a good AUPRC score, positive samples can be found with fewer false positive results.</p>
+
+
+            </article>
+
+            
+        </section>
+    </body></html>
