@@ -1,0 +1,228 @@
+<html><head></head><body>
+        <section>
+
+                            <header>
+                    </header><h1 class="header-title" id="calibre_pb_0">Prediction with Random Forests</h1>
+                
+            
+            <article>
+                
+<div class="title-page-name">
+<p class="calibre2">In this chapter, we're going to look at classific<span class="calibre5">ation techniques with random forests. We're going to use scikit-learn, just like we did in the previous chapter. We're going to look at examples of predicting bird species from descriptive attributes and then use a confusion matrix on them.</span></p>
+</div>
+<div class="title-page-name">
+<p class="calibre2"> </p>
+</div>
+<p class="calibre2">Here's a detailed list of the topics:</p>
+<ul class="calibre10">
+<li class="calibre11">Classification and techniques for evaluation</li>
+<li class="calibre11">Predicting bird species with random forests</li>
+<li class="calibre11">Confusion matrix</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    </header><h1 class="header-title" id="calibre_pb_0">Random forests</h1>
+                
+            
+            <article>
+                
+<p class="calibre2">Random forests are extensions of decision trees and are a kind of ensemble method. </p>
+<p class="calibre2">Ensemble methods can achieve high accuracy by building several classifiers and running a each one independently. When a classifier makes a decision, you can make use of the most common and the average decision. If we use the most common method, it is called <strong class="calibre4">voting</strong>.</p>
+<p class="calibre2">Here's a diagram depicting the ensemble method:</p>
+<div class="cdpaligncenter"><img class="alignnone26" src="../images/00031.jpeg"/></div>
+<p class="calibre2">You can think of each classifier as being specialized for a unique perspective on the data. Each classifier may be a different type. For example, you can combine a decision tree and a logistic regression and a neural net, or the classifiers may be the same type but trained on different parts or subsets of the training data.</p>
+<p class="calibre2">A random forest is a collection or ensemble of decision trees. Each tree is trained on a random subset of the attributes, as shown in the following diagram:</p>
+<div class="cdpaligncenter"><img class="alignnone27" src="../images/00032.jpeg"/></div>
+<p class="calibre2">These decision trees are typical decision trees, but there are several of them. The difference, compared with a single decision tree, particularly in a random forest, is that each tree is only allowed to look at some of the attributes, typically a small number relative to the total number of attributes available. Each tree is specialized to just those attributes. These specialized trees are collected and each offers a vote for its prediction. Whichever outcome gets the most votes from the ensemble of specialized trees is the winner. That is the final prediction of the random forest.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    </header><h1 class="header-title" id="calibre_pb_0">Usage of random forest</h1>
+                
+            
+            <article>
+                
+<p class="calibre2">We should consider using a random forest when there is a sufficient number of attributes to make trees and the accuracy is paramount. When there are fewer trees, the interpretability is difficult compared to a single decision tree. You should avoid using random forests if interpretability is important because if there are too many trees, the models are quite large and can take a lot of memory during training and prediction. Hence, resource-limited environments may not be able to use random forests. The next section will explain the prediction of bird species using random forests.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    </header><h1 class="header-title" id="calibre_pb_0">Predicting bird species with random forests</h1>
+                
+            
+            <article>
+                
+<p class="calibre2">Here we will be using random forests to predict a bird's species. We will use the Caltech-UC San Diego dataset (<a href="http://www.vision.caltech.edu/visipedia/CUB-200-2011.html" target="_blank" class="calibre9">http://www.vision.caltech.edu/visipedia/CUB-200-2011.html</a>), which contains about 12,000 photos of birds from 200 different species. Here we are not going to look at the pictures because that would need a <strong class="calibre4">convolutional neural network</strong> (<strong class="calibre4">CNN</strong>) and this will be covered in later chapters. CNNs can handle pictures much better than a random forest. Instead, we will be using attributes of the birds such as size, shape, and color.</p>
+<p class="calibre2">Here are just some of the species in the dataset:</p>
+<p class="cdpaligncenter1"><img class="aligncenter" src="../images/00033.jpeg"/></p>
+<p class="calibre2">Some, such as the <strong class="calibre4">American Crow</strong> and the <strong class="calibre4">Fish Crow</strong>, are almost indistinguishable, at least visually. The attributes for each photo, such as color and size, have actually been labeled by humans. Caltech and UCSD used human workers on Amazon's Mechanical Turk to label the dataset. Researchers often use Mechanical Turk, which is a website service in which a person gets paid a tiny amount of money for each photo they label to improve the dataset using human insight rather than machine predictions.</p>
+<div class="packt_tip">If you have your own dataset that needs lots of human-provided labels, you might consider spending some money on Mechanical Turk to complete that task.</div>
+<p class="calibre2"/>
+<p class="calibre2">Here's an example of a single photo and its labels:</p>
+<div class="cdpaligncenter"><img class="alignnone28" src="../images/00034.jpeg"/></div>
+<div class="cdpaligncenter2">http://www.vision.caltech.edu/visipedia-data/CUB-200-2011/browse/Summer_Tanager.html</div>
+<p class="calibre2">We can see that the Summer Tanager is marked as having a red throat, a solid belly pattern, a perching-like shape, and so on. The dataset includes information about how long it took each person to decide on the labels and how confident the person is with their decisions, but we're not going to use that information.</p>
+<p class="calibre2">The data is split into several files. We'll discuss those files before jumping into the code:</p>
+<div class="cdpaligncenter"><img src="../images/00035.jpeg" class="calibre17"/></div>
+<p class="calibre2"> </p>
+<p class="calibre2">The <kbd class="calibre12">classes.txt</kbd> file shows class IDs with the bird species names. The <kbd class="calibre12">images.txt</kbd> file shows image IDs and filenames. The species for each photo is given in the <kbd class="calibre12">image_class_labels.txt</kbd> file, which connects the class IDs with the image IDs.</p>
+<p class="calibre2">The <kbd class="calibre12">attributes.txt</kbd> file gives the name of each attribute, which ultimately is not going to be that important to us. We're only going to need the attribute IDs:</p>
+<div class="cdpaligncenter"><img src="../images/00036.jpeg" class="calibre18"/></div>
+<p class="calibre2">Finally, the most important file is <kbd class="calibre12">image_attribute_labels.txt</kbd>:</p>
+<div class="cdpaligncenter"><img src="../images/00037.jpeg" class="calibre19"/></div>
+<p class="calibre2"/>
+<p class="calibre2">It connects each image with its attributes in a binary value that's either present or absent for that attribute. Users on Mechanical Turk produced each row in this file.</p>
+<p class="calibre2">Now, let's look at the code:</p>
+<div class="cdpaligncenter"><img class="alignnone29" src="../images/00038.gif"/></div>
+<p class="calibre2">We will first load the CSV file with all the image attribute labels.</p>
+<p class="calibre2">Here are few things that need to be noted:</p>
+<ul class="calibre10">
+<li class="calibre11">Space separation for all the values</li>
+<li class="calibre11">No header column or row</li>
+<li class="calibre11">Ignore the messages or warnings, such as <kbd class="calibre12">error_bad_lines= False</kbd> and <kbd class="calibre12">warn_bad_lines= False</kbd></li>
+<li class="calibre11">Use columns <kbd class="calibre12">0</kbd>, <kbd class="calibre12">1</kbd>, and <kbd class="calibre12">2</kbd>, which have the image ID, the attribute ID, and the present or non-present value</li>
+</ul>
+<p class="calibre2">You don't need to worry about the attributes and the time taken to select them.</p>
+<p class="calibre2"/>
+<p class="calibre2">Here, at the top of that dataset:</p>
+<div class="cdpaligncenter"><img class="alignnone30" src="../images/00039.gif"/></div>
+<p class="calibre2">Image ID number 1 does not have attributes 1, 2, 3, or 4, but it does have attribute 5.</p>
+<p class="calibre2">The shape will tell us how many rows and columns we have:</p>
+<div class="cdpaligncenter"><img class="alignnone31" src="../images/00040.gif"/></div>
+<p class="calibre2">It has 3.7 million rows and three columns. This is not the actual formula that you want. You want attributes to be the columns, not rows.</p>
+<p class="cdpaligncenter1"><img class="alignnone32" src="../images/00041.gif"/></p>
+<p class="calibre2">Therefore, we have to use pivot, just like Excel has a pivot method:</p>
+<ol class="calibre13">
+<li value="1" class="calibre11">Pivot on the image ID and make one row for each image ID. There will be only one row for image number one.</li>
+<li value="2" class="calibre11"><span>Turn the attributes into distinct columns, and the values will be ones or twos.</span></li>
+</ol>
+<p class="calibre2">We can now see that each image ID is just one row and each attribute is its own column, and we have the ones and the twos:</p>
+<div class="cdpaligncenter"><img class="alignnone33" src="../images/00042.gif"/></div>
+<p class="calibre2">Let's feed this data into a random forest. In the previous example, we have 312 columns and 312 attributes, which is ultimately about 12,000 images or 12,000 different examples of birds:</p>
+<div class="cdpaligncenter"><img class="alignnone34" src="../images/00043.gif"/></div>
+<p class="calibre2">Now, we need to load the answers, such as whether it's a bird and which species it is. Since it is an image class labels file, the separators are spaces. There is no header row and the two columns are <kbd class="calibre12">imgid</kbd> and <kbd class="calibre12">label</kbd>. We will be using <kbd class="calibre12">set_index('imgid')</kbd> to have the same result produced by <kbd class="calibre12">imgatt2.head()</kbd>, where the rows are identified by the image ID:</p>
+<div class="cdpaligncenter"><img class="alignnone35" src="../images/00044.gif"/></div>
+<p class="calibre2"/>
+<p class="calibre2">Here's what it looks like:</p>
+<div class="cdpaligncenter"><img class="alignnone36" src="../images/00045.gif"/></div>
+<p class="calibre2">The <kbd class="calibre12">imgid</kbd> column has <kbd class="calibre12">1</kbd>, <kbd class="calibre12">2</kbd>, <kbd class="calibre12">3</kbd>, <kbd class="calibre12">4</kbd>, and <kbd class="calibre12">5</kbd>, all are labeled as <kbd class="calibre12">1</kbd>. They're all albatrossed at the top of the file. As seen, there are about 12,000 rows, which is perfect:</p>
+<div class="cdpaligncenter"><img class="alignnone37" src="../images/00046.gif"/></div>
+<p class="calibre2">This is the same number as the attributes data. We will be using join.</p>
+<p class="calibre2">In the join, we will use the index on the image ID to join the two data frames. Effectively, what we're going to get is that the label is stuck on as the last column.</p>
+<p class="calibre2">We will be now shuffling and then be splitting off the attributes. In other words, we want to drop the label from the label. So, here are the attributes, with the first 312 columns and the last column being a label:</p>
+<div class="cdpaligncenter"><img class="alignnone38" src="../images/00047.gif"/></div>
+<p class="calibre2">After shuffling, we have the first row as image 527, the second row as image 1532, and so forth. The attributes in the label data are in agreement. On the first row, it's image 527, which is the number 10. You will not know which bird it is, but it's of the kind, and these are its attributes. But it is finally in the right form. We need to do a training test split.</p>
+<p class="calibre2">There were 12,000 rows, so let's take the first 8,000 and call them training, and the call rest of them testing (4,000). We'll get the answers using <kbd class="calibre12">RandomForestClassifier</kbd>:</p>
+<div class="cdpaligncenter"><img class="alignnone39" src="../images/00048.gif"/></div>
+<p class="calibre2">Max features show the number of different columns each tree can look at.</p>
+<p class="calibre2"/>
+<p class="calibre2">For an instance, if we say something like, <em class="calibre16">look at two attributes</em>, that's probably not enough to actually figure out which bird it is. Some birds are unique, so you might need a lot more attributes. Later if we say <kbd class="calibre12">max_features=50</kbd> and the number of estimators denote the number of trees created. The fit actually builds it.</p>
+<div class="cdpaligncenter"><img class="alignnone40" src="../images/00049.gif"/></div>
+<p class="calibre2">Let's predict a few cases. Let's use attributes from the first five rows of the training set, which will predict species 10, 28, 156, 10, and 43. After testing, we get 44% accuracy:</p>
+<div class="cdpaligncenter"><img class="alignnone41" src="../images/00050.gif"/></div>
+<p class="calibre2">Even 44% accuracy is not the best result. There are 200 species, so having 0.5% accuracy is much better than randomly guessing.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    </header><h1 class="header-title" id="calibre_pb_0">Making a confusion matrix for the data</h1>
+                
+            
+            <article>
+                
+<p class="calibre2">Let's make a confusion matrix to see which birds the dataset confuses. The <kbd class="calibre12">confusion_matrix</kbd> function from scikit-learn will produce the matrix, but it's a pretty big matrix:</p>
+<div class="cdpaligncenter"><img class="alignnone42" src="../images/00051.gif"/></div>
+<p class="calibre2">Two hundred by two hundred is not easy to understand in a numeric form like this.</p>
+<p class="calibre2">Here's some code from the scikit-learn documentation that allows us to plot the matrix and the color in the matrix:</p>
+<div class="cdpaligncenter"><img class="alignnone43" src="../images/00052.jpeg"/></div>
+<p class="calibre2">We will need the actual names of the birds on the matrix so that we know the species that are being confused for each other. So, let's load the classes file:</p>
+<div class="cdpaligncenter"><img class="alignnone44" src="../images/00053.gif"/></div>
+<p class="calibre2">Plot the matrix. This is the confusion matrix for this dataset:</p>
+<div class="cdpaligncenter"><img class="alignnone45" src="../images/00054.gif"/></div>
+<p class="calibre2">The output looks like the following:</p>
+<div class="cdpaligncenter"><img class="alignnone46" src="../images/00055.jpeg"/></div>
+<p class="calibre2"/>
+<p class="calibre2">The output is unreadable because there are 200 rows and columns. But if we open it separately and then start zooming in, on the <em class="calibre16">y</em> axis you will see the actual birds, and on the <em class="calibre16">x</em> axis, you will see the predicted birds:</p>
+<div class="cdpaligncenter"><img class="alignnone47" src="../images/00056.jpeg"/></div>
+<p class="calibre2"/>
+<p class="calibre2">For example, the common yellow throat is the true one. Looking at the following graph, we can see that the common yellow throat is confused with the black-footed albatross. When we zoom out, we will see the confusion:</p>
+<div class="cdpaligncenter"><img class="alignnone48" src="../images/00057.jpeg"/></div>
+<p class="calibre2">It's like a square of confusion that was there between the common yellow throat and the black-footed albatross. Some features are terns, such as the arctic tern, black tern, Caspian tern, and the common tern. Terns are apparently easy to confuse because they look similar.</p>
+<p class="calibre2"/>
+<p class="calibre2">This set is a little bit confused too:</p>
+<div class="cdpaligncenter"><img src="../images/00058.jpeg" class="calibre20"/></div>
+<p class="calibre2">This is the set regarding sparrows. The confusion matrix tells us the things that we expect, that is, birds that look similar are confused with each other. There are little squares of confusion, as seen in the previous screenshot.</p>
+<p class="calibre2">For the most part, you don't want to confuse an albatross with a common yellow throat because this means that the dataset doesn't know with what it's doing.</p>
+<p class="calibre2"/>
+<p class="calibre2">Since the bird's names are sorted, lesser is the square of confusion. Let's compare this with the simple decision tree:</p>
+<div class="cdpaligncenter"><img class="alignnone49" src="../images/00059.gif"/></div>
+<p class="calibre2">Here, the accuracy is 27%, which is less than the previous 44% accuracy. Therefore, the decision tree is worse. If we use a <strong class="calibre4">Support Vector Machine</strong> (<strong class="calibre4">SVM</strong>), which is the neural network approach, the output is 29%:</p>
+<div class="cdpaligncenter"><img class="alignnone50" src="../images/00060.gif"/></div>
+<p class="calibre2">The random forest is still better.</p>
+<p class="calibre2">Let's perform cross-validation to make sure that we split the training test in different ways. The output is still 44% for the random forest, 25% for our decision tree, and 27% for SVM, as shown in the following screenshot:</p>
+<div class="cdpaligncenter"><img class="alignnone51" src="../images/00061.jpeg"/></div>
+<p class="calibre2"/>
+<p class="calibre2">The best results are reflected through random forests since we had some options and questions with random forests.</p>
+<p class="calibre2">For example, how many different questions can each tree ask? How many attributes does it look at, and how many trees are there? Well, there are a lot of parameters to look through, so let's just make a loop and try them all:</p>
+<div class="cdpaligncenter"><img class="alignnone52" src="../images/00062.jpeg"/></div>
+<p class="calibre2">These are all the accuracies, but it would be better to visualize this in a graph, as shown here:</p>
+<p class="cdpaligncenter1"><img class="aligncenter1" src="../images/00063.jpeg"/></p>
+<p class="calibre2">We can see that increasing the number of trees produces a better outcome. Also, increasing the number of features produces better outcomes if you are able to see more features, but ultimately, if you're at about 20 to 30 features and you have about 75 to 100 trees, that's about as good as you're going to get an accuracy of 45%.</p>
+<p class="calibre2"/>
+<p class="calibre2"/>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    </header><h1 class="header-title" id="calibre_pb_0">Summary</h1>
+                
+            
+            <article>
+                
+<p class="calibre2">In this chapter, we learned about random forests and classify bird species . Later, we discussed the confusion matrix and different graphs that gave us output based on random trees, decision trees, and SVM.</p>
+<p class="calibre2">In the next chapter, we'll go look at comment classification using bag-of-words models and Word2Vec models.</p>
+
+
+            </article>
+
+            
+        </section>
+    </body></html>
