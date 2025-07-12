@@ -1,0 +1,523 @@
+<html><head></head><body>
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Playing GridWorld Game Using Deep Reinforcement Learning</h1>
+                </header>
+            
+            <article>
+                
+<p>As human beings, we learn from experiences. We have not become so charming overnight or by accident. Years of compliments as well as criticism have all helped shape who we are today. We learn how to ride a bike by trying out different muscle movements until it just clicks. When you perform actions, you are sometimes rewarded immediately, and this is known as <strong>reinforcement learning</strong> <strong>(</strong><strong>RL</strong><strong>).</strong></p>
+<p>This chapter is all about designing a machine learning system driven by criticisms and rewards. We will see how to develop a demo GridWorld game using <strong>Deeplearning4j</strong> (<strong>DL4J</strong>), <strong>reinforcement learning 4j</strong> (<strong>RL4J</strong>), and Neural Q-learning that acts as the Q function. We will start from reinforcement learning and its theoretical background so that the concept is easier to grasp. In summary, the following topics will be covered in this chapter:</p>
+<ul>
+<li>Notation, policy, and utility in reinforcement learning</li>
+<li>Deep Q-learning algorithm</li>
+<li>Developing a GridWorld game using deep Q-learning</li>
+<li>Frequently asked questions (FAQs)</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Notation, policy, and utility for RL</h1>
+                </header>
+            
+            <article>
+                
+<p>Whereas supervised and unsupervised learning appear at opposite ends of the spectrum, RL exists somewhere in the middle. It is not supervised learning, because the training data comes from the algorithm deciding between exploration and exploitation.</p>
+<p>In addition, it is not unsupervised, because the algorithm receives feedback from the environment. As long as you are in a situation where performing an action in a state produces a reward, you can use reinforcement learning to discover a good sequence of actions to take the maximum expected rewards. The goal of an RL agent will be to maximize the total reward that it receives in the end. The third main sub-element is the value function.</p>
+<p>While rewards determine an immediate desirability of states, values indicate the long-term desirability of states, taking into account the states that may follow and the available rewards in those states. The value function is specified with respect to the chosen policy. During the learning phase, an agent tries actions that determine the states with the highest value, because these actions will get the best amount of reward in the end.</p>
+<p>Reinforcement learning techniques are being used in many areas. A general idea that is being pursued right now is creating an algorithm that does not need anything apart from a description of its task. When this kind of performance is achieved, it will be applied virtually everywhere.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Notations in reinforcement learning</h1>
+                </header>
+            
+            <article>
+                
+<p>You may notice that reinforcement learning jargon involves incarnating the algorithm into taking actions in situations to receive rewards. In fact, the algorithm is often referred to as an agent that acts with the environment.</p>
+<p>You can just think it is an intelligent hardware agent sensing with sensors and interact with the environment using its actuators. Therefore, it should not be a surprise that much of RL theory is applied in robotics. Now, to prolong our discussion further, we need to know a few terminologies:</p>
+<ul>
+<li><strong>Environment</strong>: This is the system having multiple states and mechanisms to transition in between states. For example, for a GridWorld game playing agent's the environment is the grid space itself that defines the states and the way the agent gets rewarded to reach the goal.</li>
+<li><strong>Agent</strong>: This is an autonomus system that interacts with the environment. For example, in our GridWorld game, an agent is the player.</li>
+<li><strong>State</strong>: A state in an environment is a set of variables that fully describe the environment.</li>
+<li><strong>Goal</strong>: It is also a state, which provides a higher discounted cumulative reward than any other state. For our GridWorld game, the goal is the state where the player wants to reach ultimately, but by accumulating the highest possible rewards.</li>
+<li><strong>Action</strong>: Actions define the transition between different states. Thus, upon execution of an action, an agent can be rewarded or punished from the environment.</li>
+<li><strong>Policy</strong>: This defines a set of rules based on actions to be performed and executed for a given state in the environment.</li>
+<li><strong>Reward</strong>: This is a positive or negative quantity (that is score) for good and bad action/move respectively. Ultimately, the learning goal is reaching the goal with maximum score (reward). This way, rewards are essentially the training set for an agent.</li>
+<li><strong>Episode (also known as trials)</strong>: This is the number of steps necessary to reach the goal state from the initial state (that is, position of an agent).</li>
+</ul>
+<p>We will discuss more on policy and utility later in this section. The following diagram demonstrates the interplay between states, actions, and rewards. If you start at state <em>s<sub>1</sub></em>, you can perform action <em>a<sub>1</sub></em> to obtain a reward <em>r (s<sub>1</sub>, a<sub>1</sub>)</em>. Arrows represent actions, and states are represented by circles:</p>
+<div class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-657 image-border" src="assets/9ff64270-027c-4839-b06b-01795d189ff3.png" style=""/></div>
+<div class="packt_figure CDPAlignCenter CDPAlign packt_figref">When an agent performs an action, the state produces a reward</div>
+<p>A robot performs actions to change between different states. But how does it decide which action to take? Well, it is all about using a different or a concrete policy.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Policy</h1>
+                </header>
+            
+            <article>
+                
+<p>In reinforcement learning, a policy is a set of rules or a strategy. Therefore, one of the learning outcomes is to discover a good strategy that observes the long-term consequences of actions in each state. So, technically, a policy defines an action to be taken in a given state. The following diagram shows the optimal action given any state:</p>
+<div class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-658 image-border" src="assets/2762d760-cfcf-4ac5-9d6b-fba6784b50fd.png" style=""/></div>
+<div class="packt_figure CDPAlignCenter CDPAlign packt_figref">A policy defines an action to be taken in a given state</div>
+<p>The short-term consequence is easy to calculate:It is  just the reward. Although performing an action yields an immediate reward, it is not always a good idea to choose the action greedily with the best reward. There may be different types of policies dependeing upon your RL problem formulation, as outlined here:</p>
+<ul>
+<li>When an agent always try to achieve the highest immediate reward by performing an action, we call this <strong>greedy policy</strong>.</li>
+<li>If an action is performed arbitrarily, the policy is called <strong>random policy</strong>.</li>
+<li>When a neural network learns a policy for picking actions by updating weights through backpropopagation and explicit feedback from the environment, we call this <strong>policy gradients</strong>.</li>
+</ul>
+<p>If we want to come up with a robust a policy to solve an RL problem, we have to find the optimal one that performs better than that of random and greedy policies. In this chapter, we will see why policy gradient is more direct and optimistic. </p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Utility</h1>
+                </header>
+            
+            <article>
+                
+<p class="packt_figure">The long-term reward is the <strong>utility</strong>. To decide which action to take, an agent can the action that produces the highest utility in a greedy way. The utility of performing an action <em>a</em> at a state <em>s</em> is written as a function <em>Q(s, a)</em>, called the utility function. The utility function predicts the immediate and final rewards based on an optimal policy generated by the input consisting of state and action, as shown in the following diagram:</p>
+<div class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-659 image-border" src="assets/b01b6793-f371-4a12-96a4-7a9f74c661e4.png" style=""/></div>
+<div class="packt_figure CDPAlignCenter CDPAlign packt_figref">Using a utility function</div>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Neural Q-learning</h1>
+                </header>
+            
+            <article>
+                
+<p>Most reinforcement learning algorithms boil down to just three main steps: infer, do, and learn. During the first step, the algorithm selects the best action <em>a</em> in a given state <em>s</em> using the knowledge it has so far. Next, it performs an action to find the reward <em>r</em> as well as the next state <em>s'</em>.</p>
+<p>Then it improves its understanding of the world using the newly acquired knowledge <em>(s, r, a, s')</em>. These steps can be formulated even better using QLearning algorithms, which is more or less at the core of Deep Reinforcement Learning.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Introduction to QLearning</h1>
+                </header>
+            
+            <article>
+                
+<p>Computing the acquired knowledge using <em>(s, r, a, s')</em> is just a naive way to calculate the utility. So, we need to find a more robust way to compute it in such that we calculate the utility of a particular state-action pair <em>(s, a)</em> by recursively considering the utilities of future actions. The utility of your current action is influenced by <span>not </span>only the immediate reward but also the next best action, as shown in the following formula, called <strong>Q-function</strong>:</p>
+<div class="packt_figure CDPAlignCenter CDPAlign"><img class="fm-editor-equation" src="assets/54fe0db0-e6ab-426a-a24a-fbe697d49bcf.png" style="width:18.00em;height:1.50em;"/></div>
+<p>In the previous formula, <em>s'</em> denotes the next state, <em>a'</em> denotes the next action, and the reward of taking action <em>a</em> in state <em>s</em> is denoted by <em>r(s, a).</em> Whereas<em>,</em> γ is a hyperparameter called the <strong>discount factor</strong>. If <em>γ</em> is <em>0</em>, then the agent chooses a particular action that maximizes the immediate reward. Higher values of <em>γ</em> will make the agent put more importance on considering long-term consequences.</p>
+<p>In practice, we have more such hyperparameters to be considered. For example, if a vacuum cleaner robot is expected to learn to solve tasks quickly but not necessarily optimally, we may want to set a faster learning rate.</p>
+<p>Alternatively, if a robot is allowed more time to explore and exploit, we might tune down the learning rate. Let us call the learning rate <em>α</em>, and change our utility function as follows (note that when <em>α = 1</em>, both the equations are identical):</p>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/52146aac-6bcb-412c-b6f9-b5d38208f74a.jpg" style=""/></div>
+<p>In summary, an RL problem can be solved if we know this <em>Q(s, a)</em> function. This motivates researchers to propose a more advanced <strong>QLearning</strong> algorithm called <strong>neural QLearning</strong>, which is a type of algorithm used to calculate state-action values. It falls under the class of <strong>temporal difference</strong> (<strong>TD</strong>) algorithms, which suggests that time differences between actions taken and rewards received are involved.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Neural networks as a Q-function</h1>
+                </header>
+            
+            <article>
+                
+<p>Now we know the state and the action to perform. However, the <kbd>QLearning</kbd> agent needs to know the search space of the form (states x actions). The next step consists of creating the graph or search space, which is the container responsible for any sequence of states. The <kbd>QLSpace</kbd> class defines the search space (states x actions) for the <kbd>QLearning</kbd> algorithm, as shown in the following diagram:</p>
+<div class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-661 image-border" src="assets/20fae0f1-19b4-47ff-a3f5-b8a228aec422.png" style=""/></div>
+<div class="CDPAlignCenter CDPAlign packt_figref">State transition matrix with QLData (Q-value, reward, probability)</div>
+<p>The end user with a list of states and actions can provide the search space. Alternatively, it is automatically created by providing the number of states, by taking the following parameters:</p>
+<ul>
+<li><strong>States</strong>: The sequence of all possible states defined in the Q-learning search space</li>
+<li><strong>Goals</strong>: A list of identifiers of states that are goals</li>
+</ul>
+<p>However, classical notation of such a search space (or lookup table) is sometimes not efficient; as in most interesting problems, our state-action space is much too large to store in a table, for example, the <em>Pac-Man</em> game. Rather we need to generalize and pattern-match between states anyway. In other words, we need our Q-learning algorithm to say, <em>The value of this kind of state is X</em> instead of saying, <em>the value of this exact, super-specific state is X</em>.</p>
+<p>Here neural-network-based Q-learning can be used instead of a lookup table as our <span class="mi"><em>Q</em></span><span class="mo">(</span><span class="mi"><em>s</em></span><span class="mo">,</span> <span class="mi"><em>a</em></span><span class="mo">) such that it</span> accepts a state <em>s</em> and an action <em>a</em> and spits out the value of that state-action. However, as I alluded to earlier, an NN <span>sometimes </span>has millions of parameters associated with it. These are the weights. Therefore, our <span class="mi"><em>Q</em></span> function actually looks like <span class="mi"><em>Q</em></span><span class="mo">(</span><span class="mi"><em>s</em></span><span class="mo">,</span> <span class="mi"><em>a</em></span><span class="mo">,</span> <span class="mi"><em>θ</em></span><span class="mo">),</span> where <span class="mi"><em>θ</em></span> is a vector of parameters.</p>
+<p>Instead of iteratively updating values in a table, we will iteratively update the <span class="mi"><em>θ</em></span> parameters of our neural network so that it learns to provide us with better estimates of state-action values. By the way, we can use gradient descent (backpropagation) to train such a deep Q-learning network just like any other neural networks.</p>
+<p>For example, if the state (search space) is represented by an image, a neural network can rank the possible actions made by the agent such that it can predict the possible reward. For example, running left returns five points, jumping up returns seven, and jumping down returns two points, but running left <span>returns </span>none.</p>
+<div class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-662 image-border" src="assets/2dd9f59b-8fc8-4f23-a414-c19e938a5bc4.png" style=""/></div>
+<div class="packt_figure CDPAlignCenter CDPAlign packt_figref">Using a neural network for reinforcement learning-based gaming</div>
+<p>To make this happen, instead of having to run our network forward for every action, we can run it forward once we just need to get the <span class="mi"><em>max Q</em></span><span class="mo">(</span><span class="mi"><em>s</em></span><span class="mo">′,</span><span class="mi"><em>a</em></span><span class="mo">′), that is,</span> <em>max Q</em> values for every possible action in the new state <em>s'</em>.</p>
+<p>We will see how to create a deep Q-learning network like this with <kbd>MultiLayerNetwork</kbd> and the <kbd>MultiLayerConfiguration</kbd> configuration of DL4J. Therefore, the neural network will serve as our <span class="mi">Q<em>-</em></span>function. Now that we have minimal theoretical knowing about RL and Q-learning, it is time to get to coding.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Developing a GridWorld game using a deep Q-network</h1>
+                </header>
+            
+            <article>
+                
+<p>We will now start diving into <strong>Deep Q-Network</strong> (<strong>DQN</strong>) to train an agent to play GridWorld, which is a simple text-based game. There is a 4 x 4 grid of tiles and four objects are placed. There is an agent (a player), a pit, a goal, and a wall.</p>
+<div class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-663 image-border" src="assets/109cb766-7ba7-4c1d-b8b6-4d53282de1e5.png" style=""/></div>
+<div class="packt_figure CDPAlignCenter CDPAlign packt_figref">GridWorld project structure</div>
+<p>The project has the following structure:</p>
+<ul>
+<li><kbd>DeepQNetwork.java</kbd>: Provides the reference architecture for the DQN</li>
+<li><kbd>Replay.java</kbd>: Generates replay memory for the DQN to ensure that the gradients of the deep network are stable and do not diverge across episodes</li>
+<li><kbd>GridWorld.java</kbd>: The main class used for training the DQN and playing the game.</li>
+</ul>
+<p>By the way, we perform the training on GPU and cuDNN for faster convergence. However, feel free to use the CPU backend as well if your machine does not have a GPU.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Generating the grid</h1>
+                </header>
+            
+            <article>
+                
+<p>We will be developing a simple game by initializing a grid in exactly the same way each time. The game starts with the agent (<em>A</em>), goal (<em>+</em>), pit (-), and wall (<em>W</em>). All elements are randomly placed on the grid in each game. This is such that the Q-learning just needs to learn how to move the agent from a known starting position to a known goal without hitting the pit, which gives negative rewards. Take a look at this screenshot:</p>
+<div class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-664 image-border" src="assets/a59c6f73-11ff-4199-8fd7-25476b7e85b0.png" style=""/></div>
+<div class="packt_figure CDPAlignCenter CDPAlign packt_figref">A grid for the GridWorld game showing the elements (that is, agent, goal, pit, and wall)</div>
+<p>In short, the target of the game is to reach the goal, where the agent will receive a numerical reward. For simplicity, we will avoid a pit; if the agent lands on the pit, it gets penalized with a negative reward.</p>
+<p>The wall can block the agent's path too, but it offers no reward or penalty, so we're safe. Since this is a simple way of defining the state, the agent can make the following moves (that is, actions):</p>
+<ul>
+<li>Up</li>
+<li>Down</li>
+<li>Left</li>
+<li>Right</li>
+</ul>
+<p>This way, an action <em>a</em> can be defined as follows: <kbd>a ∈ A {up, down, left, right}</kbd>. Now let's see, based on the preceding assumption, how the grid would look:</p>
+<pre>// Generate the GridMap<br/><strong>int</strong> size = 4;<br/><strong>float</strong>[][] generateGridMap() {<br/>        <strong>int</strong> agent = rand.nextInt(size * size);<br/>        <strong>int</strong> goal = rand.nextInt(size * size);<br/><br/>        <strong>while</strong>(goal == agent)<br/>            goal = rand.nextInt(size * size);<br/>        <strong>float</strong>[][] map = new float[size][size];<br/><br/>        <strong>for</strong>(<strong>int</strong> i = 0; i &lt; size * size; i++)<br/>            map[i / size][i % size] = 0;<br/>        map[goal / size][goal % size] = -1;<br/>        map[agent / size][agent % size] = 1;<br/><br/>        <strong>return</strong> map;<br/>    }</pre>
+<p>Once the grid is constructed, it can be printed as follows:</p>
+<pre><strong>void</strong> printGrid(<strong>float</strong>[][] Map) {<br/>        <strong>for</strong>(<strong>int</strong> x = 0; x &lt; size; x++) {<br/>            <strong>for</strong>(<strong>int</strong> y = 0; y &lt; size; y++) {<br/>                System.out.print((<strong>int</strong>) <strong>Map</strong>[x][y]);<br/>            }<br/>            System.out.println(" ");<br/>        }<br/>        System.out.println(" ");<br/>    }</pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Calculating agent and goal positions</h1>
+                </header>
+            
+            <article>
+                
+<p>Now the search space for the agent is ready. So let's calculate the initial position of the agent and the goal. First, we compute the initial position of the agent in the grid, as follows:</p>
+<pre>// Calculate the position of agent<br/><strong>int</strong> calcAgentPos(<strong>float</strong>[][] <strong>Map</strong>) {<br/>        <strong>int</strong> x = -1;<br/>        <strong>for</strong>(<strong>int</strong> i = 0; i &lt; size * size; i++) {<br/>            <strong>if</strong>(<strong>Map</strong>[i / size][i % size] == 1)<br/>                <strong>return</strong> i;<br/>        }<br/>        <strong>return</strong> x;<br/>    }</pre>
+<p>Then we calculate the position of the goal, as follows:</p>
+<pre>// Calculate the position of goal. The method takes the grid space as input<br/><strong>int</strong> calcGoalPos(<strong>float</strong>[][] <strong>Map</strong>) {<br/>        <strong>int</strong> x = -1;// start from the initial position<br/><br/>        // Then we loop over the grid size say 4x4 times<br/>        <strong>for</strong>(<strong>int</strong> i = 0; i &lt; size * size; i++) {<br/>            // If the mapped position is the initial position, we update the position <br/>            <strong>if</strong>(<strong>Map</strong>[i / size][i % size] == -1)<br/>                <strong>return</strong> i;<br/>        }<br/>        <strong>return</strong> x; // agent cannot move to any other cell<br/>    }</pre>
+<p>Now the generated grid can be considered as four separate grid planes, where each plane represents the position of each element. In the following diagram, the agent's current grid position is (3, 0), the wall is at (0, 0), the pit is at (0, 1), and the goal is at (1, 0), which also means that all other elements are 0s:</p>
+<div class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-665 image-border" src="assets/826ed961-0272-49c2-9a9c-d8bd9a35bd10.png" style=""/></div>
+<div class="packt_figure CDPAlignCenter CDPAlign packt_figref">A generated grid can be considered as four separate grid planes</div>
+<p>Thus, we developed the grid such that some of the objects contain a <em>1</em> at the same <em>x</em>, <em>y</em> position (but different <em>z</em> positions), which indicates they're at the same position on the grid.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Calculating the action mask</h1>
+                </header>
+            
+            <article>
+                
+<p>Here, we set all the outputs to 0, except the one for the action we actually saw, such that the network multiplies its outputs by a mask corresponding to the one-hot encoded action. We can then pass 0 as the target for all unknown actions, and our neural network should thus perform fine. When we want to predict all actions, we can simply pass a mask of all 1s:</p>
+<pre>// Get action mask<br/><strong>int</strong>[] getActionMask(<strong>float</strong>[][] CurrMap) {<br/>        <strong>int</strong> retVal[] = { 1, 1, 1, 1 };<br/><br/>        <strong>int</strong> agent = calcAgentPos(CurrMap); //agent current position<br/>        <strong>if</strong>(agent &lt; size) // if agent's current pos is less than 4, action mask is set to 0<br/>            retVal[0] = 0;<br/>        <strong>if</strong>(agent &gt;= (size * size - size)) // if agent's current pos is 12, we set action mask to 0 too<br/>            retVal[1] = 0;<br/>        <strong>if</strong>(agent % size == 0) // if agent's current pos is 0 or 4, we set action mask to 0 too<br/>            retVal[2] = 0;<br/>        <strong>if</strong>(agent % size == (size - 1))// if agent's current pos is 7/11/15, we set action mask to 0 too<br/>            retVal[3] = 0;<br/><br/>        <strong>return</strong> retVal; // finally, we return the updated action mask. <br/>    }</pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Providing guidance action</h1>
+                </header>
+            
+            <article>
+                
+<p>Now the agent's action plan is known. The next task is providing some guidance to the agent moving from the current position towards the goal. For example, not all the action is accurate, that is, a bad move:</p>
+<pre>// Show guidance move to agent <br/><strong>float</strong>[][] doMove(<strong>float</strong>[][] CurrMap, <strong>int</strong> action) {<br/>        <strong>float</strong> nextMap[][] = <strong>new</strong> <strong>float</strong>[size][size];<br/>        <strong>for</strong>(<strong>int</strong> i = 0; i &lt; size * size; i++)<br/>            nextMap[i / size][i % size] = CurrMap[i / size][i % size];<br/><br/>        <strong>int</strong> agent = calcAgentPos(CurrMap);<br/>        nextMap[agent / size][agent % size] = 0;<br/>        <br/>        <strong>if</strong>(action == 0) {<br/>            <strong>if</strong>(agent - size &gt;= 0)<br/>                nextMap[(agent - size) / size][agent % size] = 1;<br/>            <strong>else</strong> {<br/>                System.out.println("Bad Move");<br/>                System.exit(0);<br/>            }<br/>        } <strong>else if</strong>(action == 1) {<br/>            <strong>if</strong>(agent + size &lt; size * size)<br/>                nextMap[(agent + size) / size][agent % size] = 1;<br/>            <strong>else</strong> {<br/>                System.out.println("Bad Move");<br/>                System.exit(0);<br/>            }<br/>        } <strong>else if</strong> (action == 2) {<br/>            <strong>if</strong>((agent % size) - 1 &gt;= 0)<br/>                nextMap[agent / size][(agent % size) - 1] = 1;<br/>            <strong>else</strong> {<br/>                System.out.println("Bad Move");<br/>                System.exit(0);<br/>            }<br/>        } <strong>else if</strong>(action == 3) {<br/>            <strong>if</strong>((agent % size) + 1 &lt; size)<br/>                nextMap[agent / size][(agent % size) + 1] = 1;<br/>            <strong>else</strong> {<br/>                System.out.println("Bad Move");<br/>                System.exit(0);<br/>            }<br/>        }<br/>        <strong>return</strong> nextMap;<br/>    }</pre>
+<p>In the previous code block, we encoded the action as follows: <kbd>0</kbd> is up, <kbd>1</kbd> is down, <kbd>2</kbd> is left, and <kbd>3</kbd> is right. Otherwise, we treat the action as a bad move, and so the agent gets penalized.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Calculating the reward</h1>
+                </header>
+            
+            <article>
+                
+<p>Now that the agent is provided with some guidance—reinforcement<span>—</span>the next task is to calculate the reward for each action the agent makes. Take a look at this code:</p>
+<pre>// Compute reward for an action <br/><strong>float</strong> calcReward(<strong>float</strong>[][] CurrMap, <strong>float</strong>[][] NextMap) {<br/>        <strong>int</strong> newGoal = calcGoalPos(NextMap);// first, we calculate goal position for each map<br/>        <strong>if</strong>(newGoal == -1) // if goal position is the initial position (i.e. no move)<br/>            <strong>return</strong> (size * size + 1); // we reward the agent to 4*4+ 1 = 17 (i.e. maximum reward)<br/>        <strong>return</strong> -1f; // else we reward -1.0 for each bad move <br/>    }</pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Flattening input for the input layer</h1>
+                </header>
+            
+            <article>
+                
+<p><span class="uiqtextrenderedqtext">Then we need to convert the output of the network into a 1D-feature vector, to be used by the DQN. This flattening gets the output of the network; it flattens all its structure to create a single long-feature vector to be used by the dense layer. Take a look at this code:</span></p>
+<pre><strong>INDArray</strong> flattenInput(<strong>int</strong> TimeStep) {<br/>        <strong>float</strong> flattenedInput[] = <strong>new</strong> <strong>float</strong>[size * size * 2 + 1];<br/><br/>        <strong>for</strong>(<strong>int</strong> a = 0; a &lt; size; a++) {<br/>            <strong>for</strong>(<strong>int</strong> b = 0; b &lt; size; b++) {<br/>                <strong>if</strong>(FrameBuffer[a][b] == -1)<br/>                    flattenedInput[a * size + b] = 1;<br/>                <strong>else</strong><br/>                    flattenedInput[a * size + b] = 0;<br/>                <strong>if</strong>(FrameBuffer[a][b] == 1)<br/>                    flattenedInput[size * size + a * size + b] = 1;<br/>                <strong>else</strong><br/>                    flattenedInput[size * size + a * size + b] = 0;<br/>            }<br/>        }<br/>        flattenedInput[size * size * 2] = TimeStep;<br/>        <strong>return</strong> <strong>Nd4j</strong>.create(flattenedInput);<br/>    }</pre>
+<p>Up to this point, we just created the logical skeleton for the <kbd>GridWorld</kbd>. Thus, we create the <kbd>DQN</kbd> before we start playing the game.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Network construction and training</h1>
+                </header>
+            
+            <article>
+                
+<p>As I stated, we will create a DQN network using <kbd>MultiLayerNetwork</kbd> and the <kbd>MultiLayerConfiguration</kbd> configuration of DL4J, which will serve as our <span class="mi">Q-</span>function. Therefore, the first step is to create a <kbd>MultiLayerNetwork</kbd> by defining <kbd>MultiLayerConfiguration</kbd>. Since the state has 64 elements—4 x 4 x 4<span>—</span>our network has to have an input layer of 64 units, two hidden layers of 164 and 150 units each, and an output layer of 4, for four possible actions (up, down, left, and right). This is outlined here:</p>
+<div class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-666 image-border" src="assets/e4134ff8-c90a-4cbb-947b-d7b4efa6c89d.png" style=""/></div>
+<div class="packt_figure CDPAlignCenter CDPAlign packt_figref">The structure of the DQN network, showing an input layer, two hidden layers, and an output layer</div>
+<p>Nevertheless, we will be using experience replay memory for training our DQN, which will help us store the transitions observed by the agent. This will allow the DQN to reuse this data later. By sampling from it randomly, the transitions that build up a batch are de-correlated. It has been shown that this greatly stabilizes and improves the DQN training procedure. Following the preceding config, the following code can be used to create such a <kbd>MultiLayerConfiguration</kbd>:</p>
+<pre><strong>int</strong> InputLength = size * size * 2 + 1;<br/><strong>int</strong> HiddenLayerCount = 150;<br/><br/><strong>MultiLayerConfiguration</strong> conf = <strong>new</strong> <strong>NeuralNetConfiguration</strong>.Builder()<br/>                .seed(12345)    //Random number generator seed for improved repeatability. Optional.<br/>                .optimizationAlgo(OptimizationAlgorithm.<strong>STOCHASTIC_GRADIENT_DESCENT</strong>)<br/>                .weightInit(WeightInit.<strong>XAVIER</strong>)<br/>                .updater(new <strong>Adam</strong>(0.001))<br/>                .l2(0.001) // l2 regularization on all layers<br/>                .list()<br/>                .layer(0, new <strong>DenseLayer</strong>.Builder()<br/>                        .nIn(InputLength)<br/>                        .nOut(HiddenLayerCount)<br/>                        .weightInit(WeightInit.<strong>XAVIER</strong>)<br/>                        .activation(Activation.<strong>RELU</strong>)<br/>                        .build())<br/>                .layer(1, new <strong>DenseLayer</strong>.Builder()<br/>                        .nIn(HiddenLayerCount)<br/>                        .nOut(HiddenLayerCount)<br/>                        .weightInit(WeightInit.<strong>XAVIER</strong>)<br/>                        .activation(Activation.<strong>RELU</strong>)<br/>                        .build())<br/>                .layer(2,new OutputLayer.Builder(LossFunction.<strong>MSE</strong>)<br/>                        .nIn(HiddenLayerCount)<br/>                        .nOut(4) // for 4 possible actions<br/>                        .weightInit(WeightInit.<strong>XAVIER</strong>)<br/>                        .activation(Activation.<strong>IDENTITY</strong>)<br/>                        .weightInit(WeightInit.<strong>XAVIER</strong>)<br/>                        .build())<br/>                .pretrain(false).backprop(true).build();</pre>
+<p>Then we use this configuration to create a DQN:</p>
+<pre><strong>DeepQNetwork</strong> RLNet = <strong>new</strong> <strong>DeepQNetwork</strong>(conf, 100000, .99f, 1d, 1024, 500, 1024, InputLength, 4);</pre>
+<p>We will discuss the parameters shortly, but, before that, we'll look at how to create such a deep architecture. First, we define some parameters:</p>
+<pre><strong>int</strong> ReplayMemoryCapacity;<br/><strong>List</strong>&lt;<strong>Replay</strong>&gt; ReplayMemory;<br/><strong>double</strong> Epsilon;<br/><strong>float</strong> Discount;<br/>    <br/><strong>MultiLayerNetwork</strong> DeepQ; // Initial DeepQNet<br/><strong>MultiLayerNetwork</strong> TargetDeepQ; // Target DeepQNet<br/>    <br/><strong>int</strong> BatchSize;<br/><strong>int</strong> UpdateFreq;<br/><strong>int</strong> UpdateCounter;<br/><strong>int</strong> ReplayStartSize;<br/><strong>Random</strong> r;<br/>    <br/><strong>int</strong> InputLength;<br/><strong>int</strong> NumActions;<br/>    <br/><strong>INDArray</strong> LastInput;<br/><strong>int</strong> LastAction;</pre>
+<p>Then we define the constructor to initialize these parameters:</p>
+<pre><strong>DeepQNetwork</strong>(MultiLayerConfiguration conf, <strong>int</strong> replayMemoryCapacity, <strong>float</strong> discount, <strong>double</strong> epsilon, <strong>int</strong> batchSize, <strong>int</strong> updateFreq, <strong>int</strong> replayStartSize, <strong>int</strong> inputLength, <strong>int</strong> numActions){<br/>        // First, we initialize both the DeepQNets<br/><strong>        DeepQ</strong> = <strong>new MultiLayerNetwork</strong>(conf);<br/>        DeepQ.init();<br/>        <br/>        <strong>TargetDeepQ</strong> = <strong>new</strong> <strong>MultiLayerNetwork</strong>(conf);<br/>        TargetDeepQ.init();<br/><br/>        // Then we initialize the target DeepQNet's params<br/>        TargetDeepQ.setParams(DeepQ.params());<br/>        <strong>ReplayMemoryCapacity</strong> = replayMemoryCapacity;<br/>        <br/>        Epsilon = epsilon;<br/>        Discount = discount;<br/>        <br/>        r = new Random();<br/>        BatchSize = batchSize;<br/>        UpdateFreq = updateFreq;<br/>        UpdateCounter = 0;<br/>        <br/>        <strong>ReplayMemory</strong> = new ArrayList&lt;Replay&gt;();<br/>        <strong>ReplayStartSize</strong> = replayStartSize;<br/>        InputLength = inputLength;<br/>        NumActions = numActions;<br/>    }</pre>
+<p>The following is the implementation for the main loop of the algorithm:</p>
+<ol>
+<li>We set up a <kbd>for</kbd> loop to the number of episodes while the game is in progress.</li>
+<li>We run the Q-network forward.</li>
+<li>We use an epsilon-greedy implementation, so at time <em>t</em> with probability <em>ϵ,</em> the <em>agent</em> chooses a random action. However, with probability 1−<em>ϵ,</em> the action associated with the highest Q-value from our neural network is performed.</li>
+<li>Then the agent takes an action <em>a</em>, which is determined in the previous step; we observe a new state <em>s</em>′ and reward <em>r<sub>t</sub></em><sub>+1</sub>.</li>
+<li>Then the Q-network forward pass is executed using <em>s</em>′, and the highest Q-value (maxQ) is stored.</li>
+<li>The agent's target value is then computed as reward + (gamma * maxQ) to train the network, where gamma is a parameter (0&lt;=<em>γ</em>&lt;=1).</li>
+<li>We aim to update the output associated with the action we just took for four possible outputs. Here, the agent's target output vector is the same as the output vector from the first execution, except the one output associated with an action to <em>reward + (gamma * maxQ)</em>.</li>
+</ol>
+<p>The preceding steps are for one episode, and then the loop iterates for the defined episode by the user. In addition, the grid is first constructed, and then the next reward for each move is computed and saved. In short, the preceding steps can be represented as follows:</p>
+<pre><strong>GridWorld</strong> grid = new GridWorld();<br/>grid.networkConstruction();<br/><br/>// We iterate for 100 episodes<br/><strong>for</strong>(<strong>int</strong> m = 0; m &lt; 100; m++) {<br/>            System.out.println("Episode: " + m);<br/>            <strong>float</strong> CurrMap[][] = grid.generateGridMap();<br/><br/>            grid.FrameBuffer = CurrMap;<br/>            <strong>int</strong> t = 0;<br/>            grid.printGrid(CurrMap);<br/><br/>            <strong>for</strong>(<strong>int</strong> i = 0; i &lt; 2 * grid.size; i++) {<br/>                <strong>int</strong> a = grid.RLNet.getAction(grid.flattenInput(t), grid.getActionMask(CurrMap));<br/>                <br/>                <strong>float</strong> NextMap[][] = grid.doMove(CurrMap, a);<br/>                <strong>float</strong> r = grid.calcReward(CurrMap, NextMap);<br/>                grid.addToBuffer(NextMap);<br/>                t++;<br/><br/>                <strong>if</strong>(r == grid.size * grid.size + 1) {<br/>                    grid.RLNet.observeReward(r, null, grid.getActionMask(NextMap));<br/>                    <strong>break</strong>;<br/>                }<br/><br/>                grid.RLNet.observeReward(r, grid.flattenInput(t), grid.getActionMask(NextMap));<br/>                CurrMap = NextMap;<br/>            }<br/>}</pre>
+<p>In the preceding code block, network computes the observed reward for each mini batch of flattened input data. Take a look at this:</p>
+<pre><strong>void</strong> observeReward(<strong>float</strong> Reward, <strong>INDArray</strong> NextInputs, <strong>int</strong> NextActionMask[]){<br/>        addReplay(Reward, NextInputs, NextActionMask);<br/><br/>        <strong>if</strong>(ReplayStartSize &lt;  ReplayMemory.size())<br/>            networkTraining(BatchSize);<br/>        UpdateCounter++;<br/>        <strong>if</strong>(UpdateCounter == UpdateFreq){<br/>            UpdateCounter = 0;<br/>            System.out.println("Reconciling Networks");<br/>            reconcileNetworks();<br/>        }<br/>    }    </pre>
+<p>The preceding reward is calculated to estimate the optimal future value:</p>
+<pre><strong>int</strong> getAction(<strong>INDArray</strong> Inputs , <strong>int</strong> ActionMask[]){<br/>        LastInput = Inputs;<br/>        <strong>INDArray</strong> outputs = DeepQ.output(Inputs);<br/>        <br/>        System.out.print(outputs + " ");<br/>        <strong>if</strong>(Epsilon &gt; r.nextDouble()) {<br/>             LastAction = r.nextInt(outputs.size(1));<br/>             <strong>while</strong>(ActionMask[LastAction] == 0)<br/>                 LastAction = r.nextInt(outputs.size(1));<br/>             System.out.println(LastAction);<br/>             <strong>return</strong> LastAction;<br/>        }        <br/>        LastAction = findActionMax(outputs , ActionMask);<br/>        System.out.println(LastAction);<br/>        <strong>return</strong> LastAction;<br/>    }</pre>
+<p>In the preceding code block, the future reward is computed by taking the maximum value of the neural network output. Take a look at this:</p>
+<pre><strong>int</strong> findActionMax(<strong>INDArray</strong> NetOutputs , <strong>int</strong> ActionMask[]){<br/>        <strong>int</strong> i = 0;<br/>        <strong>while</strong>(ActionMask[i] == 0) i++;<br/>        <br/>        <strong>float</strong> maxVal = NetOutputs.getFloat(i);<br/>        <strong>int</strong> maxValI = i;<br/><br/>        <strong>for</strong>(; i &lt; NetOutputs.size(1) ; i++){<br/>            <strong>if</strong>(NetOutputs.getFloat(i) &gt; maxVal &amp;&amp; ActionMask[i] == 1){<br/>                maxVal = NetOutputs.getFloat(i);<br/>                maxValI = i;<br/>            }<br/>        }<br/>        <strong>return</strong> maxValI;<br/>    }    </pre>
+<p>As stated before, the observed reward is computed once the network training starts. The combined input is computed as follows:</p>
+<pre><strong>INDArray</strong> combineInputs(Replay replays[]){<br/>        <strong>INDArray</strong> retVal = <strong>Nd4j</strong>.create(replays.length , InputLength);<br/>        <strong>for</strong>(<strong>int</strong> i = 0; i &lt; replays.length ; i++){<br/>            retVal.putRow(i, replays[i].Input);<br/>        }<br/>        <strong>return</strong> retVal;<br/>    }</pre>
+<p>Then the network needs to compute the combined input for the next pass. Take a look at this code:</p>
+<pre><strong>INDArray</strong> combineNextInputs(<strong>Replay</strong> replays[]){<br/>        <strong>INDArray</strong> retVal = <strong>Nd4j</strong>.create(replays.length , InputLength);<br/>        <strong>for</strong>(<strong>int</strong> i = 0; i &lt; replays.length ; i++){<br/>            <strong>if</strong>(replays[i].NextInput != <strong>null</strong>)<br/>                retVal.putRow(i, replays[i].NextInput);<br/>        }<br/>        <strong>return</strong> retVal;<br/>    }</pre>
+<p>In the previous code blocks, the map at each time step is saved with the <kbd>addToBuffer()</kbd> method, which is as follows:</p>
+<pre><strong>void</strong> addToBuffer(<strong>float</strong>[][] nextFrame) { <br/>          <strong>FrameBuffer</strong> = nextFrame;<br/>}</pre>
+<p>Then the DQNet takes the flattening input into batches for each episode, and the training starts.  Then the current and target outputs by maximizing the reward are computed based on the current and target inputs. Take a look at this code block:</p>
+<pre><strong>void</strong> networkTraining(<strong>int</strong> BatchSize){<br/>        <strong>Replay</strong> replays[] = getMiniBatch(BatchSize);<br/>        <strong>INDArray</strong> CurrInputs = combineInputs(replays);<br/>        <strong>INDArray</strong> TargetInputs = combineNextInputs(replays);<br/><br/>        <strong>INDArray</strong> CurrOutputs = DeepQ.output(CurrInputs);<br/>        <strong>INDArray</strong> TargetOutputs = TargetDeepQ.output(TargetInputs);<br/>        <br/>        <strong>float</strong> y[] = <strong>new</strong> <strong>float</strong>[replays.length];<br/>        <strong>for</strong>(<strong>int</strong> i = 0 ; i &lt; y.length ; i++){<br/>            <strong>int</strong> ind[] = { i , replays[i].Action };<br/>            <strong>float</strong> FutureReward = 0 ;<br/>            <strong>if</strong>(replays[i].NextInput != null)<br/>                <strong>FutureReward</strong> = findMax(TargetOutputs.getRow(i) , replays[i].NextActionMask);<br/>            <strong>float</strong> TargetReward = replays[i].Reward + Discount * FutureReward ;<br/>            CurrOutputs.putScalar(ind , TargetReward ) ;<br/>        }<br/>        //System.out.println("Avgerage Error: " + (TotalError / y.length) );<br/>        <br/>        DeepQ.fit(CurrInputs, CurrOutputs);<br/>    }</pre>
+<p>In the preceding code block, future rewards are computed by maximizing the value of the neural network output, as shown here:</p>
+<pre><strong>float</strong> findMax(<strong>INDArray</strong> NetOutputs , <strong>int</strong> ActionMask[]){<br/>        <strong>int</strong> i = 0;<br/>        <strong>while</strong>(ActionMask[i] == 0) i++;<br/>        <br/>        <strong>float</strong> maxVal = NetOutputs.getFloat(i);<br/>        <strong>for</strong>(; i &lt; NetOutputs.size(1) ; i++){<br/>            <strong>if</strong>(NetOutputs.getFloat(i) &gt; maxVal &amp;&amp; ActionMask[i] == 1){<br/>                maxVal = NetOutputs.getFloat(i);<br/>            }<br/>        }<br/>        <strong>return</strong> maxVal;<br/>    }</pre>
+<p>As I stated earlier, this is very simple game, and if the agent takes action 2 (that is, left), one step results in reaching the goal. Therefore, we just keep all other outputs the same as before and change the one for the action we took. So, implementing experience replay is a better idea, which gives us mini-batch updating in an online learning scheme.</p>
+<p>It works such that we run the agent to collect enough transitions to fill up the replay memory, without training. For example, our memory may be of size 10,000. Then, at every step, the agent will obtain a transition; we'll add this to the end of the memory and pop off the earliest one. Take a look at this code:</p>
+<pre><strong>void</strong> addReplay(<strong>float</strong> reward , <strong>INDArray</strong> NextInput , <strong>int</strong> NextActionMask[]){<br/>        <strong>if</strong>(ReplayMemory.size() &gt;= ReplayMemoryCapacity )<br/>            ReplayMemory.remove( r.nextInt(ReplayMemory.size()) );<br/>        <br/>        ReplayMemory.add(<strong>new</strong> <strong>Replay</strong>(LastInput , LastAction , reward , NextInput , NextActionMask));<br/>    }</pre>
+<p>Then, sample a mini batch of experiences from the memory randomly, and update our Q-function on that, similar to mini-batch gradient descent. Take a look at this code:</p>
+<pre><strong>Replay</strong>[] getMiniBatch(int BatchSize){<br/>        <strong>int</strong> size = ReplayMemory.size() &lt; BatchSize ? ReplayMemory.size() : BatchSize ;<br/>        <strong>Replay</strong>[] retVal = new Replay[size];<br/>        <br/>        <strong>for</strong>(<strong>int</strong> i = 0 ; i &lt; size ; i++){<br/>            retVal[i] = ReplayMemory.get(r.nextInt(ReplayMemory.size()));<br/>        }<br/>        <strong>return</strong> retVal;        <br/>    }</pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Playing the GridWorld game</h1>
+                </header>
+            
+            <article>
+                
+<p>For this project, I haven't used any visualization to demonstrate the states and actions. Rather it is a text-based game, as I alluded to earlier. Then you can run the <kbd>GridWorld.java</kbd> class (containing the main method) using following invocation:</p>
+<pre><strong>DeepQNetwork</strong> RLNet = <strong>new</strong> <strong>DeepQNetwork</strong>(conf, 100000, .99f, 1d, 1024, 500, 1024, InputLength, 4);</pre>
+<p>In this invocation, here's the parameter description outlined:</p>
+<ul>
+<li><kbd>conf</kbd>: This is the <kbd>MultiLayerConfiguration</kbd> used to create the DQN</li>
+<li><kbd>100000</kbd>: This is the replay memory capacity</li>
+<li><kbd>.99f</kbd>: The discount</li>
+<li><kbd>1d</kbd>: This is the epsilon</li>
+<li><kbd>1024</kbd>: The batch size</li>
+<li><kbd>500</kbd>: This is the update frequency; second 1,024 is the replay start size</li>
+<li><kbd>InputLength</kbd>: This is the input length of size x size x 2 + 1= 33 (considering size=4)</li>
+<li><kbd>4</kbd>: This is the number of possible actions that can be performed by the agent.</li>
+</ul>
+<p>We initialize epsilon (<span class="mi"><em>ϵ</em></span>-greedy action selection) to 1, which will decrease by a small amount on every episode. This way, it will eventually reach 0.1 and saturate. Based on the preceding setting, the training should be started, which will start generating a grid representing the map at each timestamp and the outputs of the DQN for the up/down/left/right order, followed by the index of the highest value.</p>
+<p>We do not have any module for a graphical representation of the game. So in the previous result, 0, 1, -1, and so on,the grid represents the map at each timestamp for five episodes. The numbers in brackets are just the outputs of the DQN, followed by the index of the highest value. Take a look at this code block:</p>
+<pre><strong>Scanner</strong> keyboard = <strong>new</strong> <strong>Scanner</strong>(System.in);<br/><strong>for</strong>(<strong>int</strong> m = 0; m &lt; 10; m++) {<br/>            grid.RLNet.SetEpsilon(0);<br/>            float CurrMap[][] = grid.generateGridMap();<br/>            grid.FrameBuffer = CurrMap;<br/><br/>            <strong>int</strong> t = 0;<br/>            <strong>float</strong> tReward = 0;<br/><br/>            <strong>while</strong>(true) {<br/>                grid.printGrid(CurrMap);<br/>                keyboard.nextLine();<br/><br/>                <strong>int</strong> a = grid.RLNet.getAction(grid.flattenInput(t), grid.getActionMask(CurrMap));<br/>                <strong>float</strong> NextMap[][] = grid.doMove(CurrMap, a);<br/>                <strong>float</strong> r = grid.calcReward(CurrMap, NextMap);<br/><br/>                tReward += r;<br/>                grid.addToBuffer(NextMap);<br/>                t++;<br/>                grid.RLNet.observeReward(r, grid.flattenInput(t), grid.getActionMask(NextMap));<br/><br/>                <strong>if</strong>(r == grid.size * grid.size + 1)<br/>                    <strong>break</strong>;<br/>                CurrMap = NextMap;<br/>            }<br/>            System.out.println("Net Score: " + (tReward));<br/>        }<br/>        keyboard.close();<br/>    }<br/><br/></pre>
+<pre><span class="packt_screen">&gt;&gt;&gt;<br/> <span class="packt_screen">Episode: 0<br/> 0000<br/> 01-10<br/> 0000<br/> 0000<br/> [[ 0.2146, 0.0337, -0.0444, -0.0311]] 2<br/> [[ 0.1105, 0.2139, -0.0454, 0.0851]] 0<br/> [[ 0.0678, 0.3976, -0.0027, 0.2667]] 1<br/> [[ 0.0955, 0.3379, -0.1072, 0.2957]] 3<br/> [[ 0.2498, 0.2510, -0.1891, 0.4132]] 0<br/> [[ 0.2024, 0.4142, -0.1918, 0.6754]] 2<br/> [[ 0.1141, 0.6838, -0.2850, 0.6557]] 1<br/> [[ 0.1943, 0.6514, -0.3886, 0.6868]] 0<br/> Episode: 1<br/> 0000<br/> 0000<br/> 1000<br/> 00-10<br/> [[ 0.0342, 0.1792, -0.0991, 0.0369]] 0<br/> [[ 0.0734, 0.2147, -0.1360, 0.0285]] 1<br/> [[ 0.0044, 0.1295, -0.2472, 0.1816]] 3<br/> [[ 0.0685, 0.0555, -0.2153, 0.2873]] 0<br/> [[ 0.1479, 0.0558, -0.3495, 0.3527]] 3<br/> [[ 0.0978, 0.3776, -0.4362, 0.4475]] 0<br/> [[ 0.1010, 0.3509, -0.4134, 0.5363]] 2<br/> [[ 0.1611, 0.3717, -0.4411, 0.7929]] 3<br/> ....<br/> Episode: 9<br/> 0000<br/> 1-100<br/> 0000<br/> 0000<br/> [[ 0.0483, 0.2899, -0.1125, 0.0281]] 3<br/> 0000<br/> 0000<br/> 0-101<br/> 0000<br/> [[ 0.0534, 0.2587, -0.1539, 0.1711]] 1</span><br/> Net Score: 10.0</span></pre>
+<p>Thus, the agent has been able to make a total score of 10 (that is, positive).</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Frequently asked questions (FAQs)</h1>
+                </header>
+            
+            <article>
+                
+<p>Now that we have solved the GridWorld problem, there are other practical aspects in reinforcement learning and overall deep learning phenomena that need to be considered too. In this section, we will see some frequently asked questions that may be already on your mind. Answers to these questions can be found in Appendix.</p>
+<ol>
+<li>What is Q in Q-learning?</li>
+<li>I understand that we performed the training on GPU and cuDNN for faster convergence. However, there is no GPU on my machine. What can I do?</li>
+<li>There is no visualization, so it is difficult to follow the moves made by the agent toward the target.</li>
+<li>Give a few more examples of reinforcement learning.</li>
+<li>How do I reconcile the results obtained for our mini-batch processing?</li>
+<li>How would I reconcile the DQN?</li>
+<li>I would like to save the trained network. Can I do that?</li>
+<li>I would like to restore the saved (that is, trained) network. Can I do that?</li>
+</ol>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Summary</h1>
+                </header>
+            
+            <article>
+                
+<p>In this chapter, we saw how to develop a demo GridWorld game using DL4J, RL4J, and neural Q-learning, which acts as the Q-function. We also provided some basic theoretical background necessary for developing a deep QLearning network for playing the GridWorld game. However, we did not develop any module for visualizing the moves of the agent for the entire episodes.</p>
+<p>In the next chapter, we will develop a very common end-to-end movie recommendation system project, but with the neural <strong>Factorization Machine</strong> (<strong>FM</strong>) algorithm. The MovieLens 1 million dataset will be used for this project. We will be using RankSys and Java-based FM libraries for predicting both movie ratings and rankings from the users. Nevertheless, Spark ML will be used for exploratory analysis of the dataset.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Answers to questions</h1>
+                </header>
+            
+            <article>
+                
+<p><strong>Answer</strong> <strong>to question 1:</strong> Do not confuse the Q in Q-learning with the Q-function we have discussed in the previous parts. The Q-function is always the name of the function that accepts states and actions and spits out the value of that state-action pair. RL methods involve a Q-function but are not necessarily Q-learning algorithms.</p>
+<p><strong>Answer</strong> <strong>to question 2:</strong> No worries as you can perform the training on a CPU backend too. In that case, just remove the entries for CUDA and cuDNN dependencies from the <kbd>pom.xml</kbd> file and replace them with the CPU ones. The properties would be:</p>
+<pre><strong>&lt;properties&gt;</strong><br/>       &lt;project.build.sourceEncoding&gt;UTF-8&lt;/project.build.sourceEncoding&gt;<br/>       &lt;java.version&gt;1.8&lt;/java.version&gt;<br/>        &lt;nd4j.version&gt;1.0.0-alpha&lt;/nd4j.version&gt;<br/>       &lt;dl4j.version&gt;1.0.0-alpha&lt;/dl4j.version&gt;<br/>      &lt;datavec.version&gt;1.0.0-alpha&lt;/datavec.version&gt;<br/>       &lt;arbiter.version&gt;1.0.0-alpha&lt;/arbiter.version&gt;<br/>      &lt;logback.version&gt;1.2.3&lt;/logback.version&gt;<br/><strong>&lt;/properties&gt;</strong></pre>
+<p>Don't use these two dependencies:</p>
+<pre><strong>&lt;dependency&gt;</strong><br/>       &lt;groupId&gt;org.nd4j&lt;/groupId&gt;<br/>        &lt;artifactId&gt;nd4j-cuda-9.0-platform&lt;/artifactId&gt;<br/>        &lt;version&gt;${nd4j.version}&lt;/version&gt;<br/><strong>&lt;/dependency&gt;</strong><br/><strong>&lt;dependency&gt;</strong><br/>       &lt;groupId&gt;org.deeplearning4j&lt;/groupId&gt;<br/>       &lt;artifactId&gt;deeplearning4j-cuda-9.0&lt;/artifactId&gt;<br/>       &lt;version&gt;${dl4j.version}&lt;/version&gt;<br/><strong>&lt;/dependency&gt;</strong></pre>
+<p>Use only one, as follows:</p>
+<pre><strong>&lt;dependency&gt;</strong><br/>     &lt;groupId&gt;org.nd4j&lt;/groupId&gt;<br/>     &lt;artifactId&gt;nd4j-native&lt;/artifactId&gt;<br/>     &lt;version&gt;${nd4j.version}&lt;/version&gt;<br/><strong>&lt;/dependency&gt;</strong></pre>
+<p>Then you are ready to get going with the CPU backend.</p>
+<p><strong>Answer</strong> <strong>to question 3:</strong> As stated earlier, the initial target was to develop a simple text-based game. However, with some effort, all the moves can be visualized too. I want to leave this up to the readers. Nevertheless, the visualization module will be added to the GitHub repository very soon.</p>
+<p><strong>Answer</strong> <strong>to question 4:</strong> Well, there are some basic examples of RL4J on the DL4J GitHub repository at <a href="https://github.com/deeplearning4j/dl4j-examples/tree/master/rl4j-examples/src/main/java/org/deeplearning4j/examples/rl4j">https://github.com/deeplearning4j/dl4j-examples/</a>. Feel free to try to extend them to meet  your needs.</p>
+<p><strong>Answer</strong> <strong>to question 5:</strong> Processing each mini-batch gives us the best weights/biases result for the input used in that mini-batch. This question evolves several subquestions related to this: i) How do we reconcile the results obtained for all mini-batches? ii) Do we take the average to come up with the final weights/biases for the trained network?</p>
+<p>Therefore, each mini-batch contains the average of the gradients of individual errors. If you had two mini-batches, you could take the average of the gradient updates of both mini-batches to tweak the weights, to reduce the error for those samples.</p>
+<p><strong>Answer</strong> <strong>to question 6:</strong> Refer to question 5 to get the theoretical understanding. However, in our example, use the <kbd>setParams()</kbd> method from DL4J, which helps you reconcile network:</p>
+<pre><strong>void</strong> reconcileNetworks(){<br/>     TargetDeepQ.setParams(DeepQ.params());<br/>    }</pre>
+<p>Now the question would be: Where do we use such reconciling? Well, the answer is while computing the reward (see the <kbd>observeReward()</kbd> method).</p>
+<p><strong>Answer</strong> <strong>to question 7:</strong> Saving the DQN is similar to saving another DL4J-based network. For this, I wrote a method called <kbd>saveNetwork()</kbd> that saves network parameters as a single ND4J object in JSON format. Take a look at this:</p>
+<pre><strong>public</strong> boolean saveNetwork(<strong>String</strong> ParamFileName , <strong>String</strong> JSONFileName){<br/>        //Write the network parameters for later use:<br/>        <strong>try</strong>(<strong>DataOutputStream</strong> dos = <strong>new</strong> <strong>DataOutputStream</strong>(Files.newOutputStream(Paths.get(ParamFileName)))){<br/>            <strong>Nd4j</strong>.write(DeepQ.params(),dos);<br/>        } <strong>catch</strong>(<strong>IOException</strong> e) {<br/>            System.out.println("Failed to write params");<br/>            <strong>return</strong> false;<br/>        }<br/>        <br/>        //Write the network configuration:<br/>        <strong>try</strong>{<br/>            <strong>FileUtils</strong>.write(<strong>new</strong> <strong>File</strong>(JSONFileName), DeepQ.getLayerWiseConfigurations().toJson());<br/>        } <strong>catch</strong> (<strong>IOException</strong> e) {<br/>            System.out.println("Failed to write json");<br/>            <strong>return</strong> false;<br/>        }<br/>        <strong>return</strong> true;<br/>    }</pre>
+<p><strong>Answer</strong> <strong>to question 8:</strong> Restoring the DQN is similar to saving another DL4J-based network. For this, I wrote a method called <kbd>restoreNetwork()</kbd> that reconciles the params and reloads the saved network as <kbd>MultiLayerNetwork</kbd>. Here it is:</p>
+<pre><strong>public</strong> boolean restoreNetwork(String ParamFileName , String JSONFileName){<br/>        //Load network configuration from disk:<br/>        <strong>MultiLayerConfiguration</strong> confFromJson;<br/>        <strong>try</strong>{<br/>            confFromJson = <strong>MultiLayerConfiguration</strong>.fromJson(<strong>FileUtils</strong>.readFileToString(<strong>new</strong> <br/>                                                            <strong>File</strong>(JSONFileName)));<br/>        } <strong>catch</strong>(<strong>IOException</strong> e1) {<br/>            System.out.println("Failed to load json");<br/>            <strong>return</strong> false;<br/>        }<br/><br/>        //Load parameters from disk:<br/>        <strong>INDArray</strong> newParams;<br/>        <strong>try</strong>(<strong>DataInputStream</strong> dis = <strong>new</strong> <strong>DataInputStream</strong>(<strong>new</strong> <strong>FileInputStream</strong>(ParamFileName))){<br/>            newParams = Nd4j.read(dis);<br/>        } <strong>catch</strong>(<strong>FileNotFoundException</strong> e) {<br/>            System.out.println("Failed to load parems");<br/>            <strong>return</strong> false;<br/>        } <strong>catch</strong> (<strong>IOException</strong> e) {<br/>            System.out.println("Failed to load parems");<br/>            <strong>return</strong> false;<br/>        }<br/>        //Create a MultiLayerNetwork from the saved configuration and parameters <br/>        <strong>DeepQ</strong> = <strong>new</strong> <strong>MultiLayerNetwork</strong>(confFromJson); <br/>        DeepQ.init(); <br/>        <br/>        DeepQ.setParameters(newParams); <br/>        reconcileNetworks();<br/>        <strong>return</strong> true;        <br/>    }   </pre>
+
+
+            </article>
+
+            
+        </section>
+    </body></html>

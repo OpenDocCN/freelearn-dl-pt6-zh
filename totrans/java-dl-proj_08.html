@@ -1,0 +1,482 @@
+<html><head></head><body>
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Distributed Deep Learning – Video Classification Using Convolutional LSTM Networks</h1>
+                </header>
+            
+            <article>
+                
+<p>So far, we have seen how to develop deep-learning-based projects on numerals and images. However, applying similar techniques to video clips, for example, for human activity recognition from video, is not straightforward.</p>
+<p>In this chapter, we will see how to apply deep learning approaches to a video dataset. We will describe how to process and extract features from a large collection of video clips. Then we will make the overall pipeline scalable and faster by distributing the training on multiple devices (CPUs and GPUs), and run them in parallel.</p>
+<p>We will see a complete example of how to develop a deep learning application that accurately classifies a large collection of a video dataset, such as UCF101 dataset, using a combined CNN and LSTM network with <strong>Deeplearning4j</strong> (<strong>DL4J</strong>). This overcomes the limitation of standalone CNN or RNN <strong>Long Short-Term Memory</strong> (<strong>LSTM</strong>) networks.</p>
+<p>The training will be carried out on an Amazon EC2 GPU compute cluster. Eventually, this end-to-end project can be treated as a <span>primer</span> for human activity recognition from a video or so. Concisely, we will learn the following topics throughout an end-to-end project:</p>
+<ul>
+<li>Distributed deep learning across multiple GPUs</li>
+<li>Dataset collection and description</li>
+<li>Developing a video classifier using a convolutional-LSTM network</li>
+<li>Frequently asked questions (FAQs)</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Distributed deep learning across multiple GPUs</h1>
+                </header>
+            
+            <article>
+                
+<p>As stated earlier, we will see a systematic example for classifying a large collection of video clips from the <kbd>UCF101</kbd> dataset using a convolutional-LSTM network. However, first we need to know how to distribute the training across multiple GPUs. In previous chapters, we discussed several advanced techniques such as network weight initialization, batch normalization, faster optimizers, proper activation functions, etc. these certainly help the network to converge faster. However, still, training a large neural network on a single machine can take days or even weeks. Therefore, this is not a viable way for working with large-scale datasets.</p>
+<p>Theoretically, there are two main methods for the distributed training of neural networks: data parallelism and model parallelism. DL4J relies on data parallelism called distributed deep learning with parameter averaging. Nevertheless, multimedia analytics <span>typically </span>makes things even more complicated, since, from a single video clip, we can see thousands of frames and images, and so on. To get rid of this issue, we will <span>first </span>distribute computations across multiple devices on just one machine, and then do it on multiple devices across multiple machines as follows:</p>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/ecd11ffd-5ef5-47fa-8155-0910f3566db2.png" style=""/></div>
+<div class="CDPAlignCenter CDPAlign packt_figref">Executing a DL4J Java application across multiple devices in parallel</div>
+<p>For example, you can typically train a neural network just as fast using eight GPUs on a single machine rather than 16 GPUs across multiple machines. The reason is simple—the extra delay imposed by network communications in a multi-machine setup. The following diagram shows how to configure DL4J that uses CUDA and cuDNN to control GPUs and boost DNNs:</p>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/fd8e6fc1-224d-4706-95e7-ec824a1046ce.png" style=""/></div>
+<div class="CDPAlignCenter CDPAlign packt_figref">DL4J uses CUDA and cuDNN to control GPUs and boost DNNs</div>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Distributed training on GPUs with DL4J</h1>
+                </header>
+            
+            <article>
+                
+<p>DL4J works on distributed GPUs as well as on native (that is, ones with CPU backend). It allows users to run locally on a single GPU, such as the Nvidia Tesla, Titan, or GeForce GTX, and in the cloud on Nvidia GRID GPUs. We can also perform the training on an Amazon AWS EC2 GPU cluster,by having multiple GPUs installed.</p>
+<p>To train a neural network on GPUs, you need to make some changes to the <kbd>pom.xml</kbd> file in your root directory, such as properties and dependency management for pulling down the required dependencies provided by the DL4j team. First, we take care of the project properties, as follows:</p>
+<pre><strong>&lt;properties&gt;</strong><br/>        &lt;project.build.sourceEncoding&gt;UTF-8&lt;/project.build.sourceEncoding&gt;<br/>        &lt;java.version&gt;1.8&lt;/java.version&gt;<br/>        &lt;jdk.version&gt;1.8&lt;/jdk.version&gt;<br/>        &lt;nd4j.backend&gt;nd4j-cuda-9.0-platform&lt;/nd4j.backend&gt;<br/>        &lt;nd4j.version&gt;1.0.0-alpha&lt;/nd4j.version&gt;<br/>        &lt;dl4j.version&gt;1.0.0-alpha&lt;/dl4j.version&gt;<br/>        &lt;datavec.version&gt;1.0.0-alpha&lt;/datavec.version&gt;<br/>        &lt;arbiter.version&gt;1.0.0-alpha&lt;/arbiter.version&gt;<br/>        &lt;logback.version&gt;1.2.3&lt;/logback.version&gt;<br/><strong>&lt;/properties&gt;</strong></pre>
+<p>In the preceding <kbd>&lt;properties&gt;</kbd> tag, as the entries explain, we will be using DL4J 1.0.0-alpha version with CUDA 9.0 platform as the backend. In addition, we plan to use Java 8. Nonetheless, an additional property for <kbd>logback</kbd> is defined.</p>
+<div class="packt_infobox">Logback is intended as a successor to the popular log4j project, picking up where log4j left off. Logback's architecture is sufficiently generic so as to apply under different circumstances. Presently, logback is divided into three modules, logback-core, logback-classic and logback-access. For more information, readers should refer to  <a href="https://logback.qos.ch/">https://logback.qos.ch/</a>.</div>
+<p>I am assuming you have already configured CUDA and cuDNN and set the path accordingly. Once we have defined the project properties, the next important task would be to define GPU-related dependencies, as shown here:</p>
+<pre><strong>&lt;dependency&gt;</strong><br/>     &lt;groupId&gt;org.nd4j&lt;/groupId&gt;<br/>     &lt;artifactId&gt;nd4j-cuda-9.0-platform&lt;/artifactId&gt;<br/>     &lt;version&gt;${nd4j.version}&lt;/version&gt;<br/><strong>&lt;/dependency&gt;</strong><br/><strong>&lt;dependency&gt;</strong><br/>      &lt;groupId&gt;org.deeplearning4j&lt;/groupId&gt;<br/>      &lt;artifactId&gt;deeplearning4j-cuda-9.0&lt;/artifactId&gt;<br/>      &lt;version&gt;${dl4j.version}&lt;/version&gt;<br/><strong>&lt;/dependency&gt;</strong></pre>
+<p>Where ND4J is the numerical computing engine that powers DL4J and acts as the backends, or different types of hardware that it works on. If your system has multiple GPUs installed, you can train your model in data-parallel mode, which is called <strong>multi-GPU data parallelism</strong>. DL4J provides a simple wrapper that can be instantiated, something like this:</p>
+<pre>// ParallelWrapper will take care of load balancing between GPUs.<strong><br/>ParallelWrapper</strong> wrapper = new <strong>ParallelWrapper</strong>.Builder(YourExistingModel)<br/>     .prefetchBuffer(24)<br/>     .workers(8)<br/>     .averagingFrequency(1)<br/>     .reportScoreAfterAveraging(true)<br/>     .useLegacyAveraging(false)<br/>     .build();</pre>
+<p class="mce-root">A more concrete example can be seen as follows:</p>
+<pre><strong>ParallelWrapper</strong> wrapper = new <strong>ParallelWrapper</strong>.Builder(net)            <br/>            .prefetchBuffer(8)// DataSets prefetching options. Set to number of actual devices<br/>            .workers(8)// set number of workers equal to number of available devices <br/>            .averagingFrequency(3)// rare averaging improves performance, but reduce accuracy           <br/>            .reportScoreAfterAveraging(true) // if set TRUE, on every averaging model's score reported<br/>            .build();</pre>
+<p><kbd>ParallelWrapper</kbd> takes your existing model as the primary argument and does training in parallel by keeping the number of workers equal to or higher than the number of GPUs on your machine.</p>
+<p>Within <kbd>ParallelWrapper</kbd>, the initial model will be duplicated, and each worker will be training its own model. After every <em>N</em> iterations in <kbd>averagingFrequency(X)</kbd>, all models will be averaged, and training continues. Now, to use this functionality, use the following dependency in the <kbd>pom.xml</kbd> file:</p>
+<pre><strong>&lt;dependency&gt;</strong><br/>      &lt;groupId&gt;org.deeplearning4j&lt;/groupId&gt;<br/>      &lt;artifactId&gt;deeplearning4j-parallel-wrapper_2.11&lt;/artifactId&gt;<br/>      &lt;version&gt;${dl4j.version}&lt;/version&gt;<br/><strong>&lt;/dependency&gt;</strong></pre>
+<div class="packt_tip">For more up-to-date documentation, interested readers can check out the following link: <a href="https://deeplearning4j.org/gpu">https://deeplearning4j.org/gpu</a>.</div>
+<p>Now we have a theoretical understanding of how to distribute DL-based training across multiple GPUs. We will see a hands-on example soon in the next section.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Video classification using convolutional – LSTM</h1>
+                </header>
+            
+            <article>
+                
+<p>In this section, we will start combining convolutional, max pooling, dense, and recurrent layers to classify each frame of a video clip. Specifically, each video contains several human activities, which persist for multiple frames (though they move between frames) and may leave the frame. First, let's get a more detailed description of the dataset we will be using for this project.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">UCF101 – action recognition dataset</h1>
+                </header>
+            
+            <article>
+                
+<p><kbd>UCF101</kbd> is an action recognition dataset of realistic action videos, collected from YouTube and having 101 action categories covering 13,320 videos. The videos are collected with variations in camera motion, object appearance and pose, object scale, viewpoint, cluttered background, and illumination condition.</p>
+<p>The videos in 101 action categories are further clustered into 25 groups (clips in each group have common features, for example, background and viewpoint) having four to seven videos of an action in each group. There are five action categories: human-object interaction, body-motion only, human-human interaction, playing musical instruments, and <span>dports.</span></p>
+<p>A few more facts about this dataset:</p>
+<ul>
+<li><kbd>UCF101</kbd> videos contain different frame lengths, ranging between 100 and 300 frames per video clip</li>
+<li><kbd>UCF101</kbd> uses the <kbd>XVID</kbd> compression standard (that is, <kbd>.avi</kbd> format)</li>
+<li>The <kbd>UCF101</kbd> dataset has picture size of 320 x 240</li>
+<li>The <kbd>UCF101</kbd> dataset contains different classes in different video files</li>
+</ul>
+<p>A high-level glimpse of the dataset can be as follows:</p>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/a80f2a12-0bd4-42d6-bcf6-42a54b8d1869.png" style=""/></div>
+<div class="CDPAlignCenter CDPAlign packt_figref">Some random clips from the <kbd>UCF50</kbd> dataset (source: <a href="http://crcv.ucf.edu/data/UCF50.php">http://crcv.ucf.edu/data/UCF50.php</a>)</div>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Preprocessing and feature engineering</h1>
+                </header>
+            
+            <article>
+                
+<p>Processing video files is a very challenging task. Especially when it comes to reading video clips by handling and interoperating different encodings; this is a tedious job. Also, video clips may contain distorted frames, which is an obstacle when extracting high-quality features.</p>
+<p>Considering these, in this subsection, we will see how to preprocess video clips by dealing with the video encoding problem, and then we will describe the feature extraction process in detail.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Solving the encoding problem</h1>
+                </header>
+            
+            <article>
+                
+<p>Dealing with video data in Java is a troublesome job (given that we don't have many libraries like Python), especially if the videos come in old <kbd>.avi</kbd> or such formats. I have seen some blogs and examples on GitHub using JCodec Java library Version 0.1.5 (or 0.2.3) to read and parse <kbd>UCF101</kbd> video clips in an MP4 format.</p>
+<p>Even DL4J depends on datavec-data-codec, which depends on old JCodec API and is incompatible with the new version. Unfortunately, even this newer version of JCodec cannot read <kbd>UCF101</kbd> videos. Therefore, I decided to use the FFmpeg to process the video in MP4 format. This comes under the JavaCV library, which I've discussed already in an earlier chapter. Anyway, to use this library, just include the following dependency in the <kbd>pom.xml</kbd> file:</p>
+<pre><strong>&lt;dependency&gt;</strong><br/>       &lt;groupId&gt;org.bytedeco&lt;/groupId&gt;<br/>       &lt;artifactId&gt;javacv-platform&lt;/artifactId&gt;<br/>       &lt;version&gt;1.4.1&lt;/version&gt;<br/><strong>&lt;/dependency&gt;</strong></pre>
+<p>As the <kbd>UCF101</kbd> comes in <kbd>.avi</kbd> format, I had a hard time processing them with either JCodec or FFfmpeg libraries in Java. Therefore, I converted the video to <kbd>MP4</kbd> format in a handcrafted way.</p>
+<p>For this, I wrote a Python script (named <kbd>prepare.py</kbd>, which can be found under this chapter's code repository). This Python does download, extract, and decode the full <kbd>UCF101</kbd> dataset, but it may take several hours, depending upon the hardware config and Internet speed. Although putting Python code is not relevant to this book, I <span>still </span>put it so that folks can get some idea of how the thing works, so take a look at this code:</p>
+<pre><strong>import os</strong><br/><br/>ROOT = <strong>os.path</strong>.dirname(os.path.abspath(__file__))<br/>DATA = <strong>os.path</strong>.join(ROOT, 'VideoData')<br/>UCF_RAW = <strong>os.path</strong>.join(ROOT, 'VideoData', 'UCF101')<br/>UCF_MP4 = <strong>os.path</strong>.join(ROOT, 'VideoData', 'UCF101_MP4')<br/><br/><strong>if</strong> <strong>not</strong> os.path.isdir(UCF_MP4):<br/>    <strong>print</strong>("Start converting UCF101 dataset to MP4...")<br/>    filepaths = []<br/><br/>    <strong>for</strong> label_dir <strong>in</strong> os.listdir(os.path.join(UCF_RAW)):<br/>        <strong>for</strong> file <strong>in</strong> os.listdir(os.path.join(UCF_RAW, label_dir)):<br/>            filepath = (UCF_RAW, label_dir, file)<br/>            filepaths.append(filepath)<br/>    files_len = len(filepaths)<br/>    <strong>os.mkdir</strong>(UCF_MP4)<br/><br/>    <strong>for</strong> i, (_, label_dir, file_avi) in enumerate(filepaths):<br/>        <strong>if</strong> file_avi.endswith('.avi'):<br/>            file_mp4 = file_avi.rstrip('.avi') + '.mp4'<br/>            input_filepath = os.path.join(UCF_RAW, label_dir, file_avi)<br/>            output_filepath = os.path.join(UCF_MP4, label_dir, file_mp4)<br/><br/>            <strong>if</strong> <strong>not</strong> os.path.isfile(output_filepath):<br/>                output_dir = os.path.join(UCF_MP4, label_dir)<br/>                <strong>if not</strong> os.path.isdir(output_dir):<br/>                    os.mkdir(output_dir)<br/>                os.system('ffmpeg -v error -i %s -strict -2 %s' % (input_filepath, output_filepath))<br/>        <strong>print</strong>("%d of %d files converted" % (i+1, files_len))<br/><strong>print</strong>("Dataset ready")</pre>
+<p>As this code shows, you just need to download the <kbd>UCF101</kbd> dataset from <a href="http://crcv.ucf.edu/data/UCF101.php">http://crcv.ucf.edu/data/UCF101.php</a> and put it in the <kbd>VideoData/UCF101</kbd> folder. Then Python uses the built-in FFmpeg package to convert all the <kbd>.avi</kbd> files to <kbd>.mp4</kbd> format, and saves in the <kbd>VideoData/UCF101_MP4</kbd> directory once it is executed using the <kbd>$ python3 prepare.py</kbd> command.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Data processing workflow</h1>
+                </header>
+            
+            <article>
+                
+<p>Once the files are in MP4 format, we can start extracting the features. Now, in order to process the <kbd>UCF101</kbd> dataset and extract the features, I wrote three more Java classes, outlined as follows:</p>
+<ul>
+<li><kbd>UCF101Reader.java</kbd><strong>:</strong> This is the main entry point for video file reading, decoding, and conversion to ND4J vectors. It receives the full path to the dataset and creates the <kbd>DataSetIterator</kbd> required for the neural network. In addition, it generates a list of all classes, and it assigns sequential integers for them.</li>
+<li><kbd>UCF101ReaderIterable.java</kbd>: This reads all the clips and decodes using JCodec.</li>
+<li><kbd>RecordReaderMultiDataSetIterator.java</kbd>: This is similar to the one provided by DL4J but an improved version, which works pretty well on the new version of JCodec.</li>
+</ul>
+<p>Then, to prepare the train and test split, the <kbd>UCF101Reader.getDataSetIterator()</kbd> method has been used. The method reads each video clip, but, first, it decides on how many examples (video files) to read based on parameters and offset value. These parameters are then passed to <kbd>UCF101ReaderIterable</kbd>. The signature of this method is as follows:</p>
+<pre><strong>public UCF101Reader</strong>(String dataDirectory) {<br/>        <strong>this</strong>.dataDirectory = dataDirectory.endsWith("/") ? dataDirectory : dataDirectory + "/";<br/>          }<br/><br/><strong>public DataSetIterator</strong> getDataSetIterator(int startIdx, int nExamples, int miniBatchSize) throws Exception {<br/>    <strong>ExistingDataSetIterator</strong> iter = new ExistingDataSetIterator(createDataSetIterable(startIdx, <br/>                                                               nExamples, miniBatchSize));<br/>        <strong>return</strong> <strong>new</strong> AsyncDataSetIterator(iter,1);<br/>    }</pre>
+<p>In this method, <kbd>ExistingDataSetIterator</kbd> acts as a wrapper that provides a <kbd>DataSetIterator</kbd> interface to the existing Java <kbd>Iterable&lt;DataSet&gt;</kbd> and <kbd>Iterator&lt;DataSet&gt;</kbd>. Then the <kbd>UCF101Reader.UCF101ReaderIterable()</kbd> method is used to create the label map (class name to int index) and inverse label map, as shown here:</p>
+<pre><strong>private UCF101RecordIterable</strong> createDataSetIterable(int startIdx, int nExamples, int miniBatchSize) <br/>                                                   <strong>throws</strong> IOException {<br/>        <strong>return</strong> <strong>new</strong> UCF101RecordIterable(dataDirectory, labelMap(), V_WIDTH, V_HEIGHT,startIdx, nExamples);<br/>                  }</pre>
+<p>As you can see from the following, <kbd>dataDirectory</kbd> is the directory of the video in MP4 format, (<kbd>V_WIDTH</kbd>, <kbd>V_HEIGHT</kbd>) signifies the size of the video frame, and <kbd>labelMap()</kbd> provides the mapping for each video clip:</p>
+<pre><strong>public static final int</strong> V_WIDTH = 320;<br/><strong>public static final int</strong> V_HEIGHT = 240;<br/><strong>public static final int</strong> V_NFRAMES = 100;<br/><strong>private final String</strong> dataDirectory;<br/><strong>private volatile Map&lt;Integer, String&gt;</strong> _labelMap;</pre>
+<p>So, the signature of <kbd>labelMap()</kbd> is as follows:</p>
+<pre><strong>public Map&lt;Integer, String&gt;</strong> labelMap() <strong>throws</strong> IOException {<br/>        <strong>if</strong>(_labelMap == <strong>null</strong>) {<br/>            <strong>synchronized</strong> (<strong>this</strong>) {<br/>                <strong>if</strong>(_labelMap == null) {<br/>                    <strong>File</strong> root = <strong>new</strong> <strong>File</strong>(dataDirectory);<br/>                    _labelMap = Files.list(root.toPath()).map(f -&gt; f.getFileName().toString())<br/>                            .sorted().collect(HashMap::new, (h, f) -&gt; h.put(h.size(), f), (h, o) -&gt; {});<br/>                }<br/>            }<br/>        }<br/>        <strong>return</strong> _labelMap;<br/>    }</pre>
+<p>Then, <kbd>UCF101ReaderIterable.iterator()</kbd> is used to create an iterator of <kbd>DataSet</kbd> required by the network. This iterator is transmitted to the <kbd>ExistingDataSetIterator</kbd> to be in a form required by the neural net API, <kbd>DataSetIterator</kbd>, as shown here:</p>
+<pre>// The @NotNull Annotation ensures iterator() method des not return null.<br/>@NotNull<br/>@Override<br/><strong>public Iterator&lt;DataSet&gt;</strong> iterator() {<br/>        <strong>return</strong> rowsStream(dataDirectory).skip(this.skip).limit(this.limit).flatMap(p -&gt; <br/>               dataSetsStreamFromFile(p.getKey(), p.getValue())).iterator();<br/>    }</pre>
+<p>In addition, <kbd>AsyncDataSetIterator</kbd> is used to do all data processing in a separated thread. Whereas <kbd>UCF101ReaderIterable.rowStream()</kbd> lists all dataset files and creates a sequence of files and corresponding class labels, as shown here:</p>
+<pre><strong>public static Stream&lt;Pair&lt;Path, String&gt;&gt;</strong> rowsStream(<strong>String</strong> dataDirectory) {<br/>        <strong>try</strong> {<br/>            <strong>List&lt;Pair&lt;Path, String&gt;&gt;</strong> files = Files.list(Paths.get(dataDirectory)).flatMap(dir -&gt; {<br/>                <strong>try</strong> {<br/>                    <strong>return</strong> Files.list(dir).map(p -&gt; Pair.of(p, dir.getFileName().toString()));<br/>                } <strong>catch</strong> (<strong>IOException</strong> e) {<br/>                    e.printStackTrace();<br/>                    <strong>return</strong> Stream.empty();<br/>                }<br/>            }).collect(Collectors.toList());<br/>            <strong>Collections</strong>.shuffle(files, new Random(43));<br/>            <strong>return</strong> files.stream();<br/>        } <strong>catch</strong> (<strong>IOException</strong> e) {<br/>            e.printStackTrace();<br/>            <strong>return</strong> Stream.empty();<br/>        }<br/>    }</pre>
+<p>Then, the <kbd>UCF101ReaderIterable.dataSetStreamFromFile()</kbd> method is used to convert the underlying iterator to java streams. It is just a technical step to convert iterators to streams. Because it is more convenient in Java to filter some elements and limit the number of elements in the stream. Take a look at this code!</p>
+<pre><strong>private Stream&lt;DataSet&gt;</strong> dataSetsStreamFromFile(<strong>Path</strong> path, <strong>String</strong> label) {<br/>        <strong>return</strong> StreamSupport.stream(Spliterators.spliteratorUnknownSize(dataSetsIteratorFromFile(path, <br/>                                    label), Spliterator.ORDERED), false);<br/>    }</pre>
+<p>The <kbd>UCF101ReaderIterable.dataSetIteratorFromFile()</kbd> method receives the video file path and then creates frame reader (<kbd>FrameGrab</kbd>—JCodec class). Finally, it passes the frame reader to <kbd>RecordReaderMultiDataSetIterator.nextDataSet</kbd>, as shown here:</p>
+<pre><strong>private Iterator&lt;DataSet&gt;</strong> dataSetsIteratorFromFile(<strong>Path</strong> path, <strong>String</strong> label) {<br/>        <strong>FileChannelWrapper</strong> _in = null;<br/>        <strong>try</strong> {<br/>            _in = NIOUtils.readableChannel(path.toFile());<br/>            <strong>MP4Demuxer</strong> d1 = MP4Demuxer.createMP4Demuxer(_in);<br/>            <strong>SeekableDemuxerTrack</strong> videoTrack_ = (SeekableDemuxerTrack)d1.getVideoTrack();<br/>            <strong>FrameGrab</strong> fg = new FrameGrab(videoTrack_, new AVCMP4Adaptor(videoTrack_.getMeta()));<br/><br/>            <strong>final int</strong> framesTotal = videoTrack_.getMeta().getTotalFrames();<br/>            <strong>return</strong> Collections.singleton(recordReaderMultiDataSetIterator.nextDataSet(_in, framesTotal, <br/>                  fg, labelMapInversed.get(label), labelMap.size())).iterator();<br/>        } <strong>catch</strong>(<strong>IOException</strong> | <strong>JCodecException</strong> e) {<br/>            e.printStackTrace();<br/>            <strong>return</strong> Collections.emptyIterator();<br/>        }<br/>    }</pre>
+<p>In the preceding code block, the <kbd>RecordReaderMultiDataSetIterator.nextDataSet()</kbd> method is used to convert each video frame to dataSet, compatible with DL4J. In its turn, DataSet is an association of the features vector generated from the frame and the labels vector generated from frame the label using one-hot encoding.</p>
+<p>Well, this logic is based on the <kbd>RecordReaderMultiDataSetIterator</kbd> class of DL4J but necessary support comes from the latest JCodec API. Then we used the <kbd>UCF101RecordIterable.labelToNdArray()</kbd> method to encode labels in ND4J <kbd>INDArray</kbd> format:</p>
+<pre><strong>private</strong> <strong>INDArray</strong> labelToNdArray(<strong>String</strong> label) {<br/><strong>          int</strong> maxTSLength = 1; // frames per dataset<br/><strong>          int</strong> labelVal = labelMapInversed.get(label);<br/>          <strong>INDArray</strong> arr = <strong>Nd4j</strong>.<em>create</em>(<strong>new </strong><strong>int</strong>[]{1, classesCount}, 'f');<br/>          arr.put(0, labelVal, 1f);<br/><strong>          return</strong> arr;<br/>}</pre>
+<p>The previously mentioned workflow steps can be depicted in the following diagram:</p>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/ef0da07a-2257-42e4-890f-05ba5ae19151.png" style=""/></div>
+<div class="CDPAlignCenter CDPAlign packt_figref">Data flow in the feature extraction process</div>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Simple UI for checking video frames</h1>
+                </header>
+            
+            <article>
+                
+<p>I developed a simple UI application, using Java Swing to test whether the code correctly handles frames. This UI reads an input video file in MP4 format and shows frames to <span>the reader </span>one by one like a simple video player. The UI application is named <kbd>JCodecTest.java</kbd>.</p>
+<p>In the <kbd>JCodecTest.java</kbd> class, the <kbd>testReadFrame()</kbd> method utilizes the <kbd>getFrameFromFile()</kbd> method from the <kbd>FrameGrab</kbd> class (that is, from the JavaCV library) and checks whether the frame extraction process from each video clip works correctly. Here is the signature:</p>
+<pre><strong>private void</strong> testReadFrame(Consumer&lt;Picture&gt; consumer) <strong>throws</strong> IOException, JCodecException {<br/>        // Read the clip sequentially one by one<br/>        next:<br/>        <strong>for</strong>(<strong>Iterator&lt;Pair&lt;Path, String&gt;&gt;</strong> iter = rowsStream().iterator(); iter.hasNext(); ) {<br/>            <strong>Pair&lt;Path, String&gt;</strong> pair = iter.next();<br/>            <strong>Path</strong> path = pair.getKey();<br/>            pair.getValue();<br/><br/>            <strong>for</strong>(<strong>int</strong> i = 0; i &lt; 100; i++) {<br/>                <strong>try</strong> {<br/>                    // Hold video frames as pictures<br/>                    <strong>Picture</strong> picture = FrameGrab.getFrameFromFile(path.toFile(), i);<br/>                    consumer.accept(picture);<br/>                } <strong>catch</strong> (<strong>Throwable</strong> ex) {<br/>                    System.out.println(ex.toString() + " frame " + i + " " + path.toString());<br/>                    <strong>continue</strong> next;<br/>                }<br/>            }<br/>            System.out.println("OK " + path.toString());<br/>        }<br/>    }</pre>
+<p>In the preceding code block, the <kbd>rowsStream()</kbd> method is as follows:</p>
+<pre><strong>private Stream&lt;Pair&lt;Path, String&gt;&gt;</strong> rowsStream() {<br/>        <strong>try</strong> {<br/>            <strong>return</strong> Files.list(<strong>Paths</strong>.get(dataDirectory)).flatMap(dir -&gt; {<br/>                <strong>try</strong> {<br/>                    <strong>return</strong> Files.list(dir).map(p -&gt; Pair.of(p, dir.getFileName().toString()));<br/>                } <strong>catch</strong> (<strong>IOException</strong> e) {<br/>                    e.printStackTrace();<br/>                    <strong>return</strong> Stream.empty();<br/>                }<br/>            });<br/>        } <strong>catch</strong> (<strong>IOException</strong> e) {<br/>            e.printStackTrace();<br/>            <strong>return</strong> Stream.empty();<br/>        }<br/>    }</pre>
+<p>To see the effectiveness of this approach, readers can execute the <kbd>JCodecTest.java</kbd> class containing the <kbd>main()</kbd> method, as follows:</p>
+<pre><strong>private String</strong> dataDirectory = "VideoData/UCF101_MP4/";<br/><strong>public static void main</strong>(String[] args) throws IOException, JCodecException {<br/>        <strong>JCodecTest</strong> test = new JCodecTest();<br/>        test.testReadFrame(new FxShow());<br/>}</pre>
+<p>Once it is executed, you will experience the following output, as shown in this screenshot:</p>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/4f0a6a42-50d5-484e-aa8b-f6633f143334.png" style=""/></div>
+<div class="CDPAlignCenter CDPAlign packt_figref">The JCodecTest.java class checks whether the frame extraction from each video clip works correctly</div>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Preparing training and test sets</h1>
+                </header>
+            
+            <article>
+                
+<p>As described earlier, the <kbd>UCF101Reader.java</kbd> class is used to extract the features and prepare the training and test sets. First, we set and show Java the MP4 file's path, as shown here:</p>
+<pre><strong>String</strong> dataDirectory = "VideoData/UCF101_MP4/";// Paths to video dataset</pre>
+<p>It is to be noted that training the network with the video clips took about 45 hours for me on the <kbd>EC2 p2.8xlarge</kbd> machine. However, I did not have that patience for a second time; therefore, I performed the training by utilizing only these video categories having 1,112 video clips:</p>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/0c169f36-4ab2-4b98-af94-a8a2f4ddfa7f.png" style=""/></div>
+<div class="CDPAlignCenter CDPAlign packt_figref">The UCF101 dataset directory structure (MP4 version)</div>
+<p>Then we define the minibatch size to be used for preparing the training and test sets. For our case, I put 128, as you can see:</p>
+<pre><strong>private </strong><strong>static </strong><strong>int </strong><em>miniBatchSize</em> = 128;<br/><strong>private </strong><strong>static </strong><strong>int </strong><em>NUM_EXAMPLE</em> = 10;<br/><strong>UCF101Reader</strong> reader = <strong>new</strong> <strong>UCF101Reader</strong>(dataDirectory);</pre>
+<p>We define the offset from which file the extraction process will start taking place:</p>
+<pre><strong>int</strong> examplesOffset = 0; // start from N-th file</pre>
+<p>Then we decide how many sample video clips are to be used for training the network, whereas the <kbd>UCF101Reader.fileCount()</kbd> method returns the number of video clips in the <kbd>UCF101_MP4</kbd> directory. Take a look at this code line:</p>
+<pre><strong>int</strong> nExamples = Math.<em>min</em>(NUM_<em>EXAMPLE</em>, reader.fileCount());</pre>
+<p>Next, we compute the test set start index. We use 80% for training and the other 20% for testing . Let's see the code:</p>
+<pre><strong>int</strong> testStartIdx = examplesOffset + <strong>Math</strong>.<em>max</em>(2, (<strong>int</strong>) (0.8 * nExamples)); //80% in train, 20% in test <br/><strong>int</strong> nTest = nExamples - testStartIdx + examplesOffset;<br/>System.<strong><em>out</em></strong>.println("Dataset consist of " + reader.fileCount() + " video clips, use " <br/>                    + nExamples + " of them");</pre>
+<p>Now we prepare the training set. For this, the <kbd>getDataSetIterator()</kbd> method does the trick by returning the <kbd>DataSetIterator</kbd> for all video clips except the ones that are planned to be used for the test set. Take a look at this code:</p>
+<pre>System.<strong><em>out</em></strong>.println("Starting training...");<br/><strong>DataSetIterator</strong> trainData = reader.getDataSetIterator(examplesOffset, nExamples - nTest, <em>miniBatchSize</em>);</pre>
+<p>Then we prepare the test set. For this, again the <kbd>getDataSetIterator()</kbd> method does the trick by returning the <kbd>DataSetIterator</kbd> for all video clips except those planned to be used for the test set. Take a look at this code:</p>
+<pre>System.out.println("Use " + String.<em>valueOf</em>(nTest) + " video clips for test"); <br/><strong>DataSetIterator</strong> testData = reader.getDataSetIterator(testStartIdx, nExamples, <em>miniBatchSize</em>);</pre>
+<p>Fantastic! Up to this point, we have been able to prepare both training and test sets. Now the next step would be to create the network and perform the training.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Network creation and training</h1>
+                </header>
+            
+            <article>
+                
+<p>Now we start creating the network by combining convolutional, max pooling, dense (feedforward), and recurrent (LSTM) layers to classify each frame of a video clip. First, we need to define some hyperparameters and the necessary instantiation, as shown here:</p>
+<pre><strong>private </strong><strong>static</strong> MultiLayerConfiguration <em>conf</em>;<br/><strong>private </strong><strong>static</strong> MultiLayerNetwork <em>net</em>; <br/><strong>private </strong><strong>static</strong> String <em>modelPath</em> = "bin/ConvLSTM_Model.zip";<br/><strong>private </strong><strong>static </strong><strong>int </strong><em>NUM_CLASSES</em>;<br/><strong>private </strong><strong>static </strong><strong>int </strong><em>nTrainEpochs</em> = 100;</pre>
+<p>Here, <kbd>NUM_CLASSES</kbd> is the number of classes from <kbd>UCF101</kbd> calculated as the quantity of directories in the dataset base directory:</p>
+<pre><em>NUM_CLASSES</em> = reader.labelMap().size();</pre>
+<p>Then we start the training by calling the <kbd>networkTrainer()</kbd> method. Well, as I stated earlier, we will be combining convolutional, max pooling, dense (feedforward), and recurrent (LSTM) layers to classify each frame of a video clip. The training data is first fed to the convolutional layer (layer 0), which then gets subsampled (layer 1) before being inputted into the second convolutional layer (layer 2). Then the second convolutional layer feeds the fully connected layer (layer 3).</p>
+<p>It is to be noted that for the first CNN layer we have CNN preprocessor input width/height 13 x 18, which reflects a picture size of 320 x 240. This way, the dense layer acts as the input layer for the LSTM layer (layer 4, but feel free to use regular LSTM too). However, it is important to note that dense layer inputs have a size of 2,340 (that is, 13 * 18 * 10).</p>
+<p>Then the recurrent feedback is connected to RNN output layer, which has a softmax activation function for probability distribution over the classes. We also use gradient normalization to deal with the vanishing and exploding gradient problem, and the backpropagation in the last layer is truncated BPTT. Apart from these, we use some other hyperparameters; those are self-explanatory. The following diagram shows this network setting:</p>
+<div class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-743 image-border" src="assets/afab5457-5573-4536-82c9-cc51e27e6255.png" style=""/></div>
+<div class="CDPAlignCenter CDPAlign packt_figref">Network architecture</div>
+<p>Now, from the coding point of view, the <kbd>networkTrainer()</kbd> method has the following network configuration:</p>
+<pre>//Set up network architecture:<br/> conf = new <strong>NeuralNetConfiguration</strong>.Builder()<br/>                .seed(12345)<br/>                .l2(0.001) //l2 regularization on all layers<br/>                .updater(new <strong>Adam</strong>(0.001)) // we use Adam as updater<br/>                .list()<br/>                .layer(0, new <strong>ConvolutionLayer</strong>.Builder(10, 10)<br/>                        .nIn(3) //3 channels: RGB<br/>                        .nOut(30)<br/>                        .stride(4, 4)<br/>                        .activation(Activation.<strong>RELU</strong>)<br/>                        .weightInit(WeightInit.<strong>RELU</strong>)<br/>                        .build()) //Output: (130-10+0)/4+1 = 31 -&gt; 31*31*30<br/>                .layer(1, new <strong>SubsamplingLayer</strong>.Builder(SubsamplingLayer.PoolingType.<strong>MAX</strong>)<br/>                        .kernelSize(3, 3)<br/>                        .stride(2, 2).build()) //(31-3+0)/2+1 = 15<br/>                .layer(2, new <strong>ConvolutionLayer</strong>.Builder(3, 3)<br/>                        .nIn(30)<br/>                        .nOut(10)<br/>                        .stride(2, 2)<br/>                        .activation(Activation.<strong>RELU</strong>)<br/>                        .weightInit(WeightInit.<strong>RELU</strong>)<br/>                        .build()) //Output: (15-3+0)/2+1 = 7 -&gt; 7*7*10 = 490<br/>                .layer(3, new <strong>DenseLayer</strong>.Builder()<br/>                        .activation(Activation.<strong>RELU</strong>)<br/>                        .nIn(2340) // 13 * 18 * 10 = 2340, see CNN layer width x height<br/>                        .nOut(50)<br/>                        .weightInit(WeightInit.<strong>RELU</strong>)<br/>                        .gradientNormalization(GradientNormalization.ClipElementWiseAbsoluteValue)<br/>                        .gradientNormalizationThreshold(10)<br/>                        .updater(new <strong>AdaGrad</strong>(0.01))// for faster convergence<br/>                        .build())<br/>                .layer(4, new <strong>LSTM</strong>.Builder()<br/>                        .activation(Activation.<strong>SOFTSIGN</strong>)<br/>                        .nIn(50)<br/>                        .nOut(50)<br/>                        .weightInit(WeightInit.<strong>XAVIER</strong>)<br/>                        .updater(new AdaGrad(0.008))<br/>                        .gradientNormalization(GradientNormalization.ClipElementWiseAbsoluteValue)<br/>                        .gradientNormalizationThreshold(10)<br/>                        .build())<br/>                .layer(5, new <strong>RnnOutputLayer</strong>.Builder(LossFunctions.LossFunction.<strong>MCXENT</strong>)<br/>                        .activation(Activation.<strong>SOFTMAX</strong>)<br/>                        .nIn(50)<br/>                        .nOut(NUM_CLASSES)    <br/>                        .weightInit(WeightInit.<strong>XAVIER</strong>)<br/>                        .gradientNormalization(GradientNormalization.ClipElementWiseAbsoluteValue)<br/>                        .gradientNormalizationThreshold(10)<br/>                        .build())<br/>                .inputPreProcessor(0, new RnnToCnnPreProcessor(UCF101Reader.V_HEIGHT, <br/>                                   UCF101Reader.V_WIDTH, 3))<br/>                .inputPreProcessor(3, new CnnToFeedForwardPreProcessor(13, 18, 10))<br/>                .inputPreProcessor(4, new FeedForwardToRnnPreProcessor())<br/>                .pretrain(false).backprop(true)<br/>                .backpropType(BackpropType.<strong>TruncatedBPTT</strong>)<br/>                .tBPTTForwardLength(UCF101Reader.V_NFRAMES / 5)<br/>                .tBPTTBackwardLength(UCF101Reader.V_NFRAMES / 5)<br/>                .build();</pre>
+<p>Next, based on the preceding network configuration setting, we create a <kbd>MultiLayerNetwork</kbd> and initialize it, as shown here:</p>
+<pre><em>net</em> = <strong>new</strong> <strong>MultiLayerNetwork</strong>(<em>conf</em>);<br/><em>net</em>.init();<br/><em>net</em>.setListeners(<strong>new</strong> <strong>ScoreIterationListener</strong>(1));</pre>
+<p>Then we can observe the number of parameters across each layer, as shown here:</p>
+<pre>System.<strong><em>out</em></strong>.println("Number of parameters in network: " + <em>net</em>.numParams());<br/><strong>for</strong>(<strong>int</strong> i=0; i&lt;<em>net</em>.getnLayers(); i++){<br/>    System.<strong><em>out</em></strong>.println("Layer " + i + " nParams = " + <em>net</em>.getLayer(i).numParams());<br/>}</pre>
+<p><span class="packt_screen"><span class="packt_screen"><q>&gt;&gt;&gt;<br/></q></span>Number of parameters in network: 149599<br/>
+Layer 0 nParams = 9030<br/>
+Layer 1 nParams = 0<br/>
+Layer 2 nParams = 2710<br/>
+Layer 3 nParams = 117050<br/>
+Layer 4 nParams = 20350<br/>
+Layer 5 nParams = 459</span></p>
+<p>Finally, we start the training using this training set:</p>
+<pre><strong>for</strong> (<strong>int</strong> i = 0; i &lt; <em>nTrainEpochs</em>; i++) {<br/>         <strong>int</strong> j = 0;<br/>         <strong>while</strong>(trainData.hasNext()) {<br/>               <strong>long</strong> start = System.<em>nanoTime</em>();<br/>               <strong>DataSet</strong> example = trainData.next();<br/>               <em>net</em>.fit(example);<br/>               System.<strong><em>out</em></strong>.println(" Example " + j + " processed in " <br/>                                 + ((System.<em>nanoTime</em>() - start) / 1000000) + " ms");<br/>               j++;<br/>              }<br/>       System.<strong><em>out</em></strong>.println("Epoch " + i + " complete");<br/>}</pre>
+<p>We save the trained network and video configuration using the <kbd>saveConfigs()</kbd> method, and the signature of this method is pretty straightforward, as you can see:</p>
+<pre><strong>private </strong><strong>static </strong><strong>void</strong> saveConfigs() <strong>throws</strong> <strong>IOException</strong> {<br/>         <strong>Nd4j</strong>.<em>saveBinary</em>(<em>net</em>.params(),<strong>new</strong> File("bin/videomodel.bin"));<br/>         <strong>FileUtils</strong>.<em>writeStringToFile</em>(<strong>new</strong> File("bin/videoconf.json"), <em>conf</em>.toJson());<br/>  }</pre>
+<p>Then we save the trained model for later inferencing purposes using the <kbd>saveNetwork()</kbd> method; it is as follows:</p>
+<pre><strong>private</strong><strong>s tatic </strong><strong>void</strong> saveNetwork() <strong>throws</strong> <strong>IOException</strong> {<br/>         <strong>File</strong> locationToSave = <strong>new</strong> <strong>File</strong>(<em>modelPath</em>);<br/><strong>         boolean</strong> saveUpdater = <strong>true</strong>;<br/>         <strong>ModelSerializer</strong>.<em>writeModel</em>(<em>net</em>, locationToSave, saveUpdater);<br/>}</pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Performance evaluation</h1>
+                </header>
+            
+            <article>
+                
+<p>To evaluate the network performance, I wrote the <kbd>evaluateClassificationPerformance()</kbd> method, which takes the test set and <kbd>evalTimeSeries</kbd> evaluation, as shown here:</p>
+<pre><strong>private </strong><strong>static </strong><strong>void</strong> evaluateClassificationPerformance(<strong>MultiLayerNetwork</strong> net, <strong>int</strong> testStartIdx, <br/>                     <strong>int</strong> nExamples, <strong>DataSetIterator</strong> testData) <strong>throws</strong> Exception {<br/>          <strong>Evaluation</strong> evaluation = <strong>new</strong> Evaluation(<em>NUM_CLASSES</em>);<br/><strong>          while</strong>(testData.hasNext()) {<br/>                <strong>DataSet</strong> dsTest = testData.next();<br/>                <strong>INDArray</strong> predicted = net.output(dsTest.getFeatureMatrix(), <strong>false</strong>);<br/>                <strong>INDArray</strong> actual = dsTest.getLabels(); <br/>                evaluation.evalTimeSeries(actual, predicted);<br/>                 }<br/>          System.<strong><em>out</em></strong>.println(evaluation.stats());<br/>}</pre>
+<pre><span class="packt_screen">&gt;&gt;&gt;<br/> Predictions labeled as 0 classified by model as 0: 493 times<br/> Predictions labeled as 0 classified by model as 7: 3 times<br/> Predictions labeled as 1 classified by model as 6: 287 times<br/> Predictions labeled as 1 classified by model as 7: 1 times<br/> Predictions labeled as 2 classified by model as 6: 758 times<br/> Predictions labeled as 2 classified by model as 7: 3 times<br/> Predictions labeled as 3 classified by model as 6: 111 times<br/> Predictions labeled as 3 classified by model as 7: 1 times<br/> Predictions labeled as 4 classified by model as 6: 214 times<br/> Predictions labeled as 4 classified by model as 7: 2 times<br/> Predictions labeled as 5 classified by model as 6: 698 times<br/> Predictions labeled as 5 classified by model as 7: 3 times<br/> Predictions labeled as 6 classified by model as 6: 128 times<br/> Predictions labeled as 6 classified by model as 5: 1 times<br/> Predictions labeled as 7 classified by model as 7: 335 times<br/> Predictions labeled as 8 classified by model as 8: 209 times<br/> Predictions labeled as 8 classified by model as 7: 2 times<br/> ==========================Scores===================<br/> # of classes: 9<br/> Accuracy: 0.4000<br/> Precision: 0.39754<br/> Recall: 0.4109<br/> F1 Score: 0.4037<br/> Precision, recall &amp; F1: macro-averaged (equally weighted avg. of 9 classes)<br/> ======================================================</span></pre>
+<p>Now, to follow the aforementioned steps more clearly, here is the <kbd>main()</kbd> method containing the steps:</p>
+<pre><strong>public static void main</strong>(<strong>String</strong>[] args) <strong>throws</strong> Exception {        <br/>        <strong>String</strong> dataDirectory = "VideoData/UCF101_MP4/";<br/>        <strong>UCF101Reader</strong> reader = <strong>new</strong> <strong>UCF101Reader</strong>(dataDirectory); <br/>        NUM_CLASSES = reader.labelMap().size();        <br/>        <br/>        <strong>int</strong> examplesOffset = 0; // start from N-th file<br/>        <strong>int</strong> nExamples = <strong>Math</strong>.min(NUM_EXAMPLE, reader.fileCount()); // use only "nExamples" for train/test<br/>        <strong>int</strong> testStartIdx = examplesOffset + <strong>Math</strong>.max(2, (<strong>int</strong>) (0.9 * nExamples)); //90% train, 10% in test<br/>        <strong>int</strong> nTest = nExamples - testStartIdx + examplesOffset;<br/>        System.out.println("Dataset consist of " + reader.fileCount() + " images, use "<br/>                           + nExamples + " of them");        <br/><br/>        //Conduct learning<br/>        System.out.println("Starting training...");       <br/>        <strong>DataSetIterator</strong> trainData = reader.getDataSetIterator(examplesOffset, <br/>                                    nExamples - nTest, miniBatchSize);        <br/>        networkTrainer(reader, trainData);<br/>        <br/>        //Save network and video configuration<br/>        saveConfigs();<br/>        <br/>        //Save the trained model<br/>        saveNetwork();<br/><br/>        //Evaluate classification performance:<br/>        System.out.println("Use " + String.valueOf(nTest) + " images for validation");<br/>        <strong>DataSetIterator</strong> testData = reader.getDataSetIterator(testStartIdx, nExamples, miniBatchSize);<br/>        evaluateClassificationPerformance(net,testStartIdx,nTest, testData);        <br/>    }</pre>
+<p>We have not achieved higher accuracy. There could be many reasons for this. For example, we have used only a few categories (that is, only 9 out of 101). Therefore, our model did not get enough training data to learn. Also, most of the hyperparameters were set naively.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Distributed training on AWS deep learning AMI 9.0</h1>
+                </header>
+            
+            <article>
+                
+<p>So far, we have seen how to perform training and inferencing on a single GPU. However, to make the training even faster in a parallel and distributed way, having a machine or server with multiple GPUs is a viable option. An easy way to achieve this is by using AMAZON EC2 GPU compute instances.</p>
+<p>For example, P2 is well suited for distributed deep learning frameworks that come with the latest binaries of deep learning frameworks (MXNet, TensorFlow, Caffe, Caffe2, PyTorch, Keras, Chainer, Theano, and CNTK) pre-installed in separate virtual environments.</p>
+<p>An even bigger advantage is that they are fully configured with NVidia CUDA and cuDNN. Interested readers can take a look at <a href="https://aws.amazon.com/ec2/instance-types/p2/">https://aws.amazon.com/ec2/instance-types/p2/</a>. A short glimpse of P2 instances configuration and pricing is as follows:</p>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/89805bb5-7998-48ee-b7fd-82965ba99374.png" style=""/></div>
+<div class="CDPAlignCenter CDPAlign packt_figref">P2 instance details</div>
+<p>For this project, I decided to use <kbd>p2.8xlarge</kbd>. You can create it too, but make sure that you have already submitted an increased limit to at least one instance, which may take as long as three days. However, if you do not know how to do that, just create an account on AWS and finish the verification; then go to the EC2 management console. On the left panel, click on the <span class="packt_screen">Limits</span> tab, which will take you a page where you can submit an increase limit request by clicking on the <span class="packt_screen">Request limit increase</span> link.</p>
+<p>Anyway, I assume that you know this simple stuff, so I'll move forward to creating an instance of type <kbd>p2.8xlarge</kbd>. On the left panel, click on the <span class="packt_screen">Instances</span> menu, which should take you to the following page:</p>
+<div class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-741 image-border" src="assets/bbbd6a83-181b-4bb3-9a61-fb0f258898e3.png" style=""/></div>
+<div class="CDPAlignCenter CDPAlign packt_figref">Selecting a deep learning AMI</div>
+<p>An easy option would be creating a deep learning AMI (Ubuntu) Version 9.0, which has already configured CUDA and cuDNN, which can be used across eight GPUs. Another good thing is that it has 32 computing cores and 488 GB of RAM; this would be sufficient for our dataset too. Therefore, instead of using video clips of only nine categories, we can perform the training with the full dataset.</p>
+<p>However, note that, since we will be using DL4J, which is based on JVM, Java has to be installed and configured (<kbd>JAVA_HOME</kbd> has to be set). First, connect with your instance from SSH or using an SFTP client. Then on Ubuntu, we can do this with a few commands, as shown here:</p>
+<pre><strong>$ sudo apt-get install python-software-properties</strong><br/><strong>$ sudo apt-get update</strong><br/><strong>$ sudo add-apt-repository ppa:webupd8team/java</strong><br/><strong>$ sudo apt-get update</strong></pre>
+<p>Then, depending on the version you want to install, execute one of the following commands:</p>
+<pre><strong>$ sudo apt-get install oracle-java8-installer</strong></pre>
+<p>After installing, do not forget to set Java home. Just apply the following commands (we assume Java is installed at <kbd>/usr/lib/jvm/java-8-oracle</kbd>):</p>
+<pre><strong>$ echo "export JAVA_HOME=/usr/lib/jvm/java-8-oracle" &gt;&gt; ~/.bashrc</strong><br/><strong>$ echo "export PATH=$PATH:$JAVA_HOME/bin" &gt;&gt; ~/.bashrc</strong><br/><strong>$ source ~/.bashrc</strong></pre>
+<p>Now let's see the <kbd>Java_HOME</kbd>, as follows:</p>
+<pre><strong>$ echo $JAVA_HOME</strong></pre>
+<p>Now you should observe the following result on the Terminal:</p>
+<pre><strong>/usr/lib/jvm/java-8-oracle</strong></pre>
+<p>Finally, let's check to make sure that Java has been installed successfully by issuing this command (you may see the latest version!):</p>
+<pre><strong>$ java -version</strong></pre>
+<pre><span class="packt_screen"><strong>&gt;&gt;&gt;</strong><br/> <strong>java version "1.8.0_121"</strong><br/> <strong>Java(TM) SE Runtime Environment (build 1.8.0_121-b15)</strong><br/> <strong>Java HotSpot(TM) 64-Bit Server VM (build 25.121-b15, mixed mode)</strong></span></pre>
+<p>Fantastic! We have been able to set up and configure Java on our instance. Then let's see whether the GPUs drivers are configured by issuing the <kbd>nvidia-smi</kbd> command on the Terminal:</p>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/889034af-b0b1-41b8-9cd3-dc5a9d8255fc.png" style=""/></div>
+<div class="CDPAlignCenter CDPAlign packt_figref">Showing Tesla K80 GPUs on a p2.8 xlarge instance</div>
+<p>As we can see, initially, there's no usage of GPUs, but it clearly says that, on the instance, there are eight Tesla K80 GPUs installed and configured. Now that our GPUs and machine are fully configured, we can focus on the project. We are going to use more or less the same code that we used previously but with some minimal modifications. The very first change we need to make is to add the following line at the beginning of our <kbd>main()</kbd> method:</p>
+<pre><strong>CudaEnvironment</strong>.getInstance().getConfiguration()<br/>       .allowMultiGPU(<strong>true</strong>) // key option enabled<br/>       .setMaximumDeviceCache(2L * 1024L * 1024L * 1024L) // large cache<br/>       .allowCrossDeviceAccess(<strong>true</strong>); // cross-device access for faster model averaging over a piece</pre>
+<p>Then we perform the training across eight GPUs, using ParallelWrapper, which take cares of load balancing between GPUs. The network construction is the same as before, as shown here:</p>
+<pre><em>net</em> = <strong>new</strong> MultiLayerNetwork(<em>conf</em>);<br/><em>net</em>.init(); <br/><br/><strong>ParallelWrapper</strong> wrapper = new <strong>ParallelWrapper</strong>.Builder(net)<br/>       .prefetchBuffer(8)// DataSets prefetching options. Set this with respect to number of devices<br/>       .workers(8)// set number of workers equal to number of available devices -i.e. 8 for p2.8xlarge <br/>       .averagingFrequency(3)// rare averaging improves performance, but might reduce model accuracy           <br/>       .reportScoreAfterAveraging(true) // if set TRUE, on every avg. model score will be reported <br/>       .build();</pre>
+<p>Now we start the training by fitting the full test set, as shown here:</p>
+<pre><strong>for</strong> (<strong>int</strong> i = 0; i &lt; nTrainEpochs; i++) {<br/>     wrapper.fit(trainData);<br/>     System.out.println("Epoch " + i + " complete"); <br/>    }</pre>
+<p>That is all we need to make. However, make sure you import the following at the beginning of the <kbd>VideoClassificationExample.java</kbd> file for the <kbd>CudaEnvironment</kbd> and <kbd>ParallelWrapper</kbd>, as shown here:</p>
+<pre><strong>import</strong> org.nd4j.jita.conf.CudaEnvironment; <br/><strong>import</strong> org.deeplearning4j.parallelism.ParallelWrapper;</pre>
+<p>Nonetheless, I still believe that showing the code for the <kbd>main()</kbd> method and the <kbd>networkTrainer()</kbd> methods would be helpful. In addition, to avoid possible confusion, I have written two Java classes for single and multiple GPUs:</p>
+<ul>
+<li><kbd>VideoClassificationExample.java</kbd><strong>:</strong> For a single GPU or CPU</li>
+<li><kbd>VideoClassificationExample_MUltipleGPU.java</kbd>: For multiple GPUs on an AWS EC2 instance</li>
+</ul>
+<p>So, the latter class has a method, <kbd>networkTrainer()</kbd>, which is used to create a network for distributed training, as follows:</p>
+<pre><strong>private static void</strong> networkTrainer(<strong>UCF101Reader</strong> reader, <strong>DataSetIterator</strong> trainData) <strong>throws</strong> Exception {        <br/>    //Set up network architecture:<br/>    conf = new <strong>NeuralNetConfiguration</strong>.Builder()<br/>                .seed(12345)<br/>                .l2(0.001) //l2 regularization on all layers<br/>                .updater(new Adam(0.001))<br/>                .list()<br/>                .layer(0, new ConvolutionLayer.Builder(10, 10)<br/>                        .nIn(3) //3 channels: RGB<br/>                        .nOut(30)<br/>                        .stride(4, 4)<br/>                        .activation(Activation.RELU)<br/>                        .weightInit(WeightInit.RELU)<br/>                        .build())   //Output: (130-10+0)/4+1 = 31 -&gt; 31*31*30<br/>                .layer(1, new SubsamplingLayer.Builder(SubsamplingLayer.PoolingType.MAX)<br/>                        .kernelSize(3, 3)<br/>                        .stride(2, 2).build())   //(31-3+0)/2+1 = 15<br/>                .layer(2, new ConvolutionLayer.Builder(3, 3)<br/>                        .nIn(30)<br/>                        .nOut(10)<br/>                        .stride(2, 2)<br/>                        .activation(Activation.RELU)<br/>                        .weightInit(WeightInit.RELU)<br/>                        .build())   //Output: (15-3+0)/2+1 = 7 -&gt; 7*7*10 = 490<br/>                .layer(3, new DenseLayer.Builder()<br/>                        .activation(Activation.RELU)<br/>                        .nIn(2340) // 13 * 18 * 10 = 2340, see CNN layer width x height<br/>                        .nOut(50)<br/>                        .weightInit(WeightInit.RELU)<br/>                        .gradientNormalization(GradientNormalization.ClipElementWiseAbsoluteValue)<br/>                        .gradientNormalizationThreshold(10)<br/>                        .updater(new AdaGrad(0.01))<br/>                        .build())<br/>                .layer(4, new LSTM.Builder()<br/>                        .activation(Activation.SOFTSIGN)<br/>                        .nIn(50)<br/>                        .nOut(50)<br/>                        .weightInit(WeightInit.XAVIER)<br/>                        .updater(new AdaGrad(0.008))<br/>                        .gradientNormalization(GradientNormalization.ClipElementWiseAbsoluteValue)<br/>                        .gradientNormalizationThreshold(10)<br/>                        .build())<br/>                .layer(5, new RnnOutputLayer.Builder(LossFunctions.LossFunction.MCXENT)<br/>                        .activation(Activation.SOFTMAX)<br/>                        .nIn(50)<br/>                        .nOut(NUM_CLASSES)    <br/>                        .weightInit(WeightInit.<strong>XAVIER</strong>)<br/>                        .gradientNormalization(<strong>GradientNormalization</strong>.ClipElementWiseAbsoluteValue)<br/>                        .gradientNormalizationThreshold(10)<br/>                        .build())<br/>                .inputPreProcessor(0, new <strong>RnnToCnnPreProcessor</strong>(UCF101Reader.V_HEIGHT, <br/>                                   UCF101Reader.V_WIDTH, 3))<br/>                .inputPreProcessor(3, new CnnToFeedForwardPreProcessor(13, 18, 10))<br/>                .inputPreProcessor(4, new FeedForwardToRnnPreProcessor())<br/>                .pretrain(false).backprop(true)<br/>                .backpropType(BackpropType.<strong>TruncatedBPTT</strong>)<br/>                .tBPTTForwardLength(UCF101Reader.V_NFRAMES / 5)<br/>                .tBPTTBackwardLength(UCF101Reader.V_NFRAMES / 5)<br/>                .build();<br/><br/>        net = new MultiLayerNetwork(conf);<br/>        net.init();<br/>        net.setListeners(new ScoreIterationListener(1));<br/><br/>        System.out.println("Number of parameters in network: " + net.numParams());<br/>        <strong>for</strong>( <strong>int</strong> i=0; i&lt;net.getnLayers(); i++ ){<br/>            System.out.println("Layer " + i + " nParams = " + net.getLayer(i).numParams());<br/>        }<br/><br/>    // ParallelWrapper will take care of load balancing between GPUs.<br/>    <strong>ParallelWrapper</strong> wrapper = new <strong>ParallelWrapper</strong>.Builder(net)            <br/>            .prefetchBuffer(8)// DataSets prefetching options. Set value with respect to number of devices<br/>            .workers(8)// set number of workers equal to number of available devices <br/>            .averagingFrequency(3)// rare avg improves performance, but might reduce accuracy           <br/>            .reportScoreAfterAveraging(true) // if set TRUE, on every avg. model score will be reported<br/>            .build();<br/>              <br/>   <strong>for</strong> (<strong>int</strong> i = 0; i &lt; nTrainEpochs; i++) {<br/>                wrapper.fit(trainData);<br/>                System.out.println("Epoch " + i + " complete");<br/>        }<br/>    }</pre>
+<p>Now the <kbd>main()</kbd> method is as follows:</p>
+<pre><strong>public static void main</strong>(String[] args) throws Exception {  <br/>        // Workaround for CUDA backend initialization<br/>        <strong>CudaEnvironment</strong>.getInstance()<br/>                .getConfiguration()<br/>                .allowMultiGPU(true)<br/>                .setMaximumDeviceCache(2L * 1024L * 1024L * 1024L)<br/>                .allowCrossDeviceAccess(true);   <br/>        <br/>        <strong>String</strong> dataDirectory = "/home/ubuntu/UCF101_MP4/";<br/>        <strong>UCF101Reader</strong> reader = new UCF101Reader(dataDirectory); <br/>        NUM_CLASSES = reader.labelMap().size();        <br/>        <br/>        <strong>int</strong> examplesOffset = 0; // start from N-th file<br/>        <strong>int</strong> nExamples = Math.min(NUM_EXAMPLE, reader.fileCount()); // use only "nExamples" for train/test<br/>        <strong>int</strong> testStartIdx = examplesOffset + Math.max(2, (int) (0.9 * nExamples)); //90% train, 10% in test<br/>        <strong>int</strong> nTest = nExamples - testStartIdx + examplesOffset;<br/><br/>        System.out.println("Dataset consist of " + reader.fileCount() + " images, use " <br/>                          + nExamples + " of them");        <br/><br/>        //Conduct learning<br/>        System.out.println("Starting training...");       <br/>        <strong>DataSetIterator</strong> trainData = reader.getDataSetIterator(examplesOffset, <br/>                                    nExamples - nTest, miniBatchSize);        <br/>        networkTrainer(reader, trainData);<br/>        <br/>        //Save network and video configuration<br/>        saveConfigs();<br/>        <br/>        //Save the trained model<br/>        saveNetwork();<br/><br/>        //Evaluate classification performance:<br/>        System.out.println("Use " + String.valueOf(nTest) + " images for validation");<br/>        <strong>DataSetIterator</strong> testData = reader.getDataSetIterator(testStartIdx, nExamples, 10);<br/>        evaluateClassificationPerformance(net,testStartIdx,nTest, testData);        <br/>    }<br/>    </pre>
+<p>That's all we need before executing the <kbd>VideoClassificationExample_MUltipleGPU.java</kbd> class. It should also be noted that running a standalone Java class is not a good idea from the terminal. Therefore, I would suggest creating a <kbd>fat .jar</kbd> and including all the dependencies. To do that, move your code to the instance using any SFTP client. Then install <kbd>maven</kbd>:</p>
+<pre><strong>$sudo apt-get install maven</strong></pre>
+<p>Once the maven is installed, we can start creating the fat JAR file containing all the dependencies, like so:</p>
+<pre><strong>$ sudo mvn clean install</strong></pre>
+<p>Then, after a while, a fat JAR file will be generated in the target directory. We move to that directory and execute the JAR file, as shown here:</p>
+<pre><strong>$ cd target/</strong><br/><strong>$ java -Xmx30g -jar VideoClassifier-0.0.1-SNAPSHOT-jar-with-dependencies.jar</strong></pre>
+<p>At this point, please make sure that you have set all the paths properly and have the necessary permissions. Well, I assume everything is set properly. Then, executing the preceding command will force DL4J to pick BLAS, CUDA, and cuDNN and perform the training and other steps. Roughly, you should see the following logs on the Terminal:</p>
+<pre><strong>ubuntu@ip-172-31-40-27:~/JavaDeepLearningDL4J/target$ java -Xmx30g -jar VideoClassifier-0.0.1-SNAPSHOT-jar-with-dependencies.jar</strong></pre>
+<p>The preceding command should start the training and you should observe the following logs on the Terminal/command line:</p>
+<pre><strong>Dataset consist of 1112 images, use 20 of them</strong><br/><strong>Starting training...</strong><br/><strong>18:57:34.815 [main] INFO org.nd4j.linalg.factory.Nd4jBackend - Loaded [JCublasBackend] backend</strong><br/><strong>18:57:34.844 [main] WARN org.reflections.Reflections - given scan urls are empty. set urls in the configuration</strong><br/><strong>18:57:47.447 [main] INFO org.nd4j.nativeblas.NativeOpsHolder - Number of threads used for NativeOps: 32</strong><br/><strong>18:57:51.433 [main] DEBUG org.nd4j.jita.concurrency.CudaAffinityManager - Manually mapping thread [28] to device [0], out of [8] devices...</strong><br/><strong>18:57:51.441 [main] INFO org.nd4j.nativeblas.Nd4jBlas - Number of threads used for BLAS: 0</strong><br/><strong>18:57:51.447 [main] INFO org.nd4j.linalg.api.ops.executioner.DefaultOpExecutioner - Backend used: [CUDA]; OS: [Linux]</strong><br/><strong>18:57:51.447 [main] INFO org.nd4j.linalg.api.ops.executioner.DefaultOpExecutioner - Cores: [32]; Memory: [26.7GB];</strong><br/><strong>18:57:51.447 [main] INFO org.nd4j.linalg.api.ops.executioner.DefaultOpExecutioner - Blas vendor: [CUBLAS]</strong><br/><strong>18:57:51.452 [main] INFO org.nd4j.linalg.jcublas.ops.executioner.CudaExecutioner - Device opName: [Tesla K80]; CC: [3.7]; Total/free memory: [11995578368]</strong><br/><strong>18:57:51.452 [main] INFO org.nd4j.linalg.jcublas.ops.executioner.CudaExecutioner - Device opName: [Tesla K80]; CC: [3.7]; Total/free memory: [11995578368]</strong><br/><strong>18:57:51.452 [main] INFO org.nd4j.linalg.jcublas.ops.executioner.CudaExecutioner - Device opName: [Tesla K80]; CC: [3.7]; Total/free memory: [11995578368]</strong><br/><strong> 18:57:51.452 [main] INFO org.nd4j.linalg.jcublas.ops.executioner.CudaExecutioner - Device opName: [Tesla K80]; CC: [3.7]; Total/free memory: [11995578368]</strong><br/><strong>18:57:51.452 [main] INFO org.nd4j.linalg.jcublas.ops.executioner.CudaExecutioner - Device opName: [Tesla K80]; CC: [3.7]; Total/free memory: [11995578368]</strong><br/><strong>18:57:51.452 [main] INFO org.nd4j.linalg.jcublas.ops.executioner.CudaExecutioner - Device opName: [Tesla K80]; CC: [3.7]; Total/free memory: [11995578368]</strong><br/><strong>18:57:51.452 [main] INFO org.nd4j.linalg.jcublas.ops.executioner.CudaExecutioner - Device opName: [Tesla K80]; CC: [3.7]; Total/free memory: [11995578368]</strong><br/><strong>18:57:51.452 [main] INFO org.nd4j.linalg.jcublas.ops.executioner.CudaExecutioner - Device opName: [Tesla K80]; CC: [3.7]; Total/free memory: [11995578368]</strong><br/><strong>18:57:51.697 [main] DEBUG org.nd4j.jita.handler.impl.CudaZeroHandler - Creating bucketID: 1</strong><br/><strong>18:57:51.706 [main] DEBUG org.nd4j.jita.handler.impl.CudaZeroHandler - Creating bucketID: 2</strong><br/><strong>18:57:51.711 [main] DEBUG org.reflections.Reflections - going to scan these urls:</strong><br/><strong>jar:file:/home/ubuntu/JavaDeepLearningDL4J/target/VideoClassifier-0.0.1-SNAPSHOT-jar-with-dependencies.jar!/.</strong><br/><strong>...</strong></pre>
+<p class="mce-root">Then the training should start. Now let's check whether DL4J is utilizing all the GPUs. To know this, again execute the <kbd>nvidia-smi</kbd> command on the Terminal, which should show the following:</p>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/cab146ff-6db0-4956-b71a-ef9068cd59a9.png" style=""/></div>
+<div class="CDPAlignCenter CDPAlign packt_figref">Showing resource usage on Tesla K80 GPUs on the p2.8 xlarge instance</div>
+<p>Since there are many video clips, training will take a few hours. Once the training is completed, the code should provide similar or slightly better classification accuracy.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Frequently asked questions (FAQs)</h1>
+                </header>
+            
+            <article>
+                
+<p>Now that we have solved the video classification problem, but with low accuracy, there are other practical aspects of this problem and overall deep learning phenomena that need to be considered too. In this section, we will see some frequently asked questions that may be on your mind. Answers to these questions can be found in Appendix A.</p>
+<ol>
+<li>My machine has multiple GPUs <span>installed </span>(for example, two), but DL4J is using only one. How do I fix this problem?</li>
+<li>I have configured a p2.8 xlarge EC2 GPU compute instance on AWS. However, it is showing low disk space while installing and configuring CUDA and cuDNN. How to fix this issue?</li>
+<li>I understand how the distributed training happens on AWS EC2 AMI instance. However, my machine has a low-end GPU, and often I get OOP on the GPU. How can solve the issue?</li>
+<li>Can I treat this application as a human activity recognition from a video?</li>
+</ol>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Summary</h1>
+                </header>
+            
+            <article>
+                
+<p>In this chapter, we developed a complete deep learning application that classifies a large collection of video datasets from the <kbd>UCF101</kbd> dataset. We applied a combined CNN-LSTM network with DL4J that overcome the limitation of standalone CNN or RNN LSTM networks.</p>
+<p>Finally, we saw how to perform training in parallel and distributed ways across multiple devices (CPUs and GPUs). In summary, this end-to-end project can be treated as a primer for human activity recognition from a video. Although we did not achieve high accuracy after training, in the network with a full video dataset and hyperparameter tuning, the accuracy will <span>definitely </span>be increased. </p>
+<p>The next chapter is all about designing a machine learning system driven by criticisms and rewards. We will see how to develop a demo GridWorld game using DL4J, RL4J, and neural Q-learning, which acts as the Q-function. We will start from reinforcement learning and its theoretical background so that the concepts are easier to grasp.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Answers to questions</h1>
+                </header>
+            
+            <article>
+                
+<p><strong>Answer</strong> <strong>to question 1:</strong> This means the training is not being distributed, which also means that your system is forcing you to use just one GPU. Now to solve this issue, just add the following line at the beginning of your <kbd>main()</kbd> method:</p>
+<pre>CudaEnvironment.getInstance().getConfiguration().allowMultiGPU(true);</pre>
+<p><strong>Answer</strong> <strong>to question 2:</strong> Well, this is certainly an AWS EC2-related question. However, I will provide a short explanation. If you see the default boot device, it allocates only 7.7 GB of space, but about 85% is allocated for the udev device, as shown here:</p>
+<div class="CDPAlignCenter CDPAlign"><img src="assets/4ae219c5-ea53-4456-b9e6-e97d83f012c8.png" style=""/></div>
+<div class="CDPAlignCenter CDPAlign packt_figref">Showing storage on a p2.8xlarge instance</div>
+<p>Now, to get rid of this issue, you can specify sufficient storage in the boot device while creating the instance, as follows:</p>
+<div class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-742 image-border" src="assets/0c6f61f3-6b03-4f34-b6a0-feca85705ff1.png" style=""/></div>
+<div class="CDPAlignCenter CDPAlign packt_figref">Increasing storage on the default boot device the on p2.8xlarge instance</div>
+<p><strong>Answer</strong> <strong>to question 3:</strong> Well, if this is the case, you can probably do the training on CPU instead of GPU. However, if performing training on a GPU is mandatory, I recommend using the <kbd>HALF</kbd> datatype. </p>
+<p>If your machine and code can afford using half-precision math, you can enable this as the data type. It will then ensure 2x less GPU memory usage by DL4J. To enable this, just add the following line of code to the beginning of the <kbd>main()</kbd> method (even before the multi-GPU allows one):</p>
+<pre>DataTypeUtil.setDTypeForContext(DataBuffer.Type.HALF);</pre>
+<div class="packt_infobox">Using the <kbd>HALF</kbd> datatype will force your network to squash less precision compared to <kbd>float</kbd> or <kbd>double</kbd> types. Nonetheless, tuning your network may be harder.</div>
+<p><strong>Answer</strong> <strong>to question</strong> <strong>4:</strong> We have not managed to achieve good accuracy. This is the main objective of this end-to-end chapter. Therefore, after training the network with the full video dataset and hyperparameter tuning, the accuracy will <span>definitely </span>increase. </p>
+<p>Finally, and to be honest, Java is not the perfect choice if you want to take an application to production. I am saying this because so many advanced feature-extraction libraries from video clips are in Python, and those can be used too.</p>
+
+
+            </article>
+
+            
+        </section>
+    </body></html>
