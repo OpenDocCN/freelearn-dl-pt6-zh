@@ -1,46 +1,64 @@
 - en: Deploying on a Distributed System
+  id: totrans-0
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 在分布式系统上部署
 - en: 'The upcoming chapters of this book will show what we have learned so far in
     order to implement some practical and real-world use cases of CNNs and RNNs. But
     before doing that, let''s consider DL4J in a production environment. This chapter
     is divided into four main sections:'
+  id: totrans-1
   prefs: []
   type: TYPE_NORMAL
+  zh: 本书接下来的章节将展示我们迄今为止学到的内容，以便实现一些实际的、现实世界中的CNN和RNN用例。但在此之前，我们先考虑一下DL4J在生产环境中的应用。本章分为四个主要部分：
 - en: Some considerations about the setup for a DL4J environment in production, with
     focus in particular on memory management, CPU, and GPU setup, and job submission
     for training
+  id: totrans-2
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 关于DL4J生产环境设置的一些考虑，特别关注内存管理、CPU和GPU设置以及训练作业的提交
 - en: Distributed training architecture details (data parallelism and strategies implemented
     in DL4J)
+  id: totrans-3
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 分布式训练架构细节（数据并行性和DL4J中实现的策略）
 - en: The practical way to import, train, and execute Python (Keras and TensorFlow)
     models in a DL4J (JVM)-based production environment
+  id: totrans-4
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 在基于DL4J（JVM）的生产环境中导入、训练和执行Python（Keras和TensorFlow）模型的实际方法
 - en: A comparison between DL4J and a couple of alternative DL frameworks for the
     Scala programming language (with particular focus on their readiness for production)
+  id: totrans-5
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: DL4J与几种替代的Scala编程语言DL框架的比较（特别关注它们在生产环境中的就绪性）
 - en: Setup of a distributed environment with DeepLearning4j
+  id: totrans-6
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 配置一个分布式环境与DeepLearning4j
 - en: This section explains some tricks to do when setting up a production environment
     for DL4J neural network model training and execution.
+  id: totrans-7
   prefs: []
   type: TYPE_NORMAL
+  zh: 本节解释了一些设置DL4J神经网络模型训练和执行的生产环境时的技巧。
 - en: Memory management
+  id: totrans-8
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 内存管理
 - en: In [Chapter 7](3b6f47c0-6e17-484b-ad30-b6f92eb0473c.xhtml), *Training Neural
     Networks with Spark*, in the *Performance considerations *section, we learned
     how DL4J handles memory when training or running a model. Because it relies on
@@ -50,40 +68,57 @@
     there are only pointers to off-heap memory locations; they can be passed to the
     C++ code via the Java Native Interface (JNI, [https://docs.oracle.com/javase/8/docs/technotes/guides/jni/spec/jniTOC.html](https://docs.oracle.com/javase/8/docs/technotes/guides/jni/spec/jniTOC.html))
     for use in ND4J operations.
+  id: totrans-9
   prefs: []
   type: TYPE_NORMAL
+  zh: 在[第7章](3b6f47c0-6e17-484b-ad30-b6f92eb0473c.xhtml)，*使用Spark训练神经网络*章节中的*性能考虑*部分，我们学习了在训练或运行模型时，DL4J如何处理内存。由于它依赖于ND4J，它不仅使用堆内存，还利用堆外内存。作为堆外内存，它位于JVM的**垃圾回收**（**GC**）机制管理的范围之外（内存分配在JVM外部）。在JVM层面，只有指向堆外内存位置的指针；这些指针可以通过Java本地接口（JNI，
+    [https://docs.oracle.com/javase/8/docs/technotes/guides/jni/spec/jniTOC.html](https://docs.oracle.com/javase/8/docs/technotes/guides/jni/spec/jniTOC.html)）传递给C++代码，用于ND4J操作。
 - en: 'In DL4J, it is possible to manage memory allocations using two different approaches:'
+  id: totrans-10
   prefs: []
   type: TYPE_NORMAL
+  zh: 在DL4J中，可以使用两种不同的方法来管理内存分配：
 - en: JVM GC and weak reference tracking
+  id: totrans-11
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: JVM垃圾回收（GC）和弱引用跟踪
 - en: Memory workspaces
+  id: totrans-12
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 内存工作空间
 - en: 'In this section, both approaches are going to be covered. The idea behind both
     is the same: once an `INDArray` is no longer required, the off-heap memory associated
     with it should be released so that it can be reused. The difference between the
     two approaches is as follows:'
+  id: totrans-13
   prefs: []
   type: TYPE_NORMAL
+  zh: 本节将涵盖这两种方法。它们的思想是相同的：一旦`INDArray`不再需要，应该释放与其相关的堆外内存，以便可以重复使用。两种方法之间的区别如下：
 - en: '**JVM GC**: When an `INDArray` is collected by the garbage collector, its off-heap
     memory is deallocated, with the assumption that it is not used elsewhere'
+  id: totrans-14
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '**JVM垃圾回收（GC）**：当`INDArray`被垃圾回收器回收时，它的堆外内存会被释放，假设该内存不会在其他地方使用'
 - en: '**Memory workspaces**: When an `INDArray` leaves the workspace scope, its off-heap
     memory may be reused, without deallocation and reallocation'
+  id: totrans-15
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '**内存工作空间**：当`INDArray`离开工作空间范围时，它的堆外内存可以被重用，而无需进行释放和重新分配'
 - en: Please refer to [Chapter 7](3b6f47c0-6e17-484b-ad30-b6f92eb0473c.xhtml), *Training
     Neural Networks with Spark*, in the *Performance considerations* section, for
     details on how to configure the limits for the heap and off-heap memory.
+  id: totrans-16
   prefs: []
   type: TYPE_NORMAL
+  zh: 请参考[第7章](3b6f47c0-6e17-484b-ad30-b6f92eb0473c.xhtml)，*使用Spark训练神经网络*章节中的*性能考虑*部分，了解如何配置堆内存和堆外内存的限制。
 - en: The memory workspaces approach needs more explanation. Compared to the JVM GC
     approach, it gives the best results in terms of performance in cyclic workloads.
     Within a workspace, any operation is possible with `INDArrays`. Then at the end
@@ -91,23 +126,30 @@
     an `INDArray` should be needed outside a workspace (which could be the case when
     moving results out of it), it is possible to use the `detach` method of the `INDArray`
     itself to create an independent copy of it.
+  id: totrans-17
   prefs: []
   type: TYPE_NORMAL
 - en: 'Workspaces are enabled by default in DL4J releases from 1.0.0-alpha or later.
     In order to use them, they need to be activated for DL4J release 0.9.1 or older.
     In DL4J 0.9.1, at network configuration time, workspaces can be activated this
     way (for training):'
+  id: totrans-18
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE0]'
+  id: totrans-19
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE0]'
 - en: 'Or for inference, they can be activated as follows:'
+  id: totrans-20
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE1]'
+  id: totrans-21
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE1]'
 - en: A `SEPARATE` workspace is slower, but it uses less memory, while a `SINGLE`
     workspace is faster, but requires more memory. The choice between `SEPARATE` and
     `SINGLE` depends on the compromise you choose between memory footprint and performance.
@@ -117,37 +159,49 @@
     it detaches the resulting `INDArray` from the workspaces, so it can then be handled
     by the JVM GC. Starting from release 1.0.0-beta, the `SEPARATE` and `SINGLE` modes
     have been deprecated. The available modes are `ENABLED` (default) and `NONE`.
+  id: totrans-22
   prefs: []
   type: TYPE_NORMAL
 - en: 'Please remember that, when a training process uses workspaces, in order to
     get the most from this approach, periodic GC calls need to be disabled, as follows:'
+  id: totrans-23
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE2]'
+  id: totrans-24
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE2]'
 - en: 'Or their frequency needs to be reduced, as follows:'
+  id: totrans-25
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE3]'
+  id: totrans-26
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE3]'
 - en: This setting should be done before invoking the `fit` method for the model in
     training. The workspace modes are available also for `ParallelWrapper` (in the
     case of training demanded to DL4J only, running multiple models on the same server).
+  id: totrans-27
   prefs: []
   type: TYPE_NORMAL
 - en: 'In some cases, to save memory, it would be necessary to release all the workspaces
     created during training or evaluation. This can be done by invoking the following
     method of `WorkspaceManager`:'
+  id: totrans-28
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE4]'
+  id: totrans-29
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE4]'
 - en: It destroys all workspaces that have been created within the calling thread.
     Workspaces created in some external threads that are no longer needed can be destroyed
     using the same method in that thread.
+  id: totrans-30
   prefs: []
   type: TYPE_NORMAL
 - en: 'In DL4J release 1.0.0-alpha and later, when using the `nd4j-native` backend,
@@ -155,16 +209,21 @@
     it allows memory allocation in a manner that is impossible to achieve using RAM.
     This option is mostly workable in those cases where `INDArrays` can''t fit into
     RAM. Here''s how this could be done programmatically:'
+  id: totrans-31
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE5]'
+  id: totrans-32
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE5]'
 - en: In this example, a temporary file of 2 GB is created, a workspace is mapped
     there, and the `ndArray` `INDArray` is created in that workspace.
+  id: totrans-33
   prefs: []
   type: TYPE_NORMAL
 - en: CPU and GPU setup
+  id: totrans-34
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
@@ -173,12 +232,16 @@
     application dependencies for ND4J is needed. Here''s an example for CUDA release
     9.2 (or later) and NVIDIA-compatible hardware (the example is for Maven, but the
     same dependency could be set for Gradle or sbt), as follows:'
+  id: totrans-35
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE6]'
+  id: totrans-36
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE6]'
 - en: This dependency replaces that for `nd4j-native`.
+  id: totrans-37
   prefs: []
   type: TYPE_NORMAL
 - en: 'When you have multiple GPUs in your system, whether it should restrict their
@@ -186,17 +249,21 @@
     through the `CudaEnvironment` helper class ([https://deeplearning4j.org/api/latest/org/nd4j/jita/conf/CudaEnvironment.html](https://deeplearning4j.org/api/latest/org/nd4j/jita/conf/CudaEnvironment.html))
     of the `nd4j-cuda` library. The following line of code needs to be executed as
     the first instruction in a DL4J application entry point:'
+  id: totrans-38
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE7]'
+  id: totrans-39
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE7]'
 - en: In section 10.1.1, we have learned how to configure heap and off-heap memory
     in DL4J. Some considerations need to be made when executing on GPUs. It should
     be clear that the settings for the command-line arguments `org.bytedeco.javacpp.maxbytes`
     and `org.bytedeco.javacpp.maxphysicalbytes` define the memory limits for the GPU(s),
     because for `INDArrays`*,* the off-heap memory is mapped to the GPU (`nd4j-cuda`
     is used).
+  id: totrans-40
   prefs: []
   type: TYPE_NORMAL
 - en: 'Also, when running on GPUs, most probably less RAM would be used in the JVM
@@ -204,17 +271,21 @@
     are stored. Allocating too much to the JVM heap would leave a real risk of having
     not enough memory left off-heap. Anyway, while doing proper settings, in some
     situations, execution could lead to the following exception:'
+  id: totrans-41
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE8]'
+  id: totrans-42
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE8]'
 - en: This means that we have run out of off-heap memory. In situations like this
     (in particular for training), we need to consider `WorkspaceConfiguration` to
     handle the `INDArrays` memory allocation (as learned in the *Memory management*
     section). If not, the `INDArrays` and their off-heap resources would be reclaimed
     through the JVM GC approach, which might severely increase latency and generate
     other potential out of memory issues.
+  id: totrans-43
   prefs: []
   type: TYPE_NORMAL
 - en: The command-line arguments to set the memory limits are optional. Not specifying
@@ -223,6 +294,7 @@
     would be set for the off-heap memory. It is up to us to find the perfect balance,
     particularly in cases of execution on GPUs, considering the expected amount of
     off-heap memory for the `INDArrays`.
+  id: totrans-44
   prefs: []
   type: TYPE_NORMAL
 - en: Typically, CPU RAM is greater than GPU RAM. For this reason, how much RAM is
@@ -232,28 +304,35 @@
     DL4J allocates off-heap memory on the CPU RAM too. This way, a CPU can access
     data from an `INDArray` with no need to fetch data from a GPU any time there is
     a call for it.
+  id: totrans-45
   prefs: []
   type: TYPE_NORMAL
 - en: 'However there is one caveat: if a GPU has less than 2 GB of RAM, it''s probably
     not suitable for DL production workloads. In that case, a CPU should be used.
     Typically, DL workloads require a minimum of 4 GB of RAM (8 GB of RAM is recommended
     on a GPU).'
+  id: totrans-46
   prefs: []
   type: TYPE_NORMAL
 - en: 'Here is a final consideration: with a CUDA backend and using workspaces, it is
     also possible to use `HOST_ONLY` memory. Programmatically, this could be set up
     as in the following example:'
+  id: totrans-47
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE9]'
+  id: totrans-48
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE9]'
 - en: This reduces performance, but it can be useful as in-memory cache pairs when
     using the `unsafeDuplication` method of `INDArray`, which performs efficient (but
     unsafe) `INDArray` duplication.
+  id: totrans-49
   prefs: []
   type: TYPE_NORMAL
 - en: Building a job to be submitted to Spark for training
+  id: totrans-50
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
@@ -264,6 +343,7 @@
     for packaging and dependency management. In this section, I am going to refer
     to this tool in order to build a DL4J job that will then be submitted to Spark
     to train a model.
+  id: totrans-51
   prefs: []
   type: TYPE_NORMAL
 - en: 'Once you are confident that the job that you have developed is ready for training
@@ -274,15 +354,19 @@
     file. Check that the correct version of the dl4j-Spark library has been selected;
     all of the examples in this book are meant to be used with Scala 2.11.x and Apache
     Spark 2.2.x. The code should look as follows:'
+  id: totrans-52
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE10]'
+  id: totrans-53
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE10]'
 - en: If your project POM file, as well as the other dependencies, contains references
     to Scala and/or any of the Spark libraries, please declare their scope as `provided`,
     as they are already available across the cluster nodes. This way, the uber-JAR
     would be lighter.
+  id: totrans-54
   prefs: []
   type: TYPE_NORMAL
 - en: 'Once you have checked for the proper dependencies, you need to instruct the
@@ -296,37 +380,51 @@
     through the Shade plugin ([http://maven.apache.org/plugins/maven-shade-plugin/](http://maven.apache.org/plugins/maven-shade-plugin/)).
     The plugin needs to be registered in the `<plugins>` section of the POM file as
     follows:'
+  id: totrans-55
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE11]'
+  id: totrans-56
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE11]'
 - en: 'This plugin executes when the following command is issued:'
+  id: totrans-57
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE12]'
+  id: totrans-58
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE12]'
 - en: At the end of the packaging process, the latest versions of this plugin replace
     the slim JAR with the uber-JAR, renaming it with the original filename. For a
     project with the following coordinates, the name of the uber-JAR would be `rnnspark-1.0.jar`*:*
+  id: totrans-59
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE13]'
+  id: totrans-60
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE13]'
 - en: The slim JAR is preserved anyway, but it is renamed as `original-rnnspark-1.0.jar`.
     They both can be found inside the `target` sub-directory of the project root directory.
+  id: totrans-61
   prefs: []
   type: TYPE_NORMAL
 - en: 'The JAR can then be submitted to the Spark cluster for training using the `spark-submit`
     script, the same way as for any other Spark job, as follows:'
+  id: totrans-62
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE14]'
+  id: totrans-63
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE14]'
 - en: Spark distributed training architecture details
+  id: totrans-64
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
@@ -339,37 +437,46 @@
     the parameter averaging approach in DL4J starting from release 1.0.0-beta of the
     framework). The way DL4J approaches distributed training is transparent to developers,
     but it is good to have knowledge of it anyway.
+  id: totrans-65
   prefs: []
   type: TYPE_NORMAL
 - en: Model parallelism and data parallelism
+  id: totrans-66
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
 - en: Parallelizing/distributing training computation can happen as **model parallelism**
     or **data parallelism**.
+  id: totrans-67
   prefs: []
   type: TYPE_NORMAL
 - en: 'In model parallelism (see following diagram), different nodes of the cluster
     are responsible for the computation in different parts of a single MNN (an approach
     could be that each layer in the network is assigned to a different node):'
+  id: totrans-68
   prefs: []
   type: TYPE_NORMAL
 - en: '![](img/7d5a9a36-ede6-4b17-a35a-f71efc2d529f.png)'
+  id: totrans-69
   prefs: []
   type: TYPE_IMG
 - en: 'Figure 10.1: Model parallelism'
+  id: totrans-70
   prefs: []
   type: TYPE_NORMAL
 - en: 'In data parallelism (see the following diagram), different cluster nodes have
     a complete copy of the network model, but they get a different subset of the training
     data. The results from each node are then combined, as demonstrated in the following
     diagram:'
+  id: totrans-71
   prefs: []
   type: TYPE_NORMAL
 - en: '![](img/4f2147d0-b25b-4698-ba8c-698dca76d88b.png)'
+  id: totrans-72
   prefs: []
   type: TYPE_IMG
 - en: 'Figure 10.2: Data parallelism'
+  id: totrans-73
   prefs: []
   type: TYPE_NORMAL
 - en: These two approaches can also be combined; they aren't mutually exclusive. Model
@@ -377,54 +484,67 @@
     distributed training; matters like implementation, fault tolerance, and optimized
     cluster resource utilization (just to mention a few) are definitely easier for
     data parallelism than for model parallelism.
+  id: totrans-74
   prefs: []
   type: TYPE_NORMAL
 - en: The data parallelism approach requires some way of combining the results and
     synchronizing the model parameters across workers. In the next two subsections,
     we are going to explore just the two (parameter averaging and gradient sharing)
     that have been implemented in DL4J.
+  id: totrans-75
   prefs: []
   type: TYPE_NORMAL
 - en: Parameter averaging
+  id: totrans-76
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
 - en: 'Parameter averaging happens as follows:'
+  id: totrans-77
   prefs: []
   type: TYPE_NORMAL
 - en: The master first initializes the neural network parameters based on the model
     configuration
+  id: totrans-78
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: Then, it distributes a copy of the current parameters to each worker
+  id: totrans-79
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: The training starts on each worker using its own subset of data
+  id: totrans-80
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: The master sets the global parameters to the average parameters for each worker
+  id: totrans-81
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: In those cases where there is more data to process, the flow repeats from *Step
     2*
+  id: totrans-82
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: 'The following diagram shows a representation from *Step 2* to *Step 4*:'
+  id: totrans-83
   prefs: []
   type: TYPE_NORMAL
 - en: '![](img/bcfecfcc-1965-401b-b353-82b078608429.png)'
+  id: totrans-84
   prefs: []
   type: TYPE_IMG
 - en: 'Figure 10.3: Parameter averaging'
+  id: totrans-85
   prefs: []
   type: TYPE_NORMAL
 - en: In this diagram, **W** represents the parameters (weights and biases) in the
     network. In DL4J, this implementation uses Spark's TreeAggregate ([https://umbertogriffo.gitbooks.io/apache-spark-best-practices-and-tuning/content/treereduce_and_treeaggregate_demystified.html](https://umbertogriffo.gitbooks.io/apache-spark-best-practices-and-tuning/content/treereduce_and_treeaggregate_demystified.html)).
+  id: totrans-86
   prefs: []
   type: TYPE_NORMAL
 - en: Parameter averaging is a simple approach, but it comes with some challenges.
@@ -442,9 +562,11 @@
     an internal state that could probably be averaged as well. This results in a faster
     convergence in each worker, but at the cost of doubling the size of the network
     transfers.
+  id: totrans-87
   prefs: []
   type: TYPE_NORMAL
 - en: Asynchronous stochastic gradient sharing
+  id: totrans-88
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
@@ -454,34 +576,49 @@
     stochastic gradient sharing, updates instead of parameters are transferred from
     the workers to the parameter server. From an architectural perspective, this is
     similar to parameter averaging (see the following diagram):'
+  id: totrans-89
   prefs: []
   type: TYPE_NORMAL
+  zh: 异步随机梯度共享是最新版本的DL4J（以及未来版本）所选择的方法。异步随机梯度共享和参数平均的主要区别在于，在异步随机梯度共享中，更新而不是参数被从工作者传递到参数服务器。从架构角度来看，这与参数平均类似（参见下图）：
 - en: '![](img/79e28023-42f8-4305-8972-923b5354f0be.png)'
+  id: totrans-90
   prefs: []
   type: TYPE_IMG
+  zh: '![](img/79e28023-42f8-4305-8972-923b5354f0be.png)'
 - en: Figure 10.4: Asynchronous stochastic gradient sharing architecture
+  id: totrans-91
   prefs: []
   type: TYPE_NORMAL
+  zh: 图 10.4：异步随机梯度共享架构
 - en: 'What is different is the formula through which the parameters are calculated:'
+  id: totrans-92
   prefs: []
   type: TYPE_NORMAL
+  zh: 不同之处在于计算参数的公式：
 - en: '![](img/159c04a0-1d94-43b1-bc89-5ad05105fc87.png)'
+  id: totrans-93
   prefs: []
   type: TYPE_IMG
+  zh: '![](img/159c04a0-1d94-43b1-bc89-5ad05105fc87.png)'
 - en: Here, ![](img/c91cb8c9-1433-4549-b7aa-381e8950a0a3.png) is the scaling factor.
     The asynchronous stochastic gradient sharing algorithm is obtained by allowing
     the updates ![](img/108002a8-d16d-451e-836f-f5c30eb9e7bf.png) to be applied to
     the parameter vectors as soon as they are computed.
+  id: totrans-94
   prefs: []
   type: TYPE_NORMAL
+  zh: 在这里，![](img/c91cb8c9-1433-4549-b7aa-381e8950a0a3.png) 是缩放因子。通过允许将更新 ![](img/108002a8-d16d-451e-836f-f5c30eb9e7bf.png)
+    在计算完成后立即应用到参数向量，从而得到异步随机梯度共享算法。
 - en: 'One of the main benefits of asynchronous stochastic gradient sharing is that
     it is possible to obtain higher throughput in a distributed system, rather than
     waiting for the parameter averaging step to be completed, so the workers can spend
     more time performing useful computations. Another benefit is the following: the
     workers can potentially incorporate parameter updates from other workers sooner,
     when compared to the case of using synchronous updating.'
+  id: totrans-95
   prefs: []
   type: TYPE_NORMAL
+  zh: 异步随机梯度共享的主要优点之一是，它可以在分布式系统中获得更高的吞吐量，而无需等待参数平均步骤完成，从而使工作者可以花更多时间进行有用的计算。另一个优点是：与同步更新的情况相比，工作者可以更早地结合来自其他工作者的参数更新。
 - en: 'One downside of asynchronous stochastic gradient sharing is the so-called stale
     gradient problem. The calculation of gradients (updates) requires time, and by
     the time a worker has finished his calculations and applied the results to the
@@ -494,40 +631,55 @@
     immediately, the parameter server waits to collect a given number of updates from
     any of the learners. Then, the formula through which the parameters are updated
     becomes this:'
+  id: totrans-96
   prefs: []
   type: TYPE_NORMAL
+  zh: 异步随机梯度共享的一个缺点是所谓的陈旧梯度问题。梯度（更新）的计算需要时间，当一个工作者完成计算并将结果应用到全局参数向量时，参数可能已经更新了不止一次（这个问题在参数平均中看不出来，因为参数平均是同步的）。为了解决陈旧梯度问题，已经提出了几种方法。其中一种方法是根据梯度的陈旧程度，针对每次更新单独调整值
+    ![](img/c91cb8c9-1433-4549-b7aa-381e8950a0a3.png)。另一种方法称为软同步：与其立即更新全局参数向量，参数服务器会等待收集来自任何学习者的一定数量的更新。然后，通过该公式更新参数：
 - en: '![](img/7ed522f5-d93c-42d3-997c-26e0fea27211.png)'
+  id: totrans-97
   prefs: []
   type: TYPE_IMG
+  zh: '![](img/7ed522f5-d93c-42d3-997c-26e0fea27211.png)'
 - en: Here, *s* is the number of updates that the parameter server waits to collect
     and ![](img/7fbd793e-4160-4bee-bba8-18fec6a7f311.png) is a Scalar staleness-dependent
     scaling factor.
+  id: totrans-98
   prefs: []
   type: TYPE_NORMAL
+  zh: 在这里，*s* 是参数服务器等待收集的更新数量，![](img/7fbd793e-4160-4bee-bba8-18fec6a7f311.png) 是与陈旧程度相关的标量缩放因子。
 - en: In DL4J, while the parameter averaging implementation has always been fault
     tolerant, the gradient sharing implementation has been made fully fault tolerant
     starting from release 1.0.0-beta3.
+  id: totrans-99
   prefs: []
   type: TYPE_NORMAL
+  zh: 在 DL4J 中，尽管参数平均实现一直是容错的，但从 1.0.0-beta3 版本开始，梯度共享实现已完全具备容错能力。
 - en: Importing Python models into the JVM with DL4J
+  id: totrans-100
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 将 Python 模型导入到 JVM 中使用 DL4J
 - en: In the previous chapter, we have learned how powerful and, at the same time,
     how easy the DL4J APIs are when it comes to configuring, building, and training
     multilayer neural network models. The possibilities to implement new models are
     almost innumerable relying on this framework only in Scala or Java.
+  id: totrans-101
   prefs: []
   type: TYPE_NORMAL
 - en: 'But, let''s have a look at the following search results from Google; they concern
     TensorFlow neural network models that are available on the web:'
+  id: totrans-102
   prefs: []
   type: TYPE_NORMAL
 - en: '![](img/d75b5945-793d-4b08-b910-141e38adc3e8.png)'
+  id: totrans-103
   prefs: []
   type: TYPE_IMG
 - en: 'Figure 10.5: The result of a Google search about TensorFlow neural network
     models'
+  id: totrans-104
   prefs: []
   type: TYPE_NORMAL
 - en: You can see that it is quite an impressive number in terms of results. And this
@@ -539,6 +691,7 @@
     are available for it. This explains the big numbers. Among those models, the chances
     of finding a pre-trained model that fits your specific use case needs are high.
     So, where's the problem? TensorFlow is mostly Python.
+  id: totrans-105
   prefs: []
   type: TYPE_NORMAL
 - en: 'It provides support for other programming languages, such as Java for the JVM,
@@ -550,12 +703,15 @@
     comes to the rescue. It is an open source, high-level neural network library written
     in Python that can be used to replace the TensorFlow high-level API (the following
     diagram shows the TensorFlow framework architecture):'
+  id: totrans-106
   prefs: []
   type: TYPE_NORMAL
 - en: '![](img/c632938e-2c0f-4e23-9ea7-0b8593e06ea9.png)'
+  id: totrans-107
   prefs: []
   type: TYPE_IMG
 - en: 'Figure 10.6: The TensorFlow architecture'
+  id: totrans-108
   prefs: []
   type: TYPE_NORMAL
 - en: Compared to TensorFlow, Keras is lightweight and allows easier prototyping.
@@ -563,16 +719,20 @@
     And last but not least, it can be used to import Python models into DL4J. The
     Keras Model Import DL4J library provides facilities for importing neural network
     models configured and trained through the Keras framework.
+  id: totrans-109
   prefs: []
   type: TYPE_NORMAL
 - en: 'The following diagram shows that once a model has been imported into DL4J,
     the full production stack is at disposal for using it:'
+  id: totrans-110
   prefs: []
   type: TYPE_NORMAL
 - en: '![](img/841beb3d-cdf3-4dff-86f9-c55d732296d5.png)'
+  id: totrans-111
   prefs: []
   type: TYPE_IMG
 - en: 'Figure 10.7: Importing a Keras model into DL4J'
+  id: totrans-112
   prefs: []
   type: TYPE_NORMAL
 - en: 'Let''s now go into detail to understand how this happens. For the examples
@@ -580,134 +740,186 @@
     package installer for Python on your machine. In order to implement a model in
     Keras, we have to install Keras itself and choose a backend (TensorFlow for the
     examples presented here). TensorFlow has to be installed first, as follows:'
+  id: totrans-113
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE15]'
+  id: totrans-114
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE15]'
 - en: 'That''s for the CPU only. If you need to run it on GPUs, you need to install
     the following:'
+  id: totrans-115
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE16]'
+  id: totrans-116
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE16]'
 - en: 'We can now install Keras, as follows:'
+  id: totrans-117
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE17]'
+  id: totrans-118
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE17]'
 - en: Keras uses TensorFlow as its default tensor manipulation library, so no extra
     action has to be taken if TensorFlow is our backend of choice.
+  id: totrans-119
   prefs: []
   type: TYPE_NORMAL
 - en: 'Let''s start simple, implementing an MLP model using the Keras API. After the
     necessary imports, enter the following lines of code:'
+  id: totrans-120
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE18]'
+  id: totrans-121
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE18]'
 - en: 'We create a `Sequential` model, as follows:'
+  id: totrans-122
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE19]'
+  id: totrans-123
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE19]'
 - en: 'Then, we add layers through the `add` method of `Sequential`, as follows:'
+  id: totrans-124
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE20]'
+  id: totrans-125
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE20]'
 - en: 'The configuration of the learning process for this model can be done through
     the `compile` method, as follows:'
+  id: totrans-126
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE21]'
+  id: totrans-127
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE21]'
 - en: 'Finally, we serialize the model in HDF5 format, as follows:'
+  id: totrans-128
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE22]'
+  id: totrans-129
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE22]'
 - en: '**Hierarchical Data Format** (**HDF**) is a set of file formats (with the extensions
     .hdf5 and .h5) to store and manage large amounts of data, in particular multidimensional
     numeric arrays. Keras uses it to save and load models.'
+  id: totrans-130
   prefs: []
   type: TYPE_NORMAL
 - en: 'After saving this simple program, `basic_mlp.py`, and running it, as follows
     the model will be serialized and saved in the `basic_mlp.h5` file:'
+  id: totrans-131
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE23]'
+  id: totrans-132
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE23]'
 - en: 'Now, we are ready to import this model into DL4J. We need to add to the Scala
     project the usual DataVec API, DL4J core, and ND4J dependencies, plus the DL4J
     model import library, as follows:'
+  id: totrans-133
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE24]'
+  id: totrans-134
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE24]'
 - en: 'Copy the `basic_mlp.h5` file in the resource folder of the project, then programmatically
     get its path, as follows:'
+  id: totrans-135
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE25]'
+  id: totrans-136
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE25]'
 - en: 'Then, load the model as DL4J `MultiLayerNetwork`*,* using the `importKerasSequentialModelAndWeights`
     method of the `KerasModelImport` class ([https://static.javadoc.io/org.deeplearning4j/deeplearning4j-modelimport/1.0.0-alpha/org/deeplearning4j/nn/modelimport/keras/KerasModelImport.html](https://static.javadoc.io/org.deeplearning4j/deeplearning4j-modelimport/1.0.0-alpha/org/deeplearning4j/nn/modelimport/keras/KerasModelImport.html)),
     as follows:'
+  id: totrans-137
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE26]'
+  id: totrans-138
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE26]'
 - en: 'Generate some mock data, as follows:'
+  id: totrans-139
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE27]'
+  id: totrans-140
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE27]'
 - en: 'Now, we can train the model the usual way in DL4J, as follows:'
+  id: totrans-141
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE28]'
+  id: totrans-142
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE28]'
 - en: All the considerations made in [Chapter 7](3b6f47c0-6e17-484b-ad30-b6f92eb0473c.xhtml),
     *Training Neural Networks with Spark*, [Chapter 8](b30120ea-bd42-4cb7-95d9-5ecaa2b7c181.xhtml),
     *Monitoring and Debugging Neural Network Training*, and [Chapter 9](869a9495-e759-4810-8623-d8b76ba61398.xhtml),
     *Interpreting Neural Network Output*, about training, monitoring, and evaluation
     with DL4J, apply here too.
+  id: totrans-143
   prefs: []
   type: TYPE_NORMAL
 - en: 'It is possible, of course, to train the model in Keras (as in the following
     example):'
+  id: totrans-144
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE29]'
+  id: totrans-145
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE29]'
 - en: 'Here, `x_train` and `y_train` are NumPy ([http://www.numpy.org/](http://www.numpy.org/))
     arrays) and evaluate it before saving it in serialized form, as follows:'
+  id: totrans-146
   prefs: []
   type: TYPE_NORMAL
 - en: '`loss_and_metrics = model.evaluate(x_test, y_test, batch_size=128)`'
+  id: totrans-147
   prefs: []
   type: TYPE_NORMAL
 - en: You can finally import the pre-trained model in the same way as explained previously,
     and just run it.
+  id: totrans-148
   prefs: []
   type: TYPE_NORMAL
 - en: The same as for `Sequential` model imports, DL4J allows also the importing of
     Keras `Functional` models.
+  id: totrans-149
   prefs: []
   type: TYPE_NORMAL
 - en: The latest versions of DL4J, also allow the importing of TensorFlow models.
@@ -717,31 +929,41 @@
     form. TensorFlow's file format is based on Protocol Buffers ([https://developers.google.com/protocol-buffers/?hl=en](https://developers.google.com/protocol-buffers/?hl=en)),
     which is a language and platform neutral extensible serialization mechanism for
     structured data.
+  id: totrans-150
   prefs: []
   type: TYPE_NORMAL
 - en: 'Copy the serialized `mnist.pb` file into the resource folder of the DL4J Scala
     project and then programmatically get it and import the model, as follows:'
+  id: totrans-151
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE30]'
+  id: totrans-152
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE30]'
 - en: 'Finally, feed the model with images and start to do predictions, as follows:'
+  id: totrans-153
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE31]'
+  id: totrans-154
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE31]'
 - en: Alternatives to DL4J for the Scala programming language
+  id: totrans-155
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
 - en: DL4J isn't the only framework for deep learning available for the Scala programming
     language. Two open source alternatives exist. In this section, we are going to
     learn more about them and do a comparison with DL4J.
+  id: totrans-156
   prefs: []
   type: TYPE_NORMAL
 - en: BigDL
+  id: totrans-157
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
@@ -756,20 +978,24 @@
     this framework is faster than the most popular Python frameworks, such as TensorFlow
     or Caffe, because BigDL uses the Intel Math Kernel Library (MKL, [https://software.intel.com/en-us/mkl](https://software.intel.com/en-us/mkl)),
     assuming it is running on Intel processor-based machines.
+  id: totrans-158
   prefs: []
   type: TYPE_NORMAL
 - en: It provides high-level APIs for neural networks and the possibility to import
     Python models from Keras, Caffe, or Torch.
+  id: totrans-159
   prefs: []
   type: TYPE_NORMAL
 - en: While it has been implemented in Scala, at the time this chapter was written,
     it supports only Scala 2.10.x.
+  id: totrans-160
   prefs: []
   type: TYPE_NORMAL
 - en: Looking at the latest evolution of this framework, it seems that Intel is going
     to provide more support for importing Python models implemented with other frameworks
     (and is starting also to provide support for some TensorFlow operations) and enhancements
     of the Python API, rather than the Scala API.
+  id: totrans-161
   prefs: []
   type: TYPE_NORMAL
 - en: What about community and contributions? BigDL is supported and driven by Intel,
@@ -783,6 +1009,7 @@
     the JVM languages and Python in relation to available numeric computation and
     DL tools/features. Also, the number of contributors, commits, and releases are
     increasing for DL4J.
+  id: totrans-162
   prefs: []
   type: TYPE_NORMAL
 - en: Compared to the Scala BigDL API, the DL4J API for Scala (and Java) is more high
@@ -790,13 +1017,16 @@
     approaching the DL world for the first time, as it speeds up the the process of
     getting familiar with the framework, and allows programmers to focus more on the
     model being trained and implemented.
+  id: totrans-163
   prefs: []
   type: TYPE_NORMAL
 - en: If your plan is to stay in the JVM world, I definitely believe DL4J is a better
     choice than BigDL.
+  id: totrans-164
   prefs: []
   type: TYPE_NORMAL
 - en: DeepLearning.scala
+  id: totrans-165
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
@@ -807,24 +1037,29 @@
     supports GPU-accelerated *N*-dimensional arrays. Neural networks in this framework
     can be built from mathematical formulas, so it can calculate derivatives of the
     weights in the formulas used.
+  id: totrans-166
   prefs: []
   type: TYPE_NORMAL
 - en: This framework supports plugins, so it could be extended by writing custom plugins,
     which can then coexist along with the plugin set available out of the box (a significant
     set of plugins is currently available in terms of models, algorithms, hyperparameters,
     calculation features, and so on).
+  id: totrans-167
   prefs: []
   type: TYPE_NORMAL
 - en: DeepLearning.scala applications can run as standalone on the JVM, as Jupyter
     ([http://jupyter.org/](http://jupyter.org/)) notebooks, or as scripts in Ammonite
     ([http://ammonite.io/](http://ammonite.io/)).
+  id: totrans-168
   prefs: []
   type: TYPE_NORMAL
 - en: Numerical computing happens through ND4J, the same as for DL4J.
+  id: totrans-169
   prefs: []
   type: TYPE_NORMAL
 - en: It doesn't have support for Python, nor facilities to import models implemented
     through Python DL frameworks.
+  id: totrans-170
   prefs: []
   type: TYPE_NORMAL
 - en: 'One big difference between this framework and others, such as DL4J and BigDL,
@@ -835,10 +1070,12 @@
     only option in DeepLearning.scala; the framework also provides a type class called
     `Applicative` (through the Scalaz library, [http://eed3si9n.com/learning-scalaz/Applicative.html](http://eed3si9n.com/learning-scalaz/Applicative.html)),
     which allows multiple calculations in parallel.'
+  id: totrans-171
   prefs: []
   type: TYPE_NORMAL
 - en: No native support for Spark or Hadoop was available for this framework at the
     time this chapter was written.
+  id: totrans-172
   prefs: []
   type: TYPE_NORMAL
 - en: DeepLearning.scala can be a good alternative to DL4J in those contexts where
@@ -847,6 +1084,7 @@
     observant of the principles of pure Scala programming than DL4J, which has targeted
     all of the languages that run on the JVM (starting from Java, then extending to
     Scala, Clojure, and others, including Android).
+  id: totrans-173
   prefs: []
   type: TYPE_NORMAL
 - en: 'The initial visions for these two frameworks are also different: DL4J started
@@ -861,9 +1099,11 @@
     it could grow in the very near future). Last but not least, the official documentation
     and examples are limited and not yet as mature and comprehensive as they are for
     DL4J.'
+  id: totrans-174
   prefs: []
   type: TYPE_NORMAL
 - en: Summary
+  id: totrans-175
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
@@ -875,6 +1115,7 @@
     infrastructure. Finally, a comparison between DL4J and two other DL frameworks
     for Scala (BigDL and DeepLearning.scala) was presented, and the reasons why DL4J
     could be a better choice from a production perspective were detailed.
+  id: totrans-176
   prefs: []
   type: TYPE_NORMAL
 - en: In the next chapter, the core concepts of Natural Language Processing (NLP)
@@ -883,5 +1124,6 @@
     the potential limitations of this approach, before in [Chapter 12](2bff1c2a-d984-49a0-aa22-03bafeb05fbc.xhtml),
     *Textual Analysis and Deep Learning*, presenting the same solution using DL4J
     and/or Keras/TensorFlow.
+  id: totrans-177
   prefs: []
   type: TYPE_NORMAL
