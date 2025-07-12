@@ -1,102 +1,148 @@
 - en: Chapter 4. Building Realistic Images from Your Text
+  id: totrans-0
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 第4章：从文本构建逼真的图像
 - en: For many real-life complex problems, a single Generative Adversarial Network
     may not be sufficient to solve it. Instead it's better to decompose the complex
     problem into multiple simpler sub-problems and use multiple GANs to work on each
     sub-problem separately. Finally, you can stack or couple the GANs together to
     find a solution.
+  id: totrans-1
   prefs: []
   type: TYPE_NORMAL
+  zh: 对于许多现实中的复杂问题，单一的生成对抗网络可能不足以解决问题。相反，最好将复杂问题分解为多个更简单的子问题，并使用多个GAN分别解决每个子问题。最后，你可以将这些GAN堆叠或连接在一起，以找到解决方案。
 - en: In this chapter, we will first learn the technique of stacking multiple generative
     networks to generate realistic images from textual information. Next, you will
     couple two generative networks, to automatically discover relationships among
     various domains (relationships between shoes and handbags or actors and actresses).
+  id: totrans-2
   prefs: []
   type: TYPE_NORMAL
+  zh: 在本章中，我们将首先学习如何堆叠多个生成网络，从文本信息中生成逼真图像。接下来，你将将两个生成网络结合起来，自动发现不同领域之间的关系（如鞋子和手袋或男女演员之间的关系）。
 - en: 'We will cover the following topics in this chapter:'
+  id: totrans-3
   prefs: []
   type: TYPE_NORMAL
+  zh: 本章我们将讨论以下主题：
 - en: What is StackGAN? Its concept and architecture
+  id: totrans-4
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 什么是StackGAN？它的概念和架构
 - en: Synthesizing realistic images from text description using TensorFlow
+  id: totrans-5
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 使用TensorFlow从文本描述合成逼真图像
 - en: Discovering cross-domain relationships with DiscoGAN
+  id: totrans-6
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 使用DiscoGAN发现跨领域关系
 - en: Generating handbag images from edges using PyTorch
+  id: totrans-7
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 使用PyTorch从边缘生成手袋图像
 - en: Transforming gender (actor-to-actress or vice-versa) with facescrub data
+  id: totrans-8
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 使用facescrub数据转换性别（演员到女演员或反之）
 - en: Introduction to StackGAN
+  id: totrans-9
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: StackGAN简介
 - en: 'The idea of StackGAN was originally proposed by *Han Zhang*, *Tao Xu*, *Hongsheng
     Li*, *Shaoting Zhang*, *Xiaolei Huang*, *Xiaogang Wang*, and *Dimitris Metaxas*
     [*arXiv: 1612.03242,2017*] in the paper *Text to Photo-realistic Image Synthesis
     with Stacked Generative Adversarial Networks*, where GAN has been used to synthesize
     forged images starting from the text description.'
+  id: totrans-10
   prefs: []
   type: TYPE_NORMAL
+  zh: 'StackGAN的思想最初由*Han Zhang*、*Tao Xu*、*Hongsheng Li*、*Shaoting Zhang*、*Xiaolei
+    Huang*、*Xiaogang Wang*和*Dimitris Metaxas*在论文《*Text to Photo-realistic Image Synthesis
+    with Stacked Generative Adversarial Networks*》[*arXiv: 1612.03242, 2017*]中提出，其中使用了GAN从文本描述生成伪造图像。'
 - en: Synthesizing photo realistic images from text is a challenging problem in Computer
     Vision and has tremendous practical application. The problem of generating images
     from text can be decomposed into two manageable sub-problems using StackGAN. In
     this approach, we stack two stages of the generative network based on certain
     conditions (such as textual description and the output of the previous stage)
     to achieve this challenging task of realistic image generation from text input.
+  id: totrans-11
   prefs: []
   type: TYPE_NORMAL
+  zh: 从文本合成逼真图像是计算机视觉中的一个挑战性问题，具有巨大的实际应用。使用StackGAN，生成图像的问题可以分解成两个可管理的子问题。在这种方法中，我们基于某些条件（如文本描述和前一阶段的输出）将生成网络的两个阶段进行堆叠，从而实现从文本输入生成逼真图像的这一挑战性任务。
 - en: 'Let us define some concepts and notation before diving into the model architecture
     and implementation details:'
+  id: totrans-12
   prefs: []
   type: TYPE_NORMAL
+  zh: 在深入讨论模型架构和实现细节之前，让我们先定义一些概念和符号：
 - en: '*Io*: This is the original image'
+  id: totrans-13
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '*Io*: 这是原始图像'
 - en: '*t*: Text description'
+  id: totrans-14
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '*t*: 文本描述'
 - en: '*t*: Text embedding'
+  id: totrans-15
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '*t*: 文本嵌入'
 - en: '*µ(t)*: Mean of text embedding'
+  id: totrans-16
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '*µ(t)*: 文本嵌入的均值'
 - en: '*∑(t)*: Diagonal covariance matrix of text embedding'
+  id: totrans-17
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '*∑(t)*: 文本嵌入的对角协方差矩阵'
 - en: '*pdata*: Real data distribution'
+  id: totrans-18
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '*pdata*: 真实数据分布'
 - en: '*pz*: Gaussian distribution of noise'
+  id: totrans-19
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '*pz*: 噪声的高斯分布'
 - en: '*z*: Randomly sampled noise from Gaussian distribution'
+  id: totrans-20
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '*z*: 从高斯分布随机采样的噪声'
 - en: Conditional augmentation
+  id: totrans-21
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 条件增强
 - en: As we already know from [Chapter 2](ch02.html "Chapter 2. Unsupervised Learning
     with GAN"), *Unsupervised Learning with GAN*, in Conditional GAN both the generator
     and discriminator network receive additional conditioning variables *c* to yield
@@ -108,43 +154,53 @@
     by encoding through an encoder and then transformed nonlinearly using a char-CNN-RNN
     model to create conditioning latent variables as the input of a stage-I generator
     network.
+  id: totrans-22
   prefs: []
   type: TYPE_NORMAL
 - en: Since the latent space for text embedding is usually high dimensional, to mitigate
     the problem of discontinuity in latent data manifold with a limited amount of
     data, a conditioning augmentation technique is applied to produce additional conditioning
     variable *c^* sampled from a Gaussian distribution *N(µ(t), ∑(t))*.
+  id: totrans-23
   prefs: []
   type: TYPE_NORMAL
 - en: Stage-I
+  id: totrans-24
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
 - en: 'In this stage, the GAN network learns the following:'
+  id: totrans-25
   prefs: []
   type: TYPE_NORMAL
 - en: Generating rough shapes and basic colors for creating objects conditioned on
     textual description
+  id: totrans-26
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: Generating background regions from random noise sampled from prior distribution
+  id: totrans-27
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: The low resolution coarse images generated in this stage might not look real
     because they have some defects such as object shape distortion, missing object
     parts, and so on.
+  id: totrans-28
   prefs: []
   type: TYPE_NORMAL
 - en: 'The stage-I GAN trains the discriminator *D0* (maximize the loss) and the generator
     *G0* (minimize the loss), alternatively as shown in the following equation:'
+  id: totrans-29
   prefs: []
   type: TYPE_NORMAL
 - en: '![Stage-I](img/B08086_04_01.jpg)'
+  id: totrans-30
   prefs: []
   type: TYPE_IMG
 - en: Stage-II
+  id: totrans-31
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
@@ -152,26 +208,32 @@
     defects in low resolution images generated from stage-I (such as a lack of vivid
     object parts, shape distortion, and some omitted details from the text) to generate
     high resolution realistic images conditioned on textual description.
+  id: totrans-32
   prefs: []
   type: TYPE_NORMAL
 - en: 'The stage-II GAN alternatively trains the discriminator *D* (maximize the loss)
     and generator *G* (minimize the loss), conditioned on the result of low resolution
     *G*[*0*]*(z; c^0)* and the Gaussian latent variable *c^*:'
+  id: totrans-33
   prefs: []
   type: TYPE_NORMAL
 - en: '![Stage-II](img/B08086_04_02.jpg)'
+  id: totrans-34
   prefs: []
   type: TYPE_IMG
 - en: Note
+  id: totrans-35
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
 - en: Random noise *z* is replaced with Gaussian conditioning variables *c^* in stage-II.
     Also, the conditioning augmentation in stage-II has different fully connected
     layers to generate different means and standard deviation of the text embedding.
+  id: totrans-36
   prefs: []
   type: TYPE_NORMAL
 - en: Architecture details of StackGAN
+  id: totrans-37
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
@@ -180,6 +242,7 @@
     *µ0* and *σ0* (*σ0* is the diagonal values of *∑0*) for the Gaussian distribution
     *N(µ0(t); ∑0(t))* and then the text conditioning variable *c^0* is then sampled
     from the Gaussian distribution.
+  id: totrans-38
   prefs: []
   type: TYPE_NORMAL
 - en: For the discriminator network *D0* of stage-I, the text embedding *t* is first
@@ -190,6 +253,7 @@
     The resulting tensor goes through a 1x1 convolutional layer to jointly learn features
     across the image and the text and finally output the decision score using one
     node fully connected layer.
+  id: totrans-39
   prefs: []
   type: TYPE_NORMAL
 - en: The generator of stage-II is designed as an encoder-decoder network with residual
@@ -201,6 +265,7 @@
     several residual blocks, to learn multi-modal representations across image and
     text features. Finally, the resulting tensors goes through a series of up-sampling
     layers (that is, decoder) to generate a *W* x *H* high resolution image.
+  id: totrans-40
   prefs: []
   type: TYPE_NORMAL
 - en: 'The discriminator of stage-II is similar to stage-1 with only extra down-sampling
@@ -209,15 +274,19 @@
     corresponding text descriptions, whereas the negative sample consists of two groups:
     one having real images with mismatched text embedding and the other having synthetic
     images with their corresponding text embedding:'
+  id: totrans-41
   prefs: []
   type: TYPE_NORMAL
 - en: '![Architecture details of StackGAN](img/B08086_04_03.jpg)'
+  id: totrans-42
   prefs: []
   type: TYPE_IMG
 - en: Figure 1\. The architecture of the StackGAN.
+  id: totrans-43
   prefs: []
   type: TYPE_NORMAL
 - en: 'Source: *arXiv: 1612.03242,2017*'
+  id: totrans-44
   prefs: []
   type: TYPE_NORMAL
 - en: The stage-I generator first draws a low resolution image by sketching a rough
@@ -225,6 +294,7 @@
     from a random noise vector. The stage-II generator corrects defects and adds compelling
     details into stage-I results, yielding a more realistic high resolution image
     conditioned on stage-I results.
+  id: totrans-45
   prefs: []
   type: TYPE_NORMAL
 - en: The up-sampling blocks consist of the nearest-neighbor up-sampling followed
@@ -234,26 +304,33 @@
     and `ReLU` activation function. The down-sampling blocks consist of 44 convolutions
     each of stride 2, followed by batch normalization and Leaky-ReLU, except batch
     normalization is not present in the first convolution layer.
+  id: totrans-46
   prefs: []
   type: TYPE_NORMAL
 - en: Synthesizing images from text with TensorFlow
+  id: totrans-47
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
 - en: 'Let us implement the code to synthesize realistic images from text and produce
     mind blowing result:'
+  id: totrans-48
   prefs: []
   type: TYPE_NORMAL
 - en: 'First clone the `git` repository: [https://github.com/Kuntal-G/StackGAN.git](https://github.com/Kuntal-G/StackGAN.git)
     and change the directory to `StackGAN`:'
+  id: totrans-49
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: '[PRE0]'
+  id: totrans-50
   prefs:
   - PREF_IND
   type: TYPE_PRE
+  zh: '[PRE0]'
 - en: Note
+  id: totrans-51
   prefs:
   - PREF_IND
   - PREF_H3
@@ -261,119 +338,153 @@
 - en: 'Currently the code is compatible with an older version of TensorFlow (0.11),
     so you need to have TensorFlow version below 1.0 to successfully run this code.
     You can modify your TensorFlow version using: `sudo pip install tensorflow==0.12.0`.'
+  id: totrans-52
   prefs:
   - PREF_IND
   type: TYPE_NORMAL
 - en: 'Also make sure torch is installed in your system. More information can be found
     here: [http://torch.ch/docs/getting-started.html](http://torch.ch/docs/getting-started.html).'
+  id: totrans-53
   prefs:
   - PREF_IND
   type: TYPE_NORMAL
 - en: 'Then install the following packages using the `pip` command:'
+  id: totrans-54
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: '[PRE1]'
+  id: totrans-55
   prefs:
   - PREF_IND
   type: TYPE_PRE
+  zh: '[PRE1]'
 - en: 'Next download the pre-processed char-CNN-RNN text embedding birds model from:
     [https://drive.google.com/file/d/0B3y_msrWZaXLT1BZdVdycDY5TEE/view](https://drive.google.com/file/d/0B3y_msrWZaXLT1BZdVdycDY5TEE/view)
     using the following command:'
+  id: totrans-56
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: '[PRE2]'
+  id: totrans-57
   prefs:
   - PREF_IND
   type: TYPE_PRE
+  zh: '[PRE2]'
 - en: 'Now extract the downloaded file using the `unzip` command:'
+  id: totrans-58
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: '[PRE3]'
+  id: totrans-59
   prefs:
   - PREF_IND
   type: TYPE_PRE
+  zh: '[PRE3]'
 - en: 'Next download and extract the birds image data from Caltech-UCSD:'
+  id: totrans-60
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: '[PRE4]'
+  id: totrans-61
   prefs:
   - PREF_IND
   type: TYPE_PRE
+  zh: '[PRE4]'
 - en: 'Now we will do preprocessing on the images to split into training and test
     sets and save the images in pickle format:'
+  id: totrans-62
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: '[PRE5]'
+  id: totrans-63
   prefs:
   - PREF_IND
   type: TYPE_PRE
+  zh: '[PRE5]'
 - en: '![Synthesizing images from text with TensorFlow](img/B08086_04_04.jpg)'
+  id: totrans-64
   prefs:
   - PREF_IND
   type: TYPE_IMG
 - en: 'Now we will download the pre-trained char-CNN-RNN text embedding model from:
     [https://drive.google.com/file/d/0B3y_msrWZaXLNUNKa3BaRjAyTzQ/view](https://drive.google.com/file/d/0B3y_msrWZaXLNUNKa3BaRjAyTzQ/view)
     and save it to the `models/` directory using:'
+  id: totrans-65
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: '[PRE6]'
+  id: totrans-66
   prefs:
   - PREF_IND
   type: TYPE_PRE
+  zh: '[PRE6]'
 - en: 'Also download the char-CNN-RNN text encoder for birds from [https://drive.google.com/file/d/0B0ywwgffWnLLU0F3UHA3NzFTNEE/view](https://drive.google.com/file/d/0B0ywwgffWnLLU0F3UHA3NzFTNEE/view)
     and save it under the `models/text_encoder` directory:'
+  id: totrans-67
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: '[PRE7]'
+  id: totrans-68
   prefs:
   - PREF_IND
   type: TYPE_PRE
+  zh: '[PRE7]'
 - en: 'Next, we will add some sentences to the `example_captions.txt` file to generate
     some exciting images of birds:'
+  id: totrans-69
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: '`A white bird with a black crown and red beak`'
+  id: totrans-70
   prefs:
   - PREF_IND
   type: TYPE_NORMAL
 - en: '`this bird has red breast and yellow belly`'
+  id: totrans-71
   prefs:
   - PREF_IND
   type: TYPE_NORMAL
 - en: 'Finally, we will execute the `birds_demo.sh` file under the `demo` directory
     to generate realistic bird images from the text description given in the `example_captions.txt`
     file:'
+  id: totrans-72
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: '[PRE8]'
+  id: totrans-73
   prefs:
   - PREF_IND
   type: TYPE_PRE
+  zh: '[PRE8]'
 - en: '![Synthesizing images from text with TensorFlow](img/B08086_04_05.jpg)'
+  id: totrans-74
   prefs:
   - PREF_IND
   type: TYPE_IMG
 - en: Now the generated images will be saved under the `Data/birds/example_captions/`
     directory as shown in the following screenshot:![Synthesizing images from text
     with TensorFlow](img/B08086_04_06.jpg)
+  id: totrans-75
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: Voila, you have now generated impressive bird images from the textual description.
     Play with your own sentences to describe birds and visually verify the results
     with the description.
+  id: totrans-76
   prefs: []
   type: TYPE_NORMAL
 - en: Discovering cross-domain relationships with DiscoGAN
+  id: totrans-77
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
@@ -383,8 +494,10 @@
     in Spanish or choosing a shoe to fit the style of a dress), but learning this
     relation automatically is very challenging and requires a lot of ground truth
     pairing information that illustrates the relations.
+  id: totrans-78
   prefs: []
   type: TYPE_NORMAL
+  zh: 跨领域关系对人类来说通常是自然的，他们可以轻松地识别来自不同领域的数据之间的关系而无需监督（例如，识别英文句子与其西班牙语翻译句子之间的关系，或者选择一双鞋来搭配一件衣服），但是自动学习这种关系是非常具有挑战性的，且需要大量的真实配对信息来说明这些关系。
 - en: '**Discovery Generative Adversarial Networks** (**DiscoGAN**) *arXiv: 1703.05192
     ,2017* discovers the relationship between two visual domains and successfully
     transfers styles from one domain to another by generating new images of one domain
@@ -394,53 +507,75 @@
     1 are representable by images in domain 2, and use the reconstruction loss to
     measure how well the original image is reconstructed after the two translations—that
     is, from domain 1 to domain 2 and back to domain 1.'
+  id: totrans-79
   prefs: []
   type: TYPE_NORMAL
+  zh: '**发现生成对抗网络**（**DiscoGAN**） *arXiv: 1703.05192 ,2017* 发现了两个视觉领域之间的关系，并通过生成一个领域的新图像来成功地将样式从一个领域转移到另一个领域，无需任何配对信息。DiscoGAN的目标是将两个GAN模型耦合在一起，使每个领域都能映射到其对应的领域。DiscoGAN背后的关键思想是确保领域1中的所有图像都能通过领域2中的图像表示，并使用重构损失来衡量在进行两次转换后——即从领域1到领域2，再回到领域1——原始图像的重构效果。'
 - en: The architecture and model formulation of DiscoGAN
+  id: totrans-80
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: DiscoGAN的架构和模型构造
 - en: 'Before diving into the model formulation and various `loss` functions associated
     with DiscoGAN, let us first define some related terminology and concepts:'
+  id: totrans-81
   prefs: []
   type: TYPE_NORMAL
+  zh: 在深入探讨与DiscoGAN相关的模型构造和各种`损失`函数之前，让我们首先定义一些相关的术语和概念：
 - en: '*G*[*AB*]: The `generator` function that translates input image *x*[*A*] from
     domain A into image *x*[*AB*] in domain B'
+  id: totrans-82
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '*G*[*AB*]：`生成器`函数，将输入图像 *x*[*A*]从领域A转换为领域B中的图像 *x*[*AB*]'
 - en: '*G*[*BA*]: The `generator` function that translates input image *x[B]* from
     domain B into image *x*[*BA*] in domain A'
+  id: totrans-83
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '*G*[*BA*]：`生成器`函数，将输入图像 *x*[*B*]从领域B转换为领域A中的图像 *x*[*BA*]'
 - en: '*G*[*AB*](*x*[*A*]): This is the complete set of all possible resulting values
     for all *x*[*A*]s in domain A that should be contained in domain B'
+  id: totrans-84
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '*G*[*AB*](*x*[*A*])：这是领域A中所有* x *[*A*]值的完整集合，这些值应该包含在领域B中'
 - en: '*G*[*BA*](*x*[*B*]): This is the complete set of all possible resulting values
     for all *x*[*B*]s in domain B, that should be contained in domain A'
+  id: totrans-85
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '*G*[*BA*](*x*[*B*])：这是领域B中所有* x *[*B*]值的完整集合，这些值应该包含在领域A中'
 - en: '*D*[*A*]: The `discriminator` function in domain A'
+  id: totrans-86
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '*D*[*A*]：领域A中的`判别器`函数'
 - en: '*D*[*B*]: The `discriminator` function in domain B![The architecture and model
     formulation of DiscoGAN](img/B08086_04_07.jpg)'
+  id: totrans-87
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '*D*[*B*]：领域B中的`判别器`函数！[DiscoGAN的架构和模型构造](img/B08086_04_07.jpg)'
 - en: 'Figure-2: DiscoGAN architecture with two coupled GAN models'
+  id: totrans-88
   prefs:
   - PREF_IND
   type: TYPE_NORMAL
+  zh: 图2：DiscoGAN架构，包含两个耦合的GAN模型
 - en: 'Source: *arXiv- 1703.05192, 2017*'
+  id: totrans-89
   prefs:
   - PREF_IND
   type: TYPE_NORMAL
+  zh: 来源：*arXiv- 1703.05192, 2017*
 - en: 'The generator modules of DiscoGAN consist of an encoder-decoder pair to perform
     back to back image translation. A generator *G*[*AB*] first translates input image
     *x*[*A*] from domain A into the image *x*[*AB*] in domain B. Then the generated
@@ -449,43 +584,58 @@
     such as MSE, Cosine distance, and hinge-loss. Finally, the translated output image
     *x*[*AB*] of the generator is fed into the discriminator and gets scored by comparing
     it to the real image of domain B:'
+  id: totrans-90
   prefs: []
   type: TYPE_NORMAL
+  zh: DiscoGAN的生成器模块由一个编码器-解码器对组成，用于执行图像翻译。生成器 *G*[*AB*]首先将输入图像 *x*[*A*]从领域A转换为领域B中的图像
+    *x*[*AB*]。然后，生成的图像被转换回领域A的图像 *x*[*ABA*]，以使用重构损失（方程式-3）和某种形式的距离度量（如MSE、余弦距离、铰链损失）与原始输入图像匹配。最后，生成器转换后的输出图像
+    *x*[*AB*]被输入到判别器中，并通过与领域B的真实图像进行比较进行评分：
 - en: '![The architecture and model formulation of DiscoGAN](img/B08086_04_08.jpg)'
+  id: totrans-91
   prefs: []
   type: TYPE_IMG
+  zh: '![DiscoGAN的架构和模型构造](img/B08086_04_08.jpg)'
 - en: 'The generator *GAB* receives two types of losses as shown (equation-5):'
+  id: totrans-92
   prefs: []
   type: TYPE_NORMAL
+  zh: 生成器 *GAB* 接收两种类型的损失，如下所示（方程式-5）：
 - en: '*L*[*CONSTA*]: A reconstruction loss that measures how well the original image
     is reconstructed after the two translations domain A-> domain B-> domain A'
+  id: totrans-93
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: '*L*[*GANB*]: Standard GAN loss that measures how realistic the generated image
     is in domain B'
+  id: totrans-94
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: 'Whereas the discriminator *D*[*B*] receives the standard GAN discriminator
     loss as shown (equation-6):'
+  id: totrans-95
   prefs: []
   type: TYPE_NORMAL
 - en: '![The architecture and model formulation of DiscoGAN](img/B08086_04_09.jpg)'
+  id: totrans-96
   prefs: []
   type: TYPE_IMG
 - en: 'The two coupled GANs are trained simultaneously and both the GANs learn mapping
     from one domain to another along with reverse mapping for reconstruction of the
     input images from both domains using two reconstruction losses: *L*[*CONSTA*]
     and *L*[*CONSTB*].'
+  id: totrans-97
   prefs: []
   type: TYPE_NORMAL
 - en: 'The parameters are shared between generators *G*[*AB*] and *G*[*BA*] of two
     GANs and the generated images *x*[*BA*] and *x*[*AB*] are then fed into the separate
     discriminators *L*[*DA*] and *L*[*DB*] respectively:'
+  id: totrans-98
   prefs: []
   type: TYPE_NORMAL
 - en: '![The architecture and model formulation of DiscoGAN](img/B08086_04_10.jpg)'
+  id: totrans-99
   prefs: []
   type: TYPE_IMG
 - en: The total generator loss, *L*[*G*], is the sum of two GAN losses of the coupled
@@ -495,26 +645,32 @@
     domain B, respectively (equation- 8). In order to achieve bijective mapping having
     one-to-one correspondence, the DiscoGAN model is constrained by two *L*[*GAN*]
     losses and two *L*[*CONST*] reconstruction losses.
+  id: totrans-100
   prefs: []
   type: TYPE_NORMAL
 - en: Injective mapping means that every member of **A** has its own unique matching
     member in **B** and surjective mapping means that every **B** has at least one
     matching **A**.
+  id: totrans-101
   prefs: []
   type: TYPE_NORMAL
 - en: 'Bijective mapping means both injective and surjective are together and there
     is a perfect one-to-one correspondence between the members of the sets:'
+  id: totrans-102
   prefs: []
   type: TYPE_NORMAL
 - en: '![The architecture and model formulation of DiscoGAN](img/B08086_04_11.jpg)'
+  id: totrans-103
   prefs: []
   type: TYPE_IMG
 - en: Implementation of DiscoGAN
+  id: totrans-104
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
 - en: Let's now dig into the code to understand the concept (loss and measuring criteria)
     along with the architecture of DiscoGAN.
+  id: totrans-105
   prefs: []
   type: TYPE_NORMAL
 - en: 'The generator takes an input image of size 64x64x3 and feeds it through an
@@ -523,51 +679,70 @@
     The decoder part consists of five deconvolution layers with 4x4 filters, followed
     by a batch normalization and `ReLU` activation function, and outputs a target
     domain image of size 64x64x3\. The following is the generator code snippet:'
+  id: totrans-106
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE9]'
+  id: totrans-107
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE9]'
 - en: 'The discriminator is similar to the encoder part of the generator and consists
     of five convolution layers with 4x4 filters, each followed by a batch normalization
     and `LeakyReLU` activation function. Finally, we apply the `sigmoid` function
     on the final convolution layer (`conv-5`) to generate a scalar probability score
     between [0,1] to judge real/fake data. The following is the discriminator code
     snippet:'
+  id: totrans-108
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE10]'
+  id: totrans-109
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE10]'
 - en: 'Then we define the loss criteria for the generator and reconstruction using
     mean square error and binary cross entropy measures:'
+  id: totrans-110
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE11]'
+  id: totrans-111
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE11]'
 - en: 'Now we start generating images from one domain to other and calculate the reconstruction
     loss to understand how well the original image is reconstructed after two translations
     (`ABA` or `BAB`):'
+  id: totrans-112
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE12]'
+  id: totrans-113
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE12]'
 - en: 'Next, we calculate the generator loss and discriminator loss across each domain:'
+  id: totrans-114
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE13]'
+  id: totrans-115
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE13]'
 - en: 'Finally, we calculate the total loss of the `discogan` model by summing up
     the losses from two cross domains (`A` and `B`):'
+  id: totrans-116
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE14]'
+  id: totrans-117
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE14]'
 - en: Generating handbags from edges with PyTorch
+  id: totrans-118
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
@@ -575,34 +750,45 @@
     edges using the `pix2pix` dataset from Berkley. Make sure you have PyTorch ([http://pytorch.org/](http://pytorch.org/))
     and OpenCV ([http://docs.opencv.org/trunk/d7/d9f/tutorial_linux_install.html](http://docs.opencv.org/trunk/d7/d9f/tutorial_linux_install.html))
     installed on your machine before going through the following steps:'
+  id: totrans-119
   prefs: []
   type: TYPE_NORMAL
 - en: 'First clone the `git` repository and change the directory to `DiscoGAN`:'
+  id: totrans-120
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: '[PRE15]'
+  id: totrans-121
   prefs:
   - PREF_IND
   type: TYPE_PRE
+  zh: '[PRE15]'
 - en: 'Next download the `edges2handbags` dataset using the following command:'
+  id: totrans-122
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: '[PRE16]'
+  id: totrans-123
   prefs:
   - PREF_IND
   type: TYPE_PRE
+  zh: '[PRE16]'
 - en: 'And then apply image translation between two domains: edges and handbags with
     the downloaded dataset:'
+  id: totrans-124
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: '[PRE17]'
+  id: totrans-125
   prefs:
   - PREF_IND
   type: TYPE_PRE
+  zh: '[PRE17]'
 - en: '![Generating handbags from edges with PyTorch](img/B08086_04_12.jpg)'
+  id: totrans-126
   prefs:
   - PREF_IND
   type: TYPE_IMG
@@ -610,22 +796,27 @@
     argument) per epoch, under the `results` directory with the respective task name
     used previously during the image translation step:![Generating handbags from edges
     with PyTorch](img/B08086_04_13.jpg)
+  id: totrans-127
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: 'The following is a sample output of the cross-domain images generated from
     domain A to domain B:'
+  id: totrans-128
   prefs: []
   type: TYPE_NORMAL
 - en: '![Generating handbags from edges with PyTorch](img/B08086_04_14.jpg)'
+  id: totrans-129
   prefs: []
   type: TYPE_IMG
 - en: 'Figure-3: On the left-hand side are cross-domain (A -> B -> A) generated images
     (edges -> handbags -> edges), while on the right-hand side are cross-domain (B
     -> A -> B) generated images of (handbags -> edges -> handbags)'
+  id: totrans-130
   prefs: []
   type: TYPE_NORMAL
 - en: Gender transformation using PyTorch
+  id: totrans-131
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
@@ -633,74 +824,100 @@
     using facial images of celebrities from the `facescrub` dataset. Just like the
     previous example, please make sure you have PyTorch and OpenCV installed on your
     machine before executing the following steps:'
+  id: totrans-132
   prefs: []
   type: TYPE_NORMAL
 - en: 'First clone the `git` repository and change directory to `DiscoGAN` (you can
     skip this step if you executed the previous example of generating handbags from
     edges):'
+  id: totrans-133
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: '[PRE18]'
+  id: totrans-134
   prefs:
   - PREF_IND
   type: TYPE_PRE
+  zh: '[PRE18]'
 - en: 'Next download the `facescrub` dataset using the following command:'
+  id: totrans-135
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: '[PRE19]'
+  id: totrans-136
   prefs:
   - PREF_IND
   type: TYPE_PRE
+  zh: '[PRE19]'
 - en: 'And then apply image translation between two domains, male and female, with
     the downloaded dataset:'
+  id: totrans-137
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: '[PRE20]'
+  id: totrans-138
   prefs:
   - PREF_IND
   type: TYPE_PRE
+  zh: '[PRE20]'
 - en: '![Gender transformation using PyTorch](img/B08086_04_15.jpg)'
+  id: totrans-139
   prefs:
   - PREF_IND
   type: TYPE_IMG
 - en: Now, the images will be saved after every 1,000 iterations (as per the `image_save_interval`
     argument) per epoch, under the `results` directory with the respective task name
     (`facescrub`) and epoch interval:![Gender transformation using PyTorch](img/B08086_04_16.jpg)
+  id: totrans-140
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: 'The following is the sample output of the cross-domain images generated from
     domain A (male) to domain B (female):'
+  id: totrans-141
   prefs: []
   type: TYPE_NORMAL
+  zh: 下面是从域 A（男性）到域 B（女性）生成的跨域图像的示例输出：
 - en: '![Gender transformation using PyTorch](img/B08086_04_17.jpg)'
+  id: totrans-142
   prefs: []
   type: TYPE_IMG
+  zh: '![使用 PyTorch 进行性别转换](img/B08086_04_17.jpg)'
 - en: 'Figure-4: On the left-hand side are cross-domain (A -> B -> A) generated images
     (Male -> Female -> Male), while on the right-hand side are cross-domain (B ->
     A -> B) generated images of (Female -> Male -> Female)'
+  id: totrans-143
   prefs: []
   type: TYPE_NORMAL
+  zh: 图 4：左侧是跨域（A -> B -> A）生成的图像（男性 -> 女性 -> 男性），右侧是跨域（B -> A -> B）生成的图像（女性 -> 男性
+    -> 女性）
 - en: DiscoGAN versus CycleGAN
+  id: totrans-144
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: DiscoGAN 对比 CycleGAN
 - en: The main objective of both DiscoGAN (discussed previously) and CycleGAN (discussed
     in [Chapter 2](ch02.html "Chapter 2. Unsupervised Learning with GAN"), *Unsupervised
     Learning with GAN*) introduces a new approach to the problem of image-to-image
     translation by finding a mapping between a source domain X and a target domain
     Y for a given image, without pairing information.
+  id: totrans-145
   prefs: []
   type: TYPE_NORMAL
+  zh: DiscoGAN（之前讨论过）和 CycleGAN（在 [第二章](ch02.html "第二章。GAN 的无监督学习") 中讨论，*GAN 的无监督学习*）的主要目标是通过找到源域
+    X 和目标域 Y 之间的映射来解决图像到图像的转换问题，而不需要配对信息。
 - en: From an architecture standpoint both the models consist of two GANs that map
     one domain to its counterpart domain and compose their losses as functions of
     the traditional generator loss (normally seen in GANs) and the reconstruction
     loss/cycle consistency loss.
+  id: totrans-146
   prefs: []
   type: TYPE_NORMAL
+  zh: 从架构角度来看，这两个模型都由两个将一个域映射到其对应域的 GAN 组成，并将它们的损失组合为传统生成器损失的函数（通常在 GAN 中看到）和重建损失/循环一致性损失。
 - en: There isn't a huge dissimilarity between the two models, except from the fact
     that DiscoGAN uses two reconstruction losses (a measure of how well the original
     image is reconstructed after the two translations X->Y->X), whereas CycleGAN uses
@@ -708,17 +925,25 @@
     image from domain X to domain Y and G performs the reverse) to make sure the two
     equilibriums (*F(G(b)) = b and G(F(a)) = a*, given *a*, *b* are images in domain
     X , Y respectively) are maintained.
+  id: totrans-147
   prefs: []
   type: TYPE_NORMAL
+  zh: 这两个模型之间并没有很大的不同之处，除了 DiscoGAN 使用两个重建损失（衡量在两个转换 X->Y->X 后原始图像的重建效果），而 CycleGAN
+    使用单一的循环一致性损失，其中包括两个翻译器 F 和 G（F 将图像从域 X 翻译到域 Y，G 执行相反操作），以确保保持两个平衡（*F(G(b)) = b
+    和 G(F(a)) = a*，其中 *a*，*b* 分别为域 X、Y 中的图像）。
 - en: Summary
+  id: totrans-148
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 摘要
 - en: So far you have learned the approach of solving complex real-life problems (such
     as synthesizing images from text and discovering cross-domain relationships) by
     combining multiple GAN models together using StackGAN and DiscoGAN. In the next
     chapter, you will learn an important technique for dealing with small datasets
     in deep learning using pre-trained models and feature transfer and how to run
     your deep models at a large scale on a distributed system.
+  id: totrans-149
   prefs: []
   type: TYPE_NORMAL
+  zh: 到目前为止，您已经学习了通过使用 StackGAN 和 DiscoGAN 将多个 GAN 模型结合起来解决复杂现实生活中的问题（例如从文本合成图像和发现跨域关系）。在下一章中，您将学习一种处理深度学习中小数据集的重要技术，即使用预训练模型和特征转移，以及如何在分布式系统上大规模运行您的深度模型。
