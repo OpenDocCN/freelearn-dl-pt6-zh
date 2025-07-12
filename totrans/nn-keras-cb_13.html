@@ -1,0 +1,935 @@
+<html><head></head><body><div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Sequence-to-Sequence Learning</h1>
+                </header>
+            
+            <article>
+                
+<p class="mce-root">In the previous chapters, we learned about RNN applications, where there are multiple inputs (one each in each time step) and a single output. However, there are a few more applications where there are multiple inputs, and also multiple time steps—machine translation for example, where there are multiple input words in a source sentence and multiple output words in the target sentence. Given the multiple inputs and multiple outputs, this becomes a multi-output RNN-based application—essentially, a sequence to sequence learning task. This calls for building our model architecture differently to what we have built so far, which we will learn about in this chapter. In this chapter, we are going to learn about the following:</p>
+<ul>
+<li>Returning sequences from a network</li>
+<li>How bidirectional LSTM helps in named entity extraction</li>
+<li>Extract intent and entities to build a chatbot</li>
+<li>Functioning of an encoder decoder network architecture</li>
+<li>Translating a sentence form English to French using encoder decoder architecture</li>
+<li>Improving the translations by using an attention mechanism</li>
+</ul>
+<p class="mce-root"/>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Introduction</h1>
+                </header>
+            
+            <article>
+                
+<p>In the previous chapters, we learned that the LSTM, or even the RNN, returns results from the last time step (hidden state values from the last time step are passed on to the next layer). Imagine a scenario where the output is five dimensions in size where the five dimensions are the five outputs (not softmax values for five classes). To further explain this idea, let's say we are predicting, not just the stock price on the next date, but the stock prices for the next five days. Or, we want to predict not just the next word, but a sequence of the next five words for a given combination of input sequence.</p>
+<p>This situation calls for a different approach in building the network. In the following section, we will look into multiple scenarios of building a network to extract the outputs in different time steps.</p>
+<p><strong>Scenario 1</strong>: Named entity extraction</p>
+<p>In named entity extraction, we are trying to assign a label for each word that is present in a sentence—whether it is related to a person or place or not. Hence, it becomes a problem of one-to-one mapping between the input word and the output classes of it being a name or not. While it is a one-to-one mapping between input and output, there are cases where surrounding words play a role in deciding whether the considered input(s) is a named entity or not. For example, the word <em>new</em> in itself might not be a named entity. However, if <em>new</em> is accompanied by <em>york</em>, then we know that it is a named entity. Thus, it is a problem where the input time steps play a role in determining whether a word is a named entity or not, even though in a majority of the cases, there might exist a one-to-one mapping between inputs and outputs.</p>
+<p>Additionally, this is a sequence returning problem as we are assigning the output sequence of the named entity or not based on the input sequence of words. Given that, this is a problem where there is a one-to-one connection between inputs, and also the inputs in surrounding time steps playing a key role in determining the output. The traditional LSTM we have learned about so far would work, as long as we are ensuring that words in both directions of the time step influence the output. Thus, a bidirectional LSTM comes in handy in solving such problems.</p>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p>The architecture of a bidirectional LSTM looks as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-1097 image-border" src="Images/94365b7c-707e-40a3-91cf-6d910224b71e.png" style="width:101.92em;height:39.50em;" width="1223" height="474"/></p>
+<p>Note that, in the preceding diagram, we have modified the traditional LSTM by having the inputs connecting to each other in the opposite direction too, and thus, ensuring that information flows from both directions. We will learn more about how bidirectional LSTM works and how it is to be applied in a later section.</p>
+<p><strong>Scenario 2</strong>: Text summarization</p>
+<p>A text summarization task<span> would require a different architecture to what we discussed previously as we would typically be in a position to generate a summary from text only after finishing reading the whole of the input sentence (input text/review in this case).</span></p>
+<p>This calls for encoding all the input into a vector, and then generating output based on the encoded vector of input. Additionally, given that there are multiple outputs (multiple words) for a given sequence of words in a text, it becomes a multi output generation problem, and thus, another scenario that can leverage the multi-input multi-output power of an RNN.</p>
+<p class="mce-root"/>
+<p>Let's look at how we can potentially architect the model to arrive at a solution:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-1145 image-border" src="Images/8b95da24-105a-44a0-95b4-f7013121e0f0.png" style="width:162.50em;height:48.17em;" width="1950" height="578"/></p>
+<p>Note that, in the preceding architecture, we encode all the input text into the vector that is produced at the ending word of the input sequence, and that encoded vector is passed as an input to the decoder sequence. More information on how to build this network will be provided in a later section of this chapter.</p>
+<p><strong>Scenario 3</strong>: Machine translation</p>
+<p>In the previous scenario, we encoded the input into a vector, and hopefully, the vector also incorporates the word order. But, what if we explicitly provide a mechanism through a network where the network is able to assign a different weightage of an input word located at a given position, depending on the position of the word we are decoding? For example, if the source and target words are aligned similarly, that is, both languages have similar word order, then the word that comes at the start of source language has very little impact on the last word of target language, but has a very high impact in deciding the first word in the target language.</p>
+<p>Attention mechanism looks as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-1146 image-border" src="Images/436d46d9-15db-42f7-9905-f830e190e66a.png" style="width:161.75em;height:79.83em;" width="1941" height="958"/></p>
+<p>Note that the attention vector (in the middle) is influenced by both the input encoded vector and the hidden state of output values. More on how the attention mechanism can be leveraged will be discussed in a .</p>
+<p>With this intuition of the reasons for different encoder decoder architectures, let's dive into understanding more about generating sequences of outputs in Keras.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Returning sequences of outputs from a network</h1>
+                </header>
+            
+            <article>
+                
+<p>As we discussed in the previous section, there are multiple ways of architecting a network to generate sequences of outputs. In this section, we will learn about the encoder decoder way of generating outputs, and also about the one-to-one mapping of inputs to outputs network on a toy dataset so that we have a strong understanding of how this works.</p>
+<p>Let's define a sequence of inputs and a corresponding sequence of outputs, as follows (the code file is available as <kbd>Return_state_and_sequences_working_details.ipynb</kbd> in GitHub):</p>
+<pre>input_data = np.array([[1,2],[3,4]])<br/>output_data = np.array([[3,4],[5,6]])</pre>
+<p>We can see that there are two time steps in an input and that there is a corresponding output to the input.</p>
+<p>If we were to solve this problem in a traditional way, we would define the model architecture as in the following code. Note that we are using a functional API as in the later scenario, we will be extracting multiple outputs, along with inspecting intermediate layers:</p>
+<pre># define model<br/>inputs1 = Input(shape=(2,1))<br/>lstm1 = LSTM(1, activation = 'tanh', return_sequences=False,recurrent_initializer='Zeros',recurrent_activation='sigmoid')(inputs1)<br/>out= Dense(2, activation='linear')(lstm1)<br/>model = Model(inputs=inputs1, outputs=out)<br/>model.summary()</pre>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1329 image-border" src="Images/41ed74e0-5c52-4375-8fb3-a94922771671.png" style="width:37.58em;height:15.75em;" width="514" height="215"/></p>
+<p>Note that, in the preceding scenario, the LSTM is fed data that is of the shape (<kbd>batch_size</kbd>, time steps, features per time step). Given that the LSTM is not returning a sequence of outputs, the output of the LSTM is one value at the hidden layer (as the number of units in the LSTM is one).</p>
+<p>Given that the output is two dimensional, we shall add a dense layer that takes the hidden layer output and extracts <kbd>2</kbd> values from it.</p>
+<p>Let's go ahead and fit the model, as follows:</p>
+<pre>model.compile(optimizer='adam',loss='mean_squared_error')<br/>model.fit(input_data.reshape(2,2,1), output_data,epochs=1000)</pre>
+<pre>print(model.predict(input_data[0].reshape(1,2,1)))<br/># <span>[[2.079641 1.8290598]]</span></pre>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p>Now that we have the output, let's go ahead and validate the results as we did in previous chapter (note that, this is exactly the same code as what we had in the previous chapter—and the explanations of it are provided in the <em>Building an LSTM from scratch in Python</em> section of <a href="7a47ef1f-4c64-4f36-8672-6e589e513b16.xhtml" target="_blank">Chapter 11</a>, <em>Building a Recurrent Neural Network</em>):</p>
+<pre>input_t0 = 1<br/>cell_state0 = 0<br/>forget0 = input_t0*model.get_weights()[0][0][1] + model.get_weights()[2][1]<br/>forget1 = 1/(1+np.exp(-(forget0)))<br/>cell_state1 = forget1 * cell_state0<br/>input_t0_1 = input_t0*model.get_weights()[0][0][0] + model.get_weights()[2][0]<br/>input_t0_2 = 1/(1+np.exp(-(input_t0_1)))<br/>input_t0_cell1 = input_t0*model.get_weights()[0][0][2] + model.get_weights()[2][2]<br/>input_t0_cell2 = np.tanh(input_t0_cell1)<br/>input_t0_cell3 = input_t0_cell2*input_t0_2<br/>input_t0_cell4 = input_t0_cell3 + cell_state1<br/>output_t0_1 = input_t0*model.get_weights()[0][0][3] + model.get_weights()[2][3]<br/>output_t0_2 = 1/(1+np.exp(-output_t0_1))<br/>hidden_layer_1 = np.tanh(input_t0_cell4)*output_t0_2</pre>
+<pre>input_t1 = 2<br/>cell_state1 = input_t0_cell4<br/>forget21 = hidden_layer_1*model.get_weights()[1][0][1] + model.get_weights()[2][1] + input_t1*model.get_weights()[0][0][1]<br/>forget_22 = 1/(1+np.exp(-(forget21)))<br/>cell_state2 = cell_state1 * forget_22<br/>input_t1_1 = input_t1*model.get_weights()[0][0][0] + model.get_weights()[2][0] + hidden_layer_1*model.get_weights()[1][0][0]<br/>input_t1_2 = 1/(1+np.exp(-(input_t1_1)))<br/>input_t1_cell1 = input_t1*model.get_weights()[0][0][2] + model.get_weights()[2][2]+ hidden_layer_1*model.get_weights()[1][0][2]<br/>input_t1_cell2 = np.tanh(input_t1_cell1)<br/>input_t1_cell3 = input_t1_cell2*input_t1_2<br/>input_t1_cell4 = input_t1_cell3 + cell_state2<br/>output_t1_1 = input_t1*model.get_weights()[0][0][3] + model.get_weights()[2][3]+ hidden_layer_1*model.get_weights()[1][0][3]<br/>output_t1_2 = 1/(1+np.exp(-output_t1_1))<br/>hidden_layer_2 = np.tanh(input_t1_cell4)*output_t1_2<br/>final_output = hidden_layer_2 * model.get_weights()[3][0] + model.get_weights()[4]</pre>
+<p>The output of <kbd>final_output</kbd> is as follows:</p>
+<pre><span>[[2.079 1.829]]</span></pre>
+<p>You should note that the preceding <kbd>final_output</kbd> that is generated is exactly the same as what we saw in the <kbd>model.predict</kbd> output.</p>
+<p>One of the drawbacks of generating output this way is that, in cases where the output of time <em>step 1</em> is definitely not dependent on time <em>step 2</em>, we are making it hard for the model to come up with a way of segregating the influence of time <em>step 2</em> value on time <em>step 1</em> as we are taking the hidden layer output from time <em>step 2</em> (which is a combination of input value at time <em>step 1</em> and time <em>step 2</em>).</p>
+<p>We can get around this problem by extracting hidden layer values from each time step and then passing it to the dense layer.</p>
+<p><strong>Returning sequences of hidden layer values at each time step</strong></p>
+<p>In the following code, we will understand how returning sequences of hidden layer values at each time step works:</p>
+<pre># define model<br/>inputs1 = Input(shape=(2,1))<br/>lstm1 = LSTM(1, activation = 'tanh', return_sequences=False,recurrent_initializer='Zeros',recurrent_activation='sigmoid')(inputs1)<br/>out= Dense(1, activation='linear')(lstm1)<br/>model = Model(inputs=inputs1, outputs=out)<br/>model.summary()</pre>
+<p>Notice that the two changes in code that we have done are as follows:</p>
+<ul>
+<li>Changing the value of the <kbd>return_sequences</kbd> parameter to <kbd>True</kbd></li>
+<li>The dense layer, giving a value of <kbd>1</kbd> as output:</li>
+</ul>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1331 image-border" src="Images/a0f4c974-43dd-4375-8968-774c5e1e97d0.png" style="width:35.75em;height:15.25em;" width="513" height="219"/></p>
+<p>Notice that, because we have extracted the output of the hidden layer value at each time step (where the hidden layer has one unit), the output shape of LSTM is (batch size, time steps, 1).</p>
+<p>Additionally, because there is one dense layer connecting the LSTM output to the final output for each of the time steps, the output shape remains the same.</p>
+<p>Let's go ahead and fit the model, as follows:</p>
+<pre>model.compile(optimizer='adam',loss='mean_squared_error')<br/>model.fit(input_data.reshape(2,2,1), output_data.reshape(2,2,1),epochs=1000)</pre>
+<p>The predicted values are as follows:</p>
+<pre>print(model.predict(input_data[0].reshape(1,2,1)))</pre>
+<p>The preceding execution will give the following output:</p>
+<pre><span>[[[1.7584195] [2.2500749]]]</span></pre>
+<p>Similar to the previous section, we shall validate our results by performing a forward pass of input through weights and then match our predicted values.</p>
+<p>We shall extract the output of the first time step as follows:</p>
+<pre>input_t0 = 1<br/>cell_state0 = 0<br/>forget0 = input_t0*model.get_weights()[0][0][1] + model.get_weights()[2][1]<br/>forget1 = 1/(1+np.exp(-(forget0)))<br/>cell_state1 = forget1 * cell_state0<br/>input_t0_1 = input_t0*model.get_weights()[0][0][0] + model.get_weights()[2][0]<br/>input_t0_2 = 1/(1+np.exp(-(input_t0_1)))<br/>input_t0_cell1 = input_t0*model.get_weights()[0][0][2] + model.get_weights()[2][2]<br/>input_t0_cell2 = np.tanh(input_t0_cell1)<br/>input_t0_cell3 = input_t0_cell2*input_t0_2<br/>input_t0_cell4 = input_t0_cell3 + cell_state1<br/>output_t0_1 = input_t0*model.get_weights()[0][0][3] + model.get_weights()[2][3]<br/>output_t0_2 = 1/(1+np.exp(-output_t0_1))<br/>hidden_layer_1 = np.tanh(input_t0_cell4)*output_t0_2<br/>final_output_1 = hidden_layer_1 * model.get_weights()[3][0] + model.get_weights()[4]<br/>final_output_1<br/><em># <span>1.7584</span></em></pre>
+<p>You should notice that the <kbd>final_output_1</kbd> value matches with the predicted value at the first time step. Similarly, let's go ahead and validate predictions on second time step:</p>
+<pre>input_t1 = 2<br/>cell_state1 = input_t0_cell4<br/>forget21 = hidden_layer_1*model.get_weights()[1][0][1] + model.get_weights()[2][1] + input_t1*model.get_weights()[0][0][1]<br/>forget_22 = 1/(1+np.exp(-(forget21)))<br/>cell_state2 = cell_state1 * forget_22<br/>input_t1_1 = input_t1*model.get_weights()[0][0][0] + model.get_weights()[2][0] + hidden_layer_1*model.get_weights()[1][0][0]<br/>input_t1_2 = 1/(1+np.exp(-(input_t1_1)))<br/>input_t1_cell1 = input_t1*model.get_weights()[0][0][2] + model.get_weights()[2][2]+ hidden_layer_1*model.get_weights()[1][0][2]<br/>input_t1_cell2 = np.tanh(input_t1_cell1)<br/>input_t1_cell3 = input_t1_cell2*input_t1_2<br/>input_t1_cell4 = input_t1_cell3 + cell_state2<br/>output_t1_1 = input_t1*model.get_weights()[0][0][3] + model.get_weights()[2][3]+ hidden_layer_1*model.get_weights()[1][0][3]<br/>output_t1_2 = 1/(1+np.exp(-output_t1_1))<br/>hidden_layer_2 = np.tanh(input_t1_cell4)*output_t1_2<br/>final_output_2 = hidden_layer_2 * model.get_weights()[3][0] + model.get_weights()[4]<br/>final_output_2<br/><em># <span>2.250</span></em></pre>
+<p>You should notice that this returns the exact same value as the <kbd>model.predict</kbd> value of second time step.</p>
+<p class="mce-root"/>
+<p>Now that we understand the <kbd>return_sequences</kbd> parameter in our network, let us go ahead and learn about another parameter called <kbd>return_state</kbd>. We know that the two outputs of a network are hidden layer values (which is the also output of LSTM in the final time step when <kbd>return_sequences</kbd> is <kbd>False</kbd> and output of LSTM in each time step when <kbd>return_sequences</kbd> is <kbd>True</kbd>) and cell state values.</p>
+<p>The <kbd>return_state</kbd> helps in extracting the cell state value of a network.</p>
+<p>Extracting the cell state is useful when the input text is encoded into a vector and we pass, not only the encoded vector, but also the final cell state of the input encoder to the decoder network (more on this in the <em>Encoder decoder architecture for machine translation </em>section).</p>
+<p>In the following section, let's understand how <kbd>return_state</kbd> works. Note that it is only for us to understand how the cell states are generated at each time step, as in practice, we would use the output of this step (hidden layer value and cell state value) as an input to the decoder:</p>
+<pre><br/>inputs1 = Input(shape=(2,1))<br/>lstm1,state_h,state_c = LSTM(1, activation = 'tanh', return_sequences=True, return_state = True, recurrent_initializer='Zeros',recurrent_activation='sigmoid')(inputs1)<br/>model = Model(inputs=inputs1, outputs=[lstm1, state_h, state_c])<br/><br/></pre>
+<p>In the preceding code, we set the <kbd>return_state</kbd> parameter to <kbd>True</kbd> as well. Notice the output of the LSTM now:</p>
+<ul>
+<li><kbd>lstm1</kbd>: Hidden layer at each time step (as <kbd>return_sequences</kbd> is <kbd>True</kbd> in the preceding scenario)</li>
+<li><kbd>state_h</kbd>: Hidden layer value at the final time step</li>
+<li><kbd>state_c</kbd>: Cell state value at the final time step</li>
+</ul>
+<p>Let's go ahead and predict values, as follows:</p>
+<pre>print(model.predict(input_data[0].reshape(1,2,1)))</pre>
+<p>We will get the following values:</p>
+<pre><span>[array([[[-0.256911 ], [-0.6683883]]], dtype=float32), array([[-0.6683883]], dtype=float32), array([[-0.96862674]], dtype=float32)]</span></pre>
+<p>You should see that there are three arrays of outputs, as we discussed previously: hidden layer value sequences, final hidden layer value, and the cell state value in the order.</p>
+<p class="mce-root"/>
+<p class="mce-root">Let's validate the numbers, as we arrived at previously:</p>
+<pre>input_t0 = 1<br/>cell_state0 = 0<br/>forget0 = input_t0*model.get_weights()[0][0][1] + model.get_weights()[2][1]<br/>forget1 = 1/(1+np.exp(-(forget0)))<br/>cell_state1 = forget1 * cell_state0<br/>input_t0_1 = input_t0*model.get_weights()[0][0][0] + model.get_weights()[2][0]<br/>input_t0_2 = 1/(1+np.exp(-(input_t0_1)))<br/>input_t0_cell1 = input_t0*model.get_weights()[0][0][2] + model.get_weights()[2][2]<br/>input_t0_cell2 = np.tanh(input_t0_cell1)<br/>input_t0_cell3 = input_t0_cell2*input_t0_2<br/>input_t0_cell4 = input_t0_cell3 + cell_state1<br/>output_t0_1 = input_t0*model.get_weights()[0][0][3] + model.get_weights()[2][3]<br/>output_t0_2 = 1/(1+np.exp(-output_t0_1))<br/>hidden_layer_1 = np.tanh(input_t0_cell4)*output_t0_2<br/>print(hidden_layer_1)</pre>
+<p>The value of <kbd>hidden_layer_1</kbd> in the preceding calculation is <kbd>-0.2569</kbd>, which is what we obtained from the <kbd>model.predict</kbd> method:</p>
+<pre>input_t1 = 2<br/>cell_state1 = input_t0_cell4<br/>forget21 = hidden_layer_1*model.get_weights()[1][0][1] + model.get_weights()[2][1] + input_t1*model.get_weights()[0][0][1]<br/>forget_22 = 1/(1+np.exp(-(forget21)))<br/>cell_state2 = cell_state1 * forget_22<br/>input_t1_1 = input_t1*model.get_weights()[0][0][0] + model.get_weights()[2][0] + hidden_layer_1*model.get_weights()[1][0][0]<br/>input_t1_2 = 1/(1+np.exp(-(input_t1_1)))<br/>input_t1_cell1 = input_t1*model.get_weights()[0][0][2] + model.get_weights()[2][2]+ hidden_layer_1*model.get_weights()[1][0][2]<br/>input_t1_cell2 = np.tanh(input_t1_cell1)<br/>input_t1_cell3 = input_t1_cell2*input_t1_2<br/>input_t1_cell4 = input_t1_cell3 + cell_state2<br/>output_t1_1 = input_t1*model.get_weights()[0][0][3] + model.get_weights()[2][3]+ hidden_layer_1*model.get_weights()[1][0][3]<br/>output_t1_2 = 1/(1+np.exp(-output_t1_1))<br/>hidden_layer_2 = np.tanh(input_t1_cell4)*output_t1_2<br/>print(hidden_layer_2, input_t1_cell4)</pre>
+<p>The values of <kbd>hidden_layer_2</kbd> and <kbd>input_t1_cell4</kbd> are <kbd>-0.6683</kbd> and <kbd>-0.9686</kbd>, respectively. </p>
+<p class="mce-root"/>
+<p>You will notice that the outputs are exactly the same as what we have seen in the predict function.</p>
+<p>In the case of a bidirectional network, where we are incorporating the hidden layer values as we calculate them from both sides, we code it as follows:</p>
+<pre>inputs1 = Input(shape=(2,1))<br/>lstm1,state_fh,state_fc,state_bh,state_bc = Bidirectional(LSTM(1, activation = 'tanh', return_sequences=True, return_state = True, recurrent_initializer='Zeros',recurrent_activation='sigmoid'))(inputs1)<br/>model = Model(inputs=inputs1, outputs=[lstm1, state_fh,state_fc,state_bh,state_bc])<br/>model.summary()</pre>
+<p>Note that, in a bidirectional LSTM, there are two outputs for the final hidden state, one when the input time steps are considered from left to right, and another when the input time steps are considered from right to left. In a similar manner, we have two possible cell state values.</p>
+<p>Typically, we would concatenate the resulting hidden states to a single vector, and also the cell states into another concatenated single vector.</p>
+<p>For brevity, we are not validating the outputs of bidirectional LSTM in this book. However, you can check the validations in the accompanying Jupyter Notebook of this chapter.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Building a chatbot</h1>
+                </header>
+            
+            <article>
+                
+<p>A chatbot is helpful in a scenario where the bot automates some of the more common queries. This is very useful in a practical scenario, especially in cases where you would have to just look up the result from a database or query an API to obtain the result that the query is about.</p>
+<p>Given this, there are potentially two ways that you can design a chatbot, as follows:</p>
+<ul>
+<li>Convert the unstructured user query into a structured format:
+<ul>
+<li>Query from the database based on the converted structure</li>
+</ul>
+</li>
+<li>Generate responses based on the input text</li>
+</ul>
+<p>For this exercise, we will be adopting the first approach, as it is more likely to give predictions that can be tweaked further before presenting them to the user. Additionally, we will also understand the reason why we might not want to generate responses based on input text after we go through the machine translation and text summarization case studies.</p>
+<p class="mce-root"/>
+<p>Converting a user query into a structured format involves the following two steps:</p>
+<ol>
+<li>Assign entities to each word in a query</li>
+<li>Understand the intent of query</li>
+</ol>
+<p>Named entity recognition is one of the applications that has multiple use cases across industries. For example, where does the user want to travel to? Which product is a user considering to purchase? And so on. From these examples, it might occur that named entity recognition is a simple lookup from a dictionary of existing city names or product names. However, think of a scenario where a user says <em>I want to travel from Boston to Seattle</em>. In this case, while the machine understands that both <em>Boston</em> and <em>Seattle</em> are city names, we are not in a position to resolve which is the <em>from</em> city and which is the <em>to</em> city.</p>
+<p>While we can add some heuristics like a name that has a <em>to</em> before it is the <em>to city</em> and the other is the <em>from city</em>, it is not scalable as we replicate this process across multiple such examples. Neural networks come in handy in that scenario, where there is a less dependency on us to hand-tune the features. We shall let the machine take care of the feature engineering part to give us the output.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Getting ready</h1>
+                </header>
+            
+            <article>
+                
+<p>With the preceding intuition, let's go ahead and define our approach in solving this problem for a dataset that has user queries related to airlines.</p>
+<p><strong>Objective</strong>: Extract the various entities from a query and also the intent of the query.</p>
+<p><strong>Approach</strong>:</p>
+<ul>
+<li>We shall find a dataset that has the labels of query and the entity that each word within the query belongs to:
+<ul>
+<li>If we do not have a labeled dataset, we shall manually annotate the entities within a query for a reasonable number of examples, so that we can train our model</li>
+</ul>
+</li>
+<li>Given that the surrounding words can have an impact on the given word's classification into one or the other class, let's use the RNN-based technique to solve this problem</li>
+<li>Additionally, given that the surrounding word could be either on the left or the right side of given word, we shall use a bidirectional RNN to solve the problem</li>
+<li>Preprocess the input dataset so that it could be fed into the multiple time steps of an RNN</li>
+<li>One-hot-encode the output dataset so that we can optimize the model</li>
+<li>Build the model that returns the entities that each word within a query belongs to</li>
+<li>Similarly, build another model that extracts the intent of a query</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">How to do it...</h1>
+                </header>
+            
+            <article>
+                
+<p>Let's code up the approach we defined previously, as follows (the code file is available as <kbd>Intent_and_entity_extraction.ipynb</kbd> in GitHub):</p>
+<ol>
+<li>Import the datasets, as shown in the following code:</li>
+</ol>
+<pre style="padding-left: 60px">!wget https://www.dropbox.com/s/qpw1wnmho8v0gi4/atis.zip<br/>!unzip atis.zip</pre>
+<p style="padding-left: 60px">Load the training dataset:</p>
+<pre style="padding-left: 60px">import numpy as np <br/>import pandas as pd<br/>import pickle<br/>DATA_DIR="/content"<br/>def load_ds(fname='atis.train.pkl'):<br/>     with open(fname, 'rb') as stream:<br/>     ds,dicts = pickle.load(stream)<br/>     print('Done loading: ', fname)<br/>     print(' samples: {:4d}'.format(len(ds['query'])))<br/>     print(' vocab_size: {:4d}'.format(len(dicts['token_ids'])))<br/>     print(' slot count: {:4d}'.format(len(dicts['slot_ids'])))<br/>     print(' intent count: {:4d}'.format(len(dicts['intent_ids'])))<br/>     return ds,dicts</pre>
+<pre style="padding-left: 60px">import os<br/>train_ds, dicts = load_ds(os.path.join(DATA_DIR,'atis.train.pkl'))<br/>test_ds, dicts = load_ds(os.path.join(DATA_DIR,'atis.test.pkl'))</pre>
+<p style="padding-left: 60px">The preceding code gives the following output:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1332 image-border" src="Images/05d0278c-db84-4685-817d-f16a1f3dd349.png" style="width:22.50em;height:13.25em;" width="327" height="192"/></p>
+<p style="padding-left: 60px">Note that the samples in the attached dataset is the user query, slot is the entity a word belongs to, and intent is the overall intent of the query.</p>
+<ol start="2">
+<li>Apply IDs to each of the words in query, slot, and intent:</li>
+</ol>
+<pre style="padding-left: 60px">t2i, s2i, in2i = map(dicts.get, ['token_ids', 'slot_ids','intent_ids'])<br/>i2t, i2s, i2in = map(lambda d: {d[k]:k for k in d.keys()}, [t2i,s2i,in2i])<br/>query, slots, intent = map(train_ds.get, ['query', 'slot_labels', 'intent_labels'])</pre>
+<p style="padding-left: 60px">A sample of IDs for token (words in vocabulary), slots (entity of a word), and intent is as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="Images/176a3d2e-003c-4b7a-b8ec-fb5a2a0cea62.png" style="width:41.42em;height:8.08em;" width="625" height="122"/></p>
+<p style="padding-left: 60px">Finally, the query, slots, and intent are converted into ID values, as follows (where we report the output of the first query, intent, and slots):</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1335 image-border" src="Images/340d4444-f66e-435e-af01-a205b4b24886.png" style="width:25.00em;height:18.17em;" width="359" height="261"/></p>
+<p style="padding-left: 60px">A sample of query, intent, and entities corresponding to the words in query is as follows:</p>
+<pre style="padding-left: 60px">for j in range(len(query[i])):<br/>        print('{:&gt;33} {:&gt;40}'.format(i2t[query[i][j]],<br/>                                     i2s[slots[i][j]]))</pre>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1338 image-border" src="Images/c5a633a2-8dd1-41bc-bf74-c6e032c8af78.png" style="width:70.67em;height:31.58em;" width="848" height="379"/></p>
+<p style="padding-left: 60px">Query is the statement at the top in the preceding screenshot. Slots represent the type of object each word belongs to. Note that <kbd>O</kbd> represents an object, and every other entity name is self-descriptive. Additionally, there are a total of 23 possible classes of intents that describe the query at an overall level.</p>
+<p style="padding-left: 60px">In the following code, we are converting the total data into a list of lists where each list corresponds to one query in the dataset:</p>
+<pre style="padding-left: 60px">i2t2 = []<br/>i2s2 = []<br/>c_intent=[]<br/>for i in range(4978):<br/>     a_query = []<br/>     b_slot = []<br/>     c_intent.append(i2in[intent[i][0]])<br/>     for j in range(len(query[i])):<br/>         a_query.append(i2t[query[i][j]])<br/>         b_slot.append(i2s[slots[i][j]])<br/>     i2t2.append(a_query)<br/>     i2s2.append(b_slot)<br/>i2t2 = np.array(i2t2)<br/>i2s2 = np.array(i2s2)<br/>i2in2 = np.array(c_intent)</pre>
+<p style="padding-left: 60px">A sample of tokens, intent, and query are as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1340 image-border" src="Images/ac4fb687-0852-40b5-98b4-b9716ee3dff6.png" style="width:32.67em;height:9.67em;" width="475" height="140"/></p>
+<ol start="3">
+<li>Create the indexed inputs and outputs:</li>
+</ol>
+<pre style="padding-left: 60px">final_sentences = []<br/>final_targets = []<br/>final_docs = []<br/>for i in range(len(i2t2)):<br/>  tokens = ''<br/>  entities = ''<br/>  intent = ''<br/>  for j in range(len(i2t2[i])):<br/>    tokens= tokens + i2t2[i][j] + ' '<br/>    entities = entities + i2s2[i][j] +' '<br/>  intent = i2in2[i]<br/>  final_sentences.append(tokens)<br/>  final_targets.append(entities)<br/>  final_docs.append(intent)</pre>
+<p style="padding-left: 60px">The preceding code gives us a list of final queries and targets as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1342 image-border" src="Images/e318c431-d86c-4258-8a57-42afef0e49c2.png" style="width:34.67em;height:9.83em;" width="490" height="139"/></p>
+<p style="padding-left: 60px">Now, <span>we are converting each <strong>input</strong> sentence into a corresponding list of IDs of constituent words:</span></p>
+<pre style="padding-left: 60px">from collections import Counter<br/>counts = Counter()<br/>for i,sentence in enumerate(final_sentences):<br/>     counts.update(sentence.split())<br/>sentence_words = sorted(counts, key=counts.get, reverse=True)<br/>chars = sentence_words<br/>nb_chars = len(chars)<br/>sentence_word_to_int = {word: i for i, word in enumerate(sentence_words, 1)}<br/>sentence_int_to_word = {i: word for i, word in enumerate(sentence_words, 1)}<br/>mapped_reviews = []<br/>for review in final_sentences:<br/>     mapped_reviews.append([sentence_word_to_int[word] for word in review.split()])</pre>
+<p style="padding-left: 60px">In the following code, we are converting each <strong>output</strong> word into its constituent word IDs:</p>
+<pre style="padding-left: 60px">from collections import Counter<br/>counts = Counter()<br/>for i,sentence in enumerate(final_targets):<br/>    counts.update(sentence.split())<br/>target_words = sorted(counts, key=counts.get, reverse=True)<br/>chars = target_words<br/>nb_chars = len(target_words)</pre>
+<pre style="padding-left: 60px">target_word_to_int = {word: i for i, word in enumerate(target_words, 1)}<br/>target_int_to_word = {i: word for i, word in enumerate(target_words, 1)}<br/>mapped_targets = []<br/>for review in final_targets:<br/>    mapped_targets.append([target_word_to_int[word] for word in review.split()])</pre>
+<ol start="4">
+<li>Pad the input and one-hot-encode the output:</li>
+</ol>
+<pre style="padding-left: 60px">from keras.preprocessing.sequence import pad_sequences<br/>y = pad_sequences(maxlen=124, sequences=mapped_targets, padding="post", value=0)<br/>from keras.utils import to_categorical<br/>y2 = [to_categorical(i, num_classes=124) for i in y]<br/>y3 = np.array(y2)</pre>
+<p style="padding-left: 60px"><span>In the following code, we are deciding the maximum length of the query before padding the input:</span></p>
+<pre style="padding-left: 60px">length_sent = []<br/>for i in range(len(mapped_reviews)):<br/>     a = mapped_reviews[i]<br/>     b = len(a)<br/>     length_sent.append(b)<br/>np.max(length_sent)</pre>
+<p style="padding-left: 60px">In the preceding code, we are deciding the maximum length of the query before padding the input—which happens to be <kbd>48</kbd>.</p>
+<p style="padding-left: 60px"><span>In the following code, we are padding the input and output with a max length of <kbd>50</kbd>, as there is no input query that is beyond <kbd>48</kbd> words in length (which is the </span><kbd>max(length_sent)</kbd><span>):</span></p>
+<pre style="padding-left: 60px">from keras.preprocessing.sequence import pad_sequences<br/>X = pad_sequences(maxlen=50, sequences=mapped_reviews, padding="post", value=0)<br/>Y = pad_sequences(maxlen=50, sequences=mapped_targets, padding="post", value=0)</pre>
+<p style="padding-left: 60px"><span>In the following code, we are converting the output into a one-hot-encoded version:</span></p>
+<pre style="padding-left: 60px">from keras.utils import to_categorical<br/>y2 = [to_categorical(i, num_classes=124) for i in Y]<br/>y2 = np.array(y2)</pre>
+<p style="padding-left: 60px">We have a total of <kbd>124</kbd> classes, as there are a total <kbd>123</kbd> unique classes and the word index starts with <kbd>1</kbd>.</p>
+<ol start="5">
+<li>Build, train, and test the dataset, as well as the model:</li>
+</ol>
+<pre style="padding-left: 60px">from sklearn.model_selection import train_test_split<br/>X_train, X_test, y_train, y_test = train_test_split(X,y2, test_size=0.30,random_state=10)</pre>
+<p style="padding-left: 60px">In the preceding code, we are splitting the dataset into train and test datasets:</p>
+<pre style="padding-left: 60px">input = Input(shape=(50,))<br/>model = Embedding(input_dim=891, output_dim=32, input_length=50)(input)<br/>model = Dropout(0.1)(model)<br/>model = Bidirectional(LSTM(units=100, return_sequences=True, recurrent_dropout=0.1))(model)<br/>out = (Dense(124, activation="softmax"))(model)</pre>
+<pre style="padding-left: 60px">model = Model(input, out)<br/>model.summary()</pre>
+<p style="padding-left: 60px">A summary of the model is as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1344 image-border" src="Images/083bf99b-1860-45af-a90a-5537a1108d2a.png" style="width:33.75em;height:18.67em;" width="512" height="283"/></p>
+<p style="padding-left: 60px">Note that, in the preceding code, we have a bidirectional LSTM, and hence, the hidden layer has 200 units (as the LSTM layer has 100 units).</p>
+<ol start="6">
+<li>Compile and fit the model, as shown follows:</li>
+</ol>
+<pre style="padding-left: 60px">model.compile(optimizer="adam", loss="categorical_crossentropy", metrics=["accuracy"])<br/>model.fit(X_train,y_train, batch_size=32, epochs=5, validation_data = (X_test,y_test), verbose=1)</pre>
+<p style="padding-left: 60px">The preceding code results in a model that is 95% accurate in identifying the right entity for a given word within a query:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1347 image-border" src="Images/69930f68-e78b-4661-9ec4-0ed72bf4c79e.png" style="width:27.50em;height:22.33em;" width="384" height="312"/></p>
+<p style="padding-left: 60px">From the preceding output, we can see that our accuracy in assigning the right entity to each word is &gt;95%.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Intent extraction</h1>
+                </header>
+            
+            <article>
+                
+<p>Now that we have built a model that has a good accuracy in predicting the entities within a query, let's go ahead and find the intent of the query.</p>
+<p>We will be reusing most of the variables that we initialized in the previous model:</p>
+<ol start="1">
+<li>Convert the intent of each query into an ID:</li>
+</ol>
+<pre style="padding-left: 60px">from collections import Counter<br/>counts = Counter()<br/>for i,sentence in enumerate(final_docs):<br/>     counts.update(sentence.split())<br/>intent_words = sorted(counts, key=counts.get, reverse=True)<br/>chars = intent_words<br/>nb_chars = len(intent_words)<br/>intent_word_to_int = {word: i for i, word in enumerate(intent_words, 1)}<br/>intent_int_to_word = {i: word for i, word in enumerate(intent_words, 1)}<br/>mapped_docs = []<br/>for review in final_docs:<br/>     mapped_docs.append([intent_word_to_int[word] for word in review.split()])</pre>
+<ol start="2">
+<li>Extract the one-hot-encoded version of the intents:</li>
+</ol>
+<pre style="padding-left: 60px">from keras.utils import to_categorical<br/>doc2 = [to_categorical(i[0], num_classes=23) for i in mapped_docs]<br/>doc3 = np.array(doc2)</pre>
+<ol start="3">
+<li>Build the model, as shown in the following code:</li>
+</ol>
+<pre style="padding-left: 60px">from sklearn.model_selection import train_test_split<br/>X_train, X_test, y_train, y_test = train_test_split(X,doc3, test_size=0.30,random_state=10)</pre>
+<pre style="padding-left: 60px">input = Input(shape=(50,))<br/>model2 = Embedding(input_dim=891, output_dim=32, input_length=50)(input)<br/>model2 = Dropout(0.1)(model2)<br/>model2 = Bidirectional(LSTM(units=100))(model2)<br/>out = (Dense(23, activation="softmax"))(model2)<br/>model2 = Model(input, out)</pre>
+<pre style="padding-left: 60px">model2.compile(optimizer="adam", loss="categorical_crossentropy", metrics=["accuracy"])</pre>
+<pre style="padding-left: 60px">model2.fit(X_train,y_train, batch_size=32, epochs=5, validation_data = (X_test,y_test), verbose=1)</pre>
+<p class="mce-root"/>
+<p style="padding-left: 60px">The preceding code results in a model that has an accuracy of 90% in identifying the right intent of a query in the validation dataset:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1349 image-border" src="Images/7653b79e-d64e-4f58-a465-ed0c04bfb805.png" style="width:30.50em;height:23.42em;" width="407" height="313"/></p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Putting it all together</h1>
+                </header>
+            
+            <article>
+                
+<p>In the previous section, we built two models, where the first model predicts the entities in a query and the second model extracts the intent of queries. </p>
+<p>In this section, we will define a function that takes a query and converts it into a structured format:</p>
+<ol start="1">
+<li>Preprocess the new input text so that it can be passed to the model:</li>
+</ol>
+<pre style="padding-left: 60px">def preprocessing(text):<br/>     text2 = text.split()<br/>     a=[]<br/>     for i in range(len(text2)):<br/>         a.append(sentence_word_to_int[text2[i]])<br/>     return a</pre>
+<p class="mce-root"/>
+<ol start="2">
+<li>Pre-process the input text to convert it into a list of word IDs:</li>
+</ol>
+<pre style="padding-left: 60px">text = "BOS i would fly from boston to dallas EOS"</pre>
+<pre style="padding-left: 60px">indexed_text = preprocessing(text)<br/>padded_text=np.zeros(50)<br/>padded_text[:len(indexed_text)]=indexed_text<br/>padded_text=padded_text.reshape(1,50)</pre>
+<p style="padding-left: 60px">The preceding results in processed input text as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1351 image-border" src="Images/f247e339-2e03-4054-96d4-1e0073daf1c6.png" style="width:44.42em;height:7.58em;" width="533" height="91"/></p>
+<p style="padding-left: 60px">Now, we'll predict the intent of the preceding list:</p>
+<pre style="padding-left: 60px">pred_index_intent = np.argmax(model2.predict(c),axis=1)<br/>entity_int_to_word[pred_index_intent[0]]</pre>
+<p style="padding-left: 60px">The preceding code results in the intent of the query being about a flight, as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1352 image-border" src="Images/6b2208a9-fac9-4df0-88bf-75c54c8f2dff.png" style="width:24.50em;height:5.08em;" width="294" height="61"/></p>
+<ol start="3">
+<li>Extract the entities related to words in a query:</li>
+</ol>
+<pre style="padding-left: 60px">pred_entities = np.argmax(model.predict(padded_text),axis=2)<br/><br/>for i in range(len(pred_entities[0])):<br/>      if pred_entities[0][i]&gt;1:<br/>            print('word: ',text.split()[i], 'entity: ',target_int_to_word[pred_entities[0][i]])<br/><br/></pre>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1357 image-border" src="Images/aaae4594-3625-403a-8025-1476f985fb32.png" style="width:28.50em;height:3.75em;" width="342" height="45"/></p>
+<p class="mce-root"/>
+<p>From the preceding code, we can see that the model has correctly classified a word into the right entity.</p>
+<p>Now that we have the entities and intent identified, we can have a pre-defined SQL query (or API) whose parameters are filled by the extracted entities, and each intent could potentially have a different API/SQL query to extract information for the user.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Machine translation</h1>
+                </header>
+            
+            <article>
+                
+<p>So far, we have seen a scenario where the input and output are mapped one-to-one. In this section, we will look into ways in which we can construct architectures that result in mapping all input data into a vector, and then decoding it into the output vector.</p>
+<p>We will be translating an input text in English into text in French in this case study.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Getting ready</h1>
+                </header>
+            
+            <article>
+                
+<p>The architecture that we will be defining to perform machine translation is as follows:</p>
+<ul>
+<li>Take a labeled dataset where the input sentence and the corresponding translation in French is available</li>
+<li>Tokenize and extract words that are frequent in each of the English and French texts:
+<ul>
+<li>To identify the frequent words, we will count the frequency of each word</li>
+<li>The words that constitute the top 80% of total cumulative frequency of all words are considered the frequent words</li>
+</ul>
+</li>
+<li>For all the words that are not among the frequent words, replace them with an unknown (<kbd>unk</kbd>) symbol</li>
+<li>Assign an ID to each word</li>
+<li>Build an encoder LSTM that fetches the vector of the input text</li>
+<li>Pass the encoded vector through dense layer so that we extract the probabilities of decoded text at each time step</li>
+<li>Fit a model to minimize the loss at the output</li>
+</ul>
+<p class="mce-root"/>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">How to do it...</h1>
+                </header>
+            
+            <article>
+                
+<p>There could be multiple model architectures that can help in translating the input text. We will go through a few of them in the following sections (the code file is available as <kbd>Machine_translation.ipynb</kbd> in GitHub).</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Preprocessing the data</h1>
+                </header>
+            
+            <article>
+                
+<p>To pass the input and output data to our model, we would have to preprocess the datasets as follows:</p>
+<ol>
+<li>Import the relevant packages and dataset:</li>
+</ol>
+<pre style="padding-left: 60px">import pandas as pd<br/>import numpy as np<br/>import string<br/>from string import digits<br/>import matplotlib.pyplot as plt<br/>%matplotlib inline<br/>import re<br/>from sklearn.model_selection import train_test_split<br/>from keras.models import Model<br/>from keras.layers import Input, LSTM, Dense<br/>import numpy as np</pre>
+<pre style="padding-left: 60px"><strong>$ wget https://www.dropbox.com/s/2vag8w6yov9c1qz/english%20to%20french.txt</strong></pre>
+<pre style="padding-left: 60px">lines= pd.read_table('english to french.txt', names=['eng', 'fr'])</pre>
+<ol start="2">
+<li>Given that there are more than 140,000 sentences in the dataset, let's consider only the first 50,000 sentence-translation pairs to build the model:</li>
+</ol>
+<pre style="padding-left: 60px">lines = lines[0:50000]</pre>
+<ol start="3">
+<li>Convert the input and output text into lower case and also remove the punctuation:</li>
+</ol>
+<pre style="padding-left: 60px">lines.eng=lines.eng.apply(lambda x: x.lower())<br/>lines.fr=lines.fr.apply(lambda x: x.lower())<br/>exclude = set(string.punctuation)<br/>lines.eng=lines.eng.apply(lambda x: ''.join(ch for ch in x if ch not in exclude))<br/>lines.fr=lines.fr.apply(lambda x: ''.join(ch for ch in x if ch not in exclude))</pre>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<ol start="4">
+<li>Add start and end tokens to the output sentences (French sentences). We add these so that the start and end tokens are helpful in the encoder decoder architecture. The reason why this will be helpful will be provided in the <em>Encoder decoder architecture for machine translation</em> section:</li>
+</ol>
+<pre style="padding-left: 60px">lines.fr = lines.fr.apply(lambda x : 'start '+ x + ' end')</pre>
+<p style="padding-left: 60px">A sample of the data looks as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1358 image-border" src="Images/b5773770-4057-4fec-a4af-4d033094e420.png" style="width:12.75em;height:11.75em;" width="194" height="178"/></p>
+<ol start="5">
+<li>Identify the frequent words. We define a word as frequent if it is among the words that have a frequency that constitutes 80% of the total frequency of all words:</li>
+</ol>
+<pre style="padding-left: 60px"># fit a tokenizer<br/>from keras.preprocessing.text import Tokenizer<br/>import json<br/>from collections import OrderedDict<br/>def create_tokenizer(lines):<br/>     tokenizer = Tokenizer()<br/>     tokenizer.fit_on_texts(lines)<br/>     return tokenizer</pre>
+<pre style="padding-left: 60px">eng_tokenizer = create_tokenizer(lines.eng)<br/>output_dict = json.loads(json.dumps(eng_tokenizer.word_counts))<br/>df =pd.DataFrame([output_dict.keys(), output_dict.values()]).T<br/>df.columns = ['word','count']<br/>df = df.sort_values(by='count',ascending = False)<br/>df['cum_count']=df['count'].cumsum()<br/>df['cum_perc'] = df['cum_count']/df['cum_count'].max()<br/>final_eng_words = df[df['cum_perc']&lt;0.8]['word'].values</pre>
+<p class="mce-root"/>
+<p style="padding-left: 60px">The preceding code, extracts the number of English words that cumulatively constitute 80% of total English words in input:</p>
+<pre style="padding-left: 60px">fr_tokenizer = create_tokenizer(lines.fr)<br/>output_dict = json.loads(json.dumps(fr_tokenizer.word_counts))<br/>df =pd.DataFrame([output_dict.keys(), output_dict.values()]).T<br/>df.columns = ['word','count']<br/>df = df.sort_values(by='count',ascending = False)<br/>df['cum_count']=df['count'].cumsum()<br/>df['cum_perc'] = df['cum_count']/df['cum_count'].max()<br/>final_fr_words = df[df['cum_perc']&lt;0.8]['word'].values</pre>
+<p style="padding-left: 60px"><span>The preceding code, extracts the number of French words that cumulatively constitute 80% of total French words in output.</span></p>
+<ol start="6">
+<li>Filter out the less frequent words. If a word is not among the frequent words, we shall replace it with an unknown word—<kbd>unk</kbd>:</li>
+</ol>
+<pre style="padding-left: 60px">def filter_eng_words(x):<br/>     t = []<br/>     x = x.split()<br/>     for i in range(len(x)):<br/>         if x[i] in final_eng_words:<br/>             t.append(x[i])<br/>         else:<br/>             t.append('unk')<br/>     x3 = ''<br/>     for i in range(len(t)):<br/>         x3 = x3+t[i]+' '<br/>     return x3</pre>
+<p style="padding-left: 60px">The preceding code takes a sentence as input, extracts the unique words, and if a word does not exist among the more frequent English words (<kbd>final_eng_words</kbd>), then it shall be replaced by <kbd>unk</kbd>:</p>
+<pre style="padding-left: 60px">def filter_fr_words(x):<br/>     t = []<br/>     x = x.split()<br/>     for i in range(len(x)):<br/>         if x[i] in final_fr_words:<br/>             t.append(x[i])<br/>         else:<br/>             t.append('unk')<br/>     x3 = ''<br/>     for i in range(len(t)):<br/>         x3 = x3+t[i]+' '<br/>     return x3</pre>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p class="mceNonEditable"/>
+<p style="padding-left: 60px"><span>The preceding code takes a sentence as input, extracts the unique words, and if a word does not exist among the more frequent French words (<kbd>final_fr_words</kbd>), then it shall be replaced by <kbd>unk</kbd>.</span></p>
+<p style="padding-left: 60px">For example, on a random sentence with frequent words and also infrequent words, the output looks as follows:</p>
+<pre style="padding-left: 60px">filter_eng_words('he is extremely good')</pre>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1359 image-border" src="Images/7e4f6d3b-1d82-4d60-bf15-dffc91a1ba42.png" style="width:11.42em;height:1.75em;" width="137" height="21"/></p>
+<pre style="padding-left: 60px">lines['fr']=lines['fr'].apply(filter_fr_words)<br/>lines['eng']=lines['eng'].apply(filter_eng_words)</pre>
+<p style="padding-left: 60px">In the preceding code, we are replacing all the English and French sentences based on the functions we defined previously.</p>
+<ol start="7">
+<li>Assign ID to each word across both English (input) and French (output) sentences:
+<ol>
+<li>Store the list of all unique words in data (English and French sentences):</li>
+</ol>
+</li>
+</ol>
+<pre style="padding-left: 60px">all_eng_words=set()<br/>for eng in lines.eng:<br/>     for word in eng.split():<br/>         if word not in all_eng_words:<br/>             all_eng_words.add(word)<br/> <br/>all_french_words=set()<br/>for fr in lines.fr:<br/>     for word in fr.split():<br/>         if word not in all_french_words:<br/>             all_french_words.add(word)</pre>
+<pre style="padding-left: 60px">input_words = sorted(list(all_eng_words))<br/>target_words = sorted(list(all_french_words))<br/>num_encoder_tokens = len(all_eng_words)<br/>num_decoder_tokens = len(all_french_words)</pre>
+<ol>
+<li style="list-style-type: none">
+<ol start="2">
+<li>Create a dictionary of input words and their corresponding index:</li>
+</ol>
+</li>
+</ol>
+<pre style="padding-left: 60px">input_token_index = dict( [(word, i+1) for i, word in enumerate(input_words)])<br/>target_token_index = dict( [(word, i+1) for i, word in enumerate(target_words)])</pre>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p class="mceNonEditable"/>
+<ol start="8">
+<li>Extract the maximum length of input and target sentences so that all of the sentences can have the same size:</li>
+</ol>
+<pre style="padding-left: 60px">length_list=[]<br/>for l in lines.fr:<br/>     length_list.append(len(l.split(' ')))<br/>fr_max_length = np.max(length_list)</pre>
+<pre style="padding-left: 60px">length_list=[]<br/>for l in lines.eng:<br/>     length_list.append(len(l.split(' ')))<br/>eng_max_length = np.max(length_list)</pre>
+<p><span>Now that we have preprocessed the datasets, let's try out multiple architectures on the dataset to compare their performance.</span></p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Traditional many to many architecture</h1>
+                </header>
+            
+            <article>
+                
+<p>In this architecture, we will embed each input word into a 128 dimensional vector, resulting in an output vector of shape (<kbd>batch_size, 128, 17</kbd>). We want to do this because, in this version, we want to test out the scenario where the input data has 17 time steps and the output dataset also has 17 time steps.</p>
+<p>We shall connect each input time step to the output time step through an LSTM, and then perform a softmax on top of the predictions:</p>
+<ol start="1">
+<li>Create input and output datasets. Note that we have <kbd>decoder_input_data</kbd> and <kbd>decoder_target_data</kbd>. For now, let us create <kbd>decoder_input_data</kbd> as the word ID corresponding to the target sentence words. The <kbd>decoder_target_data</kbd> is the one-hot-encoded version of the target data for all words after the <kbd>start</kbd> token:</li>
+</ol>
+<pre style="padding-left: 60px">encoder_input_data = np.zeros((len(lines.eng), fr_max_length),dtype='float32')<br/>decoder_input_data = np.zeros((len(lines.fr), fr_max_length),dtype='float32')<br/>decoder_target_data = np.zeros((len(lines.fr), fr_max_length, num_decoder_tokens+1),dtype='float32')</pre>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p style="padding-left: 60px">Note that we are adding a <kbd>+1</kbd> to <kbd>num_decodder_tokens</kbd>, as there is no word corresponding to index <kbd>0</kbd> in the dictionary we created in <em>step 7b</em> of the previous section:</p>
+<pre style="padding-left: 60px">for i, (input_text, target_text) in enumerate(zip(lines.eng, lines.fr)):<br/>     for t, word in enumerate(input_text.split()):<br/>         encoder_input_data[i, t] = input_token_index[word]<br/>     for t, word in enumerate(target_text.split()):<br/> # decoder_target_data is ahead of decoder_input_data by one timestep<br/>         decoder_input_data[i, t] = target_token_index[word]<br/>         if t&gt;0: <br/> # decoder_target_data will be ahead by one timestep<br/> # and will not include the start character.<br/>             decoder_target_data[i, t - 1, target_token_index[word]] = 1.<br/>         if t== len(target_text.split())-1:<br/>             decoder_target_data[i, t:, 89] = 1</pre>
+<p style="padding-left: 60px">In the preceding code, we are looping through the input text and target text to replace a sentence that is in English or French to its corresponding word IDs in English and French.</p>
+<p style="padding-left: 60px">Furthermore, we are one-hot-encoding the target data in the decoder so that we can pass it to the model. Additionally, given that all sentences have the same length now, we are replacing the values of the target data with one at the 89th index (as <kbd>89</kbd> belongs to the end index) after the sentence length is exceeded in the <kbd>for</kbd> loop:</p>
+<pre style="padding-left: 60px">for i in range(decoder_input_data.shape[0]):<br/>     for j in range(decoder_input_data.shape[1]):<br/>         if(decoder_input_data[i][j]==0):<br/>             decoder_input_data[i][j] = 89</pre>
+<p style="padding-left: 60px">In the preceding code, we are replacing the value of zero in the decoder input data with 89 (as 89 is the ending token and zero does not have any word associated with it in the word indices that we created).</p>
+<p style="padding-left: 60px">Note that the shapes of the three datasets that we created are as follows:</p>
+<pre style="padding-left: 60px">print(decoder_input_data.shape,encoder_input_data.shape,decoder_target_data.shape)</pre>
+<p style="padding-left: 60px">The following is the output of the preceding code:</p>
+<pre style="padding-left: 60px"><span>(50000, 17) (50000, 17) (50000, 17, 359)</span></pre>
+<p class="mce-root"/>
+<ol start="2">
+<li>Build and fit the model, as follows:</li>
+</ol>
+<pre style="padding-left: 60px">model = Sequential()<br/>model.add(Embedding(len(input_words)+1, 128, input_length=fr_max_length, mask_zero=True))<br/>model.add((Bidirectional(LSTM(256, return_sequences = True))))<br/>model.add((LSTM(256, return_sequences=True)))<br/>model.add((Dense(len(target_token_index)+1, activation='softmax')))</pre>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1361 image-border" src="Images/5b1c05e4-823c-4fae-8955-1d164f10ebdd.png" style="width:31.92em;height:15.75em;" width="510" height="252"/></p>
+<pre style="padding-left: 60px">model.compile(optimizer='adam', loss='categorical_crossentropy',metrics=['acc'])</pre>
+<pre style="padding-left: 60px">model.fit(encoder_input_data, decoder_target_data,<br/> batch_size=32, epochs=5, validation_split=0.05)</pre>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1362 image-border" src="Images/58c5e0ac-b3aa-4bf6-a6cb-0800b766d9dd.png" style="width:26.92em;height:21.58em;" width="389" height="312"/></p>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p style="padding-left: 60px">Note that the accuracy number coming from the model could be misleading as it counts the <kbd>end</kbd> token in its accuracy measure as well.</p>
+<ol start="3">
+<li>Calculate the number of words that were correctly translated:</li>
+</ol>
+<pre style="padding-left: 60px">count = 0<br/>correct_count = 0<br/>pred = model2.predict(encoder_input_data[47500:])<br/>for i in range(2500):<br/>  t = np.argmax(pred[i], axis=1)<br/>  act = np.argmax(decoder_target_data[47500],axis=1)<br/>  correct_count += np.sum((act==t) &amp; (act!=89))<br/>  count += np.sum(act!=89)<br/>correct_count/count<br/># 0.19</pre>
+<p>In the preceding code, we are making a prediction on test data (which is the last 5% of total dataset as the validation split is 5%).</p>
+<p>From the preceding code, we can see that ~19% of the total words were correctly translated.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Many to hidden to many architecture</h1>
+                </header>
+            
+            <article>
+                
+<p>One of the drawbacks of the previous architecture was that we had to artificially increase the number of time steps in input to 17, even though we knew that the input has a maximum of eight time steps where there was some input.</p>
+<p>In this architecture, let's go ahead and build a model that extracts hidden state value at the last time step of input. Furthermore, it replicates the hidden state value 17 times (as there are 17 time steps in the output). It passes the replicated hidden time steps through a Dense layer to finally extract the probable classes in output. Let's code the logic as follows:</p>
+<ol start="1">
+<li>Redo the creation of input and output datasets so that we have eight time steps in the input and 17 in the output. This is different from the previous iteration as the input had 17 time steps in that versus eight in the current version:</li>
+</ol>
+<pre style="padding-left: 60px">encoder_input_data = np.zeros(<br/>    (len(lines.eng), eng_max_length),<br/>    dtype='float32')<br/>decoder_input_data = np.zeros(<br/>    (len(lines.fr), fr_max_length),<br/>    dtype='float32')<br/>decoder_target_data = np.zeros(<br/>    (len(lines.fr), fr_max_length, num_decoder_tokens+1),<br/>    dtype='float32')<br/><br/>for i, (input_text, target_text) in enumerate(zip(lines.eng, lines.fr)):<br/>    for t, word in enumerate(input_text.split()):<br/>        encoder_input_data[i, t] = input_token_index[word]<br/>    for t, word in enumerate(target_text.split()):<br/>        # decoder_target_data is ahead of decoder_input_data by one timestep<br/>        decoder_input_data[i, t] = target_token_index[word]<br/>        if t&gt;0: <br/>            # decoder_target_data will be ahead by one timestep<br/>            # and will not include the start character.<br/>          decoder_target_data[i, t - 1, target_token_index[word]] = 1.<br/>          if t== len(target_text.split())-1:<br/>            decoder_target_data[i, t:, 89] = 1<br/>      <br/>for i in range(decoder_input_data.shape[0]):<br/>  for j in range(decoder_input_data.shape[1]):<br/>    if(decoder_input_data[i][j]==0):<br/>      decoder_input_data[i][j] = 89 </pre>
+<ol start="2">
+<li>Build the model. Note that the <kbd>RepeatVector</kbd> layer replicates the output of the bidirectional layer's output 17 times:</li>
+</ol>
+<pre style="padding-left: 60px">model2 = Sequential()<br/>model2.add(Embedding(len(input_words)+1, 128, input_length=eng_max_length, mask_zero=True))<br/>model2.add((Bidirectional(LSTM(256))))<br/>model2.add(RepeatVector(fr_max_length))<br/>model2.add((LSTM(256, return_sequences=True)))<br/>model2.add((Dense(len(target_token_index)+1, activation='softmax')))</pre>
+<p style="padding-left: 60px">A summary of model is as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1363 image-border" src="Images/0049d9b6-60e5-4351-a51d-7281e266f1c8.png" style="width:29.58em;height:16.42em;" width="513" height="285"/></p>
+<ol start="3">
+<li>Compile and fit the model:</li>
+</ol>
+<pre style="padding-left: 60px">model2.compile(optimizer='adam', loss='categorical_crossentropy',metrics=['acc'])<br/>model2.fit(encoder_input_data, decoder_target_data,<br/> batch_size=128,epochs=5,validation_split=0.05)</pre>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1364 image-border" src="Images/4d726ed2-1d9e-488d-8982-4608468389d6.png" style="width:26.67em;height:21.92em;" width="382" height="314"/></p>
+<ol start="4">
+<li>Calculate the % of total words that are correctly translated:</li>
+</ol>
+<pre style="padding-left: 60px">count = 0<br/>correct_count = 0<br/>pred = model2.predict(encoder_input_data[47500:])<br/>for i in range(2500):<br/>  t = np.argmax(pred[i], axis=1)<br/>  act = np.argmax(decoder_target_data[47500],axis=1)<br/>  correct_count += np.sum((act==t) &amp; (act!=89))<br/>  count += np.sum(act!=89)<br/>correct_count/count</pre>
+<p>The preceding results in an accuracy of 19%, which is almost on par compared to the previous iteration.</p>
+<p>The preceding is expected, as we tend to lose considerable amounts of information when all the input time steps' information is stored only in the last hidden layer value.</p>
+<p>Additionally, we are not making use of the cell state that contains considerable amounts of information about what needs to be forgotten in which time step.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Encoder decoder architecture for machine translation</h1>
+                </header>
+            
+            <article>
+                
+<p>There are two potential logical enhancements to the architecture we defined in the previous section:</p>
+<ol>
+<li>Make use of the information present in the cell state while generating translations</li>
+<li>Make use of the previously translated words as an input in predicting the next word</li>
+</ol>
+<p>The second technique is called <strong>Teacher Forcing</strong>. Essentially, by giving the previous time step's actual value as input while generating the current time step, we are tuning the network faster, and practically more accurately.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Getting ready</h1>
+                </header>
+            
+            <article>
+                
+<p>The strategy that we'll adopt to build a machine translation system using the encoder decoder architecture is as follows:</p>
+<ul>
+<li>We have two decoder datasets while preparing input and output datasets:
+<ul>
+<li>The <kbd>decoder_input_data</kbd> combined with <kbd>encoder_input_data</kbd> is the input and <kbd>decoder_target_data</kbd> is the output</li>
+<li>The <kbd>decoder_input_data</kbd> starts with the <kbd>start</kbd> word</li>
+</ul>
+</li>
+<li>When we are predicting the first word in the decoder, we are using the input set of words, converting them into a vector, which then gets passed through a decoder model that has <kbd>start</kbd> as input. The expected output is the first word after <kbd>start</kbd> in output</li>
+<li>We proceed in a similar manner, where the actual first word in the output is the input, while predicting the second word</li>
+<li>We'll calculate the accuracy of model based on this strategy</li>
+</ul>
+<p class="mce-root"/>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">How to do it...</h1>
+                </header>
+            
+            <article>
+                
+<p>With this, let us go ahead and build the model on the input and output datasets that we already prepared in the previous section (<em>step 1</em> of many to hidden to many architecture of the previous section remains the same). The code file is available as <kbd>Machine_translation.ipynb</kbd> in GitHub.</p>
+<ol>
+<li>Build the model, as follows:</li>
+</ol>
+<pre style="padding-left: 60px"># We shall convert each word into a 128 sized vector<br/>embedding_size = 128</pre>
+<ol>
+<li style="list-style-type: none">
+<ol>
+<li>Prepare the encoder model:</li>
+</ol>
+</li>
+</ol>
+<pre style="padding-left: 60px">encoder_inputs = Input(shape=(None,))<br/>en_x= Embedding(num_encoder_tokens+1, embedding_size)(encoder_inputs)<br/>encoder = LSTM(256, return_state=True)<br/>encoder_outputs, state_h, state_c = encoder(en_x)<br/># We discard `encoder_outputs` and only keep the states.<br/>encoder_states = [state_h, state_c]</pre>
+<p style="padding-left: 120px">Note that we are using a functional API since we are extracting the intermediate layers of the encoder network and will be passing multiple datasets as input (encoder input data and decoder input data).</p>
+<ol>
+<li style="list-style-type: none">
+<ol start="2">
+<li>Prepare the decoder model:</li>
+</ol>
+</li>
+</ol>
+<pre style="padding-left: 60px">decoder_inputs = Input(shape=(None,))<br/>dex= Embedding(num_decoder_tokens+1, embedding_size)<br/>final_dex= dex(decoder_inputs)<br/>decoder_lstm = LSTM(256, return_sequences=True, return_state=True)<br/>decoder_outputs, _, _ = decoder_lstm(final_dex, initial_state=encoder_states)<br/>decoder_outputs = Dense(2000,activation='tanh')(decoder_outputs)<br/>decoder_dense = Dense(num_decoder_tokens+1, activation='softmax')<br/>decoder_outputs = decoder_dense(decoder_outputs)</pre>
+<ol start="2">
+<li>Build the model, as follows:</li>
+</ol>
+<pre style="padding-left: 60px">model3 = Model([encoder_inputs, decoder_inputs], decoder_outputs)<br/>model3.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['acc'])</pre>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1365 image-border" src="Images/7d7eed63-bb60-43d2-a998-0b25454011cf.png" style="width:52.58em;height:28.83em;" width="765" height="420"/></p>
+<ol start="3">
+<li>Fit the model, as shown in the following code:</li>
+</ol>
+<pre style="padding-left: 60px">history3 = model3.fit([encoder_input_data, decoder_input_data], decoder_target_data,<br/> batch_size=32,epochs=5,validation_split=0.05)</pre>
+<p class="CDPAlignCenter CDPAlign"><img src="Images/920127b1-562b-4a64-b5eb-b5100a0d54fd.jpg" style="width:32.67em;height:26.75em;" width="386" height="317"/></p>
+<ol start="4">
+<li>Calculate the % of words that are accurately transcribed:</li>
+</ol>
+<pre style="padding-left: 60px">act = np.argmax(decoder_target_data, axis=2)</pre>
+<pre style="padding-left: 60px">count = 0<br/>correct_count = 0<br/>pred = model3.predict([encoder_input_data[47500:],decoder_input_data[47500:]])<br/>for i in range(2500):<br/>     t = np.argmax(pred[i], axis=1)<br/>     correct_count += np.sum((act[47500+i]==t) &amp; (act[47500+i]!=0))<br/>     count += np.sum(decoder_input_data[47500+i]!=0)<br/>correct_count/count</pre>
+<p>Note that we have correctly translated 44% of the total words in this scenario.</p>
+<p class="mce-root"/>
+<p>However, note that we should not be using <kbd>decoder_input_data</kbd> while calculating accuracy on the test dataset, as we do not have access to this during a real-time scenario.</p>
+<p>This calls for us to use the predicted word in the previous time step as the decoder input word for the current time step, as follows.</p>
+<p>We will re-initialize the <kbd>decoder_input_data</kbd> as <kbd>decoder_input_data_pred</kbd>:</p>
+<pre>decoder_input_data_pred = np.zeros((len(lines.fr),fr_max_length),dtype='float32')</pre>
+<pre>final_pred = []<br/>for i in range(2500):<br/>word = 284<br/>     for j in range(17):<br/>         decoder_input_data_pred[(47500+i), j] = word<br/>         pred =         model3.predict([encoder_input_data[(47500+i)].reshape(1,8),decoder_input_data_pred[47500+i].reshape(1,17)])<br/>         t = np.argmax(pred[0][j])<br/>         word = t<br/>         if word==89:<br/>             break<br/>     final_pred.append(list(decoder_input_data_pred[47500+i]))</pre>
+<p>Note that, in the preceding code, the word index 284 corresponds to the start word. We are passing the start word as the first word in the decoder input and predicting the word with the highest probability in the next time step. </p>
+<p>Once we predict the second word, we update <kbd>decoder_input_word_pred</kbd>, predict the third word, and continue until we encounter the stop word.</p>
+<p>Now that we have modified our predicted translated words, let us calculate the accuracy of our translation:</p>
+<pre style="padding-left: 60px">final_pred2 = np.array(final_pred)</pre>
+<pre style="padding-left: 60px">count = 0<br/>correct_count = 0<br/>for i in range(2500):<br/>     correct_count += np.sum((decoder_input_data[47500+i]==final_pred2[i]) &amp; (decoder_input_data[47500+i]!=89))<br/>     count += np.sum(decoder_input_data[47500+i]!=89)<br/>correct_count/count</pre>
+<p>The preceding results in 46% of all words that are correctly translated through this method.</p>
+<p class="mce-root"/>
+<p>While there is a considerable improvement in the accuracy of translation from the previous methods, we are still not taking the intuition that words that are at the start in the source language are quite likely to be at the start, even in the target language, that is, the word alignment is not taken into consideration. In the next section, we will look into solving the problem of word alignment.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Encoder decoder architecture with attention for machine translation</h1>
+                </header>
+            
+            <article>
+                
+<p>In the previous section, we learned that we could increase the accuracy of translation by enabling the teacher forcing technique, where the actual word in the previous time step of target was used as an input to the model.</p>
+<p>In this section, we will extend this idea further and assign weightage to the input encoder based on how similar the encoder and decoder vectors are at each time step. This way, we are enabling that certain words have a higher weightage in the encoder's hidden vector, depending on the time step of the decoder.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">How to do it...</h1>
+                </header>
+            
+            <article>
+                
+<p>With this, let's look at how we can build the encoder decoder architecture, along with the attention mechanism. <span>The code file is available a</span>s <kbd>Machine_translation.ipynb</kbd> in GitHub.</p>
+<ol>
+<li>Build the encoder, as shown in the following code:</li>
+</ol>
+<pre style="padding-left: 60px">encoder_inputs = Input(shape=(eng_max_length,))<br/>en_x= Embedding(num_encoder_tokens+1, embedding_size)(encoder_inputs)<br/>en_x = Dropout(0.1)(en_x)<br/>encoder = LSTM(256, return_sequences=True, unroll=True)(en_x)<br/>encoder_last = encoder[:,-1,:]</pre>
+<ol start="2">
+<li>Build the decoder, as follows:</li>
+</ol>
+<pre style="padding-left: 60px">decoder_inputs = Input(shape=(fr_max_length,))<br/>dex= Embedding(num_decoder_tokens+1, embedding_size)<br/>decoder= dex(decoder_inputs)<br/>decoder = Dropout(0.1)(decoder)<br/>decoder = LSTM(256, return_sequences=True, unroll=True)(decoder, initial_state=[encoder_last, encoder_last])</pre>
+<p style="padding-left: 60px">Note that, in the preceding code, we have not finalized the decoder architecture. We have only extracted the hidden layer values at the decoder.</p>
+<ol start="3">
+<li>Build the attention mechanism. The attention mechanism will be based on how similar the encoder hidden vector and the decoder hidden vector are at each time step. Based on this similarity (softmax performed to give a weight value that sums up to one across all possible input time steps), we assign weightage to the encoder vector, as follows.</li>
+</ol>
+<p style="padding-left: 60px">Passing the encoder decoder vectors through an activation and dense layer so that we achieve further non-linearity before taking the dot product (a measure of similarity—cosine similarity) between the vectors:</p>
+<pre style="padding-left: 60px">t = Dense(5000, activation='tanh')(decoder)<br/>t2 = Dense(5000, activation='tanh')(encoder)<br/>attention = dot([t, t2], axes=[2, 2])</pre>
+<p style="padding-left: 60px">Identify the weightage that is to be given to the input time steps:</p>
+<pre style="padding-left: 60px">attention = Dense(eng_max_length, activation='tanh')(attention)<br/>attention = Activation('softmax')(attention)</pre>
+<p style="padding-left: 60px">Calculate the weighted encoder vector, as follows:</p>
+<pre style="padding-left: 60px">context = dot([attention, encoder], axes = [2,1])</pre>
+<ol start="4">
+<li>Combine the decoder and weighted encoder vector:</li>
+</ol>
+<pre style="padding-left: 60px">decoder_combined_context = concatenate([context, decoder])</pre>
+<ol start="5">
+<li>Connect the combination of decoder and weighted encoded vector to output layer:</li>
+</ol>
+<pre style="padding-left: 60px">output_dict_size = num_decoder_tokens+1<br/>decoder_combined_context=Dense(2000, activation='tanh')(decoder_combined_context)<br/>output=(Dense(output_dict_size, activation="softmax"))(decoder_combined_context)</pre>
+<ol start="6">
+<li>Compile and fit the model, shown in the following code:</li>
+</ol>
+<pre style="padding-left: 60px">model4 = Model(inputs=[encoder_inputs, decoder_inputs], outputs=[output])<br/>model4.compile(optimizer='adam', loss='categorical_crossentropy',metrics = ['accuracy'])</pre>
+<p style="padding-left: 60px">A plot of architecture is as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1382 image-border" src="Images/05ba35a2-0d0a-4d38-aad8-640520b67267.png" style="width:42.08em;height:52.33em;" width="484" height="602"/></p>
+<pre style="padding-left: 60px">model4.fit([encoder_input_data, decoder_input_data], decoder_target_data,<br/> batch_size=32,epochs=5,validation_split=0.05)</pre>
+<p class="CDPAlignCenter CDPAlign"><img class="alignnone size-full wp-image-1384 image-border" src="Images/ca8e9bfd-b064-4ba3-8414-c9b80eda03ec.png" style="width:33.75em;height:26.00em;" width="405" height="312"/></p>
+<p style="padding-left: 60px">Once you fit the model, you will notice that the validation loss in this model is slightly better than the previous iteration.</p>
+<ol start="7">
+<li>Calculate the accuracy of translation in a similar way to what we did in the previous section:</li>
+</ol>
+<pre style="padding-left: 60px">decoder_input_data_pred=np.zeros((len(lines.fr), fr_max_length), dtype='float32')</pre>
+<pre style="padding-left: 60px" class="mce-root">final_pred_att = []<br/>for i in range(2500):<br/>     word = 284<br/>     for j in range(17):<br/>         decoder_input_data_pred[(47500+i), j] = word<br/>         pred =         model4.predict([encoder_input_data[(47500+i)].reshape(1,8),decoder_input_data_pred[47500+i].reshape(1,17)])<br/>         t = np.argmax(pred[0][j])<br/>         word = t<br/>         if word==89:<br/>             break<br/>     final_pred_att.append(list(decoder_input_data_pred[47500+i]))</pre>
+<pre style="padding-left: 60px">final_pred2_att = np.array(final_pred_att)<br/>count = 0<br/>correct_count = 0<br/>for i in range(2500):<br/>     correct_count += np.sum((decoder_input_data[47500+i]==final_pred2_att[i]) &amp; (decoder_input_data[47500+i]!=89))<br/>     count += np.sum(decoder_input_data[47500+i]!=89)<br/>correct_count/count</pre>
+<p style="padding-left: 60px">The preceding code results in 52% of total words that are correctly translated, which is an improvement from the previous iteration.</p>
+<ol start="8">
+<li>Now that we have built a translation system that has a reasonable accuracy, let us inspect a few translations in the test dataset (the test dataset is the last 5% of the total dataset as we specified the <kbd>validation_split</kbd> to be 5%), as follows:</li>
+</ol>
+<pre style="padding-left: 60px">k = -1500<br/>t = model4.predict([encoder_input_data[k].reshape(1,encoder_input_data.shape[1]),decoder_input_data[k].reshape(1,decoder_input_data.shape[1])]).reshape(decoder_input_data.shape[1], num_decoder_tokens+1)</pre>
+<p style="padding-left: 60px">Extract the predicted translations in terms of words:</p>
+<pre style="padding-left: 60px">t2 = np.argmax(t,axis=1)<br/>for i in range(len(t2)):<br/>     if int(t2[i])!=0:<br/>         print(list(target_token_index.keys())[int(t2[i]-1)])</pre>
+<p style="padding-left: 60px"><span>The output of the preceding code after converting English sentence to French  is as follows:</span></p>
+<pre style="padding-left: 60px"><span>je</span> <span>unk manger pas manger end end</span></pre>
+<p style="padding-left: 60px" class="mce-root"><span>Extract the actual translations in terms of words:</span></p>
+<pre style="padding-left: 60px">t2 = decoder_input_data[k]<br/>for i in range(len(t2)):<br/>     if int(t2[i])!=89:<br/>         print(list(target_token_index.keys())[int(t2[i]-1)])</pre>
+<p style="padding-left: 60px"><span>The output of the preceding code is as follows:</span></p>
+<pre style="padding-left: 60px"><span> je unk ne pas manger ça end</span></pre>
+<p>We see that the predicted translation is fairly close to the original translation. In a similar manner, let us explore a few more translations on the validation dataset:</p>
+<table style="border-collapse: collapse;width: 100%;border-color: #000000" border="1">
+<tbody>
+<tr>
+<td><strong>Original translation</strong></td>
+<td><strong>Predicted translation</strong></td>
+</tr>
+<tr>
+<td><em><span>jétais tellement occupée la unk unk end</span></em></td>
+<td><em><span>jétais tellement occupé pour plus unk end</span></em></td>
+</tr>
+<tr>
+<td><em><span>je ne fais que ce unk me dit end</span></em></td>
+<td><em><span>je viens fais que ce unk me fait end</span></em></td>
+</tr>
+<tr>
+<td><em><span>jai unk de faire la unk end</span></em></td>
+<td><em><span>je unk de unk la unk end</span></em></td>
+</tr>
+</tbody>
+</table>
+<p> </p>
+<p>From the preceding table, we can see that there is a decent translation, however there are a few areas of potential improvement:</p>
+<ul>
+<li>Accounting for word similarities:
+<ul>
+<li>Words like <em>je</em> and <em>j'ai</em> are fairly similar, and so they should not be penalized heavily, even though it is decreasing the accuracy metric</li>
+</ul>
+</li>
+<li>Reducing the number of <kbd>unk</kbd> words:
+<ul>
+<li>We have reduced the number of <kbd>unk</kbd> words to reduce the dimensionality of our dataset</li>
+<li>We can potentially work on high dimensional data when we collect a larger corpus and work on a machine with industrial scale configuration</li>
+</ul>
+</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  </body></html>

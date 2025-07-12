@@ -1,0 +1,1021 @@
+<html><head></head><body><div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Image Generation</h1>
+                </header>
+            
+            <article>
+                
+<p>In the previous chapters, we learned about predicting the class of an image and detecting where the object is located in the whole image. If we work backwards, we should be in a position to generate an image if we are given a class. Generative networks come in handy in this scenario, where we try to create new images that look very similar to the original image.</p>
+<p>In this chapter, we will cover the following recipes:</p>
+<ul>
+<li>Generating images that can fool a neural network using an adversarial attack</li>
+<li>DeepDream algorithm to generate images</li>
+<li>Neural style transfer between images</li>
+<li>Generating images of digits using Generative Adversarial Networks</li>
+<li>Generating images of digits using a Deep Convolutional GAN</li>
+<li>Face generation using a Deep Convolutional GAN</li>
+<li>Face transition from one to another</li>
+<li>Performing vector arithmetic on generated images</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Introduction</h1>
+                </header>
+            
+            <article>
+                
+<p>In the previous chapters, we identified the optimal weights that result in classifying an image into the right class. The output class of an image can be changed by varying the following:</p>
+<ul>
+<li>The weights connecting the input to the output layer, while the input pixels remain constant</li>
+<li>The input pixel values, while the weights remain constant</li>
+</ul>
+<p>In this chapter, we will employ these two techniques to generate images.</p>
+<p class="mce-root"/>
+<p>In the case studies of an adversarial attack, the neural style transfer and DeepDream will leverage the technique of changing the input pixel values. In the techniques involving a <strong>Generative Adversarial Network</strong> (<strong>GAN</strong>), we will leverage the technique of changing certain weights that connect input pixel values to the output.</p>
+<p>The first three case studies in this chapter will leverage the technique of changing the input pixel values, while the rest leverage a change in weights that connect the input to the output.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Generating images that can fool a neural network using adversarial attack</h1>
+                </header>
+            
+            <article>
+                
+<p>To understand how to perform an adversarial attack on an image, let's understand how regular predictions are made using transfer learning first and then we will figure out how to tweak the input image so that the image's class is completely different, even though we barely changed the input image.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Getting ready</h1>
+                </header>
+            
+            <article>
+                
+<p>Let's go through an example where we will try to identify the class of the object within the image:</p>
+<ol>
+<li><span>Read the image of a cat</span></li>
+<li><span>Preprocess the image so that it can then be passed to an inception network</span></li>
+<li><span>Import the pre-trained Inception v3 model</span></li>
+<li><span>Predict the class of the object present in the image</span></li>
+<li>The image will be predicted as a persian cat as Inception v3 works well in predicting objects that belong to one of the ImageNet classes</li>
+</ol>
+<p>The task at hand is to change the image in such a way that it meets the following two criteria:</p>
+<ul>
+<li>The prediction of the new image using the same network should be an African elephant with a very high probability</li>
+<li>The new image should be visually indistinguishable from the original image by a human</li>
+</ul>
+<p>To achieve this, we will follow this strategy:</p>
+<ol>
+<li>Define a loss function:
+<ul>
+<li>The loss is the probability of the image (of the persian cat) belonging to the African elephant class</li>
+<li>The higher the loss, the closer are we to our objective</li>
+<li>Hence, in this case, we would be maximizing our loss function</li>
+</ul>
+</li>
+<li>Calculate the gradient of change in the loss with respect to the change in the input:
+<ul>
+<li>This step helps in understanding the input pixels that move the output toward our objective</li>
+</ul>
+</li>
+<li>Update the input image based on the calculated gradients:
+<ul>
+<li>Ensure that the pixel values in the original image is not translated by more than 3 pixels in the final image</li>
+<li>This ensures that the resulting image is humanly indistinguishable from the original image</li>
+</ul>
+</li>
+<li>Repeat steps 2 and step 3 until the prediction of the updated image is an African elephant with a confidence of at least 0.8</li>
+</ol>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">How to do it...</h1>
+                </header>
+            
+            <article>
+                
+<p>Let's go ahead and implement this strategy in code (The code file is available as <kbd>Adversarial_attack.ipynb</kbd> in GitHub):</p>
+<ol>
+<li>Read the image of a cat:</li>
+</ol>
+<pre style="padding-left: 60px">import matplotlib.pyplot as plt<br/>%matplotlib inline<br/>img = cv2.imread('/content/cat.JPG')<br/>img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)<br/>img = cv2.resize(img, (299,299))<br/>plt.imshow(img)<br/>plt.axis('off')</pre>
+<p style="padding-left: 60px">The plot of the image looks as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-1602 image-border" src="Images/33c46965-bc81-4b5e-aec1-f52dacb165dc.png" style="width:19.83em;height:19.92em;" width="238" height="239"/></p>
+<ol start="2">
+<li>Preprocess the image so that it can then be passed to an inception network:</li>
+</ol>
+<pre style="padding-left: 60px">original_image = cv2.resize(img,(299,299)).astype(float)<br/>original_image /= 255.<br/>original_image -= 0.5<br/>original_image *= 2.<br/>original_image = np.expand_dims(original_image, axis=0)</pre>
+<ol start="3">
+<li>Import the pre-trained model:</li>
+</ol>
+<pre style="padding-left: 60px">import numpy as np<br/>from keras.preprocessing import image<br/>from keras.applications import inception_v3<br/>model = inception_v3.InceptionV3()</pre>
+<ol start="4">
+<li>Predict the class of the object present in the image:</li>
+</ol>
+<pre style="padding-left: 60px">predictions = model.predict(original_image)<br/>predicted_classes = inception_v3.decode_predictions(predictions, top=1)<br/>imagenet_id, name, confidence = predicted_classes[0][0]<br/>print("This is a {} with {:.4}% confidence".format(name, confidence * 100))</pre>
+<p style="padding-left: 60px">The preceding code results in the following:</p>
+<pre style="padding-left: 60px">" This is a Persian_cat with 95.45% confidence"</pre>
+<ol start="5">
+<li>Define the input and output:</li>
+</ol>
+<pre style="padding-left: 60px">model = inception_v3.InceptionV3()<br/>model_input_layer = model.layers[0].input<br/>model_output_layer = model.layers[-1].output</pre>
+<p style="padding-left: 60px"><kbd>model_input_layer</kbd> is the input to the model and <kbd>model_output_layer</kbd> is the probability of various classes for the input image (the last layer with softmax activation).</p>
+<ol start="6">
+<li>Set the limits of change for the original image:</li>
+</ol>
+<pre style="padding-left: 60px">max_change_above = np.copy(original_image) + 0.01<br/>max_change_below = np.copy(original_image) - 0.01<br/>hacked_image = np.copy(original_image)</pre>
+<p style="padding-left: 60px">In the preceding code, we are specifying the limits to which the original image can be changed.</p>
+<ol start="7">
+<li>Initialize the cost function so that the object type to fake is an African elephant (386<sup>th</sup> index value in the prediction vector):</li>
+</ol>
+<pre style="padding-left: 60px">learning_rate = 0.1<br/>object_type_to_fake = 386<br/>cost_function = model_output_layer[0, object_type_to_fake]</pre>
+<p style="padding-left: 60px">The output of <kbd>model_output_layer</kbd> is the probability of various classes for the image of interest. In this instance, we are specifying that the cost function will be dictated by the index location of the object we are trying to fake our object into.</p>
+<ol start="8">
+<li>Initialize the gradient function of the cost with respect to the input:</li>
+</ol>
+<pre style="padding-left: 60px">gradient_function = K.gradients(cost_function, model_input_layer)[0]</pre>
+<p style="padding-left: 60px">This code calculates the gradient of <kbd>cost_function</kbd> with respect to the change in <kbd>model_input_layer</kbd> (which is the input image).</p>
+<ol start="9">
+<li>Map the cost and gradient functions with respect to the input:</li>
+</ol>
+<pre style="padding-left: 60px">grab_cost_and_gradients_from_model = K.function([model_input_layer], [cost_function, gradient_function])<br/>cost = 0.0</pre>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p style="padding-left: 60px">In the preceding code, we are calculating the values of <kbd>cost_function</kbd> (the probability of the image belonging to the African elephant class) and the gradients with respect to the input image.</p>
+<ol start="10">
+<li>Keep updating the input image with respect to gradients until the probability of the resulting image being an African elephant is at least 80%:</li>
+</ol>
+<pre style="padding-left: 60px">while cost &lt; 0.80:<br/>    cost, gradients = grab_cost_and_gradients_from_model([hacked_image, 0])<br/>    hacked_image += gradients * learning_rate<br/>    hacked_image = np.clip(hacked_image, max_change_below, max_change_above)<br/>    print("Model's predicted likelihood that the image is an African elephant: <br/>{:.8}%".format(cost * 100))</pre>
+<p style="padding-left: 60px">In the preceding code, we are obtaining the cost and gradients that correspond to the input image (<kbd>hacked_image</kbd>). Additionally, we are updating the input image by the gradient (which is multiplied by the learning rate). Finally, if the hacked image crosses the threshold of the maximum changes of the input image, we'll clip it.</p>
+<p style="padding-left: 60px">Keep looping through these steps until you achieve a probability that the input image is at least 0.8.</p>
+<p style="padding-left: 60px">The variation of the probability of the image of persian cat being detected as the image of an African elephant over increasing epochs is as follows:</p>
+<pre style="padding-left: 60px">epochs = range(1, len(prob_elephant) + 1)<br/>plt.plot(epochs, prob_elephant, 'b')<br/>plt.title('Probability of African elephant class')<br/>plt.xlabel('Epochs')<br/>plt.ylabel('Probability')<br/>plt.grid('off')</pre>
+<p style="padding-left: 60px">The variation of probability of the modified image belonging to the African elephant class is as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-1603 image-border" src="Images/a8c81887-f7bb-4364-8ea0-27f4321ada37.png" style="width:30.08em;height:22.00em;" width="401" height="293"/></p>
+<ol start="11">
+<li>Predict the class of the updated image:</li>
+</ol>
+<pre style="padding-left: 60px">model.predict(hacked_image)[0][386]</pre>
+<p style="padding-left: 60px"><span>The output of the <kbd>predict</kbd> method, which provides the probability of the modified image belonging to African elephant class, is 0.804.</span></p>
+<ol start="12">
+<li class="CDPAlignLeft CDPAlign">De-process the updated input image (as it was pre-processed to scale it) so that it can be visualized:</li>
+</ol>
+<pre style="padding-left: 60px">hacked_image = hacked_image/2<br/>hacked_image = hacked_image + 0.5<br/>hacked_image = hacked_image*255<br/>hacked_image = np.clip(hacked_image, 0, 255).astype('uint8')<br/><br/>plt.subplot(131)<br/>plt.imshow(img)<br/>plt.title('Original image')<br/>plt.axis('off')<br/>plt.subplot(132)<br/>plt.imshow(hacked_image[0,:,:,:])<br/>plt.title('Hacked image')<br/>plt.axis('off')<br/>plt.subplot(133)<br/>plt.imshow(img - hacked_image[0,:,:,:])<br/>plt.title('Difference')<br/>plt.axis('off')</pre>
+<p class="mce-root"/>
+<p>The combination of the original image, the modified (hacked) images and the difference between the two images is printed as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-1604 image-border" src="Images/1db1140a-75c9-4b31-9012-aeba89a7bb24.png" style="width:30.33em;height:11.83em;" width="364" height="142"/></p>
+<p>Note that the output is now visually indistinguishable from the original image.</p>
+<p>It is interesting to note that with hardly any change in pixel values from the original image, we have fooled the neural network (the inception v3 model) so that it now predicts a different class. This is a great example of some of the security flaws that you could encounter if the algorithm that was used to come up with a prediction is exposed to users who could build images that can fool the system.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">DeepDream algorithm to generate images</h1>
+                </header>
+            
+            <article>
+                
+<p>In the previous section, we tweaked the input image's pixels slightly. In this section, we will tweak the input image a little more so that we can come up with an image that is still of the same object, however a little more artistic than the original one. This algorithm forms the backbone of style-transfer techniques using neural networks.</p>
+<p>Let's go through the intuition of how DeepDream works.</p>
+<p>We will pass our image through a pre-trained model (VGG19, in this example). We already learned that, depending on the input image, certain filters in the pre-trained model activate the most and certain filters activate the least.</p>
+<p>We will supply the layers of neural network that we want to activate the most.</p>
+<p>The neural network adjusts the input pixel values until we obtain the maximum value of the chosen layers.</p>
+<p>However, we will also ensure that the maximum possible activation does not exceed a certain value as the resultant image in that case could be very different from the original image.</p>
+<p class="mce-root"/>
+<p class="mce-root"/>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Getting ready</h1>
+                </header>
+            
+            <article>
+                
+<p>With this intuition in place, let's go through the steps of implementing the DeepDream algorithm:</p>
+<ol>
+<li>Choose the layers of neural network that you want to activate the most and assign weightage to the amount of contribution the layers can make towards overall loss calculation.</li>
+<li>Extract the output of the given layer when an image is passed through the layer and calculate the loss value at each layer:
+<ul>
+<li>An image activates the layer the most when the sum of squares of the output of the image in that layer is the highest</li>
+</ul>
+</li>
+<li>Extract the gradient of change in the input pixel values with respect to the loss.</li>
+<li>Update the input pixel values based on the gradient extracted in the previous step.</li>
+<li>Extract the loss value (the sum of the squares of the activation) across all chosen layers for the updated input pixel values.</li>
+<li>If the loss value (the weighted sum of the squared activation) is greater than a predefined threshold, stop updating the image.</li>
+</ol>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">How to do it...</h1>
+                </header>
+            
+            <article>
+                
+<p>Let's implement these steps in code (The code file is available as <kbd>Deepdream.ipynb</kbd> in GitHub):</p>
+<ol>
+<li>Import the relevant packages and import the image:</li>
+</ol>
+<pre style="padding-left: 60px">import keras.backend as K<br/>import multiprocessing<br/>import tensorflow as tf<br/>import warnings<br/>from keras.applications.vgg19 import VGG19<br/>from keras.applications.imagenet_utils import preprocess_input<br/>from scipy.optimize import minimize<br/>from skimage import img_as_float, img_as_ubyte<br/>from skimage.io import imread, imsave<br/>from skimage.transform import pyramid_gaussian, rescale<br/>import scipy<br/>from keras.preprocessing import image<br/>from keras.applications.vgg19 import preprocess_input<br/>import matplotlib.pyplot as plt<br/>%matplotlib inline</pre>
+<p class="mce-root"/>
+<p style="padding-left: 60px">Preprocess the image so that it can then be passed to the VGG19 model:</p>
+<pre style="padding-left: 60px">def preprocess_image(image_path):<br/>     img = image.load_img(image_path, target_size=(img_nrows, img_ncols))<br/>     img = image.img_to_array(img)<br/>     img = np.expand_dims(img, axis=0)<br/>     img[:, :, :, 0] -= 103.939<br/>     img[:, :, :, 1] -= 116.779<br/>     img[:, :, :, 2] -= 123.68<br/>     img = img[:, :, :, ::-1]/255<br/>     return img</pre>
+<p style="padding-left: 60px">Build a function that de-processes the processed image:</p>
+<pre style="padding-left: 60px">def deprocess_image(x):<br/>     x = x[:,:,:,::-1]*255<br/>     x[:, :, :, 0] += 103.939<br/>     x[:, :, :, 1] += 116.779<br/>     x[:, :, :, 2] += 123.68<br/>     x = np.clip(x, 0, 255).astype('uint8')<br/>     return x</pre>
+<p style="padding-left: 60px">Preprocess the image:</p>
+<pre style="padding-left: 60px">img = preprocess_image('/content/cat.png')</pre>
+<ol start="2">
+<li>Define the layers that contribute to the overall loss-value calculation:</li>
+</ol>
+<pre style="padding-left: 60px">layer_contributions = {<br/>    'block2_pool':0.3,<br/>    'block5_pool': 1.5}</pre>
+<p style="padding-left: 60px">In the preceding code, we are showing you that we will use the second and fifth pooling layers, and also assign the weights that these two layers will contribute to the overall loss value.</p>
+<ol start="3">
+<li>Initialize the loss function:</li>
+</ol>
+<pre style="padding-left: 60px">layer_dict = dict([(layer.name, layer) for layer in model.layers])<br/>loss = K.variable(0.)</pre>
+<p style="padding-left: 60px">In the preceding step, we are initializing the loss value and a dictionary of the various layers in the model.</p>
+<p class="mce-root"/>
+<p style="padding-left: 60px">Calculate the overall loss value of the activations:</p>
+<pre style="padding-left: 60px">for layer_name in layer_contributions:<br/>     coeff = layer_contributions[layer_name]<br/>     activation = layer_dict[layer_name].output<br/>     scaling = K.prod(K.cast(K.shape(activation), 'float32'))<br/>     loss += coeff * K.sum(K.square(activation)) / scaling<br/>     print(loss)</pre>
+<p style="padding-left: 60px">In the preceding code, we are looping through the layers that we are interested in (<span> </span><kbd>layer_contributions</kbd><span> ) </span>and noting down the weights (<span> </span><kbd>coeff</kbd><span> ) </span>that we have assigned to each layer. Additionally, we are calculating the output of the layers of interest (<span> </span><kbd>activation</kbd><span> )</span>, and updating the loss value using <span>the sum of </span>squares of the activation values post scaling them.</p>
+<ol start="4">
+<li>Initialize the gradient value:</li>
+</ol>
+<pre style="padding-left: 60px">dream = model.input<br/>grads = K.gradients(loss, dream)[0]</pre>
+<p style="padding-left: 60px">The <kbd>K.gradients</kbd> method gives us the gradient of the loss with respect to the change in the input, <kbd>dream</kbd>.</p>
+<ol start="5">
+<li>Normalize the gradient values so that the change in the gradients is slow:</li>
+</ol>
+<pre style="padding-left: 60px">grads /= K.maximum(K.mean(K.abs(grads)), 1e-7)</pre>
+<ol start="6">
+<li>Create a function that maps the input image to the loss value and the gradient of the loss value with respect to the change in input pixel values (where the input image is <kbd>dream</kbd>):</li>
+</ol>
+<pre style="padding-left: 60px">outputs = [loss, grads]<br/>fetch_loss_and_grads = K.function([dream], outputs)</pre>
+<ol start="7">
+<li>Define a function that provides the loss and gradient values for a given input image:</li>
+</ol>
+<pre style="padding-left: 60px">def eval_loss_and_grads(img):<br/>      outs = fetch_loss_and_grads([img])<br/>      loss_value = outs[0]<br/>      grad_values = outs[1]<br/>      return loss_value, grad_values</pre>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<ol start="8">
+<li>Update the original image based on the obtained loss and gradient values over multiple iterations.</li>
+</ol>
+<p style="padding-left: 60px"><span>In the following code, we are looping through the image 100 times. We are defining the learning rate of changing the image and the maximum possible loss (change in the image) that can </span>happen<span>:</span></p>
+<pre style="padding-left: 60px">for i in range(100):<br/>      learning_rate=0.01<br/>      max_loss=20</pre>
+<p style="padding-left: 60px"><span>In the following code, we are extracting the loss and gradient values of the image and then stopping the change in the image if the loss value is more than the defined </span>threshold<span>:</span></p>
+<pre>     loss_value, grad_values = eval_loss_and_grads(img)<br/>     if max_loss is not None and loss_value &gt; max_loss:<br/>         print(loss_value)<br/>         break<br/>     print('...Loss value at', i, ':', loss_value)</pre>
+<p style="padding-left: 60px"><span>In the following code, we are updating the image based on the gradient values and are de-processing the image and printing the image:</span></p>
+<pre>    img += learning_rate * grad_values<br/>    img2 = deprocess_image(img.copy())<br/>    plt.imshow(img2[0,:,:,:])<br/>    plt.axis('off')<br/>    plt.show()</pre>
+<p>The preceding code results in an image that looks as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-1606 image-border" src="Images/d34a9836-cc7c-49dd-8afb-fe8cc5ac2545.png" style="width:14.25em;height:14.33em;" width="244" height="245"/></p>
+<p>Note that the wavy patterns in the preceding image are obtained potentially because these are the patterns that maximize the various network layers' activations.</p>
+<p>Here, we have seen another application of perturbing input pixels, which in this case resulted in a slightly more artistic image.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Neural style transfer between images</h1>
+                </header>
+            
+            <article>
+                
+<p>In the previous recipe, the modified pixel values were trying to maximize the filter activations. However, it does not give us the flexibility of specifying the style of the image; neural style transfer comes in handy in this scenario.</p>
+<p>In neural style transfer, we have a content image and a style image, and we try to combine these two images in such a way that the content in the content image is preserved while maintaining the style of the style image.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Getting ready</h1>
+                </header>
+            
+            <article>
+                
+<p>The intuition of neural style transfer is as follows.</p>
+<p>We try to modify the original image in a similar way to the DeepDream algorithm. However, the additional step is that the loss value is split into content loss and style loss.</p>
+<p>Content loss refers to how different the generated image is from the content image. Style loss refers to how correlated the style image is to the generated image.</p>
+<p>While we mentioned that the loss is calculated based on the difference in images, in practice, we modify it slightly by ensuring that the loss is calculated using the activations from images and not the original images. For example, the content loss at layer 2 will be the squared difference between activations of the content image and the generated image when passed through the second layer.</p>
+<p>While calculating the content loss seems straightforward, let's try to understand how to calculate the similarity between the generated image and the style image.</p>
+<p>A technique called gram matrix comes into the picture. Gram matrix calculates the similarity between a generated image and a style image, and is calculated as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="fm-editor-equation" src="Images/5754caec-464d-4b8e-a375-65df6ffdc898.png" style="width:25.33em;height:2.92em;" width="4510" height="520"/></p>
+<p>Where <em>GM(l)</em> is the gram matrix value at layer <em>l</em> for the style image, <em>S</em>, and the generated image, <em>G</em>.</p>
+<p>A gram matrix results from multiplying a matrix with the transpose of itself.</p>
+<p><span>Now that we are in a position to calculate the style loss and content loss, the final modified input image is the image that minimizes the overall loss, that is, a weighted average of style and content loss.</span></p>
+<p>Neural style transfer is implemented in the following steps:</p>
+<ol>
+<li>Pass the image through a pre-trained model.</li>
+<li>Extract the layer values at a predefined layer.</li>
+<li>Initialize the generated image as the same as the content image.</li>
+<li>Pass the generated image through the model and extract its values at the exact same layer.</li>
+<li>Calculate the content loss.</li>
+<li>Pass the style image through multiple layers of the model and calculate the gram matrix values of the style image.</li>
+<li>Pass the generated image through the same layers that the style image passed through and calculate its corresponding gram matrix values.</li>
+<li>Extract the squared difference of the gram matrix values of the two images. This will be the style loss.</li>
+<li>The overall loss will be the weighted average of the style loss and content loss.</li>
+<li>The input image that minimizes the overall loss will be the final image of interest.</li>
+</ol>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">How to do it...</h1>
+                </header>
+            
+            <article>
+                
+<ol>
+<li>Import the relevant packages and content, style images, that need to be combined to form an artistic image, as follows (The code file is available as <kbd>Neural_style_transfer.ipynb</kbd> in GitHub):</li>
+</ol>
+<pre style="padding-left: 60px">from keras.preprocessing.image import load_img, save_img, img_to_array<br/>import numpy as np<br/>import time<br/>from keras.applications import vgg19<br/>from keras.applications.imagenet_utils import preprocess_input<br/>from keras import backend as K<br/>import tensorflow as tf<br/>import keras<br/><br/>style_img = cv2.imread('/content/style image.png')<br/>style_img = cv2.cvtColor(style_img, cv2.COLOR_BGR2RGB)<br/>style_img = cv2.resize(style_img,(224,224))<br/><br/>base_img = cv2.imread('/content/cat.png')<br/>base_img = cv2.cvtColor(base_img, cv2.COLOR_BGR2RGB)<br/>base_img = cv2.resize(base_img,(224,224))</pre>
+<p style="padding-left: 60px">The style and base images look as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-1608 image-border" src="Images/6e087838-928d-476e-b7e8-a1153df3d213.png" style="width:22.50em;height:17.83em;" width="644" height="511"/><img class="aligncenter size-full wp-image-1609 image-border" src="Images/470f0a29-7b89-40ca-a2ba-33d574883c08.png" style="width:17.92em;height:18.00em;" width="238" height="239"/></p>
+<ol start="2">
+<li>Initialize the <kbd>vgg19</kbd> model so that the images can be passed through its network:</li>
+</ol>
+<pre style="padding-left: 60px">from keras.applications import vgg19<br/>model = vgg19.VGG19(include_top=False, weights='imagenet')</pre>
+<ol start="3">
+<li>Reshape the base image and extract the feature values at the <kbd>block3_conv4</kbd> layer of the VGG19 model:</li>
+</ol>
+<pre style="padding-left: 60px">base_img = base_img.reshape(1,224,224,3)/255<br/>from keras import backend as K<br/>get_3rd_layer_output = K.function([model.layers[0].input],<br/>[model.get_layer('block3_conv4').output])<br/>layer_output_base = get_3rd_layer_output([base_img])[0]</pre>
+<p style="padding-left: 60px">In the preceding code, we are defining a function that takes the input image and extracts the output at the predefined layer.</p>
+<p class="mce-root"/>
+<ol start="4">
+<li>Define the layers from which extractions need to be made to calculate the content and style losses as well as the corresponding weights that need to be assigned to each layer:</li>
+</ol>
+<pre style="padding-left: 60px">layer_contributions_content = {'block3_conv4': 0.1}<br/><br/>layer_contributions_style =    { 'block1_pool':1,<br/>                                 'block2_pool':1,<br/>                                 'block3_conv4':1}</pre>
+<p style="padding-left: 60px">In the preceding code, we are defining the layers from which the content and style loss are calculated, as well as assigning the weights associated with the loss arising from each of these layers.</p>
+<ol start="5">
+<li>Define the gram matrix and style loss functions:</li>
+</ol>
+<p style="padding-left: 60px"><span>In the following code, we are defining a function that calculates the gram matrix output output as the dot product of features obtained by flattening the </span>image<span>:</span></p>
+<pre style="padding-left: 60px">def gram_matrix(x):<br/>    features = K.batch_flatten(K.permute_dimensions(x, (2, 0, 1)))<br/>    gram = K.dot(features, K.transpose(features))<br/>    return gram</pre>
+<p style="padding-left: 60px">In the <span>following </span>code, we are calculating the style loss as defined in the style loss equation specified in <em>Getting ready</em> section:</p>
+<pre style="padding-left: 60px">def style_loss(style, combination):<br/>    S = gram_matrix(style)<br/>    C = gram_matrix(combination)<br/>    channels = 3<br/>    size = img_nrows * img_ncols<br/>    return K.sum(K.square(S - C)) / (4. * (pow(channels,2)) * (pow(size,2)))</pre>
+<ol start="6">
+<li>Initialize the loss value function:</li>
+</ol>
+<p style="padding-left: 60px">Calculating the content loss:</p>
+<pre style="padding-left: 60px">layer_dict = dict([(layer.name, layer) for layer in model.layers])<br/>loss = K.variable(0.)<br/>for layer_name in layer_contributions_content:<br/>      coeff = layer_contributions_content[layer_name]<br/>      activation = layer_dict[layer_name].output<br/>      scaling = K.prod(K.cast(K.shape(activation), 'float32'))<br/>      loss += coeff * K.sum(K.square(activation - layer_output_base)) / scaling</pre>
+<p class="mce-root"/>
+<p style="padding-left: 60px">In the preceding code, we are updating the loss value based on the loss at the layers that calculate the content loss. Note that <kbd>layer_output_base</kbd> is the output when we pass the original base image through the content layer (as defined in step 3).</p>
+<p style="padding-left: 60px">The greater the difference between the activation (which is based on the modified image) and <kbd>layer_output_base</kbd> (which is based on the original image), the greater the content loss associated with the image.</p>
+<p style="padding-left: 60px">Calculating the style loss:</p>
+<pre style="padding-left: 60px">for layer_name in layer_contributions_style:<br/>    coeff = layer_contributions_style[layer_name]<br/>    activation = layer_dict[layer_name].output<br/>    scaling = K.prod(K.cast(K.shape(activation), 'float32'))<br/>    style_layer_output = K.function([model.layers[0].input],<br/>model.get_layer(layer_name).output])<br/>    layer_output_style = style_layer_output([style_img.reshape(1,224,224,3)/255])[0][0]<br/>    loss += style_loss(layer_output_style, activation[0])</pre>
+<p style="padding-left: 60px">In the preceding code, we are calculating style loss in the same manner as we calculated the content loss but on different layers and using a different custom function we built: <kbd>style_loss</kbd>.</p>
+<ol start="7">
+<li>Build a function that maps the input image to the loss values and the corresponding gradient values:</li>
+</ol>
+<pre style="padding-left: 60px">dream = model.input<br/>grads = K.gradients(loss, dream)[0]<br/>grads /= K.maximum(K.mean(K.abs(grads)), 1e-7)<br/>outputs = [loss, grads]<br/>fetch_loss_and_grads = K.function([dream], outputs)<br/><br/>def eval_loss_and_grads(img):<br/>      outs = fetch_loss_and_grads([img])<br/>      loss_value = outs[0]<br/>      grad_values = outs[1]<br/>      return loss_value, grad_values</pre>
+<p style="padding-left: 60px">The preceding code fetches the loss and gradient values in a manner that is very similar to the <em><span><span>DeepDream algorithm to generate images</span></span></em> recipe.</p>
+<p class="mce-root"/>
+<ol start="8">
+<li>Run the model for multiple epochs:</li>
+</ol>
+<pre style="padding-left: 60px">for i in range(2000):<br/>      step=0.001<br/>      loss_value, grad_values = eval_loss_and_grads(img)<br/>      print('...Loss value at', i, ':', loss_value)<br/>      img -= step * grad_values<br/>      if(i%100 ==0):<br/>            img2 = img.copy().reshape(224,224,3)<br/>            img2 = np.clip(img2*255, 0, 255).astype('uint8')<br/>            plt.imshow(img2)<br/>            plt.axis('off')<br/>            plt.show()</pre>
+<p style="padding-left: 60px">The preceding code results in an image that is a combination of the content and style images:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-1612 image-border" src="Images/03042fd3-6db8-40c1-bfe4-071359915494.png" style="width:20.25em;height:20.42em;" width="243" height="245"/></p>
+<p>With differing layers that are selected to calculate the content and style loss, and differing weights assigned to coefficients of layers in their respective style or content contributions, the resulting generated image could be different.</p>
+<p>In the previous three case studies, we saw how we can generate new images by changing the input pixel values. In the rest of this chapter, we will take a different approach to generating new images: using GANs.</p>
+<p class="mce-root"/>
+<p class="mce-root"/>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Generating images of digits using Generative Adversarial Networks</h1>
+                </header>
+            
+            <article>
+                
+<p>A GAN uses a stack of neural networks to come up with a new image that looks very similar to the original set of images. It has a variety of applications in image generation, and the field of GAN research is progressing very quickly to come up with images that are very hard to distinguish from real ones. In this section, we will understand the basics of a GAN <span>–</span> how it works and the difference in the variations of GANs.</p>
+<p>A GAN comprises two networks: a generator and a discriminator. The generator tries to generate an image and the discriminator tries to determine whether the image it is given as an input is a real image or a generated (fake) image.</p>
+<p>To gain further intuition, let's assume that a discriminator model tries to classify a picture into a human face image, or not a human face from a dataset that contains thousands of human face images and non-human face images.</p>
+<p>Once we train the model to classify human and non-human faces, if we show a new human face to the model, it would still classify it as a human face, while it learns to classify a non-human face as a non-human face.</p>
+<p>The task of the generator network is to generate images that look so similar to the original set of images that a discriminator can get fooled into thinking that the generated image actually came from the original dataset.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Getting ready</h1>
+                </header>
+            
+            <article>
+                
+<p>The strategy we'll adopt to generate images is as follows:</p>
+<ol>
+<li>Generate a synthetic image using the generator network, which in the initial step is a noisy image that is generated by reshaping a set of noise values to the shape of our images.</li>
+</ol>
+<ol start="2">
+<li>Concatenate the generated image with the original set of images where the discriminator predicts whether each of the images is a generated image or an original image—this ensures that the discriminator is trained:
+<ul>
+<li>Note that the weights of a discriminator network are trained in this iteration</li>
+<li>The loss of a discriminator network is the binary cross-entropy of the prediction and actual values of an image</li>
+<li>The output value of the generated image will be fake (0) and the values of the original images will be real (1)</li>
+</ul>
+</li>
+<li>Now that the discriminator has been trained for one iteration, train a generator network that modifies the input noise such that it looks more like a real image than a synthetic one <span>– one that</span> has the potential to fool the discriminator. This process goes through the following steps:
+<ol>
+<li>The input noise is passed through a generator network, which reshapes the input into an image.</li>
+<li>The image generated from the generator network is then passed through a discriminator network <span>–</span> however, note that the weights in the discriminator network are frozen in this iteration so that they are not trained in this iteration (because they were already trained in step 2).</li>
+<li>The value of the generated image's output from the discriminator will be real (1) as its task is to fool the discriminator.</li>
+<li>The loss of a generator network is the binary cross-entropy of the prediction from the input image and the actual value (which is 1 for all the generated images)—this ensures that the generator network weights are fine-tuned:
+<ul>
+<li>Note that the discriminator network weights are frozen in this step</li>
+<li>Freezing the discriminator ensures that the generator network learns from the feedback provided by the discriminator</li>
+</ul>
+</li>
+<li>Repeat these steps multiple times until you generate realistic images.</li>
+</ol>
+</li>
+</ol>
+<p class="mce-root"/>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">How to do it...</h1>
+                </header>
+            
+            <article>
+                
+<p>In the <em>Adversarial attack to fool a neural network section</em>, we discussed our strategy of how to generate an image that looks very similar to the original images. In this section, we will implement the process of generating a digit's image from the MNIST dataset (the code file is available as <kbd>Vanilla_and_DC_GAN.ipynb</kbd> in GitHub):</p>
+<ol>
+<li>Import the relevant packages:</li>
+</ol>
+<pre style="padding-left: 60px">import numpy as np<br/>from keras.datasets import mnist<br/>from keras.layers import Input, Dense, Reshape, Flatten, Dropout<br/>from keras.layers import BatchNormalization<br/>from keras.layers.advanced_activations import LeakyReLU<br/>from keras.models import Sequential<br/>from keras.optimizers import Adam<br/>import matplotlib.pyplot as plt<br/>%matplotlib inline<br/>plt.switch_backend('agg')<br/>from keras.models import Sequential<br/>from keras.layers import Dense<br/>from keras.layers import Reshape<br/>from keras.layers.core import Activation<br/>from keras.layers.normalization import BatchNormalization<br/>from keras.layers.convolutional import UpSampling2D<br/>from keras.layers.convolutional import Conv2D, MaxPooling2D<br/>from keras.layers.core import Flatten<br/>from keras.optimizers import SGD<br/>from keras.datasets import mnist<br/>import numpy as np<br/>from PIL import Image<br/>import argparse<br/>import math</pre>
+<ol start="2">
+<li>Define the parameters:</li>
+</ol>
+<pre style="padding-left: 60px">shape = (28, 28, 1)<br/>epochs = 400<br/>batch = 32<br/>save_interval = 100</pre>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<ol start="3">
+<li>Define the generator and discriminator networks:</li>
+</ol>
+<pre style="padding-left: 60px">def generator():<br/>    model = Sequential()<br/>    model.add(Dense(256, input_shape=(100,)))<br/>    model.add(LeakyReLU(alpha=0.2))<br/>    model.add(BatchNormalization(momentum=0.8))<br/>    model.add(Dense(512))<br/>    model.add(LeakyReLU(alpha=0.2))<br/>    model.add(BatchNormalization(momentum=0.8))<br/>    model.add(Dense(1024))<br/>    model.add(LeakyReLU(alpha=0.2))<br/>    model.add(BatchNormalization(momentum=0.8))<br/>    model.add(Dense(28 * 28 * 1, activation='tanh'))<br/>    model.add(Reshape(shape))<br/>    return model</pre>
+<p style="padding-left: 60px">For the generator, we are building a model that takes a noise vector that is 100 dimensions in shape and will be converting it into an image that is 28 x 28 x 1 in shape. Note that we used <kbd>LeakyReLU</kbd> activation in the model. A summary of the generator network is as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-1383 image-border" src="Images/bee45c41-5ea7-4026-b15b-ef627ff7902a.png" style="width:32.92em;height:30.08em;" width="511" height="468"/></p>
+<p style="padding-left: 60px">In the following code, we are building a discriminator model where we take an input image that is 28 x 28 x 1 in shape and produce an output that is either 1 or 0, which indicates whether the input image is an original image or a fake image:</p>
+<pre style="padding-left: 60px">def discriminator():<br/>     model = Sequential()<br/>     model.add(Flatten(input_shape=shape))<br/>     model.add(Dense((28 * 28 * 1), input_shape=shape))<br/>     model.add(LeakyReLU(alpha=0.2))<br/>     model.add(Dense(int((28 * 28 * 1) / 2)))<br/>     model.add(LeakyReLU(alpha=0.2))<br/>     model.add(Dense(1, activation='sigmoid'))<br/>     return model</pre>
+<p style="padding-left: 60px">A summary of the discriminator network is as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-1385 image-border" src="Images/cf8f01e2-d615-49af-9cae-12915b038e85.png" style="width:35.92em;height:21.00em;" width="509" height="298"/></p>
+<p style="padding-left: 60px">Compile the generator and discriminator models:</p>
+<pre style="padding-left: 60px">Generator = generator()<br/>Generator.compile(loss='binary_crossentropy', optimizer=Adam(lr=0.0002, beta_1=0.5, decay=8e-8))</pre>
+<pre style="padding-left: 60px">Discriminator = discriminator()<br/>Discriminator.compile(loss='binary_crossentropy', optimizer=Adam(lr=0.0002, beta_1=0.5, decay=8e-8),metrics=['accuracy'])</pre>
+<p class="mce-root"/>
+<ol start="4">
+<li>Define the stacked generator discriminator model that helps to optimize weights for the generator while freezing weights for the discriminator network. The stacked generator discriminator takes the random noise that we pass to the model as input and converts that noise into an image that is 28 x 28 in shape using the generator network. Furthermore, it determines whether the 28 x 28 image is a real or fake image:</li>
+</ol>
+<pre style="padding-left: 60px">def stacked_generator_discriminator(D, G):<br/>    D.trainable = False<br/>    model = Sequential()<br/>    model.add(G)<br/>    model.add(D)<br/>    return model<br/><br/>stacked_generator_discriminator = stacked_generator_discriminator(Discriminator, Generator)<br/>stacked_generator_discriminator.compile(loss='binary_crossentropy', optimizer=Adam(lr=0.0002, beta_1=0.5, decay=8e-8))</pre>
+<ol start="5">
+<li>Define a function to plot the generated images:</li>
+</ol>
+<pre style="padding-left: 60px">def plot_images(samples=16, step=0):<br/>    noise = np.random.normal(0, 1, (samples, 100))<br/>    images = Generator.predict(noise)<br/>    plt.figure(figsize=(10, 10))<br/>    for i in range(images.shape[0]):<br/>        plt.subplot(4, 4, i + 1)<br/>        image = images[i, :, :, :]<br/>        image = np.reshape(image, [28, 28])<br/>        plt.imshow(image, cmap='gray')<br/>        plt.axis('off')<br/>    plt.tight_layout()<br/>    plt.show()</pre>
+<ol start="6">
+<li>Provide the input images:</li>
+</ol>
+<pre style="padding-left: 60px">(X_train, _), (_, _) = mnist.load_data()<br/>X_train = (X_train.astype(np.float32) - 127.5) / 127.5<br/>X_train = np.expand_dims(X_train, axis=3)</pre>
+<p style="padding-left: 60px">We are discarding the <kbd>y_train</kbd> dataset, as we do not need the output labels, since our model generates new images based on the given set of images, that is<span> </span><kbd>X_train</kbd>.</p>
+<p class="mce-root"/>
+<ol start="7">
+<li>Optimize the images by running them over multiple epochs:</li>
+</ol>
+<p style="padding-left: 60px"><span>In the following code, we are obtaining the real images (</span><kbd>legit_images</kbd><span>) and generating the fake image (</span><kbd>synthetic_images</kbd><span>) data, which we will try to convert into a realistic image by modifying noise data (</span><kbd>gen_noise</kbd><span>) as the input, as follows:</span></p>
+<pre style="padding-left: 60px">for cnt in range(4000):<br/>      random_index = np.random.randint(0, len(X_train) - batch / 2)<br/>      legit_images = X_train[random_index: random_index + batch // 2].reshape(batch // 2, 28, 28, 1)<br/>      gen_noise = np.random.normal(-1, 1, (batch // 2, 100))/2<br/>      synthetic_images = Generator.predict(gen_noise)</pre>
+<p style="padding-left: 60px"><span>In the following code, we are training the discriminator (using the </span><kbd>train_on_batch</kbd><span> method), where the real images are expected to have a value of 1 and the fake images are expected to have a value of zero in the </span>output<span>:</span></p>
+<pre style="padding-left: 60px">x_combined_batch = np.concatenate((legit_images, synthetic_images))<br/>y_combined_batch = np.concatenate((np.ones((batch // 2, 1)), np.zeros((batch // 2, 1))))<br/>d_loss = Discriminator.train_on_batch(x_combined_batch, y_combined_batch)</pre>
+<p style="padding-left: 60px"><span>In the following code, we are preparing a new set of data where <kbd>noise</kbd> is the input and <kbd>y_mislabeled</kbd> is the output to train the </span>generator (note that the output is the exact opposite of what the output was when we were training the discriminator):</p>
+<pre style="padding-left: 60px">noise = np.random.normal(-1, 1, (batch, 100))/2<br/>y_mislabled = np.ones((batch, 1))</pre>
+<p style="padding-left: 60px"><span>In the following code, we are training the stacked combination of the generator and discriminator, where the discriminator weights are frozen while the generator's weights get updated to minimize the loss value.</span><span> The generator's task is to generate images that can trick the discriminator to output a value of 1:</span></p>
+<pre style="padding-left: 60px">g_loss = stacked_generator_discriminator.train_on_batch(noise, y_mislabled)</pre>
+<p style="padding-left: 60px">In the following code, we are looking at the output of generator loss and discriminator loss across various epochs:</p>
+<pre style="padding-left: 60px">logger.info('epoch: {}, [Discriminator: {}], [Generator: {}]'.format(cnt, d_loss[0], g_loss))<br/>    if cnt % 100 == 0:<br/>          plot_images(step=cnt)</pre>
+<p class="CDPAlignCenter CDPAlign"><img src="Images/135e0b94-6745-46c3-8bd1-e9adfdcd07b4.jpg" style="width:31.00em;height:30.75em;" width="335" height="332"/></p>
+<p style="padding-left: 60px">The variation of discriminator and generator loss of increasing epochs is as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-1386 image-border" src="Images/37f6d676-e678-494b-a8e3-9856cbc10712.png" style="width:32.33em;height:24.50em;" width="388" height="294"/></p>
+<p>Note that the preceding output has a lot of scope for improvement in terms of how realistic the generated images look.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">There's more...</h1>
+                </header>
+            
+            <article>
+                
+<p>The output that we saw here is also a function of the model's architecture. For example, vary the activation function in various layers of model to tanh and see how the resulting output looks to get an idea of what the resulting generated images look like.</p>
+<p class="mce-root"/>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Generating images using a Deep Convolutional GAN</h1>
+                </header>
+            
+            <article>
+                
+<p>In the previous section, we looked at generating digits using a vanilla generator and a discriminator network. However, we can have a scenario where the network can learn the features in an image much better by using the convolution architectures, as the filters in a CNN learn specific details within an image. <strong>Deep Convolutional Generative Adversarial Networks</strong> (<strong>DCGANs</strong>) take advantage of this phenomenon to come up with new images.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">How to do it...</h1>
+                </header>
+            
+            <article>
+                
+<p><span>While the intuition of how a DCGAN works is very similar to that of a GAN (which we worked with in the previous recipe), the major difference is in the architecture of the generator and discriminator of the DCGAN, which looks as follows (The code file is available as <kbd>Vanilla_and_DC_GAN.ipynb</kbd> in GitHub):</span></p>
+<pre>def generator():<br/>    model = Sequential()<br/>    model.add(Dense(input_dim=100, output_dim=1024))<br/>    model.add(Activation('tanh'))<br/>    model.add(Dense(128*7*7))<br/>    model.add(BatchNormalization())<br/>    model.add(Activation('tanh'))<br/>    model.add(Reshape((7, 7, 128), input_shape=(128*7*7,)))<br/>    model.add(UpSampling2D(size=(2, 2)))<br/>    model.add(Conv2D(64, (5, 5), padding='same'))<br/>    model.add(Activation('tanh'))<br/>    model.add(UpSampling2D(size=(2, 2)))<br/>    model.add(Conv2D(1, (5, 5), padding='same'))<br/>    model.add(Activation('tanh'))<br/>    return model<br/><br/><br/>def discriminator():<br/>    model = Sequential()<br/>    model.add(Conv2D(64, (5, 5),padding='same',input_shape=(28, 28, 1)))<br/>    model.add(Activation('tanh'))<br/>    model.add(MaxPooling2D(pool_size=(2, 2)))<br/>    model.add(Conv2D(128, (5, 5)))<br/>    model.add(Activation('tanh'))<br/>    model.add(MaxPooling2D(pool_size=(2, 2)))<br/>    model.add(Flatten())<br/>    model.add(Dense(1024))<br/>    model.add(Activation('tanh'))<br/>    model.add(Dense(1))<br/>    model.add(Activation('sigmoid'))<br/>    return model</pre>
+<p>Note that, in the DCGAN, we performed multiple convolution and pooling operations on the input data.</p>
+<p>If we rerun the exact same steps that we performed in the Vanilla GAN (the <em>Generative Adversarial Network to generate images</em> recipe), but this time using the models defined with a convolution and pooling architecture (and thus DCGAN), we get the following generated image:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="Images/2875a289-9afe-430e-8502-c63a9c999541.png" style="width:26.83em;height:26.50em;" width="342" height="338"/></p>
+<p>The variation of generator and discriminator loss values over increasing epochs is as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-1387 image-border" src="Images/9a924e72-de38-489a-93be-b1fac122e4ce.png" style="width:29.42em;height:22.25em;" width="392" height="296"/></p>
+<p>We can see that, while everything else remains the same and only the model architecture has changed, the resulting images through DCGAN are a lot more realistic than the results of a Vanilla GAN.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Face generation using a Deep Convolutional GAN</h1>
+                </header>
+            
+            <article>
+                
+<p>So far, we have seen how to generate new images. In this section, we will learn how to generate a new set of faces from an existing dataset of faces.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Getting ready</h1>
+                </header>
+            
+            <article>
+                
+<p>The approach we will be adopting for this exercise will be very similar to what we adopted in the <em>Generating images using a</em> <em>Deep Convolutional GAN</em> recipe:</p>
+<ol>
+<li>Collect a dataset that contains multiple face images.</li>
+<li>Generate random images at the start.</li>
+</ol>
+<ol start="3">
+<li>Train a discriminator by showing it a combination of faces and random images, where the discriminator is expected to differentiate between an actual face image and a generated face image.</li>
+<li>Once the discriminator model is trained, freeze it and adjust the random images in such a way that the discriminator now assigns a higher probability of belonging to the original face images to the adjusted random images.</li>
+<li>Repeat the preceding two steps through multiple iterations until the generator does not get trained any further.</li>
+</ol>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">How to do it...</h1>
+                </header>
+            
+            <article>
+                
+<p>Face generation is implemented in code as follows (the code file is available as <kbd>Face_generation.ipynb</kbd> in GitHub):</p>
+<ol>
+<li class="CDPAlignLeft CDPAlign">Download the dataset. The recommended dataset to be downloaded and the associated code is provided in GitHub. A sample of images is as follows:</li>
+</ol>
+<p class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-1388 image-border" src="Images/cba9b1ce-cca6-459e-b691-2a0b84628ee0.png" style="width:22.67em;height:9.58em;" width="311" height="131"/></p>
+<ol start="2">
+<li>Define the model architecture:</li>
+</ol>
+<pre style="padding-left: 60px">def generator():<br/>    model = Sequential()<br/>    model.add(Dense(input_dim=100, output_dim=1024))<br/>    model.add(Activation('tanh'))<br/>    model.add(Dense(128*7*7))<br/>    model.add(BatchNormalization())<br/>    model.add(Activation('tanh'))<br/>    model.add(Reshape((7, 7, 128), input_shape=(128*7*7,)))<br/>    model.add(UpSampling2D(size=(2, 2)))<br/>    model.add(Conv2D(64, (5, 5), padding='same'))<br/>    model.add(Activation('tanh'))<br/>    model.add(UpSampling2D(size=(2, 2)))<br/>    model.add(Conv2D(1, (5, 5), padding='same'))<br/>    model.add(Activation('tanh'))<br/>    return model</pre>
+<p class="mce-root"/>
+<p style="padding-left: 60px">Note that the preceding code is the same as the generator we built in the <em>Deep convolutional generative adversarial networks</em> recipe:</p>
+<pre style="padding-left: 60px">def discriminator():<br/>    model = Sequential()<br/>    model.add(Conv2D(64, (5, 5),padding='same',input_shape=(28, 28, 1)))<br/>    model.add(Activation('tanh'))<br/>    model.add(MaxPooling2D(pool_size=(2, 2)))<br/>    model.add(Conv2D(128, (5, 5)))<br/>    model.add(Activation('tanh'))<br/>    model.add(MaxPooling2D(pool_size=(2, 2)))<br/>    model.add(Flatten())<br/>    model.add(Dense(1024))<br/>    model.add(Activation('tanh'))<br/>    model.add(Dense(1))<br/>    model.add(Activation('sigmoid'))<br/>    return model</pre>
+<p style="padding-left: 60px">Note that the preceding architecture is the same as the one we built in the <em>Generating images using Deep Convolutional GAN</em> section:</p>
+<pre style="padding-left: 60px">def stacked_generator_discriminator(D, G):<br/>    D.trainable = False<br/>    model = Sequential()<br/>    model.add(G)<br/>    model.add(D)<br/>    return model</pre>
+<ol start="3">
+<li>Define the utility functions to load, preprocess, and de-process the image and also to plot the images:</li>
+</ol>
+<pre style="padding-left: 60px">def plot_images(samples=16, step=0):<br/>    noise = np.random.normal(0, 1, (samples, 100))<br/>    images = deprocess(Generator.predict(noise))<br/>    plt.figure(figsize=(5, 5))<br/>    for i in range(images.shape[0]):<br/>        plt.subplot(4, 4, i + 1)<br/>        image = images[i, :, :, :]<br/>        image = np.reshape(image, [56, 56,3])<br/>        plt.imshow(image, cmap='gray')<br/>        plt.axis('off')<br/>    plt.tight_layout()<br/>    plt.show()</pre>
+<p class="mce-root"/>
+<p style="padding-left: 60px">Note that we are resizing <span>our images </span>to a smaller shape so that the the number of parameters that need to be tweaked through the model is minimal:</p>
+<pre style="padding-left: 60px">def preprocess(x):<br/>    return (x/255)*2-1<br/><br/>def deprocess(x):<br/>    return np.uint8((x+1)/2*255)</pre>
+<ol start="4">
+<li>Import the dataset and preprocess it:</li>
+</ol>
+<pre style="padding-left: 60px">from skimage import io<br/>import os<br/>import glob<br/>root_dir = '/content/lfwcrop_color/'<br/>all_img_paths = glob.glob(os.path.join(root_dir, '*/*.ppm'))</pre>
+<p style="padding-left: 60px">In the following code, <span>we are creating the input dataset and converting it into an array:</span></p>
+<pre style="padding-left: 60px">import numpy as np<br/>X_train = []<br/>for i in range(len(all_img_paths)):<br/>  img = cv2.imread(all_img_paths[i])<br/>  X_train.append(preprocess(img))<br/>len(X_train)<br/>X_train = np.array(X_train)</pre>
+<ol start="5">
+<li>Compile the generator, discriminator, and stacked generator discriminator models:</li>
+</ol>
+<pre style="padding-left: 60px">Generator = generator()<br/>Generator.compile(loss='binary_crossentropy', optimizer=Adam(lr=0.0002, beta_1=0.5, decay=8e-8))<br/><br/>Discriminator = discriminator()<br/>Discriminator.compile(loss='binary_crossentropy', optimizer=Adam(lr=0.0002, beta_1=0.5, decay=8e-8),metrics=['accuracy'])<br/><br/>stacked_generator_discriminator = stacked_generator_discriminator(Discriminator, Generator)<br/>stacked_generator_discriminator.compile(loss='binary_crossentropy', optimizer=Adam(lr=0.0002, beta_1=0.5, decay=8e-8))</pre>
+<ol start="6">
+<li>Run the model over multiple epochs in a manner that is very similar to what we employed in the <em>Deep Convolutional Generative Adversarial Networks</em> recipe:</li>
+</ol>
+<pre style="padding-left: 60px">%matplotlib inline<br/><strong>$pip install logger</strong><br/>from logger import logger<br/>for cnt in range(10000):<br/>      random_index = np.random.randint(0, len(X_train) - batch / 2)<br/>      legit_images = X_train[random_index: random_index + batch // 2].reshape(batch // 2, 56, 56, 3)<br/>      gen_noise = np.random.normal(0, 1, (batch // 2, 100))<br/>      syntetic_images = Generator.predict(gen_noise)<br/>      x_combined_batch = np.concatenate((legit_images, syntetic_images))<br/>      y_combined_batch = np.concatenate((np.ones((batch // 2, 1)), np.zeros((batch // 2, 1))))<br/>      d_loss = Discriminator.train_on_batch(x_combined_batch, y_combined_batch)<br/>      noise = np.random.normal(0, 1, (batch*2, 100))<br/>      y_mislabled = np.ones((batch*2, 1))<br/>      g_loss = stacked_generator_discriminator.train_on_batch(noise, y_mislabled)<br/>      logger.info('epoch: {}, [Discriminator: {}], [Generator: {}]'.format(cnt, d_loss[0], g_loss))<br/>      if cnt % 100 == 0:<br/>          plot_images(step=cnt)</pre>
+<p style="padding-left: 60px">The preceding code generates images that look as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="Images/c8296899-5777-40c5-ac1d-5f259a7dae53.png" style="width:42.17em;height:20.75em;" width="628" height="309"/></p>
+<p>Note that, while these images look very blurry, the picture is an original one that is not present in the original dataset. There is a lot of scope for improvement in this output by varying the model architecture and having deeper layers.</p>
+<p>The variation of discriminator and generator loss values over increasing epochs looks as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-1389 image-border" src="Images/807a0f3c-24e4-42f7-87fa-48fffa9fff7e.png" style="width:30.42em;height:22.92em;" width="365" height="275"/></p>
+<p>Note that, from the preceding diagram, we might want to train the model for a fewer number of epochs so that the generator loss is not very high.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Face transition from one to another</h1>
+                </header>
+            
+            <article>
+                
+<p>Now that we are in a position to generate faces, let's go ahead and perform some vector arithmetic on top of the generated images.</p>
+<p>For this exercise, we will perform the transition of face generation from one face to another.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Getting ready</h1>
+                </header>
+            
+            <article>
+                
+<p>We'll continue from the image generation model that we built in the <em>Face generation using a Deep Convolutional GAN</em> section.</p>
+<p>Let's say we want to see the transition of one generated face image into another generated face image. This process is enabled by slowly varying the vector from the first vector (the vector of the first generated image) to the second vector (the vector of the second generated image). You can essentially think of each of the latent (vector) dimensions as representing a certain aspect about the image.</p>
+<p>The strategy that we'll adopt is as follows:</p>
+<ol>
+<li>Generate two images</li>
+<li>Translate the first generated image in to the second generated image in 10 steps</li>
+<li>Assigning a weight of 1 to the first generated image and a weight of 0 to the second generated image in the first step</li>
+<li>In the second step, assign a weight of 0.9 to the first generated image and a weight of 0.1 to the second generated image</li>
+<li>Repeat the preceding steps until we assign a weight of 0 to the first generated image and a weight of 1 to the second generated image</li>
+</ol>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">How to do it...</h1>
+                </header>
+            
+            <article>
+                
+<p>We'll code up the strategy that we laid out in the <em>Getting ready</em> section, as follows <span>(The code file is available as <kbd>Face_generation.ipynb</kbd> in GitHub)</span>:</p>
+<ol>
+<li>Generate the first image from random noise (note that we'll continue from step 6 in <em>Face generation using a Deep Convolutional GAN</em> section):</li>
+</ol>
+<pre style="padding-left: 60px">gen_noise = np.random.normal(0, 1, (1, 100))<br/>syntetic_images = Generator.predict(gen_noise)<br/>plt.imshow(deprocess(syntetic_images)[0])<br/>plt.axis('off')</pre>
+<p style="padding-left: 60px">The generated image looks as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-1394 image-border" src="Images/0f786cff-d1c3-4593-acf5-c2471595c8c2.png" style="width:12.08em;height:12.00em;" width="230" height="228"/></p>
+<ol start="2">
+<li>Generate the second image from random noise:</li>
+</ol>
+<pre style="padding-left: 60px">gen_noise2 = np.random.normal(0, 1, (1, 100))<br/>syntetic_images = Generator.predict(gen_noise2)<br/>plt.imshow(deprocess(syntetic_images)[0])<br/>plt.axis('off')<br/>plt.show() </pre>
+<p style="padding-left: 60px">The following is the output of the preceding code snippet:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-1395 image-border" src="Images/f6450874-5966-4739-9766-ea1b6f6c4997.png" style="width:12.75em;height:12.83em;" width="229" height="230"/></p>
+<ol start="3">
+<li>Generate the visualization of obtaining the second image from the first image:</li>
+</ol>
+<pre style="padding-left: 60px">plt.figure(figsize=(10, 8))<br/>for i in range(10):<br/>  gen_noise3 = gen_noise + (gen_noise2 - gen_noise)*(i+1)/10<br/>  syntetic_images = Generator.predict(gen_noise3)<br/>  plt.subplot(1, 10, i+1)<br/>  plt.imshow(deprocess(syntetic_images)[0])<br/>  plt.axis('off')</pre>
+<p style="padding-left: 60px">We will get the following output:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="Images/dfcd4d0b-296b-45d5-b28a-8ad685a06a23.jpg" width="574" height="75"/></p>
+<p>Note that, in the preceding output, we have slowly transformed the first image into the second image.</p>
+<p class="mce-root"/>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Performing vector arithmetic on generated images</h1>
+                </header>
+            
+            <article>
+                
+<p>Now that we understand that the latent vector representations play a key part in changing the outcome of the generated image, let's further build our intuition with images that have a certain face alignment.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Getting ready</h1>
+                </header>
+            
+            <article>
+                
+<p>The strategy that we'll adopt to perform vector arithmetic on a generated image is as follows:</p>
+<ol>
+<li>Generate three images that are based on the random noise of 100 vector values</li>
+<li>Ensure that two of the three images have generated faces that look to the left, and that one looks to the right</li>
+<li>Calculate a new vector that is the sum of images that are aligned in the same direction, which is further subtracted from the image that is aligned in the opposite direction</li>
+<li>Generate the image from the resulting vector obtained in the previous step</li>
+</ol>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">How to do it...</h1>
+                </header>
+            
+            <article>
+                
+<p>We'll code up the strategy that we listed out as follows <span>(The code file is available as <kbd>Face_generation.ipynb</kbd> in GitHub). </span><span>Note that we'll continue from step 6 in </span><em>Face generation using a Deep Convolutional GAN</em><span> section</span><span>):</span></p>
+<ol>
+<li>Generate three vectors (ensure that two images are aligned in one direction and that the other is aligned in the opposite direction by varying the generated noise):</li>
+</ol>
+<pre style="padding-left: 60px">gen_noise = np.random.normal(0, 1, (1, 100))<br/>gen_noise2 = np.random.normal(0, 1, (1, 100))<br/>gen_noise3 = np.random.normal(0, 1, (1, 100))<br/>syntetic_images = Generator.predict(gen_noise4)<br/>plt.imshow(deprocess(syntetic_images)[0])<br/>plt.axis('off')<br/>plt.show()</pre>
+<ol start="2">
+<li><span>Plot the generated images</span>:</li>
+</ol>
+<pre style="padding-left: 60px">plt.subplot(131)<br/>syntetic_images = Generator.predict(gen_noise)<br/>plt.imshow(deprocess(syntetic_images)[0])<br/>plt.axis('off')<br/>plt.title('Image 1')<br/>plt.subplot(132)<br/>syntetic_images = Generator.predict(gen_noise2)<br/>plt.imshow(deprocess(syntetic_images)[0])<br/>plt.axis('off')<br/>plt.title('Image 2')<br/>plt.subplot(133)<br/>syntetic_images = Generator.predict(gen_noise3)<br/>plt.imshow(deprocess(syntetic_images)[0])<br/>plt.axis('off')<br/>plt.title('Image 3')</pre>
+<p style="padding-left: 60px">The three generated images are as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="Images/424f17c6-4b45-4a97-a375-f043c7af965f.png" width="351" height="123"/></p>
+<p style="padding-left: 60px">We can see that images 2 and 3 have the face looking to the right, while image 1 has the face looking straight ahead.</p>
+<ol start="3">
+<li>Perform a vector arithmetic of the vector representations of each of these images to see the outcome:</li>
+</ol>
+<pre style="padding-left: 60px">gen_noise4 = gen_noise + gen_noise2 - gen_noise3<br/>syntetic_images = Generator.predict(gen_noise4)<br/>plt.imshow(deprocess(syntetic_images)[0])<br/>plt.axis('off')<br/>plt.show()  </pre>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p style="padding-left: 60px">The preceding code generates a face, as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-1399 image-border" src="Images/78804f8b-9305-493a-a5fb-fb140c532770.png" style="width:19.42em;height:20.25em;" width="233" height="243"/></p>
+<p>The preceding arithmetic shows that the <span><span>vector arithmetic</span></span> (vector of image 1 + image 2 - image 3) generated an image has the face looking straight ahead and thus strengthening our intuition of the workings of latent vector representations.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">There's more...</h1>
+                </header>
+            
+            <article>
+                
+<p>We have merely touched on the basics of GAN; there are a variety of GAN-based techniques that are currently becoming popular. We will discuss the applications of a few of them:</p>
+<ul>
+<li><strong>pix2pix</strong>: Imagine a scenario where you doodle (sketch) the structure of an object and the object shapes up in a variety of forms. pix2pix is an algorithm that helps in enabling this.</li>
+<li><strong>Cycle GAN</strong>: Imagine a scenario where you want an object to look like a completely different object (for example, you want a horse object to look like a zebra and vice versa). You also want to ensure that every other aspect of the image remains the same, except the change in the object. Cycle GAN comes in handy in such a scenario.</li>
+<li><strong>BigGAN</strong> is a recent development that comes up with extremely realistic-looking generated images.</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  </body></html>

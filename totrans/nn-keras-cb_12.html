@@ -1,0 +1,803 @@
+<html><head></head><body><div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Applications of a Many-to-One Architecture RNN</h1>
+                </header>
+            
+            <article>
+                
+<p class="mce-root">In the previous chapter, we learned about the workings of RNN and LSTM. We also learned about sentiment classification, which is a classic many-to-one application, as many words in the input correspond to one output (positive or negative sentiment).</p>
+<p>In this chapter, we will further our understanding of the many-to-one architecture RNN by going through the following recipes:</p>
+<ul>
+<li>Generating text</li>
+<li>Movie recommendations</li>
+<li>Topic-modeling using embeddings</li>
+<li>Forecasting the value of a stock's price</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Generating text</h1>
+                </header>
+            
+            <article>
+                
+<p>In the sentiment-classification recipes that we performed in <a href="7a47ef1f-4c64-4f36-8672-6e589e513b16.xhtml"/><a href="7a47ef1f-4c64-4f36-8672-6e589e513b16.xhtml">Chapter 11</a>, <em>Building a Recurrent Neural Network</em>, we were trying to predict a discrete event (sentiment classification). This falls under the many-to-one architecture. In this recipe, we will learn how to implement a many-to-many architecture, where the output would be the next possible 50 words of a given sequence of 10 words.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Getting ready</h1>
+                </header>
+            
+            <article>
+                
+<p>The strategy that we'll adopt to generate text is as follows:</p>
+<ol>
+<li><span>Import project Gutenberg's <em>Alice's Adventures in Wonderland</em> dataset, </span><span>which can be downloaded from </span><a href="https://www.gutenberg.org/files/11/11-0.txt"><span>https://www.gutenberg.org/files/11/11-0.txt</span></a><span>.</span></li>
+</ol>
+<ol start="2">
+<li>Preprocess the text data so that we bring every word to the same case, and remove punctuation.</li>
+<li>Assign an ID to each unique word and then convert the dataset into a sequence of word IDs.</li>
+<li>Loop through the total dataset, 10 words at a time. Consider the 10 words as input and the subsequent 11th word as output.</li>
+<li>Build and train a model, by performing embedding on top of the input word IDs and then connecting the embeddings to an LSTM, which is connected to the output layer through a hidden layer. The value in the output layer is the one-hot-encoded version of the output.</li>
+<li>Make a prediction for the subsequent word by taking a random location of word and consider the historical words prior to the location of the random word chosen.</li>
+<li>Move the window of the input words by one from the seed word's location that we chose earlier and the tenth time step word shall be the word that we predicted in the previous step.</li>
+<li>Continue this process to keep generating text.</li>
+</ol>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">How to do it...</h1>
+                </header>
+            
+            <article>
+                
+<p>Typical to the need for RNN, we will look at a given sequence of 10 words to predict the next possible word. For this exercise, we will take the Alice dataset to generate words, as follows (the code file is available as <kbd>RNN_text_generation.ipynb</kbd> in GitHub):</p>
+<ol>
+<li><span> </span>Import the relevant packages and dataset:</li>
+</ol>
+<pre style="padding-left: 60px">from keras.models import Sequential<br/>from keras.layers import Dense,Activation<br/>from keras.layers.recurrent import SimpleRNN<br/>from keras.layers import LSTM<br/>import numpy as np<br/>fin=open('alice.txt',encoding='utf-8-sig')<br/>lines=[]<br/>for line in fin:<br/>  line = line.strip().lower()<br/>  if(len(line)==0):<br/>    continue<br/>  lines.append(line)<br/>fin.close()<br/>text = " ".join(lines)</pre>
+<p class="mce-root"/>
+<p style="padding-left: 60px">A sample of the input text looks as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-1425 image-border" src="Images/e3436727-b2bd-4f9c-af35-991347215f99.png" style="width:33.00em;height:2.00em;" width="396" height="24"/></p>
+<ol start="2">
+<li>Normalize the text to remove punctuations and convert it to lowercase:</li>
+</ol>
+<pre style="padding-left: 60px">import re<br/>text = text.lower()<br/>text = re.sub('[^0-9a-zA-Z]+',' ',text)</pre>
+<ol start="3">
+<li>Assign the unique words to an index so that they can be referenced when constructing the training and test datasets:</li>
+</ol>
+<pre style="padding-left: 60px">from collections import Counter<br/>counts = Counter()<br/>counts.update(text.split())<br/>words = sorted(counts, key=counts.get, reverse=True)<br/>nb_words = len(text.split())<br/>word2index = {word: i for i, word in enumerate(words)}<br/>index2word = {i: word for i, word in enumerate(words)}</pre>
+<ol start="4">
+<li>Construct the input set of words that leads to an output word. Note that we are considering a sequence of <kbd>10</kbd> words and trying to predict the <em>11</em><sup><em>th</em></sup> word:</li>
+</ol>
+<pre style="padding-left: 60px">SEQLEN = 10<br/>STEP = 1<br/>input_words = []<br/>label_words = []<br/>text2=text.split()<br/>for i in range(0,nb_words-SEQLEN,STEP):<br/>     x=text2[i:(i+SEQLEN)]<br/>     y=text2[i+SEQLEN]<br/>     input_words.append(x)<br/>     label_words.append(y)</pre>
+<p style="padding-left: 60px">A sample of the <kbd>input_words</kbd> and <kbd>label_words</kbd> lists is as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-1426 image-border" src="Images/a1db4f29-47c6-403b-a342-3442e1107f62.png" style="width:55.67em;height:8.00em;" width="668" height="96"/></p>
+<p style="padding-left: 60px">Note that <kbd>input_words</kbd> is a list of lists and the <kbd>output_words</kbd> list is not.</p>
+<ol start="5">
+<li>Construct the vectors of the input and the output datasets:</li>
+</ol>
+<pre style="padding-left: 60px">total_words = len(set(words))<br/>X = np.zeros((len(input_words), SEQLEN, total_words), dtype=np.bool)<br/>y = np.zeros((len(input_words), total_words), dtype=np.bool)</pre>
+<p style="padding-left: 60px">We are creating empty arrays in the preceding step, which will be populated in the following code:</p>
+<pre style="padding-left: 60px"># Create encoded vectors for the input and output values<br/>for i, input_word in enumerate(input_words):<br/>     for j, word in enumerate(input_word):<br/>         X[i, j, word2index[word]] = 1<br/>     y[i,word2index[label_words[i]]]=1</pre>
+<p style="padding-left: 60px">In the preceding code, the first <kbd>for</kbd> loop is used to loop through all the words in the input sequence of words (<kbd>10</kbd> words in input), and the second <kbd>for</kbd> loop is used to loop through an individual word in the chosen sequence of input words. Additionally, given that the output is a list, we do not need to update it using the second <kbd>for</kbd> loop (as there is no sequence of IDs). The output shapes of <kbd>X</kbd> and <kbd>y</kbd> are as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-1427 image-border" src="Images/d6fc2f39-53df-42c7-b878-1a7b062b084c.png" style="width:17.92em;height:3.08em;" width="241" height="41"/></p>
+<ol start="6">
+<li>Define the architecture of the model:</li>
+</ol>
+<pre style="padding-left: 60px" class="mce-root">HIDDEN_SIZE = 128<br/>BATCH_SIZE = 32<br/>NUM_ITERATIONS = 100<br/>NUM_EPOCHS_PER_ITERATION = 1<br/>NUM_PREDS_PER_EPOCH = 100<br/><br/>model = Sequential()<br/>model.add(LSTM(HIDDEN_SIZE,return_sequences=False,input_shape=(SEQLEN,total_words)))<br/>model.add(Dense(total_words, activation='softmax'))<br/>model.compile(optimizer='adam', loss='categorical_crossentropy')<br/>model.summary()</pre>
+<p style="padding-left: 60px">A summary of the model is as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="Images/1369b6ce-e893-4f4c-8c0c-156ad528671e.png" style="width:38.00em;height:13.08em;" width="479" height="165"/></p>
+<ol start="7">
+<li>Fit the model. Look at how the output varies over an increasing number of epochs. Generate a random set of sequences of <kbd>10</kbd> words and try to predict the next possible word. We are in a position to observe how our predictions are getting better over an increasing number of epochs:</li>
+</ol>
+<pre style="padding-left: 60px">for iteration in range(50):<br/>     print("=" * 50)<br/>     print("Iteration #: %d" % (iteration))<br/>     model.fit(X, y, batch_size=BATCH_SIZE, epochs=NUM_EPOCHS_PER_ITERATION, validation_split = 0.1)<br/>     test_idx = np.random.randint(int(len(input_words)*0.1)) * (-1)<br/>     test_words = input_words[test_idx]<br/>     print("Generating from seed: %s" % (test_words))<br/>     for i in range(NUM_PREDS_PER_EPOCH): <br/>         Xtest = np.zeros((1, SEQLEN, total_words))<br/>         for i, ch in enumerate(test_words):<br/>             Xtest[0, i, word2index[ch]] = 1<br/>         pred = model.predict(Xtest, verbose=0)[0]<br/>         ypred = index2word[np.argmax(pred)]<br/>         print(ypred,end=' ')<br/>         test_words = test_words[1:] + [ypred]</pre>
+<p style="padding-left: 60px">In the preceding code, we are fitting our model on input and output arrays for one epoch. Furthermore, we are choosing a random seed word (<kbd>test_idx</kbd> <span>–</span> which is a random number that is among the last 10% of the input array (as <kbd>validation_split</kbd> is <kbd>0.1</kbd>) and are collecting the input words at a random location. We are converting the input sequence of IDs into a one-hot-encoded version (thus obtaining an array that is 1 x 10 x <kbd>total_words</kbd> in shape).</p>
+<p class="mce-root"/>
+<p style="padding-left: 60px">Finally, we make a prediction on the array we just created and obtain the word that has the highest probability. Let's look at the output in the first epoch and contrast that with output in the <em>25<sup>th</sup></em> epoch:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-1428 image-border" src="Images/241f2377-e03e-4480-9486-3f2db105aaf5.png" style="width:76.67em;height:10.17em;" width="920" height="122"/></p>
+<p style="padding-left: 60px">Note that the output is always <kbd>the</kbd> in the first epoch. However, it becomes more reasonable as follows at the end of 50 epochs:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-1429 image-border" src="Images/e2a8dab4-322a-446e-b552-0c8844540497.png" style="width:69.58em;height:10.58em;" width="835" height="127"/></p>
+<p>The <kbd>Generating from seed</kbd> line is the collection of predictions.</p>
+<p>Note that while the training loss decreased over increasing epochs, the validation loss has become worse by the end of 50 epochs. This will improve as we train on more text and/or further fine-tune our model.</p>
+<p>Additionally, this model could further be improved by using a bidirectional LSTM, which we will discuss in <span><span><em>Sequence to Sequence learning</em> chapter</span></span>. The output of having a bidirectional LSTM is as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-1430 image-border" src="Images/76fac46c-8de1-4a31-a8b5-190b4ba55fa9.png" style="width:68.92em;height:10.42em;" width="827" height="125"/></p>
+<p class="mce-root"/>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Movie recommendations</h1>
+                </header>
+            
+            <article>
+                
+<p>Recommendation systems play a major role in the discovery process for a user. Think of an e-commerce catalog that has thousands of distinct products. Additionally, variants of a product also exist. In such cases, educating the user about the products or events (in case certain products are on sale) becomes the key to increasing sales. </p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Getting ready</h1>
+                </header>
+            
+            <article>
+                
+<p>In this recipe, we will be learning about building a recommendation system for a database of ratings given by users to movies. The objective of the exercise is to maximize the relevance of a movie to a user. While defining the objective, we should also consider that a movie that is recommended might still be relevant, but might not be watched by the user immediately. At the same time, we should also ensure that all the recommendations are not about the same genre. This is especially applicable in the case of recommendations given out in a retail setting, where we do not want to be recommending the variants of the same product across all the recommendations we are providing.</p>
+<p>Let's formalize our objective and constraints:</p>
+<ul>
+<li><strong>Objective</strong>: Maximize the relevance of recommendations to a user</li>
+<li><strong>Constraint</strong>: Increase the diversity of a recommendation and offer a maximum of 12 recommendations to the user</li>
+</ul>
+<p>The definition of relevance can vary from use case to use case and is generally guided by the business principles. In this recipe, let's define relevance narrowly; that is, if the user buys any product that is in the top 12 recommended items for the given user, it is a success.</p>
+<p>With this, let's go ahead and define the steps that we will adopt to build the model:</p>
+<ol>
+<li>Import the data.</li>
+<li>Recommend a movie that a user would rate highly—hence, let us train our model based on movies that a user liked in the history. The insight that a user disliked certain movies will be useful into further improving our recommendations. However, let's keep this simple for now.</li>
+<li>Keep only the users who have watched more than five movies.</li>
+<li>Assign IDs to unique users and movies.</li>
+</ol>
+<ol start="5">
+<li>Given that a user's preference might change over time, we need to consider the history of a user where different events in history have different weightages associated with them. Given that is a time series analysis problem now, we will leverage RNN to solve this problem.</li>
+<li>Preprocess the data so that it can then passed to an LSTM:
+<ul>
+<li>The input will be the historical five movies watched by a user</li>
+<li>The output is the sixth movie watched by a user</li>
+</ul>
+</li>
+<li>Build a model that does the following:
+<ol>
+<li>Creates embeddings for the input movies</li>
+<li>Passes the embeddings through an LSTM layer</li>
+<li>Passes the LSTM output through a dense layer</li>
+<li>Apply softmax in final layer to come up with a list of movies to recommend</li>
+</ol>
+</li>
+</ol>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">How to do it...</h1>
+                </header>
+            
+            <article>
+                
+<p>Now that we have gone through the strategy of various steps to perform, let's code it up (the code file is available as <kbd>Chapter_12_Recommender_systems.ipynb</kbd> in GitHub):</p>
+<ol>
+<li>Import the data. We'll be working on a dataset that has the list of users, the ratings provided for different movies by a user, and the corresponding time stamp of when the user has provided the ratings:</li>
+</ol>
+<pre style="padding-left: 60px">import numpy as np<br/>import pandas as pd<br/>ratings = pd.read_csv('..') # Path to the file containing required fields</pre>
+<p style="padding-left: 60px">A sample of the dataset looks as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-1431 image-border" src="Images/033e8f33-fbdb-4a5c-b80a-626371a6ca12.png" style="width:25.33em;height:6.50em;" width="387" height="99"/></p>
+<ol start="2">
+<li>Filter out the data points where the user did not like the movie or the users where the user did not have enough history. In the following code, we are excluding the movies that users provided low ratings for:</li>
+</ol>
+<pre style="padding-left: 60px">ratings = ratings[ratings['rating']&gt;3]<br/>ratings = ratings.sort_values(by='timestamp')<br/>ratings.reset_index(inplace=True)<br/>ratings = ratings.drop(['index'],axis=1)</pre>
+<p style="padding-left: 60px">In the following code, we are keeping only those users who have more than <kbd>5</kbd> ratings (a rating value greater than <kbd>3</kbd>) provided in the history:</p>
+<pre style="padding-left: 60px">user_movie_count =ratings.groupby('User').agg({'Movies':'nunique'}).reset_index()<br/>user_movie_count.columns = ['User','Movie_count']<br/>ratings2 = ratings.merge(user_movie_count,on='User',how='inner')<br/>movie_count = ratings2[ratings2['Movie_count']&gt;5]<br/>movie_count = movie_count.sort_values('timestamp')<br/>movie_count.reset_index(inplace=True)<br/>movie_count = movie_count.drop(['index'],axis=1)</pre>
+<ol start="3">
+<li>Assign IDs to unique <kbd>users</kbd> and <kbd>Movies</kbd> so that we use them subsequently:</li>
+</ol>
+<pre style="padding-left: 60px">ratings = movie_count<br/>users = ratings.User.unique()<br/>articles = ratings.Movies.unique()<br/>userid2idx = {o:i for i,o in enumerate(users)}<br/>articlesid2idx = {o:i for i,o in enumerate(articles)}<br/>idx2userid = {i:o for i,o in enumerate(users)}<br/>idx2articlesid = {i:o for i,o in enumerate(articles)}<br/><br/>ratings['Movies2'] = ratings.Movies.apply(lambda x: articlesid2idx[x])<br/>ratings['User2'] = ratings.User.apply(lambda x: userid2idx[x])</pre>
+<ol start="4">
+<li>Preprocess the data so that the input is the last five movies and the output is the sixth movie watched:</li>
+</ol>
+<pre style="padding-left: 60px">user_list = movie_count['User2'].unique()<br/>historical5_watched = []<br/>movie_to_predict = []<br/>for i in range(len(user_list)):<br/>     total_user_movies = movie_count[movie_count['User2']==user_list[i]].copy()<br/>     total_user_movies.reset_index(inplace=True)<br/>     total_user_movies = total_user_movies.drop(['index'],axis=1)<br/>     for j in range(total_user_movies.shape[0]-6):<br/>         historical5_watched.append(total_user_movies.loc[j:(j+4),'Movies2'].tolist())                                                                          movie_to_predict.append(total_user_movies.loc[(j+5),'Movies2'].tolist())</pre>
+<ol start="5">
+<li>Preprocess the <kbd>historical5_watched</kbd> and the <kbd>movie_to_predict</kbd> variables so that they can be passed to the model, and then create the train and test datasets:</li>
+</ol>
+<pre style="padding-left: 60px">movie_to_predict2 = to_categorical(y, num_classes = max(y)+1)<br/>trainX = np.array(historical5_watched[:40000])<br/>testX = np.array(historical5_watched[40000:])<br/>trainY = np.array(movie_to_predict2[:40000])<br/>testY = np.array(movie_to_predict2[40000:])</pre>
+<ol start="6">
+<li>Build the model:</li>
+</ol>
+<pre style="padding-left: 60px">src_vocab = ratings['Movies2'].nunique()<br/>n_units = 32<br/>src_timesteps = 5<br/>tar_vocab = len(set(y))<br/><br/>from keras.models import Sequential, Model<br/>from keras.layers import Embedding<br/>from keras.layers import LSTM, RepeatVector, TimeDistributed, Dense, Bidirectional<br/><br/>model = Sequential()<br/>model.add(Embedding(src_vocab, n_units, input_length=src_timesteps))<br/>model.add((LSTM(100)))<br/>model.add(Dense(1000,activation='relu'))<br/>model.add(Dense(max(y)+1,activation='softmax'))<br/>model.summary()</pre>
+<p style="padding-left: 60px">Note that, in the final layer, we are adding 1 to the possible activations, as there is no movie with an ID of 0, and the final movie would have been left out had we just set the value to <kbd>max(y)</kbd>.</p>
+<p class="mce-root"/>
+<p style="padding-left: 60px">A summary of the model is as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-1432 image-border" src="Images/82bd4fe6-5261-4651-b339-d7ee590096d0.png" style="width:31.00em;height:15.17em;" width="512" height="250"/></p>
+<ol start="7">
+<li> Fit the model:</li>
+</ol>
+<pre style="padding-left: 60px">model.fit(trainX, trainY, epochs=5, batch_size=32, validation_data=(testX, testY), verbose = 1)</pre>
+<ol start="8">
+<li> Make predictions on the test data:</li>
+</ol>
+<pre style="padding-left: 60px">pred = model.predict(testX)</pre>
+<ol start="9">
+<li>Understand the number of data points (users) where the movie watched next after the historical five movies is among the top <kbd>12</kbd> recommendations:</li>
+</ol>
+<pre style="padding-left: 60px">count = 0<br/>for i in range(testX.shape[0]):<br/>    rank = np.argmax(np.argsort(pred[i])[::-1]==np.argmax(testY[i]))<br/>    if rank&lt;12:<br/>        count+=1<br/>count/testX.shape[0]<br/># 0.104</pre>
+<p style="padding-left: 60px">We should notice that in 10.4% of the total cases, we have the movie recommended being watched by the user as the immediate next movie.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Taking user history into consideration</h1>
+                </header>
+            
+            <article>
+                
+<p>One of the considerations when sending out the top 12 recommendations that we missed in the previous iteration is that <em>if a user has already watched a movie, they are less likely to watch the same movie again</em> (note that this hypothesis does not hold true in a retail setting, where there are a considerable amount of re-orders).</p>
+<p class="mce-root"/>
+<p>Let's go ahead and apply this logic in making our top 12 predictions.</p>
+<p>First, we'll store all the (not just the most recent five) movies that were watched by a user prior to watching the movie that we are trying to predict:</p>
+<pre>historically_watched = []<br/>for i in range(len(user_list)):<br/>     total_user_movies = movie_count[movie_count['User2']==user_list[i]].copy()<br/>     total_user_movies.reset_index(inplace=True)<br/>     total_user_movies = total_user_movies.drop(['index'],axis=1)<br/>     for j in range(total_user_movies.shape[0]-6):<br/>         historically_watched.append(total_user_movies.loc[0:(j+4),'Movies2'].tolist())</pre>
+<p>In the preceding code, we are filtering all the movies watched by a user.</p>
+<p>If a user has already watched a movie, we will overwrite the probability to a value of zero for that user-movie combination:</p>
+<pre>for j in range(pred.shape[0]):<br/>  for i in range(pred.shape[1]):<br/>    pred[j][i]= np.where(i in historically_watched[j], 0 , pred[j][i])</pre>
+<p>In the following code, we are calculating the percent of the total scenario in test data where the user watched a movie among the top 12 recommended movies:</p>
+<pre>count = 0<br/>for i in range(testX.shape[0]):<br/>  rank = np.argmax(np.argsort(pred[i])[::-1]==np.argmax(testY[i]))<br/>  if rank&lt;12:<br/>    count+=1<br/>count/testX.shape[0]<br/>#12.6</pre>
+<p>The preceding results in the recommendations being valid for 12.6% of total users now, up from 10.4% relevance in the previous iteration.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Topic-modeling, using embeddings</h1>
+                </header>
+            
+            <article>
+                
+<p>In the previous recipe, we learned about generating predictions for movies that a user is likely to watch. One of the limitations of the previous way of generating predictions is that the variety of movie recommendations would be limited if we did not perform further processing on top of the movie predictions.</p>
+<p class="mce-root"/>
+<p>A variety of recommendations is important; if there were no variety, only certain types of products would be discovered by users.</p>
+<p>In this recipe, we will group movies based on their similarity and identify the common themes of the movies. Additionally, we will also look into how we can increase the variety of recommendations that can be provided to a user. Having said that, it is highly likely that this strategy will work less in the specific case of movie recommendations, as the variety would be much lower when compared to a retail/e-commerce setting, where the number of categories and substitutes of a product are much higher when compared to movies.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Getting ready</h1>
+                </header>
+            
+            <article>
+                
+<p>The strategy that we will adopt to group movies based on similarity is as follows:</p>
+<ol>
+<li>Extract the embedding value of each movie from the model that we built in the Movie recommendations recipe
+<ul>
+<li>We can also create embeddings for each movie using gensim</li>
+<li>All the movies watched by a user can be thought of as words in a sentence</li>
+<li>Create a list of lists of word IDs that form a sentence</li>
+<li>Pass the list of lists through the <kbd>Word2Vec</kbd> method of gensim to extract the word vectors (movie ID vectors)</li>
+</ul>
+</li>
+<li>Pass the embedded values (vectors) of movies through a k-means clustering process to extract a certain number of clusters</li>
+<li>Identify the optimal number of clusters</li>
+<li>Identify the high probability to buy products (among the products that were not bought in history) in each cluster and re-rank the products based on their probability</li>
+<li>Recommend the top <em>n</em> products</li>
+</ol>
+<p>In this process, one of the variables is the number of clusters to be formed. The greater the number of clusters, the fewer the products in each cluster, and, at the same time, the greater the similarity between each product within a cluster. Essentially, there is a trade-off between the number of points in a group and the similarity of data points within the same cluster.</p>
+<p>We can come up with a measure of the similarity of points within a group by calculating the sum of the squared distances of all points with respect to their cluster centers. The number of clusters beyond which the inertia metric does not decrease considerably is the optimal number of clusters.</p>
+<p class="mce-root"/>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">How to do it...</h1>
+                </header>
+            
+            <article>
+                
+<p>Now that we have formed a strategy of fetching a variety of products within our recommendation, let's code it up (We'll continue from step 3 of <em>Movie recommendations</em> recipe). <span>The code file is available</span> as <kbd>Chapter_12_Recommender_systems.ipynb</kbd> in G<span>itHub.</span></p>
+<ol>
+<li>Extract the embedding values of each movie using <kbd><span>Word2Vec</span></kbd>.
+<ol>
+<li>Create a list of lists of various movies watched by all users:</li>
+</ol>
+</li>
+</ol>
+<pre style="padding-left: 90px">user_list = movie_count['User2'].unique()<br/>user_movies = []<br/>for i in range(len(user_list)):<br/>     total_user_movies = movie_count[movie_count['User2']==user_list[i]].copy()<br/>     total_user_movies.reset_index(inplace=True)<br/>     total_user_movies = total_user_movies.drop(['index'],axis=1)<br/>     total_user_movies['Movies3'] = total_user_movies['Movies2'].astype(str)<br/>     user_movies.append(total_user_movies['Movies3'].tolist())</pre>
+<p style="padding-left: 120px">In the preceding code, we are filtering all the movies watched by a user and creating a list of movies watched by all users.</p>
+<ol start="2">
+<li>Extract the word vectors of each movie:</li>
+</ol>
+<pre style="padding-left: 90px">from gensim.models import Word2Vec<br/>w2v_model = Word2Vec(user_movies,size=100,window=5,min_count=5, iter = 500)</pre>
+<ol start="4">
+<li>Extract the <kbd>TSNE</kbd> values of the movies to have a visual representation of the word embeddings of the movies that we extracted in previous step:</li>
+</ol>
+<pre style="padding-left: 60px">from sklearn.manifold import TSNE<br/>tsne_model = TSNE(n_components=2, verbose=1, random_state=0)<br/>tsne_img_label = tsne_model.fit_transform(w2v_model.wv.syn0)<br/>tsne_df = pd.DataFrame(tsne_img_label, columns=['x', 'y'])<br/>tsne_df['image_label'] = list(w2v_model.wv.vocab.keys())<br/><br/>from ggplot import *<br/>chart = ggplot(tsne_df, aes(x='x', y='y'))+geom_point(size=70,alpha=0.5)<br/>chart</pre>
+<p style="padding-left: 60px">A visualization of embeddings in 2-Dimensional space is as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-1433 image-border" src="Images/cb69b499-e7ba-41a8-b2ea-dd2b11c96e87.png" style="width:51.33em;height:36.42em;" width="693" height="492"/></p>
+<p style="padding-left: 90px">From the preceding output, we can see that there are clusters of movies that are grouped together (the regions that are thick).</p>
+<ol start="5">
+<li>Store the movie ID and movie index values in a dataframe:</li>
+</ol>
+<pre style="padding-left: 60px">idx2movie = pd.DataFrame([idx2moviesid.keys(), idx2moviesid.values()]).T<br/>idx2movie.columns = ['image_label','movieId']</pre>
+<ol start="6">
+<li>Merge the <kbd>tsne_df</kbd> and <kbd>idx2movie</kbd> datasets so that we have all the values in a single dataframe:</li>
+</ol>
+<pre style="padding-left: 60px">tsne_df['image_label'] = tsne_df['image_label'].astype(int)<br/>tsne_df2 = pd.merge(tsne_df, idx2movie, on='image_label', how='right')</pre>
+<ol start="7">
+<li>Import the <kbd>movies</kbd> dataset:</li>
+</ol>
+<pre style="padding-left: 60px">movies = pd.read_csv('...') # Path to movies dataset</pre>
+<ol start="8">
+<li>Merge the <kbd><span>TSNE</span></kbd> dataset with the movies data, and drop the unwanted columns:</li>
+</ol>
+<pre style="padding-left: 60px">tsne_df3 = pd.merge(tsne_df2, movies, left_on='movieId', right_on = 0, how='inner')<br/>tsne_df4 = tsne_df3.drop([2,3,4],axis=1)<br/>tsne_df4.rename(columns={1:'movie_name'}, inplace=True)</pre>
+<ol start="9">
+<li>Exclude the rows that have an NaN value (we have null values for certain movies, as certain movies occur less frequently, resulting in <span><kbd>Word2Vec</kbd> </span>not giving the word vector for rarely occurring words (due to the <kbd>min_count</kbd> parameter):</li>
+</ol>
+<pre style="padding-left: 60px">tsne_df5 = tsne_df4.loc[~np.isnan(tsne_df4['x']),]</pre>
+<ol start="10">
+<li>Identify the optimal number of clusters by understanding the variation of inertia (total sum of squared distance of all points from their respective cluster centers):</li>
+</ol>
+<pre style="padding-left: 60px">X = tsne_df5.loc[:,['x','y']]<br/>inertia = []<br/>for i in range(10):<br/>      km = KMeans((i+1)*10)<br/>      km.fit(X)<br/>      inertia.append(km.inertia_)<br/><br/>import matplotlib.pyplot as plt<br/>%matplotlib inline<br/>plt.plot((np.arange(10)+1)*10,inertia)<br/>plt.title('Variation of inertia over different number of clusters')<br/>plt.xlabel('Number of clusters')<br/>plt.ylabel('Inertia')</pre>
+<p style="padding-left: 60px">The variation of inertia for different number of clusters is as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-1434 image-border" src="Images/d667c7e1-453a-402c-a79b-1decc6dfa5bb.png" style="width:32.42em;height:22.67em;" width="391" height="273"/></p>
+<p style="padding-left: 60px">From the preceding curve, we can see that the decrease is inertia not as high as the number of clusters passes <kbd>40</kbd>. Hence, we shall have <kbd>40</kbd> as the optimal number of clusters of movies within our dataset.</p>
+<ol start="11">
+<li>Validate the cluster results by manually checking for some of the movies that fall in the same cluster, if it makes sense for the movies to be in the same cluster:</li>
+</ol>
+<pre style="padding-left: 60px">km = KMeans(40)<br/>km.fit(X)<br/>tsne_df5['clusterlabel'] = km.labels<em><br/></em>tsne_df5[tsne_df5['cluster_label']==0].head()</pre>
+<p style="padding-left: 60px">Once you execute the code, you will notice that movies located in <kbd>cluster_label</kbd>: <kbd>0</kbd> are primarily <span><span>Romance and Comedy</span></span> movies.</p>
+<ol start="12">
+<li>Remove the movies that have already been watched by the user:</li>
+</ol>
+<pre style="padding-left: 60px">for j in range(pred.shape[0]):<br/>     for i in range(pred.shape[1]):<br/>         pred[j][i]= np.where(i in historically_watched[j], 0 , pred[j][i])</pre>
+<ol start="13">
+<li>For each user, map the probability of a movie and the cluster number that a movie belongs to so that we extract the movie that has the highest probability within a cluster for a given user. Then recommend the top 12 movies from the resulting top movies within different clusters:</li>
+</ol>
+<pre style="padding-left: 60px">movie_cluster_id = tsne_df5[['image_label','cluster_label']]<br/>count = 0<br/>for j in range(pred.shape[0]):<br/>      t = movie_cluster_id.copy()<br/>      t['pred']=pred[j,list(movie_cluster_id['image_label'])]<br/>      t2= t.sort_values(by='pred',ascending=False).groupby('cluster_label').first().reset_index()<br/>      t3 = t2.sort_values(by='pred',ascending=False).reset_index()<br/>      final_top_preds = t3.loc[:11]['image_label'].values<br/>      if (np.argmax(testY[j]) in final_top_preds):<br/>            count+=1<br/> </pre>
+<p style="padding-left: 60px">The preceding results in 13.6% of all users watching a movie that is recommended to them.</p>
+<p>While the preceding results are only slightly better than the result of 12.6% without having any variety in recommendations, having a variety in recommendations is more likely to be better when we consider not just the next purchase but all future purchases by a user.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">There's more...</h1>
+                </header>
+            
+            <article>
+                
+<p>While we have looked into generating predictions for a user and also into increasing the variety of predictions that are served to a user, we can further improve the results by considering the following:</p>
+<ul>
+<li>Incorporating the information about the movies the user did not like</li>
+<li>Incorporating the user's demographic information</li>
+<li>Incorporating the details related to the movie, for example the release year and the cast</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Forecasting the value of a stock's price</h1>
+                </header>
+            
+            <article>
+                
+<p>There is a variety of technical analysis that experts perform to come up with buy-and-sell recommendations on stocks. The majority of the technical analysis relies on historical patterns with an assumption that history repeats as long as we normalize for certain events.</p>
+<p class="mce-root"/>
+<p>Given that what we have been performing so far has also been about making decisions by considering history, let's go ahead and apply the skills we've learned so far to predict the price of a stock.</p>
+<p>However, be extremely careful when relying on algorithmic analysis in applications such as stock-price prediction to make a buy-or-sell decision. The big difference between the other recipes and this one is that, while the decisions made in other recipes are reversible (for example: you can revoke it if a generated text does not look appropriate) or cost money (a bad recommendation means the customer won't buy the product again), the decisions made in stock-price prediction are irreversible. Once the money is lost, it is not coming back.</p>
+<p>With this in mind, let's go ahead and apply the techniques we've learned so far to predict the price of a stock.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Getting ready</h1>
+                </header>
+            
+            <article>
+                
+<p>To predict the price of a stock, let's apply two strategies:</p>
+<ul>
+<li>Predict the stock price solely based on the last five days' stock prices</li>
+<li>Predict the stock price based on a combination of the last five days' stock prices and the latest news about the company of interest</li>
+</ul>
+<p>For the first analysis, we can prepare the dataset in a way that is very similar to the way we prepared the dataset for LSTM; the second analysis will require a different way of preparing the dataset, as it involves both numeric and text data.</p>
+<p>The way in which we will process data for the two approaches discussed above is as follows:</p>
+<ul>
+<li><strong><span>Last five days' stock prices only</span></strong>:
+<ol>
+<li>Order the dataset from the oldest to the newest date</li>
+<li>Take the first <kbd>5</kbd> stock prices as input and the sixth stock price as output</li>
+<li>Slide it across so that in the next data point, the second to sixth data points are the input and the seventh data point is the output, and so on until we reach the final data point:
+<ol>
+<li>Each of the five data points are the input to the five time steps in an LSTM</li>
+<li>The sixth data point is the output</li>
+</ol>
+</li>
+<li>Given that we are predicting a continuous number, the loss function this time will be the <em>mean squared error</em><span> value</span></li>
+</ol>
+</li>
+<li><strong><span>Last five days' stock prices plus news headlines, data about the company</span></strong>: For this analysis, there are two types of data preprocessing. While the data preprocessing for the last five days' stock prices remains the same, the data pre-preparation step for the news headlines, data is the additional step that is to be performed in this analysis. Let's look into how we can incorporate both of them into our model:
+<ol>
+<li>Given that these are two data types, let's have two different models:
+<ul>
+<li>One model that takes historical five-day stock-price data.</li>
+<li>Another model that modifies the output of the last five days' stock-price model by either increasing or decreasing the output.</li>
+<li>The second model is a result of the news headlines, dataset. The hypothesis is that positive headlines are likely to increase the stock price value and that negative headlines will reduce the stock value.</li>
+</ul>
+</li>
+<li>To keep the problem simple, assume that only the most recent headline prior to the day of the prediction of the stock's value will have an impact on the outcome of the stock value on the day of prediction</li>
+<li>Given that we have two different models, use the functional API so that we combine the effects of both factors</li>
+</ol>
+</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">How to do it...</h1>
+                </header>
+            
+            <article>
+                
+<p>We'll break our approach of solving this into three sections (The code file is available as <kbd>Chapter_12_stock_price_prediction.ipynb</kbd> in GitHub):</p>
+<ul>
+<li>Predict a stock price based on the last five days' stock prices only
+<ul>
+<li>The pitfall of the random train-and-test split</li>
+</ul>
+</li>
+<li>Assign a higher weight to more recent stock price values</li>
+<li>Combine the last five days' stock price with text data of news article headlines</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">The last five days' stock prices only</h1>
+                </header>
+            
+            <article>
+                
+<p>In this recipe, we will predict a stock price based on its last 5 data points only. In the next recipe, we will predict the stock price based on news and historical data:</p>
+<ol>
+<li>Import the relevant packages and dataset:</li>
+</ol>
+<pre style="padding-left: 60px">import pandas as pd<br/>data2 = pd.read_csv('/content/stock_data.csv')</pre>
+<ol start="2">
+<li>Prepare the dataset where the input is the last five days' stock-price values and the output is the stock-price value on the sixth day:</li>
+</ol>
+<pre style="padding-left: 60px">x= []<br/>y = []<br/>for i in range(data2.shape[0]-5):<br/>     x.append(data2.loc[i:(i+4)]['Close'].values)<br/>     y.append(data2.loc[i+5]['Close'])<br/><br/>import numpy as np<br/>x = np.array(x)<br/>y = np.array(y)</pre>
+<ol start="3">
+<li>Reshape the dataset so that it is of the <kbd>batch_size</kbd>, <kbd>time_steps</kbd>, <kbd>features_per_time_step</kbd> form:</li>
+</ol>
+<pre style="padding-left: 60px">x = x.reshape(x.shape[0],x.shape[1],1)</pre>
+<ol start="4">
+<li> Create the train-and-test datasets:</li>
+</ol>
+<pre style="padding-left: 60px">from sklearn.model_selection import train_test_split<br/>X_train, X_test, y_train, y_test = train_test_split(x, y, test_size=0.30,random_state=10)</pre>
+<ol start="5">
+<li> Build the model:</li>
+</ol>
+<pre style="padding-left: 60px">model = Sequential()<br/>model.add(Dense(100, input_shape = (5,1), activation = 'relu'))<br/>model.add((LSTM(100)))<br/>model.add(Dense(1000,activation='relu'))<br/>model.add(Dense(1,activation='linear'))<br/>model.summary()</pre>
+<p style="padding-left: 60px">A summary of the model is as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-1435 image-border" src="Images/5800a442-ce90-4d0c-a004-b02a43688d92.png" style="width:36.83em;height:18.00em;" width="517" height="253"/></p>
+<ol start="6">
+<li>Compile the model so that we define the <kbd>loss</kbd> function and adjust the learning-rate value:</li>
+</ol>
+<pre style="padding-left: 90px">from keras.optimizers import Adam<br/>adam = Adam(lr=0.0001)<br/>model.compile(optimizer=adam, loss='mean_squared_error')</pre>
+<ol start="7">
+<li>Fit the model:</li>
+</ol>
+<pre style="padding-left: 60px">model.fit(X_train, y_train, epochs=400, batch_size=64, validation_data=(X_test, y_test), verbose = 1)</pre>
+<p style="padding-left: 60px">The preceding results in a mean squared error value of $641 (An average of ~$25 per prediction) on the test dataset. The plot of the predicted versus actual stock price is as follows:</p>
+<pre style="padding-left: 60px">pred = model.predict(X_test)<br/><br/>import matplotlib.pyplot as plt<br/>%matplotlib inline<br/>plt.figure(figsize=(20,10))<br/>plt.plot(y_test,'r')<br/>plt.plot(pred,'--')<br/><br/>plt.title('Variation of actual and predicted stock price')<br/>plt.ylabel('Stock price')</pre>
+<p style="padding-left: 60px">The variation of the predicted and the actual price is as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-1436 image-border" src="Images/a2feff03-73e4-4623-93c1-b925100125da.png" style="width:97.75em;height:49.75em;" width="1173" height="597"/></p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">The pitfalls</h1>
+                </header>
+            
+            <article>
+                
+<p>Now that we have predictions that are fairly accurate, and in fact, good predictions, let's dive deep to understand the reason for such good predictions.</p>
+<p>In our training dataset, we have data points from a long time ago as well as the data points that are very recent. This is a form of leakage, as, at the time of model building, we do not have future stock prices. Due to the way we construct data, we could have the data from December 20 in our training dataset, while December 19 could be in the test dataset. </p>
+<p>Let's rebuild our model with the training-and-test datasets demarcated by their corresponding dates:</p>
+<pre>X_train = x[:2100,:,:]<br/>y_train = y[:2100]<br/>X_test = x[2100:,:,:]<br/>y_test = y[2100:]</pre>
+<p class="mce-root"/>
+<p>The output of the model that we built in the <em>last 5 days' stock prices only</em> section on the new test dataset is as follows (with a test dataset loss of ~57,000):</p>
+<p class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-1443 image-border" src="Images/117796e9-8284-4993-b262-5909a8774f44.png" style="width:97.83em;height:50.42em;" width="1174" height="605"/></p>
+<p>Note that the resulting actual versus predicted stock-price graph now is much worse when compared to the previous iteration. However, the graph generated in this section is a more realistic scenario data than the <span><span>graph obtained in <em>last 5 days' stock prices only<span> </span></em><span>section.</span></span></span></p>
+<p>Now that we have obtained the preceding graph, let's try to understand the reason the graph might have looked as it did by examining the plot of the variation of stock-price data over time, which is as follows:</p>
+<pre>plt.plot(data2['Close'])</pre>
+<p>A plot of the variation of the stock-price over time is as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-1445 image-border" src="Images/74f903fe-d2e4-415a-b085-4a4c73cc32da.png" style="width:31.92em;height:20.67em;" width="383" height="248"/></p>
+<p>Note that the price of stock increased slowly at the start and accelerated in the middle while decelerating at the end.</p>
+<p>The model did not work out well for the following reasons:</p>
+<ul>
+<li>Equal weight is given to errors for predictions made much earlier in the history as well as more recent ones</li>
+<li>We didn't factor for the trend in deceleration</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Assigning different weights to different time periods</h1>
+                </header>
+            
+            <article>
+                
+<p>We learned that we will be assigning higher weight for the most recent time period and a lower weight for historical time periods.</p>
+<p>We can come up with training <kbd>weights</kbd> as follows:</p>
+<pre>weights = np.arange(X_train.shape[0]).reshape((X_train.shape[0]),1)/2100</pre>
+<p>The preceding code assigns a weight of <kbd>0</kbd> to the most historical data point and a weight of <kbd>1</kbd> to the most recent data point. All the intermediate data points will have a weight value between <kbd>0</kbd> and <kbd>1</kbd>.</p>
+<p class="mce-root"/>
+<p>Now that we have defined <kbd>weights</kbd>, let's define our custom loss function, which applies the previously-initialized losses while calculating the squared error loss:</p>
+<pre>import numpy as np<br/>from keras.layers import Dense, Input<br/>from keras import Model<br/>import keras.backend as K<br/>from functools import partial<br/><br/>def custom_loss(y_true, y_pred, weights):<br/>     return K.square(K.abs(y_true - y_pred) * weights)<br/>cl = partial(custom_loss, weights=weights_tensor)</pre>
+<p>Now that we have initialized <kbd>weights</kbd> and also defined the custom loss function, let's supply the input layer and the weight values to the model using the functional API (we are using a functional API as we are passing multiple input while training the model):</p>
+<pre>input_layer = Input(shape=(5,1))<br/>weights_tensor = Input(shape=(1,))<br/><br/>i1 = Dense(100, activation='relu')(input_layer)<br/>i2 = LSTM(100)(i1)<br/>i3 = Dense(1000, activation='relu')(i2)<br/>out = Dense(1, activation='linear')(i3)<br/>model = Model([input_layer, weights_tensor], out)</pre>
+<p>Now that we have defined the model, which has the same parameters as in the <em>last 5 days' stock prices only<span> </span></em><span>section</span>, but there is an additional input, which is the weights tensor. Let's compile our model:</p>
+<pre>from keras.optimizers import Adam<br/>adam = Adam(lr=0.0001)<br/>model = Model([input_layer, weights_tensor], out)<br/>model.compile(adam, cl)</pre>
+<p>Now that we have compiled our model, let's fit it:</p>
+<pre>model.fit(x=[X_train, weights], y=y_train, epochs=300,batch_size = 32, validation_data = ([X_test, test_weights], y_test))</pre>
+<p>The model returns a squared error loss of 40,000 on the test dataset, as opposed to the loss of 57,000 from the <em>The pitfalls</em> section. Let's plot the values of predicted versus actual stock prices on the test dataset:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-1449 image-border" src="Images/42c55eae-c592-4663-8ec3-eccb1898150c.png" style="width:96.92em;height:48.50em;" width="1163" height="582"/></p>
+<p>We now notice that there is a correlation between the predicted and the actual stock price in the most recent history (right-most part of the chart), while the spike in the middle of graph is not being accounted for in the predictions.</p>
+<p>In the next recipe, let's see whether the news headlines can incorporate the spike in middle.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">The last five days' stock prices plus news data</h1>
+                </header>
+            
+            <article>
+                
+<p>In the following code, we will incorporate text data about the headlines generated by the company of interest (which is fetched from the open source API provided by the Guardian's website) along with the last five days' stock price data. Then we'll couple the custom loss function, which takes the recency of an event into account:</p>
+<ol>
+<li>Import the headlines data from the Guardian website from here: <a href="https://open-platform.theguardian.com/">https://open-platform.theguardian.com/</a> (note that you would have to apply for your own access key to be able to download the dataset from the website). Download the title and the corresponding date when the title appeared, and then preprocess the date so that it is converted into a date format:</li>
+</ol>
+<pre style="padding-left: 60px">from bs4 import BeautifulSoup<br/>from bs4 import BeautifulSoup<br/>import urllib, json<br/><br/>dates = []<br/>titles = []<br/>for i in range(100):<br/> try:<br/>        url = 'https://content.guardianapis.com/search?from-date=2010-01-01&amp;section=business&amp;page-          size=200&amp;order-by=newest&amp;page='+str(i+1)+'&amp;q=amazon&amp;api-key=0d7'<br/>        response = urllib.request.urlopen(url)<br/>        encoding = response.info().get_content_charset('utf8')<br/>        data = json.loads(response.read().decode(encoding))<br/>        print(i)<br/>        for j in range(len(data['response']['results'])):<br/>              dates.append(data['response']['results'][j]['webPublicationDate'])<br/>              titles.append(data['response']['results'][j]['webTitle']) <br/> except:<br/>       break<br/><br/><br/>import pandas as pd<br/>data = pd.DataFrame(dates, titles)<br/>data = data.reset_index()<br/>data.columns = ['title','date']<br/>data['date']=data['date'].str[:10]<br/>data['date']=pd.to_datetime(data['date'], format = '%Y-%m-%d')<br/>data = data.sort_values(by='date')<br/>data_final = data.groupby('date').first().reset_index()</pre>
+<ol start="2">
+<li>Join the historical price dataset and the article title dataset by <kbd>Date</kbd>:</li>
+</ol>
+<pre style="padding-left: 60px">data2['Date'] = pd.to_datetime(data2['Date'],format='%Y-%m-%d')<br/>data3 = pd.merge(data2,data_final, left_on = 'Date', right_on = 'date', how='left')</pre>
+<ol start="3">
+<li>Preprocess the text data to remove the stop-words and punctuation, and then encode the text input just as we did in the sentiment-classification exercise in <a href="7a47ef1f-4c64-4f36-8672-6e589e513b16.xhtml">Chapter 11</a><span>, </span><em>Building a Recurrent Neural Network</em>:</li>
+</ol>
+<pre style="padding-left: 60px">import nltk<br/>import re<br/>nltk.download('stopwords')<br/>stop = nltk.corpus.stopwords.words('english')<br/>def preprocess(text):<br/>     text = str(text)<br/>     text=text.lower()<br/>     text=re.sub('[^0-9a-zA-Z]+',' ',text)<br/>     words = text.split()<br/>     words2=[w for w in words if (w not in stop)]<br/>     words3=' '.join(words2)<br/>     return(words3)<br/>data3['title'] = data3['title'].apply(preprocess)<br/>data3['title']=np.where(data3['title'].isnull(),'-','-'+data3['title'])<br/>docs = data3['title'].values<br/>from collections import Counter<br/>counts = Counter()<br/>for i,review in enumerate(docs):<br/>     counts.update(review.split())<br/>words = sorted(counts, key=counts.get, reverse=True)<br/>vocab_size=len(words)<br/>word_to_int = {word: i for i, word in enumerate(words, 1)}<br/>encoded_docs = []<br/>for doc in docs:<br/>     encoded_docs.append([word_to_int[word] for word in doc.split()])<br/>max_length = 20<br/>from keras.preprocessing.sequence import pad_sequences<br/>padded_docs = pad_sequences(encoded_docs, maxlen=max_length,padding='pre')</pre>
+<ol start="4">
+<li>Take the last five days' stock prices and the most recent title (prior to the date of the stock-price prediction) as input. Let's preprocess our data to get the input and the output values and then prepare the training and test datasets:</li>
+</ol>
+<p style="padding-left: 60px">In the following code,  x1 corresponds to the historical stock prices and x2 corresponds to the article title on the date of the stock prediction:</p>
+<pre style="padding-left: 60px">x1 = []<br/>x2 = []<br/>y = []<br/>for i in range(data3.shape[0]-5):<br/>     x1.append(data3.loc[i:(i+4)]['Close'].values)<br/>     x2.append(padded_docs[i+5])<br/>     y.append(data3.loc[i+5]['Close'])<br/><br/>x1 = np.array(x1)<br/>x2 = np.array(x2)<br/>y = np.array(y)<br/>x1 = x1.reshape(x1.shape[0],x1.shape[1],1)<br/>X1_train = x1[:2100,:,:]<br/>X2_train = x2[:2100,:]<br/>y_train = y[:2100]<br/><br/>X1_test = x1[2100:,:,:]<br/>X2_test = x2[2100:,:]<br/>y_test = y[2100:]</pre>
+<p class="mce-root"/>
+<ol start="5">
+<li>Given that we are passing multiple variables as input (historical stock prices, encoded text data, and weight values), we will be using functional API to build the model:</li>
+</ol>
+<pre style="padding-left: 60px">input1 = Input(shape=(20,))<br/>model = Embedding(input_dim=vocab_size+1, output_dim=32, input_length=20)(input1)<br/>model = (LSTM(units=100))(model)<br/>model = (Dense(1, activation='tanh'))(model)<br/><br/>input2 = Input(shape=(5,1))<br/>model2 = Dense(100, activation='relu')(input2)<br/>model2 = LSTM(units=100)(model2)<br/>model2 = (Dense(1000, activation="relu"))(model2)<br/>model2 = (Dense(1, activation="linear"))(model2)<br/><br/>from keras.layers import multiply<br/>conc = multiply([model, model2])<br/>conc2 = (Dense(1000, activation="relu"))(conc)<br/>out = (Dense(1, activation="linear"))(conc2)</pre>
+<p style="padding-left: 90px">Note that we have multiplied the output values of the stock-price model and the text-data model, as the text data is expected to adjust to the output of the historical stock-price model:</p>
+<pre style="padding-left: 90px">model = Model([input1, input2, weights_tensor], out)</pre>
+<p style="padding-left: 90px">The architecture of the preceding model is as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-1452 image-border" src="Images/95795ad5-7d62-4cf3-a38d-2cc879bb6826.png" style="width:41.67em;height:41.83em;" width="536" height="538"/></p>
+<ol start="6">
+<li>Define the loss function and compile the model:</li>
+</ol>
+<pre style="padding-left: 60px" class="mce-root">def custom_loss(y_true, y_pred, weights):<br/> return K.square(K.abs(y_true - y_pred) * weights)<br/>cl = partial(custom_loss, weights=weights_tensor)<br/><br/>model = Model([input1, input2, weights_tensor], out)<br/>model.compile(adam, cl)</pre>
+<p class="mce-root"/>
+<ol start="7">
+<li>Fit the model:</li>
+</ol>
+<pre style="padding-left: 60px">model.fit(x=[X2_train, X1_train, weights], y=y_train, epochs=300,batch_size = 32, validation_data = ([X2_test, X1_test, test_weights], y_test))</pre>
+<ol start="8">
+<li>Plot the actual versus predicted values of stock prices in the test dataset:</li>
+</ol>
+<pre style="padding-left: 60px">pred = model.predict([X2_test, X1_test, test_weights])<br/><br/>import matplotlib.pyplot as plt<br/>%matplotlib inline<br/>plt.figure(figsize=(20,10))<br/>plt.plot(y_test,'r',label='actual')<br/>plt.plot(pred,'--', label = 'predicted')<br/>plt.title('Variation of actual and predicted stock price')<br/>plt.ylabel('Stock price')<br/>plt.legend()</pre>
+<p style="padding-left: 30px">The variation of actual and predicted stock price is as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-1454 image-border" src="Images/a804018e-6956-4350-9d12-2428053d76ac.png" style="width:97.92em;height:48.92em;" width="1175" height="587"/></p>
+<p>Note that, in this iteration, the middle portion has a slightly better slope when compared to the no-text data version and also has a slightly lower squared error at 35,000 when compared to the 40,000 value of the previous iteration.</p>
+<p class="mce-root"/>
+<p class="mce-root"/>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">There's more...</h1>
+                </header>
+            
+            <article>
+                
+<p>As mentioned at the start of this recipe, be extremely careful when predicting the values of a stock price, as there are a variety of factors that can affect the movement of stock prices, and all of them need to be taken into consideration when making a prediction.</p>
+<p><span>Additionally, you should also notice that while the actual and predicted values seem correlated, there is a small delay in the predicted values line when compared to the actual values line. This delay can considerably change the optimal strategy from a buy decision to a sell decision. Hence, there should be a greater weight for the rows where the movement of a stock price is significant from the previous date—further complicating our loss function.</span></p>
+<p>We could also potentially incorporate more sources of information, such as additional news headlines and seasonality (for example: certain stocks typically fare well during the holiday season) and other macroeconomic factors, when making the predictions.</p>
+<p>Finally, we could have scaled the dataset so that the input to the neural network is not a huge number.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  </body></html>

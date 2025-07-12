@@ -1,0 +1,1023 @@
+<html><head></head><body><div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Detecting and Localizing Objects in Images</h1>
+                </header>
+            
+            <article>
+                
+<p class="mce-root">In the chapters on building a deep convolutional neural network and transfer learning, we have learned about detecting the class that an image belongs to using deep CNN and also by leveraging transfer learning.</p>
+<p>While object classification works, in the real world, we will also be encountering a <span>scenario where we would have to locate the object within an image.</span></p>
+<p>For example, in the case of a self-driving car, we would not only have to detect that a pedestrian is in the view point of a car, but also be able to detect how far the pedestrian is located away from the car so that an appropriate action can then be taken.</p>
+<p>In this chapter, we will be discussing the various techniques of detecting objects in an image. The case studies we will be covering in this chapter are as follows:</p>
+<ul>
+<li>Creating the training dataset of bounding box</li>
+<li>Generating region proposals within an image using selective search</li>
+<li>Calculating an intersection over a union between two images</li>
+<li>Detecting objects using region proposal-based CNN</li>
+<li>Performing non-max suppression</li>
+<li>Detecting a person using the anchor box-based algorithm</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Introduction</h1>
+                </header>
+            
+            <article>
+                
+<p>With the rise of autonomous cars, facial detection, smart video surveillance, and people counting solutions, fast and accurate object detection systems are in great demand. These systems include not only object recognition and classification in an image, but can also locate each one of them by drawing appropriate boxes around them. This makes object detection a harder task than its traditional computer vision predecessor, image classification.</p>
+<p>To understand how the output of object detection looks like, let's go through the following picture:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="Images/310b9e9a-7372-4f0d-ba7d-00ce7a848ffd.png" style="width:20.33em;height:12.25em;" width="483" height="290"/></p>
+<p>So far, in the previous chapters, we have learned about classification.</p>
+<p>In this chapter, we will learn about having a tight bounding box around the object in the picture, which is the localization task.</p>
+<p>Additionally, we will also learn about detecting the multiple objects in the picture, which is the object detection task.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Creating the dataset for a bounding box</h1>
+                </header>
+            
+            <article>
+                
+<p>We have learned that object detection gives us the output where a bounding box surrounds the object of interest in an image. For us to build an algorithm that detects the bounding box surrounding the object in an image, we would have to create the input–output mapping, where the input is the image and the output is the bounding boxes surrounding the objects in the given image.</p>
+<p>Note that when we detect the bounding box, we are detecting the pixel locations of the top-left corner of the bounding box surrounding the image, and the corresponding width and height of the bounding box.</p>
+<p>To train a model that provides the bounding box, we need the image, and also the corresponding bounding-box coordinates of all the objects in an image.</p>
+<p>In this section, we will highlight one of the ways to create the training dataset where the image shall be given as input and the corresponding bounding boxes are stored in an XML file.</p>
+<p>We shall be using the <kbd>labelImg</kbd> package to annotate the bounding boxes and the corresponding classes.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">How to do it...</h1>
+                </header>
+            
+            <article>
+                
+<p>Bounding boxes around objects in image can be prepared as follows:</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Windows</h1>
+                </header>
+            
+            <article>
+                
+<ol>
+<li>Download the executable file of <kbd>labelImg</kbd> from the link here: <a href="https://github.com/tzutalin/labelImg/files/2638199/windows_v1.8.1.zip" target="_blank">https://github.com/tzutalin/labelImg/files/2638199/windows_v1.8.1.zip</a>.</li>
+<li>Extract and open the <kbd>labelImg.exe</kbd> GUI, shown in the following screenshot:</li>
+</ol>
+<p class="CDPAlignCenter CDPAlign"><img src="Images/93cd65bd-cb08-4193-a83f-b4c592fa6e51.png" width="1361" height="721"/></p>
+<ol start="3">
+<li>Specify all the possible labels in an image in the <kbd>predefined_classes.txt</kbd> file in the <kbd>data</kbd> folder. We need to ensure that all the classes are listed in a separate line, as follows:</li>
+</ol>
+<p class="CDPAlignCenter CDPAlign"><img src="Images/77c07038-7b8a-4a11-b2a9-1f14354f96eb.jpg" style="width:36.42em;height:8.00em;" width="447" height="98"/></p>
+<ol start="4">
+<li>Open an image by clicking <span class="packt_screen">Open</span> in the GUI and annotate the image by clicking on <span class="packt_screen">Create RectBox</span>, which will pop up the classes that will be selected as follows:</li>
+</ol>
+<p class="CDPAlignCenter CDPAlign"><img src="Images/9f98e69a-7ac4-42c9-85e3-d0adecbbe359.png" width="1363" height="721"/></p>
+<ol start="5">
+<li>Click on <span class="packt_screen">Save</span> and save the XML file.</li>
+<li>Inspect the XML file. A snapshot of the XML file after drawing the rectangular bounding box looks as follows:</li>
+</ol>
+<p class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-1409 image-border" src="Images/74ad33e9-c30c-4f97-a457-25d976da745d.png" style="width:27.25em;height:45.50em;" width="366" height="611"/></p>
+<p>From the preceding screenshot, you should note that the <kbd>bndbox</kbd> contains the coordinates of the minimum and maximum values of the <em>x</em> and <em>y</em> coordinates corresponding to the objects of interest in the image. Additionally, we should also be in a position to extract the classes corresponding to the objects in image.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Ubuntu</h1>
+                </header>
+            
+            <article>
+                
+<p>In Ubuntu, the same steps as preceding ones can be executed by keying in the following commands:</p>
+<pre><strong>$sudo apt-get install pyqt5-dev-tools
+$sudo pip3 install -r requirements/requirements-linux-python3.txt
+$make qt5py3
+$python3 labelImg.py</strong></pre>
+<p>The script <kbd>labelImg.py</kbd> can be found in the GitHub link here: <a href="https://github.com/tzutalin/labelImg" target="_blank">https://github.com/tzutalin/labelImg</a>.</p>
+<p>Once we execute the preceding code, we should be in a position to perform the same analysis as we have seen in the <em>Windows</em> section.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">MacOS</h1>
+                </header>
+            
+            <article>
+                
+<p>In macOS, the same preceding steps can be executed by keying in the following commands:</p>
+<pre><strong>$brew install qt  # will install qt-5.x.x
+$brew install libxml2
+$make qt5py3
+$python3 labelImg.py</strong></pre>
+<p><span>The script <kbd>labelImg.py</kbd> can be found in the GitHub link here: </span><span><a href="https://github.com/tzutalin/labelImg" target="_blank">https://github.com/tzutalin/labelImg</a>.</span></p>
+<p><span>Once we execute the preceding script, we should be in a position to perform the same analysis as we have seen in the <em>Windows</em> section.</span></p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Generating region proposals within an image, using selective search</h1>
+                </header>
+            
+            <article>
+                
+<p>To understand what a region proposal is, let's break the term into its constituents—region and proposal.</p>
+<p>A <strong>region</strong> is a portion of the total image where the pixels in that portion have very similar values.</p>
+<p>A <strong>region proposal</strong> is the smaller portion of the total image, where there is a higher chance of the portion belonging to a particular object.</p>
+<p>A region proposal is useful, as we generate candidates from the image where the chances of an object being located in one of those regions is high. This comes in handy in the object localization tasks, where we need to have a bounding box around the object that is similar to what we have in the picture in the previous section.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Getting ready</h1>
+                </header>
+            
+            <article>
+                
+<p>In this section, we will look into a way of generating a bounding box within an image of a person.</p>
+<p>Selective search is a region proposal algorithm used in object detection. It is designed to be fast with a very high recall. It is based on computing a hierarchical grouping of similar regions based on color, texture, size, and shape compatibility.</p>
+<p>Region proposals can be generated using a Python package named <kbd>selectivesearch</kbd> as follows.</p>
+<p>The selective search starts by over-segmenting the image (generating thousands of region proposals) based on intensity of the pixels using a graph-based segmentation method by Felzenszwalb and Huttenlocher.</p>
+<p>Selective search algorithm takes these over-segments as the initial input and performs the following steps:</p>
+<ol>
+<li>Add all bounding boxes corresponding to segmented parts to the list of regional proposals</li>
+<li>Group adjacent segments based on similarity</li>
+<li>Go to step one</li>
+</ol>
+<p>At each iteration, larger segments are formed and added to the list of region proposals. Hence, we create region proposals from smaller segments to larger segments in a bottom-up approach.</p>
+<p>Selective search uses four similarity measures based on color, texture, size, and shape compatibility to come up with the region proposals.</p>
+<div class="packt_tip">Region proposals help identify the possible objects of interest in an image. Thus, we could potentially convert the exercise of localization into a classification exercise where we shall classify each region as whether it contains the object of interest.</div>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">How to do it...</h1>
+                </header>
+            
+            <article>
+                
+<p>In this section, we will demonstrate the extracting of region proposals, as follows <span>(The code file is available as </span><kbd>Selective_search.ipynb</kbd><span> in GitHub)</span>:</p>
+<ol>
+<li>Install <kbd>selectivesearch</kbd> as follows:</li>
+</ol>
+<pre style="padding-left: 60px"><strong>$pip install selectivesearch</strong></pre>
+<ol start="2">
+<li>Import the relevant packages, shown in the following code:</li>
+</ol>
+<pre style="padding-left: 60px">import matplotlib.pyplot as plt<br/>%matplotlib inline<br/>import selectivesearch<br/>import cv2</pre>
+<ol start="3">
+<li>Load the image, as follows:</li>
+</ol>
+<pre style="padding-left: 60px">img = cv2.imread('/content/Hemanvi.jpeg')</pre>
+<ol start="4">
+<li>Extract the region proposals:</li>
+</ol>
+<pre style="padding-left: 60px">img_lbl, regions = selectivesearch.selective_search(img, scale=100, min_size=2000)</pre>
+<p style="padding-left: 60px">The parameter <kbd>min_size</kbd> provides a constraint that the region proposal should be at least 2,000 pixels in size, and the parameter scale effectively sets a scale of observation, in that a larger scale causes a preference for larger components.</p>
+<ol start="5">
+<li>Check the resulting number of regions and store them in a list:</li>
+</ol>
+<pre style="padding-left: 60px">print(len(regions))<br/>candidates = set()<br/>for r in regions:<br/>     if r['rect'] in candidates:<br/>         continue<br/> # excluding regions smaller than 2000 pixels<br/>     if r['size'] &lt; 2000:<br/>         continue<br/>     x, y, w, h = r['rect']<br/> candidates.add(r['rect'])</pre>
+<p style="padding-left: 60px">In the preceding step, we have stored all the regions that are more than 2,000 pixels in size (area) into a set of candidates.</p>
+<ol start="6">
+<li>Plot the resulting image with candidates:</li>
+</ol>
+<pre style="padding-left: 60px">import matplotlib.patches as mpatches<br/>fig, ax = plt.subplots(ncols=1, nrows=1, figsize=(6, 6))<br/>ax.imshow(img)<br/>for x, y, w, h in candidates:<br/>    rect = mpatches.Rectangle(<br/>        (x, y), w, h, fill=False, edgecolor='red', linewidth=1)<br/>    ax.add_patch(rect)<br/>plt.axis('off')<br/>plt.show()</pre>
+<p class="CDPAlignCenter CDPAlign"><img src="Images/eb1ac059-09d8-4f87-bb46-23877f68f432.png" width="205" height="340"/></p>
+<p>From the preceding screenshot, we see that there are multiple regions that are extracted from the image.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Calculating an intersection over a union between two images</h1>
+                </header>
+            
+            <article>
+                
+<p>To understand how accurate the proposed regions are, we use a metric named <strong>Intersection over Union</strong> (<strong>IoU</strong>). IoU can be visualized as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="Images/c167b0ff-23eb-4dd7-8e62-f3c265fe7b82.png" style="width:42.33em;height:18.83em;" width="628" height="280"/></p>
+<p>Note that, in the preceding picture, the blue box (lower one) is the ground truth and the red box (the upper rectangle) is the region proposal.</p>
+<p>The intersection over the union of the region proposal is calculated as the ratio of the intersection of the proposal and the ground truth over the union of the region proposal and the ground truth.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">How to do it...</h1>
+                </header>
+            
+            <article>
+                
+<p>IoU is calculated as follows (the code file is available as <kbd>Selective_search.ipynb</kbd> in GitHub):</p>
+<ol>
+<li>Define the IoU extraction function, demonstrated in the following code:</li>
+</ol>
+<pre style="padding-left: 60px">from copy import deepcopy<br/>import numpy as np<br/>def extract_iou(candidate, current_y,img_shape):<br/>     boxA = deepcopy(candidate)<br/>     boxB = deepcopy(current_y)<br/><br/>     img1 = np.zeros(img_shape)<br/>     img1[boxA[1]:boxA[3],boxA[0]:boxA[2]]=1<br/><br/>     img2 = np.zeros(img_shape)<br/>     img2[int(boxB[1]):int(boxB[3]),int(boxB[0]):int(boxB[2])]=1<br/><br/>     iou = np.sum(img1*img2)/(np.sum(img1)+np.sum(img2)- np.sum(img1*img2))<br/>     return iou</pre>
+<p style="padding-left: 60px">In the preceding function, we take the candidate, actual object region, and image shape as input.</p>
+<p style="padding-left: 60px">Further, we initialized two zero-value arrays of the same shape for the candidate image and the actual object location image.</p>
+<p style="padding-left: 60px">We have over-written the candidate image and the actual object location images with one, wherever the image and object are located.</p>
+<p style="padding-left: 60px">Finally, we calculated the intersection over the union of the candidate image with the actual object location image.</p>
+<ol start="2">
+<li>Import the image of interest:</li>
+</ol>
+<pre style="padding-left: 60px">img = cv2.imread('/content/Hemanvi.jpeg')</pre>
+<ol start="3">
+<li>Plot the image and verify the actual location of the object of interest:</li>
+</ol>
+<pre style="padding-left: 60px">plt.imshow(img)<br/>plt.grid('off')</pre>
+<p class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-1410 image-border" src="Images/77532f5a-d1fd-4883-a1f0-92c9aa15685c.png" style="width:13.33em;height:19.75em;" width="185" height="275"/></p>
+<p>Note that the region of interest is ~50 pixels from bottom left extending to ~290th pixel of the image. Additionally, on the <em>y</em> axis, it starts from ~50th pixel too till the end of the image.</p>
+<p>So, the actual location of object is (50, 50, 290, 500), which is in the format of (<kbd>xmin</kbd>, <kbd>ymin</kbd>, <kbd>xmax</kbd>, <kbd>ymax</kbd>).</p>
+<ol start="4">
+<li>Extract the region proposals:</li>
+</ol>
+<pre style="padding-left: 60px">img_lbl, regions = selectivesearch.selective_search(img, scale=100, min_size=2000)</pre>
+<p style="padding-left: 60px">The regions extracted from the <kbd>selectivesearch</kbd> method are in the format of (<kbd>xmin</kbd>, <kbd>ymin</kbd>, <kbd>width</kbd>, <kbd>height</kbd>). Hence, before extracting the IoU of the regions, we should ensure that the candidate and the actual location of image are in the same format that is, (<kbd>xmin</kbd>, <kbd>ymin</kbd>, <kbd>xmax</kbd>, <kbd>ymax</kbd>)</p>
+<ol start="5">
+<li>Apply the IoU extraction function to the image of interest. Note that the function takes the actual object's location and the candidate image shape as input:</li>
+</ol>
+<pre style="padding-left: 60px">regions =list(candidates)<br/>actual_bb = [50,50,290,500]<br/>iou = []<br/>for i in range(len(regions)):<br/>     candidate = list(regions[i])<br/>     candidate[2] += candidate[0]<br/>     iou.append(extract_iou(candidate, actual_bb, img.shape))</pre>
+<ol start="6">
+<li>Identify the region that has the highest overlap with the actual object of interest (ground truth bounding box):</li>
+</ol>
+<pre style="padding-left: 60px">np.argmax(iou)</pre>
+<p style="padding-left: 60px">The preceding output for this specific image is the tenth candidate where the coordinates are <span>0, 0, 299, 515.</span></p>
+<ol start="7">
+<li>Let's print the actual bounding box and the candidate bounding box. For this, we have to convert the (<kbd>xmin</kbd>, <kbd>ymin</kbd>, <kbd>xmax</kbd>, <kbd>ymax</kbd>) format of output into (<kbd>xmin</kbd>, <kbd>ymin</kbd>, <kbd>width</kbd>, <kbd>height</kbd>):</li>
+</ol>
+<pre style="padding-left: 60px">max_region = list(regions[np.argmax(iou)])<br/>max_region[2] -= max_region[0]<br/>max_region[3] -= max_region[1]<br/><br/>actual_bb[2] -= actual_bb[0]<br/>actual_bb[3] -= actual_bb[1]</pre>
+<p style="padding-left: 60px">Let's append the actual and the bounding box with the highest IoU:</p>
+<pre style="padding-left: 60px">maxcandidate_actual = [max_region,actual_bb]</pre>
+<p style="padding-left: 60px">Now, we will loop through the preceding list and assign a bigger line width for actual location of object in image, so that we are able to distinguish between candidate and the actual object's location:</p>
+<pre style="padding-left: 60px">import matplotlib.patches as mpatches<br/>fig, ax = plt.subplots(ncols=1, nrows=1, figsize=(6, 6))<br/>ax.imshow(img)<br/>for i,(x, y, w, h) in enumerate(maxcandidate_actual):<br/> if(i==0):<br/> rect = mpatches.Rectangle(<br/> (x, y), w, h, fill=False, edgecolor='blue', linewidth=2)<br/> ax.add_patch(rect)<br/> else:<br/> rect = mpatches.Rectangle(<br/> (x, y), w, h, fill=False, edgecolor='red', linewidth=5)<br/> ax.add_patch(rect)<br/>plt.axis('off')<br/>plt.show()</pre>
+<p class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-1411 image-border" src="Images/46f2426e-a451-4087-bce0-45d0c1b1d303.png" style="width:15.08em;height:25.92em;" width="199" height="340"/></p>
+<p>In this way, we are in a position to identify each candidate's IoU with the actual location of an object in the image. Additionally, we are also in a position to identify the candidate that has the highest IoU with the actual location of an object in the image.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Detecting objects, using region proposal-based CNN</h1>
+                </header>
+            
+            <article>
+                
+<p>In the previous section, we have learned about generating region proposals from an image. In this section, we will leverage the region proposals to come up with object detection and localization within an image.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Getting ready</h1>
+                </header>
+            
+            <article>
+                
+<p>The strategy we shall be adopting to perform region proposal-based object detection and localization is as follows:</p>
+<ol>
+<li>For the current exercise, we'll build the model based on images that contain only one object</li>
+<li>We'll extract the various region proposals (candidates) within the image</li>
+<li>We will calculate how close the candidate is to the actual object location:
+<ul>
+<li>Essentially, we calculate the intersection over the union of the candidate with the actual location of the object</li>
+</ul>
+</li>
+<li>If the intersection over the union is greater than a certain threshold—the candidate is considered to contain the object of interest—or else, it doesn't:
+<ul>
+<li>This creates the label for each candidate where the candidate's image is input and the intersection over the union threshold provides the output</li>
+</ul>
+</li>
+<li>We'll resize and pass each candidate image through the VGG16 model (which we have learned in the previous chapter) to extract features of the candidates</li>
+<li>Additionally, we will create the training data of the bounding-box correction by comparing the location of the candidate and the actual location of an object</li>
+<li>Build a classification model that maps the features of the candidate to the output of whether the region contains an object</li>
+<li>For the regions that contain an image (as per the model), build a regression model that maps the input features of candidate to the correction required to extract the accurate bounding box of an object</li>
+</ol>
+<ol start="9">
+<li>Perform non-max suppression on top of the resulting bounding boxes:
+<ul>
+<li>Non-max suppression ensures that the candidates that overlap a lot are reduced to 1, where only the candidate that has the highest probability of containing an object is left</li>
+</ul>
+</li>
+<li>By performing a non-max suppression, we would be in a position to replicate the model that we built for images that contain multiple objects within the image too</li>
+</ol>
+<p>A schematic of the preceding is shown as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-1412 image-border" src="Images/cffb313a-6080-4b13-a921-c383a7830bb1.png" style="width:42.83em;height:22.58em;" width="688" height="364"/></p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">How to do it...</h1>
+                </header>
+            
+            <article>
+                
+<p>In this section, we will code up the algorithm that we have discussed in the previous section (the code file and corresponding recommended dataset link is available as <kbd>Region_proposal_based_object_detection.ipynb</kbd> in GitHub along with the recommended dataset):</p>
+<ol>
+<li>Download the dataset that contains a set of images, the objects contained in them, and the corresponding bounding boxes of objects in the image. The dataset and the corresponding code files that you can work on are provided in GitHub.</li>
+</ol>
+<p style="padding-left: 60px">A sample image and the corresponding bounding box co-ordinates and class of object in image are available as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-1413 image-border" src="Images/98a29fdc-3138-4c23-b471-afd9c7b39b9b.png" style="width:14.33em;height:21.25em;" width="185" height="275"/></p>
+<p style="padding-left: 60px">The class of object and bounding box co-ordinates would be available in an XML file (Details of how to obtain the XML file are available in code file in GitHub) and can be extracted from the XML file as follows:</p>
+<p style="padding-left: 60px">If <span> </span><kbd>xml["annotation"]["object"]</kbd><span>  is a list, it indicates that there multiple objects present in the same image.</span></p>
+<p style="padding-left: 60px"><span> </span><kbd>xml["annotation"]["object"]["bndbox"]</kbd><span>  extracts the bounding box of object present in image where the bounding box is available as "xmin","ymin","xmax" and "ymax" co-ordinates of object in image.</span></p>
+<p style="padding-left: 60px"><span> </span><kbd>xml["annotation"]["object"]["name"]</kbd><span>  extracts the class of object present in image.</span></p>
+<ol start="2">
+<li>Import the relevant packages as follows:</li>
+</ol>
+<pre style="padding-left: 60px">import matplotlib.pyplot as plt<br/>%matplotlib inline<br/>import tensorflow as tf, selectivesearch<br/>import json, scipy, os, numpy as np,argparse,time, sys, gc, cv2, xmltodict<br/>from copy import deepcopy</pre>
+<ol start="3">
+<li>Define the IoU extraction function, shown in the following code:</li>
+</ol>
+<pre style="padding-left: 60px">def extract_iou2(candidate, current_y,img_shape):<br/>     boxA = deepcopy(candidate)<br/>     boxB = deepcopy(current_y)<br/>     boxA[2] += boxA[0]<br/>     boxA[3] += boxA[1]<br/>     iou_img1 = np.zeros(img_shape)<br/>     iou_img1[boxA[1]:boxA[3],boxA[0]:boxA[2]]=1<br/>     iou_img2 = np.zeros(img_shape)<br/>     iou_img2[int(boxB[1]):int(boxB[3]),int(boxB[0]):int(boxB[2])]=1<br/>     iou = np.sum(iou_img1*iou_img2)/(np.sum(iou_img1)+np.sum(iou_img2)-np.sum(iou_img1*iou_img2))<br/>     return iou</pre>
+<ol start="4">
+<li>Define the candidate extraction function, shown as follows:</li>
+</ol>
+<pre style="padding-left: 60px">def extract_candidates(img):<br/>     img_lbl, regions = selectivesearch.selective_search(img, scale=100, min_size=100)<br/>     img_area = img.shape[0]*img.shape[1]<br/>     candidates = []<br/>     for r in regions:<br/>         if r['rect'] in candidates:<br/>             continue<br/>         if r['size'] &lt; (0.05*img_area):<br/>             continue<br/>         x, y, w, h = r['rect']<br/>         candidates.append(list(r['rect']))<br/>     return candidates</pre>
+<p style="padding-left: 60px">Note that, in the preceding function, we are excluding all candidates which occupy less than 5% of the area of image.</p>
+<ol start="5">
+<li>Import the pre-trained VGG16 model as follows:</li>
+</ol>
+<pre style="padding-left: 60px">from keras.applications import vgg16<br/>from keras.utils.vis_utils import plot_model<br/>vgg16_model = vgg16.VGG16(include_top=False, weights='imagenet')</pre>
+<ol start="6">
+<li>Create the input and output mapping for the images that contain only one object within them. Initialize multiple lists that will be populated as we go through the images:</li>
+</ol>
+<pre style="padding-left: 60px">training_data_size = N = 1000<br/><br/>final_cls = []<br/>final_delta = []<br/>iou_list = []<br/>imgs = []</pre>
+<p style="padding-left: 60px">We'll loop through the images and shall work on only those that contain a single object:</p>
+<pre style="padding-left: 60px">for ix, xml in enumerate(XMLs[:N]):<br/>    print('Extracted data from {} xmls...'.format(ix), end='\r')<br/>    xml_file = annotations + xml<br/>    fname = xml.split('.')[0]<br/>    with open(xml_file, "rb") as f: # notice the "rb" mode<br/>        xml = xmltodict.parse(f, xml_attribs=True)<br/>        l = []        <br/>        if isinstance(xml["annotation"]["object"], list):<br/>            #'let us ignore cases with multiple objects...'<br/>            continue</pre>
+<p style="padding-left: 60px">In the preceding code, we are extracting the <kbd>xml</kbd> attributes of an image and checking whether the image contains multiple objects (if the output of <kbd>xml["annotation"]["object"]</kbd> is a list, then the image contains multiple objects).</p>
+<p style="padding-left: 60px">Normalize the object location coordinates so that we can work on the normalized bounding box. This is done so that the normalized bounding box does not change, even if the image shape is changed for further processing. For example, if the object's <kbd>xmin</kbd> is at 20<span>%</span> of <em>x</em> axis and 50% of <em>y</em> axis, it would be the same, even when the image is reshaped (however, had we been dealing with pixel values, the <kbd>xmin</kbd> value would be changed):</p>
+<pre>        bndbox = xml['annotation']['object']['bndbox']<br/>        for key in bndbox:<br/>              bndbox[key] = float(bndbox[key])<br/>        x1, x2, y1, y2 = [bndbox[key] for key in ['xmin', 'xmax', 'ymin', 'ymax']]<br/><br/>        img_size = xml['annotation']['size']<br/>        for key in img_size:<br/>              img_size[key] = float(img_size[key])<br/>        w, h = img_size['width'], img_size['height']<br/><br/>        #'converting pixel values from bndbox to fractions...'<br/>        x1 /= w; x2 /= w; y1 /= h; y2 /= h<br/>        label = xml['annotation']['object']['name']<br/><br/>        y = [x1, y1, x2-x1, y2-y1, label]  # top-left x &amp; y, width and height</pre>
+<p style="padding-left: 60px">In the preceding code, we have normalized the bounding-box coordinates.</p>
+<p style="padding-left: 60px">Extract candidates of the image:</p>
+<pre style="padding-left: 60px">         filename = jpegs+fname+'.jpg' # Path to jpg files here<br/>         img = cv2.resize(cv2.imread(filename), (224,224)) # since VGG's input shape is 224x224<br/>         candidates = extract_candidates(img)</pre>
+<p style="padding-left: 60px">In the preceding code, we are using the <kbd>extract_candidates</kbd> function to extract the region proposals of the resized image.</p>
+<p style="padding-left: 60px">Loop through the candidates to calculate the intersection over union of each candidate with the actual bounding box of the object in the image and also the corresponding delta between the actual bounding box and the candidate:</p>
+<pre style="padding-left: 60px">         for jx, candidate in enumerate(candidates):<br/>                current_y2 = [int(i*224) for i in [x1,y1,x2,y2]] # [int(x1*224), int(y1*224), int(x2*224), int(y2*224)]<br/>                iou = extract_iou2(candidate, current_y2, (224, 224))<br/>                candidate_region_coordinates = c_x1, c_y1, c_w, c_h = np.array(candidate)/224<br/><br/>                dx = c_x1 - x1 <br/>                dy = c_y1 - y1 <br/>                dw = c_w - (x2-x1)<br/>                dh = c_h - (y2-y1)<br/><br/>                final_delta.append([dx,dy,dw,dh]) </pre>
+<p style="padding-left: 60px">Calculate the VGG16 features of each region proposal and assign the target based on the IoU of the region proposal with the actual bounding box:</p>
+<pre style="padding-left: 60px">               if(iou&gt;0.3): <br/>                    final_cls.append(label)<br/>               else:<br/>                    final_cls.append('background')<br/><br/>            #"We'll predict our candidate crop using VGG"<br/>               l = int(c_x1 * 224)<br/>               r = int((c_x1 + c_w) * 224)<br/>               t = int(c_y1 * 224)<br/>               b = int((c_y1 + c_h) * 224)<br/><br/>               img2 = img[t:b,l:r,:3]<br/>               img3 = cv2.resize(img2,(224,224))/255<br/>               img4 = vgg16_model.predict(img3.reshape(1,224,224,3))<br/>               imgs.append(img4)</pre>
+<ol start="7">
+<li>Create input and output arrays:</li>
+</ol>
+<pre style="padding-left: 60px">targets = pd.DataFrame(final_cls, columns=['label'])<br/>labels = pd.get_dummies(targets['label']).columns<br/>y_train = pd.get_dummies(targets['label']).values.astype(float)</pre>
+<p style="padding-left: 60px">We utilize the <kbd>get_dummies</kbd> method as the classes are categorical text values:</p>
+<pre style="padding-left: 60px">x_train = np.array(imgs)<br/>x_train = x_train.reshape(x_train.shape[0],x_train.shape[2],x_train.shape[3],x_train.shape[4])</pre>
+<ol start="8">
+<li>Build and compile the model:</li>
+</ol>
+<pre style="padding-left: 60px">model = Sequential()<br/>model.add(Flatten(input_shape=((7,7,512))))<br/>model.add(Dense(512, activation='relu'))<br/>model.add(Dense(all_classes.shape[1],activation='softmax'))<br/><br/>model.compile(loss='binary_crossentropy',optimizer='adam', metrics=['accuracy'])</pre>
+<ol start="9">
+<li>Fit the model, shown as follows:</li>
+</ol>
+<pre style="padding-left: 60px">model.fit(xtrain3/x_train.max(),y_train,validation_split = 0.1, epochs=5, batch_size=32, verbose=1)</pre>
+<p style="padding-left: 60px">The preceding results in a classification accuracy of 97% on a test dataset.</p>
+<div class="packt_infobox"><span>We are dividing the input array by <kbd>x_train.max()</kbd>, as the maximum value in an input array is ~11. Typically, it is a good idea to have input values between zero and one, and given that the VGG16 prediction on the scaled input has a maximum value of ~11, we divide the input array by <kbd>x_train.max()</kbd>—which is equal to ~11.</span></div>
+<ol start="10">
+<li>Make a prediction of the class from the dataset (ensure that we do not consider an image that was used for training).</li>
+<li>Pick an image that was not used for testing:</li>
+</ol>
+<pre style="padding-left: 60px">import matplotlib.patches as mpatches<br/>ix = np.random.randint(N, len(XMLs))<br/>filename = jpegs + XMLs[ix].replace('xml', 'jpg')</pre>
+<ol start="12">
+<li>Build a function that performs image preprocessing to extract candidates, performs model prediction on resized candidates, filters out the predicted background class regions, and, finally, plots the region (candidate) that has the highest probability of containing a class that is other than the background class:</li>
+</ol>
+<pre style="padding-left: 60px">def test_predictions(filename):<br/>     img = cv2.resize(cv2.imread(filename), (224,224))<br/>     candidates = extract_candidates(img)</pre>
+<p style="padding-left: 60px">In the preceding code, we are resizing an input image and are extracting candidates from it:</p>
+<pre style="padding-left: 60px">    _, ax = plt.subplots(1, 2)<br/>    ax[0].imshow(img)<br/>    ax[0].grid('off')<br/>    ax[0].set_title(filename.split('/')[-1])<br/>    pred = []<br/>    pred_class = []</pre>
+<p style="padding-left: 60px">In the preceding code, are plotting an image and are initializing the predicted probability and predicted class lists that will be populated in subsequent steps:</p>
+<pre style="padding-left: 60px">    for ix, candidate in enumerate(candidates):<br/>        l, t, w, h = np.array(candidate).astype(int)<br/>        img2 = img[t:t+h,l:l+w,:3]<br/>        img3 = cv2.resize(img2,(224,224))/255<br/>        img4 = vgg16_model.predict(img3.reshape(1,224,224,3))<br/>        final_pred = model.predict(img4/x_train.max())<br/>        pred.append(np.max(final_pred))<br/>        pred_class.append(np.argmax(final_pred))</pre>
+<p style="padding-left: 60px">In the preceding code, we are looping through the candidates, resizing them, and passing them through the VGG16 model. Furthermore, we are passing the VGG16 output through our model, which provides the probability of the image belonging to various classes:</p>
+<pre style="padding-left: 90px">    pred = np.array(pred)<br/>    pred_class = np.array(pred_class)<br/>    pred2 = pred[pred_class!=1]<br/>    pred_class2 = pred_class[pred_class!=1]<br/>    candidates2 = np.array(candidates)[pred_class!=1]<br/>    x, y, w, h = candidates2[np.argmax(pred2)]</pre>
+<p style="padding-left: 60px">In the preceding code, we are extracting the candidate that has the highest probability of containing an object that is non-background (the predicted class of one corresponds to the background):</p>
+<pre style="padding-left: 90px">   ax[1].set_title(labels[pred_class2[np.argmax(pred2)]])<br/>   ax[1].imshow(img)<br/>   ax[1].grid('off')<br/>   rect = mpatches.Rectangle((x, y), w, h, fill=False, edgecolor='red', linewidth=1)<br/>   ax[1].add_patch(rect)</pre>
+<p style="padding-left: 60px">In the preceding code, we are plotting the image along with rectangular patch of the bounding box.</p>
+<ol start="13">
+<li>Call the function defined with a new image:</li>
+</ol>
+<pre style="padding-left: 120px">filename = '<span>...' #Path to new image</span><br/>test_predictions(filename)</pre>
+<p class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-1414 image-border" src="Images/3dbde263-8f5e-4c2e-8c25-2cd98af80476.png" style="width:27.50em;height:14.25em;" width="371" height="192"/></p>
+<p style="padding-left: 60px">Note that the model accurately figured the class of the object in the image. Additionally, the bounding box (candidate) that has the highest probability of containing a person needs a little bit of correction.</p>
+<p style="padding-left: 60px">In the next step, we will correct the bounding box further.</p>
+<ol start="14">
+<li>Build and compile a model that takes the VGG16 features of image as input and predicts the bounding-box corrections:</li>
+</ol>
+<pre style="padding-left: 120px">model2 = Sequential()<br/>model2.add(Flatten(input_shape=((7,7,512))))<br/>model2.add(Dense(512, activation='relu'))<br/>model2.add(Dense(4,activation='linear'))<br/><br/>model2.compile(loss='mean_absolute_error',optimizer='adam')</pre>
+<ol start="15">
+<li>Build the model to predict bounding-box corrections. <span>However, we need to ensure that we predict bounding-box corrections only for those regions that are likely to contain an image:</span></li>
+</ol>
+<pre style="padding-left: 60px">for i in range(1000):<br/>     samp=random.sample(range(len(x_train)),500)<br/>     x_train2=[x_train[i] for i in samp if pred_class[i]!=1]<br/>     x_train2 = np.array(x_train2)<br/>     final_delta2 = [final_delta[i] for i in samp if pred_class[i]!=1]<br/>     model2.fit(x_train2/x_train.max(), np.array(final_delta2), validation_split = 0.1, epochs=1, batch_size=32, verbose=0)</pre>
+<p style="padding-left: 60px">In the preceding code, we are looping through the input array dataset and creating a new dataset that is only for those regions that are likely to contain a non-background.</p>
+<p style="padding-left: 60px">Additionally, we are repeating the preceding step 1,000 different times to fine tune the model.</p>
+<ol start="16">
+<li>Build a function that takes an image path as input and predicts the class of an image, along with correcting the bounding box:</li>
+</ol>
+<pre style="padding-left: 60px">'TESTING'<br/>import matplotlib.patches as mpatches<br/>def test_predictions2(filename):<br/>     img = cv2.resize(cv2.imread(filename), (224,224))<br/>     candidates = extract_candidates(img)<br/>     _, ax = plt.subplots(1, 2)<br/>     ax[0].imshow(img)<br/>     ax[0].grid('off')<br/>     ax[0].set_title(filename.split('/')[-1])<br/>     pred = []<br/>     pred_class = []<br/>     del_new = []<br/>     for ix, candidate in enumerate(candidates):<br/>        l, t, w, h = np.array(candidate).astype(int)<br/>        img2 = img[t:t+h,l:l+w,:3]<br/>        img3 = cv2.resize(img2,(224,224))/255<br/>        img4 = vgg16_model.predict(img3.reshape(1,224,224,3)) <br/>        final_pred = model.predict(img4/x_train.max())<br/>        delta_new = model2.predict(img4/x_train.max())[0] <br/>        pred.append(np.max(final_pred))<br/>        pred_class.append(np.argmax(final_pred))<br/>        del_new.append(delta_new) <br/>     pred = np.array(pred)<br/>     pred_class = np.array(pred_class)<br/>     non_bgs = (pred_class!=1)<br/>     pred = pred[non_bgs]<br/>     pred_class = pred_class[non_bgs] <br/>     del_new = np.array(del_new)<br/>     del_new = del_new[non_bgs]<br/>     del_pred = del_new*224<br/>     candidates = C = np.array(candidates)[non_bgs]<br/>     C = np.clip(C, 0, 224)<br/>     C[:,2] += C[:,0]<br/>     C[:,3] += C[:,1]<br/>     bbs_pred = candidates - del_pred<br/>     bbs_pred = np.clip(bbs_pred, 0, 224) <br/>     bbs_pred[:,2] -= bbs_pred[:,0]<br/>     bbs_pred[:,3] -= bbs_pred[:,1]<br/>     final_bbs_pred = bbs_pred[np.argmax(pred)]<br/>     x, y, w, h = final_bbs_pred<br/>     ax[1].imshow(img)<br/>     ax[1].grid('off')<br/>     rect = mpatches.Rectangle((x, y), w, h, fill=False, edgecolor='red', linewidth=1)<br/>     ax[1].add_patch(rect)<br/>     ax[1].set_title(labels[pred_class[np.argmax(pred)]])</pre>
+<ol start="17">
+<li>Extract the test images that contain only one object (as we have built the model on images that contain a single object):</li>
+</ol>
+<pre style="padding-left: 60px">single_object_images = []<br/>for ix, xml in enumerate(XMLs[N:]):<br/>     xml_file = annotations + xml<br/>     fname = xml.split('.')[0]<br/>     with open(xml_file, "rb") as f: # notice the "rb" mode<br/>         xml = xmltodict.parse(f, xml_attribs=True)<br/>         l = []<br/>         if isinstance(xml["annotation"]["object"], list):<br/>             continue<br/>         single_object_images.append(xml["annotation"]['filename'])<br/>         if(ix&gt;100):<br/>             break</pre>
+<p style="padding-left: 60px">In the preceding code, we are looping through the image annotations and identifying the images that contain a single object.</p>
+<ol start="18">
+<li>Predict on the single object image:</li>
+</ol>
+<pre style="padding-left: 60px">test_predictions2(filename)</pre>
+<p class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-1415 image-border" src="Images/3ae32885-779f-4d76-997b-a69f51db9f4e.png" style="width:32.42em;height:17.67em;" width="389" height="212"/></p>
+<p>Note that the second model was able to correct the bounding box to fit the person; however, the bounding box still needs to be corrected a little more. This could potentially be achieved when trained on more data points.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Performing non-max suppression</h1>
+                </header>
+            
+            <article>
+                
+<p>So far, in the previous section, we have only considered the candidates that do not have a background, and further considered the candidate that has the highest probability of the object of interest. However, this fails in the scenario w<span>here there are multiple objects present in an image.</span></p>
+<p>In this section, we will discuss the ways to shortlist the candidate region proposals so that we are in a position to extract as many objects as possible within the image.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Getting ready</h1>
+                </header>
+            
+            <article>
+                
+<p>The strategy we adopt to perform NMS is as follows:</p>
+<ul>
+<li>Extract the region proposals from an image</li>
+<li>Reshape the region proposals and predict the object that is contained in the image</li>
+<li>If the object is non-background, we shall keep the candidate</li>
+<li>For all the non-background class candidates, we'll order them by the probability that they contain an object</li>
+<li>The first candidate (post-rank ordering by decreasing probability of any class) will be compared with all the rest of candidates in terms of the IoU</li>
+<li>If there is considerable overlap between any other region with the first candidate, they shall be discarded</li>
+<li>Among the candidates that remain, we'll again consider the candidate that has the highest probability of containing an object</li>
+<li>We'll repeat the comparison of first candidate (among the filtered list that has limited overlap with the first candidate in the previous step) with the rest of the candidates</li>
+<li>This process continues until there are no candidates left for comparison</li>
+<li>We'll plot the candidates for the candidates that remain after the preceding steps as the final bounding boxes</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">How to do it...</h1>
+                </header>
+            
+            <article>
+                
+<p>Non-max suppression is coded in Python as follows. We'll continue from step 14 in the previous recipe <span>(The code file and corresponding recommended dataset link is available as</span> <kbd>Region_proposal_based_object_detectionn.ipynb</kbd> i<span>n GitHub)</span>.</p>
+<ol>
+<li>Extract all the regions from an image where there is a high confidence of containing an object that is of a non-background class:</li>
+</ol>
+<pre style="padding-left: 60px">filename = jpegs + single_object_images[ix]<br/>img = cv2.imread(filename)<br/>img = cv2.resize(img,(224,224))<br/>img_area = img.shape[0]*img.shape[1]<br/>candidates = extract_candidates(img)<br/>plt.imshow(img)<br/>plt.grid('off')</pre>
+<p style="padding-left: 60px">The image that we are considering is as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-1416 image-border" src="Images/ad993779-4983-499c-841a-61bc9b3c2692.png" style="width:22.17em;height:21.92em;" width="266" height="263"/></p>
+<ol start="2">
+<li>Pre-process the candidates—pass them through VGG16 model, and then predict the class of each region proposal, as well as the bounding boxes of the regions:</li>
+</ol>
+<pre style="padding-left: 60px" class="mce-root">pred = []<br/>pred_class = []<br/>del_new = []<br/><br/>for ix, candidate in enumerate(candidates):<br/>    l, t, w, h = np.array(candidate).astype(int)<br/>    img2 = img[t:t+h,l:l+w,:3]<br/>    img3 = cv2.resize(img2,(224,224))/255<br/>    img4 = vgg16_model.predict(img3.reshape(1,224,224,3)) <br/>    final_pred = model.predict(img4/x_train.max())<br/>    delta_new = model2.predict(img4/x_train.max())[0]<br/>    pred.append(np.max(final_pred))<br/>    pred_class.append(np.argmax(final_pred))<br/>    del_new.append(delta_new)<br/>pred = np.array(pred)<br/>pred_class = np.array(pred_class)</pre>
+<ol start="3">
+<li class="mce-root">Extract the non-background class predictions and their corresponding bounding-box corrections:</li>
+</ol>
+<pre style="padding-left: 60px" class="mce-root">non_bgs = ((pred_class!=1))<br/>pred = pred[non_bgs]<br/>pred_class = pred_class[non_bgs]<br/><br/>del_new = np.array(del_new)<br/>del_new = del_new[non_bgs]<br/>del_pred = del_new*224</pre>
+<p style="padding-left: 60px" class="mce-root">In the preceding step, we have filtered all the probabilities, classes, and bounding-box corrections for the regions that are non-background (predicted class <kbd>1</kbd> belongs to background class in our data preparation process).</p>
+<ol start="4">
+<li>Correct the candidates using the bounding-box correction values:</li>
+</ol>
+<pre style="padding-left: 60px">candidates = C = np.array(candidates)[non_bgs]<br/>C = np.clip(C, 0, 224)<br/>C[:,2] += C[:,0]<br/>C[:,3] += C[:,1]<br/><br/>bbs_pred = candidates - del_pred<br/>bbs_pred = np.clip(bbs_pred, 0, 224)</pre>
+<p style="padding-left: 60px">Additionally, we have also ensured that the <kbd>xmax</kbd> and <kbd>ymax</kbd> coordinates cannot be greater than <kbd>224</kbd>.</p>
+<p style="padding-left: 60px">Furthermore, we need to ensure that the width and height of bounding boxes cannot be negative:</p>
+<pre style="padding-left: 60px">bbs_pred[:,2] -= bbs_pred[:,0]<br/>bbs_pred[:,3] -= bbs_pred[:,1]<br/>bbs_pred = np.clip(bbs_pred, 0, 224)<br/><br/>bbs_pred2 = bbs_pred[(bbs_pred[:,2]&gt;0) &amp; (bbs_pred[:,3]&gt;0)]<br/>pred = pred[(bbs_pred[:,2]&gt;0) &amp; (bbs_pred[:,3]&gt;0)]<br/>pred_class = pred_class[(bbs_pred[:,2]&gt;0) &amp; (bbs_pred[:,3]&gt;0)]</pre>
+<ol start="5">
+<li>Plot the image along with the bounding boxes:</li>
+</ol>
+<pre style="padding-left: 60px">import matplotlib.patches as mpatches<br/>fig, ax = plt.subplots(ncols=1, nrows=1, figsize=(6, 6))<br/>ax.imshow(img)<br/>for ix, (x, y, w, h) in enumerate(bbs_pred2):<br/>    rect = mpatches.Rectangle(<br/>        (x, y), w, h, fill=False, edgecolor='red', linewidth=1)<br/>    ax.add_patch(rect)<br/><br/>plt.axis('off')<br/>plt.show()</pre>
+<p class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-1417 image-border" src="Images/509c6bb7-d6d8-4e13-b9d7-7c10a5da93ed.png" style="width:24.67em;height:24.42em;" width="335" height="333"/></p>
+<ol start="6">
+<li>Perform non-max suppression on top of the bounding boxes. For this, we'll define a function that performs NMS by taking the minimum possible intersection that two bounding boxes can have (threshold), bounding-box coordinates, and the probability score associated with each bounding box in the following steps:
+<ol>
+<li>Calculate the <kbd>x</kbd>, <kbd>y</kbd>, <kbd>w</kbd>, and <kbd>h</kbd> values of each bounding box, their corresponding areas, and, also, their probability order:</li>
+</ol>
+</li>
+</ol>
+<pre style="padding-left: 120px">def nms_boxes(threshold, boxes, scores):<br/>     x = boxes[:, 0]<br/>     y = boxes[:, 1]<br/>     w = boxes[:, 2]<br/>     h = boxes[:, 3]<br/>     areas = w * h<br/>     order = scores.argsort()[::-1]</pre>
+<ol>
+<li style="list-style-type: none">
+<ol start="2">
+<li class="CDPAlignLeft CDPAlign">Calculate the intersection over union of the candidate with highest probability with the rest of the candidates:</li>
+</ol>
+</li>
+</ol>
+<pre style="padding-left: 60px">     keep = []<br/>     while order.size &gt; 0:<br/>         i = order[0]<br/>         keep.append(i)<br/>         xx1 = np.maximum(x[i], x[order[1:]])<br/>         yy1 = np.maximum(y[i], y[order[1:]])<br/>         xx2 = np.minimum(x[i] + w[i], x[order[1:]] + w[order[1:]])<br/>         yy2 = np.minimum(y[i] + h[i], y[order[1:]] + h[order[1:]])<br/>         w1 = np.maximum(0.0, xx2 - xx1 + 1)<br/>         h1 = np.maximum(0.0, yy2 - yy1 + 1)<br/>         inter = w1 * h1<br/>         iou = inter / (areas[i] + areas[order[1:]] - inter)</pre>
+<ol>
+<li style="list-style-type: none">
+<ol start="3">
+<li>Identify the candidates that have an IoU that is less than the threshold:</li>
+</ol>
+</li>
+</ol>
+<pre style="padding-left: 60px">        inds = np.where(ovr &lt;= threshold)[0]<br/>        order = order[inds + 1]</pre>
+<p style="padding-left: 120px">In the preceding step, we are ensuring that we have the next set of candidates (other than the first candidate) that are to be looped through the same steps (notice the <kbd>while</kbd> loop at the start of the function).</p>
+<ol>
+<li style="list-style-type: none">
+<ol start="4">
+<li>Return the index of candidates that need to be kept:</li>
+</ol>
+</li>
+</ol>
+<pre style="padding-left: 90px">    keep = np.array(keep)<br/>    return keep</pre>
+<ol start="7">
+<li>Execute the preceding function:</li>
+</ol>
+<pre style="padding-left: 60px">keep_box_ixs = nms_boxes(0.3, bbs_pred2, pred)</pre>
+<ol start="8">
+<li>Plot those bounding boxes that were left from the previous step:</li>
+</ol>
+<pre style="padding-left: 60px">import matplotlib.patches as mpatches<br/>fig, ax = plt.subplots(ncols=1, nrows=1, figsize=(6, 6))<br/>ax.imshow(img)<br/>for ix, (x, y, w, h) in enumerate(bbs_pred2):<br/>     if ix not in keep_box_ixs:<br/>         continue<br/>     rect = mpatches.Rectangle((x, y), w, h, fill=False, edgecolor='red', linewidth=1)<br/>     ax.add_patch(rect)<br/>     centerx = x + w/2<br/>     centery = y + h - 10<br/>     plt.text(centerx, centery,labels[pred_class[ix]]+" "+str(round(pred[ix],2)),fontsize = 20,color='red')<br/>plt.axis('off')<br/>plt.show()</pre>
+<p class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-1418 image-border" src="Images/415d8874-7c1a-4f5a-af2e-6e66958d87e6.png" style="width:19.08em;height:19.00em;" width="336" height="334"/></p>
+<p>From the preceding screenshot, we see that we removed all the other bounding boxes that were generated as region proposals.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Detecting a person using an anchor box-based algorithm</h1>
+                </header>
+            
+            <article>
+                
+<p>One of the drawbacks of region proposal based CNN is that it does not enable a real-time object recognition, as selective search takes considerable time to propose regions. This results in region proposal-based object detection algorithms not being useful in cases like self-driving car, where real-time detection is very important.</p>
+<p>In order to achieve real-time detection, we will build a model that is inspired by the <strong>You Only Look Once</strong> (<strong>YOLO</strong>) algorithm from scratch that looks at the images that contain a person in image and draws a bounding box around the person in image.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">Getting ready</h1>
+                </header>
+            
+            <article>
+                
+<p>To understand how YOLO overcomes the drawback of consuming considerable time in generating region proposals, let us break the term YOLO into its constituent terms—we shall make all the predictions (class of image and also the bounding box) from a single forward pass of the neural network. Compare this with what we did with region proposal based CNN, where a selective search algorithm gave us the region proposals, and then we built a classification algorithm on top of it.</p>
+<p>To figure out the working details of YOLO, let's go through a toy example. Let's say the input image looks as follows—where the image is divided into a 3 x 3 grid:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="Images/d767d1cb-cba0-4129-af5e-a1ce782a7733.png" width="393" height="263"/></p>
+<p>The output of our neural network model shall be of 3 x 3 x 5 in size, where the first 3 x 3 correspond to the number of grids we have in the image, and the first output of the five channels corresponds to the probability of the grid containing an object, and the other four constituents are the <em>delta of x, y, w, h</em> coordinates corresponding to the grid in the image.</p>
+<p>One other lever that we use is the anchor boxes. Essentially, we already know that there are certain shapes within the set of images we have. For example, a car will have a shape where the width is greater than the height and a standing person would generally have a higher height when compared to the width.</p>
+<p>Hence, we shall cluster all the height and width values we have in our image set into five clusters and that shall result in the five anchor boxes' height and width that we shall use to identify bounding boxes around the objects in our image.</p>
+<p>If there are five anchor boxes working on an image, the output then shall be 3 x 3 x 5 x 5, where the 5 x 5 corresponds to the five constituents (one probability of the object and the four delta along <em>x</em>, <em>y</em>, <em>w</em>, and <em>h</em>) of each of the five anchor boxes.</p>
+<p>From the preceding, we can see that the 3 x 3 x 5 x 5 output can be generated from a single forward pass through the neural network model.</p>
+<p>In the following section, the pseudo code to understand the ways to generate the size of anchors:</p>
+<ul>
+<li>Extract the width and height of all images in a dataset</li>
+<li>Run a k-means clustering with five clusters to identify the clusters of width and height present in the image</li>
+<li>The five cluster centers correspond to the width and height of the five anchor boxes to build the model</li>
+</ul>
+<p>Furthermore, in the following section, we will understand how the YOLO algorithm works:</p>
+<ul>
+<li>Divide the image into a fixed number of grid cells</li>
+<li>The grid that corresponds to the center of the ground truth of the bounding box of the image shall be the grid that is responsible in predicting the bounding box</li>
+<li>The center of anchor boxes shall be the same as the center of the grid</li>
+<li>Create the training dataset:
+<ul>
+<li>For the grid that contains the center of object, the <span>dependent variable is one </span>and the delta of <em>x</em>, <em>y</em>, <em>w</em>, and <em>h</em> need to be calculated for each anchor box</li>
+<li>For the grids that do not contain the center of object, the dependent variable is zero and the delta of <em>x</em>, <em>y</em>, <em>w</em>, and <em>h</em> do not matter</li>
+</ul>
+</li>
+<li>In the first model, we shall predict the anchor box and grid cell combination that contain the center of the image</li>
+<li>In the second model, we predict the bounding box corrections of the anchor box</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">How to do it...</h1>
+                </header>
+            
+            <article>
+                
+<p>We will build the code to perform person detection <span>(The code file and corresponding recommended dataset link is available as</span> <kbd>Anchor_box_based_person_detection.ipynb</kbd><span> in GitHub along with the recommended dataset)</span>:</p>
+<ol>
+<li>Download the dataset that contains a set of images, the objects contained in them, and the corresponding bounding boxes of the objects in the images. The recommended dataset and the corresponding code files that you can work on are provided in GitHub.</li>
+</ol>
+<p style="padding-left: 60px">A sample image and its corresponding bounding box location output would look similar to the one that we saw in step 1 of "<em>Object detection using region proposal based CNN</em>" recipe.</p>
+<ol start="2">
+<li>Import the relevant packages, as follows:</li>
+</ol>
+<pre style="padding-left: 60px">import matplotlib.pyplot as plt<br/>%matplotlib inline<br/>import tensorflow as tf, selectivesearch<br/>import json, scipy, os, numpy as np,argparse,time, sys, gc, cv2, xmltodict<br/>from copy import deepcopy</pre>
+<ol start="3">
+<li>Define the IoU extraction function, shown in the following code:</li>
+</ol>
+<pre style="padding-left: 60px">def extract_iou2(candidate, current_y,img_shape):<br/>     boxA = deepcopy(candidate)<br/>     boxB = deepcopy(current_y)<br/>     boxA[2] += boxA[0]<br/>     boxA[3] += boxA[1]<br/>     iou_img1 = np.zeros(img_shape)<br/>     iou_img1[boxA[1]:boxA[3],boxA[0]:boxA[2]]=1<br/>     iou_img2 = np.zeros(img_shape)<br/>     iou_img2[int(boxB[1]):int(boxB[3]),int(boxB[0]):int(boxB[2])]=1<br/>     iou = np.sum(iou_img1*iou_img2)/(np.sum(iou_img1)+np.sum(iou_img2)-np.sum(iou_img1*iou_img2))<br/>     return iou</pre>
+<ol start="4">
+<li>Define the anchor boxes' width and height as a percentage of total image's width and height:</li>
+</ol>
+<ol>
+<li style="list-style-type: none">
+<ol>
+<li>Identify all the possible widths and heights of the person in the bounding boxes:</li>
+</ol>
+</li>
+</ol>
+<pre style="padding-left: 120px">y_train = []<br/><br/>for i in mylist[:10000]:<br/>     xml_file = xml_filepath +i<br/>     arg1=i.split('.')[0]<br/>     with open(xml_file, "rb") as f: # notice the "rb" mode<br/>         d = xmltodict.parse(f, xml_attribs=True)<br/>         l=[]<br/>         if type(d["annotation"]["object"]) == type(l):<br/>             discard=1<br/>         else:<br/>             x1=((float(d['annotation']['object']<br/>             ['bndbox']['xmin'])))/(float(d['annotation']['size']['width']))<br/>             x2=((float(d['annotation']['object']<br/>             ['bndbox']['xmax'])))/(float(d['annotation']['size']['width']))<br/>             y1=((float(d['annotation']['object']<br/>             ['bndbox']['ymin'])))/(float(d['annotation']['size']['height']))<br/>             y2=((float(d['annotation']['object']<br/>             ['bndbox']['ymax'])))/(float(d['annotation']['size']['height']))<br/>             cls=d['annotation']['object']['name']<br/>             if(cls == 'person'):<br/>                 y_train.append([x2-x1, y2-y1])</pre>
+<p style="padding-left: 120px">In the preceding code, we are looping through all the images that have only one object within them, and are then calculating the width and height of bounding box, if the image contains a person.</p>
+<ol start="2">
+<li style="list-style-type: none">
+<ol start="2">
+<li>Fit k-means clustering with five centers:</li>
+</ol>
+</li>
+</ol>
+<pre style="padding-left: 120px">y_train = np.array(y_train)<br/>from sklearn.cluster import KMeans<br/>km = KMeans(n_clusters=5)<br/>km.fit(y_train)<br/>km.cluster_centers_</pre>
+<p style="padding-left: 120px">The preceding results in cluster centers, shown as follows:</p>
+<pre style="padding-left: 120px">anchors = [<span>[[0.84638352, 0.90412013],        <br/>            [0.28036872, 0.58073186],        <br/>            [0.45700897, 0.87035502],        <br/>            [0.15685545, 0.29256264],        <br/>            [0.59814951, 0.64789503]]]<br/></span></pre>
+<ol start="5">
+<li>Create the training dataset:
+<ol>
+<li>Initialize empty lists so that they can be appended with data in further processing:</li>
+</ol>
+</li>
+</ol>
+<pre style="padding-left: 120px">k=-1<br/>pre_xtrain = []<br/>y_train = []<br/>cls = []<br/>xtrain=[]<br/>final_cls = []<br/>dx = []<br/>dy = []<br/>dw= []<br/>dh = []<br/>final_delta = []<br/>av = 0<br/>x_train = []<br/>img_paths = []<br/>label_coords = []<br/>y_delta = []<br/>anc = []</pre>
+<ol>
+<li style="list-style-type: none">
+<ol start="2">
+<li>Loop through the dataset so that we work on images that contain only one object in it, and also the object is a person:</li>
+</ol>
+</li>
+</ol>
+<pre style="padding-left: 120px">for i in mylist[:10000]:<br/>     xml_file = xml_filepath +i<br/>     arg1=i.split('.')[0]<br/>     discard=0<br/>     with open(xml_file, "rb") as f: # notice the "rb" mode<br/>         d = xmltodict.parse(f, xml_attribs=True)<br/>         l=[]<br/>         if type(d["annotation"]["object"]) == type(l):<br/>             discard=1<br/>         else:<br/>             coords={arg1:[]}<br/>             pre_xtrain.append(arg1)<br/>             m=pre_xtrain[(k+1)]<br/>             k = k+1<br/>             if(discard==0):<br/>                 x1=((float(d['annotation']['object']['bndbox']['xmin'])))/(float(d['annotation']['size']['width']))<br/>                 x2=((float(d['annotation']['object']['bndbox']['xmax'])))/(float(d['annotation']['size']['width']))<br/>                 y1=((float(d['annotation']['object']['bndbox']['ymin'])))/(float(d['annotation']['size']['height']))<br/>                 y2=((float(d['annotation']['object']['bndbox']['ymax'])))/(float(d['annotation']['size']['height']))<br/>                 cls=d['annotation']['object']['name']<br/>                 if(cls == 'person'):<br/>                     coords[arg1].append(x1)<br/>                     coords[arg1].append(y1)<br/>                     coords[arg1].append(x2)<br/>                     coords[arg1].append(y2)<br/>                     coords[arg1].append(cls)</pre>
+<p style="padding-left: 120px">The preceding code appends the location of the object (post-normalized for the width and height of the image).</p>
+<ol start="3">
+<li style="list-style-type: none">
+<ol start="3">
+<li>Resize the image of person so that all images are of the same shape. Additionally, scale the image so that the values are between zero and one:</li>
+</ol>
+</li>
+</ol>
+<pre style="padding-left: 90px">                     filename = base_dir+m+'.jpg'<br/>                     # reference to jpg files here<br/>                     img = filename<br/>                     img_size=224<br/>                     img = cv2.imread(filename)<br/>                     img2 = cv2.resize(img,(img_size,img_size))<br/>                     img2 = img2/255</pre>
+<ol start="4">
+<li style="list-style-type: none">
+<ol start="4">
+<li>Extract the object bounding box location, and also the normalized bounding-box coordinates:</li>
+</ol>
+</li>
+</ol>
+<pre style="padding-left: 90px">                    current_y = [int(x1*224), int(y1*224), int(x2*224), int(y2*224)]<br/>                    current_y2 = [float(d['annotation']['object']['bndbox']['xmin']), float(d['annotation']['object']['bndbox']['ymin']),<br/> float(d['annotation']['object']['bndbox']['xmax'])-float(d['annotation']['object']['bndbox']['xmin']),<br/> float(d['annotation']['object']['bndbox']['ymax'])-float(d['annotation']['object']['bndbox']['ymin'])]<br/><br/>                    label_center = [(current_y[0]+current_y[2])/2,(current_y[1]+current_y[3])/2] <br/>                    label = current_y</pre>
+<ol start="5">
+<li style="list-style-type: none">
+<ol start="5">
+<li>Extract the VGG16 features of the input image:</li>
+</ol>
+</li>
+</ol>
+<pre style="padding-left: 150px">            vgg_predict =vgg16_model.predict(img2.reshape(1,img_size,img_size,3))<br/>            x_train.append(vgg_predict)</pre>
+<p style="padding-left: 120px">By this step, we have created the input features.</p>
+<ol start="6">
+<li style="list-style-type: none">
+<ol start="6">
+<li>Let's create the output features—in this case, we shall have 5 x 5 x 5 outputs for class label and 5 x 5 x 20 labels for the bounding-box correction labels:</li>
+</ol>
+</li>
+</ol>
+<pre style="padding-left: 150px">            target_class = np.zeros((num_grids,num_grids,5))<br/>            target_delta = np.zeros((num_grids,num_grids,20))</pre>
+<p style="padding-left: 120px">In the preceding step, we have initialized zero arrays for the target class and bounding-box corrections:</p>
+<pre style="padding-left: 120px">def positive_grid_cell(label,img_width = 224, img_height = 224): <br/>     label_center = [(label[0]+label[2])/(2),(label[1]+label[3])/(2)] <br/>     a = int(label_center[0]/(img_width/num_grids)) <br/>     b = int(label_center[1]/(img_height/num_grids)) <br/>     return a, b</pre>
+<p style="padding-left: 120px">In the preceding step, we have defined a function that contains the center of the object:</p>
+<pre style="padding-left: 60px">            a,b = positive_grid_cell(label)</pre>
+<p style="padding-left: 120px">The preceding code helps us assign a class of <kbd>1</kbd> to the grid that contains the center of object and every other grid shall have a label of zero.</p>
+<p style="padding-left: 120px">Additionally, let's define a function that finds the anchor that is closest to the shape of the object of interest:</p>
+<pre style="padding-left: 120px">def find_closest_anchor(label,img_width, img_height):<br/>     label_width = (label[2]-label[0])/img_width<br/>     label_height = (label[3]-label[1])/img_height <br/>     label_width_height_array = np.array([label_width, label_height]) <br/>     distance = np.sum(np.square(np.array(anchors) - label_width_height_array), axis=1) <br/>     closest_anchor = anchors[np.argmin(distance)] <br/>     return closest_anchor</pre>
+<p style="padding-left: 120px">The preceding code compares the width and height of the object of interest in an image, with all the possible anchors, and identifies the anchor that is closest to the width and height of the actual object in the image.</p>
+<p style="padding-left: 120px">Finally, we shall also define a function that calculates the bounding-box corrections of anchor, as follows:</p>
+<pre style="padding-left: 120px">def closest_anchor_corrections(a, b, anchor, label, img_width, img_height): <br/>     label_center = [(label[0]+label[2])/(2),(label[1]+label[3])/(2)] <br/>     anchor_center = [a*img_width/num_grids , b*img_height/num_grids ] <br/>     dx = (label_center[0] - anchor_center[0])/img_width <br/>     dy = (label_center[1] - anchor_center[1])/img_height<br/>     dw = ((label[2] - label[0])/img_width) / (anchor[0])<br/>     dh = ((label[3] - label[1])/img_height) / (anchor[1]) <br/>     return dx, dy, dw, dh </pre>
+<p style="padding-left: 120px">We are all set to create the target data now:</p>
+<pre style="padding-left: 150px">for a2 in range(num_grids):<br/>     for b2 in range(num_grids):<br/>         for m in range(len(anchors)):<br/>             dx, dy, dw, dh = closest_anchor_corrections(a2, b2, anchors[m], label, 224, 224)<br/>             target_class[a2,b2,m] = 0<br/>             target_delta[a2,b2,((4*m)):((4*m)+4)] = [dx, dy, dw, dh]<br/>             anc.append(anchors[m])<br/>             if((anchors[m] == find_closest_anchor(label,224, 224)) &amp; (a2 == a) &amp; (b2 == b)):<br/>                 target_class[a2,b2,m] = 1</pre>
+<p style="padding-left: 120px">In the preceding code, we have assigned a target class of <kbd>1</kbd><span> </span>when the anchor considered is the closest anchor that matches the shape of the object in an image.</p>
+<p style="padding-left: 120px">We have also stored the bounding-box corrections in another list:</p>
+<pre>            y_train.append(target_class.flatten())<br/>            y_delta.append(target_delta)</pre>
+<ol start="6">
+<li>Build a model to identify the grid cell and anchor that is most likely to contain an object:</li>
+</ol>
+<pre style="padding-left: 60px">from keras.optimizers import Adam<br/>optimizer = Adam(lr=0.001)<br/>from keras.layers import BatchNormalization<br/>from keras import regularizers<br/>model = Sequential()<br/>model.add(BatchNormalization(input_shape=(7,7,512)))<br/>model.add(Conv2D(1024, (3,3), activation='relu',padding='valid'))<br/>model.add(BatchNormalization())<br/>model.add(Conv2D(5, (1,1), activation='relu',padding='same'))<br/>model.add(Flatten())<br/>model.add(Dense(125, activation='sigmoid'))<br/>model.summary()</pre>
+<ol start="7">
+<li>Create the input and output array for classification:</li>
+</ol>
+<pre style="padding-left: 60px">y_train = np.array(y_train)<br/>x_train = np.array(x_train)<br/>x_train = x_train.reshape(x_train.shape[0],7,7,512)</pre>
+<ol start="8">
+<li>Compile and fit the model for classification:</li>
+</ol>
+<pre style="padding-left: 60px">model.compile(loss='binary_crossentropy', optimizer=optimizer)<br/><br/>model.fit(x_train/np.max(x_train), y_train, epochs=5, batch_size = 32, validation_split = 0.1, verbose = 1)</pre>
+<ol start="9">
+<li>From the preceding model, we are in a position to identify the grid cell and anchor box combination that is most likely to have a person. In this step, we shall build a dataset where we correct the bounding box for the predictions that are most likely to contain an object:</li>
+</ol>
+<pre style="padding-left: 60px">delta_x = []<br/>delta_y = []<br/>for i in range(len(x_train)):<br/>     delta_x.append(x_train[i])<br/>     delta = y_delta[i].flatten()<br/>     coord = np.argmax(model.predict(x_train[i].reshape(1,7,7,512)/12))<br/>     delta_y.append(delta[(coord*4):((coord*4)+4)])</pre>
+<p style="padding-left: 60px">In the preceding step, we have prepared the input (which is the VGG16 features of original image) and the output bounding-box corrections for the predictions that are most likely to contain an object.</p>
+<p style="padding-left: 60px">Note that we are multiplying <kbd>coord</kbd> by a factor of four, as for each grid cell and anchor box combination, there are four possible values of corrections for <em>x</em>, <em>y</em>, <em>w</em>, and <em>h</em>.</p>
+<ol start="10">
+<li>Build a model that predicts the correction in <em>x</em>, <em>y</em>, <em>w</em>, and <em>h</em> coordinates:
+<ol>
+<li>Create input and output arrays, and normalize the four <span>bounding-box </span><span>correction values so that all four values have a similar range:</span></li>
+</ol>
+</li>
+</ol>
+<pre style="padding-left: 120px">delta_x = np.array(delta_x)<br/>delta_y = np.array(delta_y)<br/><br/>max_y = np.max(delta_y, axis=0)<br/>delta_y2 = deltay/max_y</pre>
+<ol>
+<li style="list-style-type: none">
+<ol start="2">
+<li>Build a model that predicts the bounding-box corrections, given the VGG16 features:</li>
+</ol>
+</li>
+</ol>
+<pre style="padding-left: 120px">model2 = Sequential()<br/>model2.add(BatchNormalization(input_shape=(7,7,512)))<br/>model2.add(Conv2D(1024, (3,3), activation='relu',padding='valid'))<br/>model2.add(BatchNormalization())<br/>model2.add(Conv2D(5, (1,1), activation='relu',padding='same'))<br/>model2.add(Flatten())<br/>model2.add(Dense(2, activation='linear'))</pre>
+<ol start="11">
+<li>Compile and fit the model:</li>
+</ol>
+<pre style="padding-left: 60px">model2.compile(loss = 'mean_absolute_error', optimizer = optimizer)<br/>model2.fit(delta_x/np.max(x_train), delta_y2, epochs = 10, batch_size = 32, verbose = 1, validation_split = 0.1)</pre>
+<ol start="12">
+<li>Predict the bounding box on a new image:
+<ol>
+<li>Extract the position that is most likely to contain the object:</li>
+</ol>
+</li>
+</ol>
+<pre style="padding-left: 150px">img = cv2.imread('/content/Hemanvi.jpg')<br/>img = cv2.resize(img,(224,224))<br/>img = img/255<br/>img2 = vgg16_model.predict(img.reshape(1,224,224,3))<br/>arg = np.argmax(model.predict(img2/np.max(x_train)))</pre>
+<p style="padding-left: 120px">In the preceding step, we are picking an image that contains a person within it, and resizing it, so that it can be further processed to extract the VGG16 features. Finally, we are identifying the anchor that is most likely to contain the location of a person.</p>
+<ol>
+<li style="list-style-type: none">
+<ol start="2">
+<li>Extract the grid cell and anchor box combination that is most likely to contain an image.</li>
+</ol>
+</li>
+</ol>
+<p style="padding-left: 120px">The preceding predicts the grid cell and anchor box combination that is most likely to contain the object of interest, which is done as follows:</p>
+<pre style="padding-left: 120px">count = 0<br/>for a in range(num_grids):<br/>     for b in range(num_grids):<br/>         for c in range(len(anchors)):<br/>             if(count == arg):<br/>                 a2 = a<br/>                 b2 = b<br/>                 c2 = c <br/>             count+=1</pre>
+<p style="padding-left: 120px">In the preceding code, <kbd>a2</kbd> and <kbd>b2</kbd> would be the grid cell (the <em>x</em> axis and <em>y</em> axis combination) that is most likely to contain an object, and <kbd>c2</kbd> is the anchor box that is possibly of the same shape as the object.</p>
+<ol>
+<li style="list-style-type: none">
+<ol start="3">
+<li>Predict the corrections in <em>x</em>, <em>y</em>, <em>w</em>, and <em>h</em> coordinates:</li>
+</ol>
+</li>
+</ol>
+<pre style="padding-left: 120px">pred = model2.predict(img2/np.max(delta_x))[0]</pre>
+<ol>
+<li style="list-style-type: none">
+<ol start="4">
+<li>De-normalize the predicted bounding-box corrections:</li>
+</ol>
+</li>
+</ol>
+<pre style="padding-left: 120px">pred1 = pred*max_y</pre>
+<ol>
+<li style="list-style-type: none">
+<ol start="5">
+<li>Extract the final corrected <em>x</em>, <em>y</em>, <em>w</em>, and <em>h</em> coordinates:</li>
+</ol>
+</li>
+</ol>
+<pre style="padding-left: 120px">xmin = pred1[0]*224+a2*224/num_grids - (anchors[c2][0]*pred1[2] * 224)/2<br/>ymin = pred1[1]*224+b2*224/num_grids - (anchors[c2][1]*pred1[3] * 224)/2<br/><br/>w = anchors[c2][0]*pred1[2] * 224<br/>h = anchors[c2][1]*pred1[3] * 224</pre>
+<ol>
+<li style="list-style-type: none">
+<ol start="6">
+<li>Plot the image along with the bounding box:</li>
+</ol>
+</li>
+</ol>
+<pre style="padding-left: 120px">import matplotlib.patches as mpatches<br/>cand = [xmin, ymin, w, h]<br/>cand = np.clip(cand, 1, 223)<br/>fig, ax = plt.subplots(ncols=1, nrows=1, figsize=(6, 6))<br/>ax.imshow(img)<br/>rect = mpatches.Rectangle(<br/>(cand[0], cand[1]), cand[2], cand[3], fill=False, edgecolor='red', linewidth=1)<br/>ax.add_patch(rect)<br/>plt.grid('off')<br/>plt.show()</pre>
+<p class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-1419 image-border" src="Images/e075ef65-23d0-48bd-b284-2b3b3e9ff3b0.png" style="width:28.08em;height:27.50em;" width="364" height="355"/></p>
+<p>One of the drawbacks with this approach is that it gets difficult when we are detecting objects that are very small when compared to the image size.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  
+<div id="sbo-rt-content"><section>
+
+                            <header>
+                    <h1 class="header-title">There's more...</h1>
+                </header>
+            
+            <article>
+                
+<p>Let's consider a scenario where the object to be detected is small in size. If we passed this image through a pre-trained network, this object would be detected in earlier layers, as, in the last few layers, the image would be passed through multiple pooling layers, resulting in the object to be detected shrinking to a very small space.</p>
+<p>Similarly, if the object to be detected is large in size, that object will be detected in the last layers of the pre-trained network.</p>
+<p>A single shot detector uses a pre-trained network where <span>different layers of the network work toward detecting different types of images:</span></p>
+<p class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-1108 image-border" src="Images/363ff5ac-cf10-4007-8109-73940627fee0.png" style="width:162.50em;height:54.33em;" width="1950" height="652"/></p>
+<div class="packt_figref CDPAlignCenter CDPAlign">Source: https://arxiv.org/pdf/1512.02325.pdf</div>
+<p>In the preceding diagram, you should note that features from different layers are passed through a dense layer, and, finally, concatenated together so that a model can be built and fine-tuned.</p>
+<p>Additionally, YOLO can also be implemented based on the tutorial available here: <a href="https://pjreddie.com/darknet/yolo/" target="_blank">https://pjreddie.com/darknet/yolo/</a>.</p>
+
+
+            </article>
+
+            
+        </section>
+    </div>
+
+
+
+  </body></html>
