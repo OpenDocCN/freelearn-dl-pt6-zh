@@ -1,0 +1,319 @@
+<html><head></head><body>
+<div id="page" style="height:0pt"/><div class="book" title="Chapter&#xA0;13.&#xA0;Extending Deep Learning with Theano" id="3EK181-ccdadb29edc54339afcb9bdf9350ba6b"><div class="book"><div class="book"><div class="book"><h1 class="title" id="calibre_pb_0"><a id="ch13" class="calibre1"/>Chapter 13. Extending Deep Learning with Theano</h1></div></div></div><p class="calibre8">This chapter gives clues to go further with both Theano and Deep Learning. First, it presents how to create new operators for the Theano computation graph in Python or C, either for the CPU or the GPU. Then, interactions with other Deep Learning frameworks are studied with the support of code repositories and libraries that enable back-and-forth conversion with other technologies.</p><p class="calibre8">Lastly, to complete the possibilities offered by the field of Deep Learning with Theano, we develop <a id="id482" class="calibre1"/>the concepts of a new <span class="strong"><strong class="calibre2">General Artificial Intelligence</strong></span> field.</p><p class="calibre8">The topics covered in this chapter are as follows:</p><div class="book"><ul class="itemizedlist"><li class="listitem">Writing new operators for Theano computation graphs</li><li class="listitem">Python code for CPU and GPU</li><li class="listitem">The C API for CPU and GPU</li><li class="listitem">Sharing models with other Deep Learning frameworks</li><li class="listitem">Cloud GPUs</li><li class="listitem">Meta learning, gradual learning, and guided learning</li><li class="listitem">General Artificial Intelligence</li></ul></div><p class="calibre8">This chapter gives a complete overview of Deep Learning with Theano.</p></div>
+
+<div class="book" title="Chapter&#xA0;13.&#xA0;Extending Deep Learning with Theano" id="3EK181-ccdadb29edc54339afcb9bdf9350ba6b">
+<div class="book" title="Theano Op in Python for CPU"><div class="book"><div class="book"><div class="book"><h1 class="title" id="calibre_pb_1"><a id="ch13lvl1sec108" class="calibre1"/>Theano Op in Python for CPU</h1></div></div></div><p class="calibre8">As a <a id="id483" class="calibre1"/>mathematical compilation engine, Theano's purpose is to compile a graph of computations in an optimal way for a target platform.</p><p class="calibre8">The development of new operators is possible in Python or C for compilation either on the CPU or GPU.</p><p class="calibre8">First, we address the simplest case, in Python for CPU, which will enable you to add new operations very easily and quickly.</p><p class="calibre8">To fix <a id="id484" class="calibre1"/>the ideas, let's implement a simple affine operator that performs the affine transformation <span class="strong"><em class="calibre12">a * x + b</em></span>, given x as the input.</p><p class="calibre8">The operator is defined by a class deriving from the generic <code class="email">theano.Op</code> class:</p><div class="informalexample"><pre class="programlisting">
+<span class="strong"><strong class="calibre2">import</strong></span> theano, numpy
+
+<span class="strong"><strong class="calibre2">class</strong></span> AXPBOp(theano.Op):
+    """
+    This creates an Op that takes x to a*x+b.
+    """
+    __props__ = ("a", "b")
+
+    <span class="strong"><strong class="calibre2">def</strong></span> __init__(self, a, b):
+        self.a = a
+        self.b = b
+        <span class="strong"><strong class="calibre2">super</strong></span>(AXPBOp, self).__init__()
+
+    <span class="strong"><strong class="calibre2">def</strong></span> make_node(self, x):
+        x = theano.tensor.as_tensor_variable(x)
+        <span class="strong"><strong class="calibre2">return</strong></span> theano.Apply(self, [x], [x.type()])
+
+    <span class="strong"><strong class="calibre2">def</strong></span> perform(self, node, inputs, output_storage):
+        x = inputs[0]
+        z = output_storage[0]
+        z[0] = self.a * x + self.b
+
+    <span class="strong"><strong class="calibre2">def</strong></span> infer_shape(self, node, i0_shapes):
+        <span class="strong"><strong class="calibre2">return</strong></span> i0_shapes
+    <span class="strong"><strong class="calibre2">def</strong></span> grad(self, inputs, output_grads):
+        <span class="strong"><strong class="calibre2">return</strong></span> [self.a * output_grads[0]]
+
+mult4plus5op = AXPBOp(4,5)
+
+x = theano.tensor.matrix()
+y = mult4plus5op(x)
+f = theano.function([x], y)
+
+res = f(numpy.random.rand(3,2))</pre></div><p class="calibre8">Let's understand this example.</p><p class="calibre8">The <code class="email">__props__</code> property is set to the two parameter names, <code class="email">a</code> and <code class="email">b</code>, on which the operator depends. It will automatically generate the <code class="email">__eq__()</code>, <code class="email">__hash__()</code>, and <code class="email">__str_()</code> methods for us so that if we create two different objects with the same values for parameters <code class="email">a</code> and <code class="email">b</code>, Theano will consider them as equal operators:</p><div class="informalexample"><pre class="programlisting">&gt;&gt;&gt; mult4plus5op2 = AXPBOp(4,5)
+
+&gt;&gt;&gt; mult4plus5op == mult4plus5op2
+True
+
+&gt;&gt;&gt; hash(mult4plus5op)
+-292944955210390262
+
+&gt;&gt;&gt; hash(mult4plus5op2)
+-292944955210390262</pre></div><p class="calibre8">Also, the <a id="id485" class="calibre1"/>parameters <code class="email">a</code> and <code class="email">b</code> will appear when printing the op:</p><div class="informalexample"><pre class="programlisting">&gt;&gt;&gt; theano.printing.pprint(y)
+AXPBOp{a=4, b=5}.0
+
+&gt;&gt;&gt; theano.printing.pydotprint(y)</pre></div><div class="mediaobject"><img src="../images/00267.jpeg" alt="Theano Op in Python for CPU" class="calibre9"/></div><p class="calibre10"> </p><p class="calibre8">If <code class="email">__props__</code> is not specified, it is required to define the <code class="email">__eq__()</code>, <code class="email">__hash__()</code>, and <code class="email">__str_()</code> methods manually.</p><p class="calibre8">The <code class="email">make_node()</code> method creates the node to be included in the graph and is run when the <code class="email">mult4plus5op</code> object is applied to the input <code class="email">x</code>. Node creation is performed with the <code class="email">theano.Apply()</code> method that takes as arguments the input variables and the type of the output. To enforce that the inputs are variables, the <code class="email">as_tensor_variable()</code> method is called on the input to transform any NumPy array into a variable. This is the place where we define the type of the output given the input as well as to check whether the inputs are compatible with the operator and raise a TypeError otherwise.</p><p class="calibre8">Note that it is possible to generate the <code class="email">make_node()</code> method automatically, as we did previously with the <code class="email">__props__</code> attribute for the <code class="email">__eq__()</code> method, but in this case, with the <code class="email">itypes</code> and <code class="email">otypes</code> properties defining the types of the inputs and outputs:</p><div class="informalexample"><pre class="programlisting">itypes = [theano.tensor.dmatrix]
+otypes = [theano.tensor.dmatrix]</pre></div><p class="calibre8">The <code class="email">perform()</code> method defines the computations in Python to be performed for this operator. Since it is possible to implement operators on multiple inputs that return multiple outputs, the inputs and outputs are given as lists. A second output would be stored in <code class="email">output_storage[1][0]</code>. Outputs might be already allocated by previous values <a id="id486" class="calibre1"/>in order to reuse memory. They will always be of the good <code class="email">dtype</code> object, but not necessary of the right shape and stride. It is good to re-allocate them when they are not of the good shape.</p><p class="calibre8">The last two methods, <code class="email">infer_shape()</code> and <code class="email">grad()</code>, are optional. The first one is used when the output does not need to be computed, but only a shape information is necessary to perform the computation—such a case occurs during Theano optimization procedures. The second is used when the output needs to be differentiated under the <code class="email">grad()</code> method:</p><div class="informalexample"><pre class="programlisting">&gt;&gt;&gt; dy=theano.tensor.grad(y.sum(), x)
+
+&gt;&gt;&gt; theano.printing.pprint(dy)
+'(TensorConstant{4} * fill(AXPBOp{a=4, b=5}(&lt;TensorType(float32, matrix)&gt;), fill(Sum{acc_dtype=float64}(AXPBOp{a=4, b=5}(&lt;TensorType(float32, matrix)&gt;)), TensorConstant{1.0})))'
+
+&gt;&gt;&gt; df = theano.function([x], dy)
+
+&gt;&gt;&gt; theano.printing.debugprint(df)
+Alloc [id A] ''   2
+ |TensorConstant{(1, 1) of 4.0} [id B]
+ |Shape_i{0} [id C] ''   1
+ | |&lt;TensorType(float32, matrix)&gt; [id D]
+ |Shape_i{1} [id E] ''   0
+   |&lt;TensorType(float32, matrix)&gt; [id D]</pre></div><p class="calibre8">In the same way, it is possible to define the R-operator function of the operator.</p></div></div>
+<div class="book" title="Theano Op in Python for the GPU" id="3FIHQ1-ccdadb29edc54339afcb9bdf9350ba6b"><div class="book"><div class="book"><div class="book"><h1 class="title" id="calibre_pb_0"><a id="ch13lvl1sec109" class="calibre1"/>Theano Op in Python for the GPU</h1></div></div></div><p class="calibre8">Let's take <a id="id487" class="calibre1"/>a look at what happens when we run this operator in a graph in the GPU <code class="email">config</code> mode:</p><div class="informalexample"><pre class="programlisting">&gt;&gt;&gt; y = mult4plus5op(2 * x) + 4 * x
+
+&gt;&gt;&gt; f = theano.function([x], y)
+
+&gt;&gt;&gt; theano.printing.debugprint(f)
+HostFromGpu(gpuarray) [id A] ''   6
+ |GpuElemwise{Composite{(i0 + (i1 * i2))}}[(0, 0)]&lt;gpuarray&gt; [id B] ''   5
+   |GpuFromHost&lt;None&gt; [id C] ''   4
+   | |AXPBOp{a=4, b=5} [id D] ''   3
+   |   |HostFromGpu(gpuarray) [id E] ''   2
+   |     |GpuElemwise{mul,no_inplace} [id F] ''   1
+   |       |GpuArrayConstant{[[ 2.]]} [id G]
+   |       |GpuFromHost&lt;None&gt; [id H] ''   0
+   |         |&lt;TensorType(float32, matrix)&gt; [id I]
+   |GpuArrayConstant{[[ 4.]]} [id J]
+   |GpuFromHost&lt;None&gt; [id H] ''   0</pre></div><p class="calibre8">Since we have only defined a CPU implementation of the new operator in Python and the full graph is running on GPU, the data is transferred back and forth to CPU in the middle of the graph to apply our new CPU operator:</p><div class="mediaobject"><img src="../images/00268.jpeg" alt="Theano Op in Python for the GPU" class="calibre9"/></div><p class="calibre10"> </p><p class="calibre8">To avoid the inefficiency of the transfers inside the graph, let's create the same operator in Python for the GPU.</p><p class="calibre8">For this, you will have to simply modify the <code class="email">make_node()</code> and <code class="email">perform()</code> methods of the <a id="id488" class="calibre1"/>operator, as follows:</p><div class="informalexample"><pre class="programlisting">
+<span class="strong"><strong class="calibre2">from</strong></span> theano.gpuarray.type <span class="strong"><strong class="calibre2">import</strong></span> get_context
+
+<span class="strong"><strong class="calibre2">def</strong></span> make_node(self, x):
+    x = as_gpuarray_variable(x, self.context_name)
+
+    x_arg = pygpu.elemwise.arg('x', 'float32', <span class="strong"><strong class="calibre2">read</strong></span>=True)
+    c_arg = pygpu.elemwise.arg('c', 'float32', <span class="strong"><strong class="calibre2">read</strong></span>=True, <span class="strong"><strong class="calibre2">write</strong></span>=True)
+    self.my_op = pygpu.elemwise.GpuElemwise(get_context(self.context_name), "c = " + str(self.a) + " * x + " + str(self.b), [x_arg, c_arg], <span class="strong"><strong class="calibre2">convert_f16</strong></span>=True)
+
+    <span class="strong"><strong class="calibre2">return</strong></span> Apply(self, [x], [x.type()])
+
+
+<span class="strong"><strong class="calibre2">def</strong></span> perform(self, node, inputs, output_storage):
+    x = inputs[0]
+    z = output_storage[0]
+    z[0] = pygpu.empty(x.shape, <span class="strong"><strong class="calibre2">dtype</strong></span>=x.dtype, <span class="strong"><strong class="calibre2">context</strong></span>=get_context(self.context_name))
+    self.my_op( x, z[0])</pre></div><p class="calibre8">Not many changes.</p><p class="calibre8">In the <code class="email">make_node()</code> method, <code class="email">as_tensor_variable()</code> is replaced by <code class="email">as_gpuarray_variable()</code>, which requires the context that is one part of the type definition of a GPU variable. The <code class="email">get_context()</code> method transforms the context name we have chosen for the device into a <code class="email">GPUContext</code> for the <code class="email">pygpu</code> library.</p><p class="calibre8">In the <code class="email">perform()</code> method, computations are performed on GPU thanks to the <code class="email">pygpu</code> library <a id="id489" class="calibre1"/>that contains an element-wise <a id="id490" class="calibre1"/>operator on GPU as well as the <span class="strong"><strong class="calibre2">Basic Linear Algebra Subprograms</strong></span> (<span class="strong"><strong class="calibre2">BLAS</strong></span>) methods, such as the <span class="strong"><strong class="calibre2">GEneral Matrix to Matrix Multiplication</strong></span> (<span class="strong"><strong class="calibre2">GEMM</strong></span>) and <span class="strong"><strong class="calibre2">General Matrix to Vector Multiplication</strong></span> (<span class="strong"><strong class="calibre2">GEMV</strong></span>) operations.</p><p class="calibre8">Let's now <a id="id491" class="calibre1"/>take a look at the compiled graph when this new operator is inside a bigger graph on GPU:</p><div class="informalexample"><pre class="programlisting">HostFromGpu(gpuarray) [id A] ''   4
+ |GpuElemwise{Add}[(0, 1)]&lt;gpuarray&gt; [id B] ''   3
+   |GpuArrayConstant{[[ 4.]]} [id C]
+   |GpuAXPBOp{a=4, b=5, context_name='dev0'} [id D] ''   2
+     |GpuElemwise{Mul}[(0, 1)]&lt;gpuarray&gt; [id E] ''   1
+       |GpuArrayConstant{[[ 2.]]} [id F]
+       |GpuFromHost&lt;dev0&gt; [id G] ''   0
+         |&lt;TensorType(float32, matrix)&gt; [id H]</pre></div><div class="mediaobject"><img src="../images/00269.jpeg" alt="Theano Op in Python for the GPU" class="calibre9"/></div><p class="calibre10"> </p><p class="calibre8">For <a id="id492" class="calibre1"/>readability, we have prefixed the name of the class of the operator for GPU with Gpu; for example, GpuAXPBOp.</p></div>
+<div class="book" title="Theano Op in C for CPU"><div class="book" id="3GH2C2-ccdadb29edc54339afcb9bdf9350ba6b"><div class="book"><div class="book"><h1 class="title" id="calibre_pb_0"><a id="ch13lvl1sec110" class="calibre1"/>Theano Op in C for CPU</h1></div></div></div><p class="calibre8">Another <a id="id493" class="calibre1"/>inefficiency arises from the fact the Python implementation of an operator adds a significant overhead each time computations are performed, that is, for each instance of our operator in the graph. The Python code is not compiled as the rest of the graph by Theano in C and the overhead occurs when the C implementation is wrapped into Python and data is exchanged.</p><p class="calibre8">To remedy this, it is possible to directly write some C code that will be incorporated into the code of the rest of the graph and compiled together.</p><p class="calibre8">When implementing an operator directly in C, NumPy is the underlying library to manage arrays, with the the NumPy-API extending Python C-API. The Python class defining the new C operator does not have to implement the <code class="email">perform()</code> method; instead, it returns <a id="id494" class="calibre1"/>the C code to incorporate in the <code class="email">c_code()</code>, <code class="email">c_support_code()</code> and <code class="email">c_support_code_apply()</code> methods:</p><div class="informalexample"><pre class="programlisting">
+<span class="strong"><strong class="calibre2">def</strong></span> c_code_cache_version(self):
+    <span class="strong"><strong class="calibre2">return</strong></span> (6, 0)
+
+<span class="strong"><strong class="calibre2">def</strong></span> c_support_code(self):
+    c_support_code = """
+    <span class="strong"><strong class="calibre2">bool</strong></span> same_shape(PyArrayObject* arr1, PyArrayObject* arr2)
+    {
+        if( PyArray_NDIM(arr1) != PyArray_NDIM(arr2)) {
+            <span class="strong"><strong class="calibre2">return</strong></span> false;
+        }
+        <span class="strong"><strong class="calibre2">for</strong></span>(<span class="strong"><strong class="calibre2">int</strong></span> i = 0; i &lt; PyArray_NDIM(arr2) ; i++) {
+            <span class="strong"><strong class="calibre2">if</strong></span> (PyArray_DIMS(arr1)[0] == PyArray_DIMS(arr2)[0]) {
+                <span class="strong"><strong class="calibre2">return</strong></span> false;
+            }
+        }
+        <span class="strong"><strong class="calibre2">return</strong></span> true;
+    }
+    """
+
+    <span class="strong"><strong class="calibre2">return</strong></span> c_support_code
+
+<span class="strong"><strong class="calibre2">def</strong></span> c_support_code_apply(self, node, name):
+    dtype_x = node.inputs[0].dtype
+    dtype_z = node.outputs[0].dtype
+
+    a = self.a
+    b = self.b
+
+    c_support_code = """
+    <span class="strong"><strong class="calibre2">void</strong></span> elemwise_op_%(name)s(npy_%(dtype_x)s* x_ptr, npy_intp* x_str, int itemsize_x,
+        npy_%(dtype_z)s* z_ptr, npy_intp* z_str, int itemsize_z,
+        int nbDims, npy_intp* dims)
+    {
+        npy_intp stride_x = (npy_intp)(1);
+        npy_intp stride_z = (npy_intp)(1);
+        <span class="strong"><strong class="calibre2">for</strong></span> (<span class="strong"><strong class="calibre2">int</strong></span> i = 0; i &lt; nbDims; i ++) {
+            stride_x = stride_x * x_str[i] / itemsize_x;
+            stride_z = stride_z * z_str[i] / itemsize_z;
+        }
+        <span class="strong"><strong class="calibre2">for</strong></span> (int i=0; i &lt; dims[0]; i++)
+            <span class="strong"><strong class="calibre2">if</strong></span> (nbDims==1) {
+                z_ptr[i * z_str[0]/itemsize_z] = x_ptr[i * x_str[0] / itemsize_x] * ((npy_%(dtype_z)s) %(a)s) + ((npy_%(dtype_z)s)%(b)s);
+            } <span class="strong"><strong class="calibre2">else</strong></span> {
+                elemwise_op_%(name)s( x_ptr + i * stride_x , x_str + 1, itemsize_x,
+                    z_ptr + i * stride_z , z_str + 1, itemsize_z,
+                    nbDims - 1, dims + 1 );
+            }
+    }
+    """
+
+    <span class="strong"><strong class="calibre2">return</strong></span> c_support_code % locals()
+
+<span class="strong"><strong class="calibre2">def</strong></span> c_code(self, node, name, inp, out, sub):
+    x = inp[0]
+    z = out[0]
+
+    dtype_x = node.inputs[0].dtype
+    dtype_z = node.outputs[0].dtype
+
+    itemsize_x = numpy.dtype(dtype_x).itemsize
+    itemsize_z = numpy.dtype(dtype_z).itemsize
+
+    typenum_z = numpy.dtype(dtype_z).num
+
+    fail = sub['fail']
+
+    c_code = """
+    // Validate that the output storage exists and has the same
+    // dimension as x.
+    <span class="strong"><strong class="calibre2">if</strong></span> (NULL <span class="strong"><strong class="calibre2">==</strong></span> %(z)s <span class="strong"><strong class="calibre2">||</strong></span> !(same_shape(%(x)s, %(z)s)))
+    {
+        /* Reference received to invalid output variable.
+        Decrease received reference's ref count and allocate new
+        output variable */
+        Py_XDECREF(%(z)s);
+        %(z)s = (PyArrayObject*)PyArray_EMPTY(PyArray_NDIM(%(x)s),
+                                            PyArray_DIMS(%(x)s),
+                                            %(typenum_z)s,
+                                            0);
+
+        <span class="strong"><strong class="calibre2">if</strong></span> (!%(z)s) {
+            %(fail)s;
+        }
+    }
+
+    // Perform the elemwise operation
+    ((npy_%(dtype_z)s *)PyArray_DATA(%(z)s))[0] = 0;
+    elemwise_op_%(name)s((npy_%(dtype_x)s*)PyArray_DATA(%(x)s), PyArray_STRIDES(%(x)s), %(itemsize_x)s,
+                            (npy_%(dtype_z)s*)PyArray_DATA(%(z)s), PyArray_STRIDES(%(z)s), %(itemsize_z)s,
+                            PyArray_NDIM(%(x)s), PyArray_DIMS(%(x)s) );
+
+    """
+
+    <span class="strong"><strong class="calibre2">return</strong></span> c_code % locals()</pre></div><p class="calibre8">Let's now discuss the different parts:</p><p class="calibre8">When the <code class="email">c_code_cache_version()</code> is implemented, Theano will cache the compiled code to save some compilation time the next time the operator is incorporated into a graph, but whenever we modify the code of the C op, the version number has to be incremented.</p><p class="calibre8">The <a id="id495" class="calibre1"/>code placed in the <code class="email">c_support_code()</code> and <code class="email">c_support_code_apply()</code> methods is included in the global scope of the C program. The code placed in the <code class="email">c_support_code_apply()</code> and <code class="email">c_code()</code> methods has to be specific to each apply of the op in the graph; in particular, in this case, they depend on the type of the input. And since the <code class="email">c_support_code_apply()</code> code is included in the global scope, the methods are named after the op name.</p><p class="calibre8">
+<code class="email">PyArray_NDIM</code>, <code class="email">PyArray_DIMS</code>, <code class="email">PyArray_STRIDES</code>, and <code class="email">PyArray_DATA</code> are the macros to access the number of dimensions, the dimensions, the strides of the array, and the data in the array, respectively, for each NumPy array in C, <code class="email">PyArrayObject</code>. <code class="email">PyArray_EMPTY</code> is the equivalent to the Python <code class="email">numpy.empty()</code> method in C.</p><p class="calibre8">The NumPy <code class="email">PyArrayObject</code> class inherits from the <code class="email">PyObject</code> class from the Python C-API. The <code class="email">Py_XDECREF</code> macro enables us to decrement the reference count to the output before memory is allocated for a new output array. As in the Python C-API, the NumPy C-API requires to correctly count references to objects. Theano does not guarantee that the output array has been allocated, nor does it guarantee if it has been allocated with the correct shape. This is why a test is performed at the beginning of the <code class="email">c_code()</code>.</p><p class="calibre8">Note that arrays can be strided, since they can be a view (or a subtensor) of an array (a tensor). It is possible to implement ops that create views or modify the inputs, as well.</p><p class="calibre8">There exist a few other possible methods to go further in the C implementation: <code class="email">c_libraries()</code> and <code class="email">c_lib_dirs()</code> to use external libraries, <code class="email">c_code_cleanup()</code> to destroy memory allocations, and <code class="email">c_init_code()</code> to execute some code at initialization.</p><p class="calibre8">Lastly, it is also possible to reference some C files inside the code to reduce the burden on the <a id="id496" class="calibre1"/>Python class. We do not detail these three last specificities.</p></div>
+<div class="book" title="Theano Op in C for GPU"><div class="book" id="3HFIU2-ccdadb29edc54339afcb9bdf9350ba6b"><div class="book"><div class="book"><h1 class="title" id="calibre_pb_0"><a id="ch13lvl1sec111" class="calibre1"/>Theano Op in C for GPU</h1></div></div></div><p class="calibre8">As you <a id="id497" class="calibre1"/>could have imagined, it is possible to combine both optimizations:</p><div class="book"><ul class="itemizedlist"><li class="listitem">Reduce the Python/C overhead by programming directly in C</li><li class="listitem">Write the code for the GPU</li></ul></div><p class="calibre8">To write CUDA code for GPU, the code that will be run in parallel on the numerous cores <a id="id498" class="calibre1"/>of the GPU has to be packaged into a special function type named <span class="strong"><strong class="calibre2">kernel</strong></span>.</p><p class="calibre8">For <a id="id499" class="calibre1"/>that purpose, the <code class="email">__init__()</code>, <code class="email">make_node()</code>, and <code class="email">c_code_cache_version()</code> methods stay the same as for our Python example for GPU, but with a new <code class="email">gpu_kernels()</code> method to define new GPU kernels and the <code class="email">c_code()</code> method (which replaces the <code class="email">perform()</code> method again) to implement the C code, also named the <span class="strong"><strong class="calibre2">host code</strong></span>, that orchestrates how and when to call the different kernels on GPU:</p><div class="informalexample"><pre class="programlisting">
+<span class="strong"><strong class="calibre2">def</strong></span> gpu_kernels(self, node, name):
+    code = """
+KERNEL <span class="strong"><strong class="calibre2">void</strong></span> axpb(GLOBAL_MEM %(ctype)s *x, GLOBAL_MEM  %(ctype)s *z, ga_size n, ga_size m) {
+<span class="strong"><strong class="calibre2">for</strong></span> (ga_size i = LID_0; i &lt; n; i += LDIM_0) {
+    <span class="strong"><strong class="calibre2">for</strong></span> (ga_size j = LID_0; j &lt; m; j += LDIM_0) {
+        z[i*m + j] = %(write_a)s( 2 * x[i*m + j] );
+    }
+}
+}""" % <span class="strong"><strong class="calibre2">dict</strong></span>(<span class="strong"><strong class="calibre2">ctype</strong></span>=pygpu.gpuarray.dtype_to_ctype(self.dtype),
+        <span class="strong"><strong class="calibre2">name</strong></span>=name, <span class="strong"><strong class="calibre2">write_a</strong></span>=write_w(self.dtype))
+    <span class="strong"><strong class="calibre2">return</strong></span> [Kernel(
+            <span class="strong"><strong class="calibre2">code</strong></span>=code, name="axpb",
+            <span class="strong"><strong class="calibre2">params</strong></span>=[gpuarray.GpuArray, gpuarray.GpuArray, gpuarray.SIZE, gpuarray.SIZE],
+            <span class="strong"><strong class="calibre2">flags</strong></span>=Kernel.get_flags(self.dtype),
+            <span class="strong"><strong class="calibre2">objvar</strong></span>='k_axpb_' + name)]
+
+<span class="strong"><strong class="calibre2">def</strong></span> c_code(self, node, name, inp, out, sub):
+    n, = inp
+    z, = out
+    dtype_n = node.inputs[0].dtype
+    fail = sub['fail']
+    ctx = sub['params']
+    typecode = pygpu.gpuarray.dtype_to_typecode(self.dtype)
+    sync = bool(config.gpuarray.sync)
+    kname = self.gpu_kernels(node, name)[0].objvar
+    s = """
+    size_t dims[2] = {0, 0};
+    size_t ls, gs;
+    int err;
+    dims[0] = %(n)s-&gt;ga.dimensions[0];
+    dims[1] = %(n)s-&gt;ga.dimensions[1];
+    Py_CLEAR(%(z)s);
+    %(z)s = pygpu_zeros(2, dims,
+                        %(typecode)s,
+                        GA_C_ORDER,
+                        %(ctx)s, Py_None);
+    <span class="strong"><strong class="calibre2">if</strong></span> (%(z)s == NULL) {
+        %(fail)s
+    }
+    ls = 1;
+    gs = 256;
+    err = axpb_call(1, &amp;gs, &amp;ls, 0, %(n)s-&gt;ga.data, %(z)s-&gt;ga.data, dims[0], dims[1]);
+    <span class="strong"><strong class="calibre2">if</strong></span> (err <span class="strong"><strong class="calibre2">!=</strong></span> GA_NO_ERROR) {
+        PyErr_Format(PyExc_RuntimeError,
+                     "gpuarray error: kEye: %%s. n%%lu, m=%%lu.",
+                     GpuKernel_error(&amp;%(kname)s, err),
+                     (unsigned long)dims[0], (unsigned long)dims[1]);
+        %(fail)s;
+    }
+    <span class="strong"><strong class="calibre2">if</strong></span>(%(sync)d)
+        GpuArray_sync(&amp;%(z)s-&gt;ga);
+    """ % locals()
+
+    <span class="strong"><strong class="calibre2">return</strong></span> s</pre></div><p class="calibre8">Let's review this code snippet.</p><p class="calibre8">A new <a id="id500" class="calibre1"/>GPU computation kernel is defined under the name <code class="email">axpb</code>, and it is a simple C code with special GPU types and two macros: <code class="email">KERNEL</code> to designate the kernel function (hiding the CUDA <code class="email">__global__</code> declaration for kernels) and <code class="email">GLOBAL_MEM</code> for the variables defined globally, available both on the CPU and the GPU (in opposition to variables inside the kernel function that, by default, are local to the thread executed on a GPU core).</p><p class="calibre8">Note that I implemented the operator for matrix (that is, two-dimensional) inputs only and the 256 threads will execute the same operations in parallel, while the operations could have been split into different groups and assigned to different threads.</p><p class="calibre8">The host code run on the CPU manages memory on both the CPU and GPU, and also launches kernels which are functions executed on the GPU device.</p><p class="calibre8">The <a id="id501" class="calibre1"/>allocation of a new GPU array is performed with the <code class="email">pygpu_zeros()</code> method, which will from behind call the <code class="email">cudamalloc()</code> method when using CUDA to allocate the array directly in the GPU memory. The operator instance does not need to manage the release of the memory allocated to outputs as well as data transfer between GPU and CPU since this is the role of Theano optimization to decide when to insert the transfer operators <code class="email">HostFromGpu</code> and <code class="email">GpuFromHost</code>.</p><p class="calibre8">The call to the kernel in the C code is performed via <code class="email">axpb_call()</code>, that is, the name of the kernel followed by <code class="email">_call()</code>. Note that there are four more arguments in the call than in the definition of the kernel method. These four arguments define how <code class="email">libgpuarray</code> will execute or deploy the kernel on the cores.</p><p class="calibre8">To <a id="id502" class="calibre1"/>understand the GPU execution configuration for parallel programming, let's precise some basic concepts about a GPU first. A CUDA GPU is composed of <span class="strong"><strong class="calibre2">Streaming Multiprocessors</strong></span> (<span class="strong"><strong class="calibre2">SM</strong></span>), with a specification given by the compute capability in warp size, grid size, block size, the maximum number of threads per SM and per block, shared and local memory size, and maximum number of registrars:</p><div class="mediaobject"><img src="../images/00270.jpeg" alt="Theano Op in C for GPU" class="calibre9"/><div class="caption"><p class="calibre29">(Source: <a class="calibre1" href="https://en.wikipedia.org/wiki/CUDA">https://en.wikipedia.org/wiki/CUDA</a>)</p></div></div><p class="calibre10"> </p><p class="calibre8">During execution, multiprocessors execute instructions for a group of 32 threads (as described <a id="id503" class="calibre1"/>in the preceding table), named warp, in the <span class="strong"><strong class="calibre2">Single Instruction Multiple Data</strong></span> (<span class="strong"><strong class="calibre2">SIMD</strong></span>) manner. When programming <a id="id504" class="calibre1"/>for parallel execution, you need to organize your threads into blocks that are as close as possible to the underlying architecture. For example, for an element-wise operation on matrices, as our AXPBOp, you could say that each thread is going to perform the operation on one element of the matrix. So, a computation on a 224 x 224 image will require 50,176 threads. Let's say that the GPU has 8 multiprocessors with 1024 cores each. In the execution configuration, you can, for example, define a block size of 256 threads, and the number of blocks required to perform the complete computation will be 196 blocks. In order to simplify the development of parallel programs, blocks can be organized into a multidimensional grid (up to 3 dimensions for a CC above 2.0, as shown in the preceding table), and in the case of an image input, it would be natural to use a two-dimensional grid of 14 x 14 blocks. It is up to you to organize the threads into blocks organized on a grid, but the best way to organize the threads is to follow the dimensionality of the underlying data, since it will be easier to split the data and affect it to different threads.</p><p class="calibre8">Each thread execution is provided with values to access its position in the grid that you can use inside the code:</p><div class="book"><ul class="itemizedlist"><li class="listitem"><code class="email">gridDim.x</code>, <code class="email">gridDim.y</code>, <code class="email">gridDim.z</code> the dimensions of the grid of blocks of threads</li><li class="listitem"><code class="email">blockIdx.x</code>, <code class="email">blockIdx.y</code>, <code class="email">blockIdx.z</code> the coordinate of the block on the grid</li><li class="listitem"><code class="email">blockDim.x</code>, <code class="email">blockDim.y</code>, <code class="email">blockDim.z</code> the dimensions of the block</li><li class="listitem"><code class="email">threadIdx.x</code>, <code class="email">threadIdx.y</code>, <code class="email">threadIdx.z</code> the coordinate of the thread in the block</li></ul></div><p class="calibre8">In the case of our element-wise AXPBOp with one thread per element, the thread can fetch the data element given by the following row indice:</p><div class="informalexample"><pre class="programlisting">int i = blockIdx.x*blockDim.x + threadIdx.x;</pre></div><p class="calibre8">To deploy, the first new four parameters in the kernel call correspond to:</p><div class="book"><ul class="itemizedlist"><li class="listitem">Dimensionality of the grid/blocks, in this case 2 for an image/matrice as input</li><li class="listitem">The sizes of launch grid, in this case is {14, 14}. Once the number of threads per block is defined (256 in our case), the number of blocks per grid is then determined by the problem size (here, the size of the matrix).</li><li class="listitem">The sizes of launch blocks, in this case {16, 16} to go for 256 threads per block, as it is usually set to 128 or 256. It is better to choose a multiple of the warp size, since execution is performed per warp; if you set it to 250, then, 201 of our blocks will underperform: one warp of each block will not be used at its full parallel potential. It is possible to try different multiples of 32 and make the choice on the most efficient runs.</li><li class="listitem">The amount of dynamic shared memory to allocate, which is required when you define a shared memory (with the <code class="email">LOCAL_MEM</code> macro) that is dynamic (when the amount of shared memory is not known at compile time). Shared memory designates memory shared between <a id="id505" class="calibre1"/>threads belonging to the same block of threads. On devices of compute capability 2.x and 3.x, each multiprocessor has 64 KB of on-chip memory that can be partitioned between L1 cache and shared memory (16, 32, or 48K). The L1 cache coalesces global memory accesses by threads in a warp into as few cache lines as possible. The alignment differences between each thread have a negligible effect on performance thanks to the cache. Inefficiencies arise in the strided access for second and third dimensions; in this case, the use of shared memory enables you to extract a 2D tile of a multidimensional array from global memory in a coalesced fashion into shared memory and have contiguous threads stride through the shared memory tile:<div class="mediaobject"><img src="../images/00271.jpeg" alt="Theano Op in C for GPU" class="calibre9"/></div><p class="calibre27"> </p></li></ul></div></div>
+
+<div id="page" style="height:0pt"/><div class="book" title="Coalesced transpose via shared memory, NVIDIA parallel for all"><div class="book" id="3IE3G2-ccdadb29edc54339afcb9bdf9350ba6b"><div class="book"><div class="book"><h1 class="title" id="calibre_pb_0"><a id="ch13lvl1sec112" class="calibre1"/>Coalesced transpose via shared memory, NVIDIA parallel for all</h1></div></div></div><p class="calibre8">When the <a id="id506" class="calibre1"/>dimension of the data is not divisible into a block size times a grid size, threads dealing with data at the border will execute <a id="id507" class="calibre1"/>faster than other threads, and the kernel code has to be written in a way to check for out-of-bounds memory accesses.</p><p class="calibre8">When programming in parallel, race conditions, as well as memory bank conflicts in shared memory, and data that cannot stay local to the thread in the available registrars are some new pains to check. Coalescing global memory accesses is by far the most critical aspect <a id="id508" class="calibre1"/>of achieving good performance. The NVIDIA® Nsight™ tool will help you develop, debug, and profile the code that executes <a id="id509" class="calibre1"/>on CPU and GPU.</p></div>
+
+<div class="book" title="Coalesced transpose via shared memory, NVIDIA parallel for all">
+<div class="book" title="Model conversions"><div class="book"><div class="book"><div class="book"><h2 class="title1" id="calibre_pb_1"><a id="ch13lvl2sec31" class="calibre1"/>Model conversions</h2></div></div></div><p class="calibre8">When a <a id="id510" class="calibre1"/>model is saved, the resulting data is simply a list of arrays, that is, weight vectors (for biases) and matrices (for multiplications) and a name for each layer. It is quite simple to convert a model from one framework to another: it consists of loading a numerical array and checking the layer names. Here are a few conversion examples from and to Caffe Deep Learning framework written in C++:</p><div class="book"><ul class="itemizedlist"><li class="listitem"><a class="calibre1" href="https://github.com/an-kumar/caffe-theano-conversion">https://github.com/an-kumar/caffe-theano-conversion</a></li><li class="listitem"><a class="calibre1" href="https://github.com/kencoken/caffe-model-convert">https://github.com/kencoken/caffe-model-convert</a></li><li class="listitem"><a class="calibre1" href="https://github.com/piergiaj/caffe-to-theano">https://github.com/piergiaj/caffe-to-theano</a></li></ul></div><p class="calibre8">To convert variables between the Torch Deep Learning framework (written in Lua) and Theano, you simply need a tool to convert data from Lua to Python NumPy:</p><p class="calibre8">
+<a class="calibre1" href="https://github.com/imodpasteur/lutorpy">https://github.com/imodpasteur/lutorpy</a>
+</p><p class="calibre8">To convert models between Tensorflow and Theano, I would advise you to use the Keras library, which will stay up-to-date and enable to train models either in Theano or Tensorflow. For example, to convert a model from Tensorflow to Theano, keep your Keras install configured with Theano as we have seen in <a class="calibre1" title="Chapter 5. Analyzing Sentiment with a Bidirectional LSTM" href="part0060_split_000.html#1P71O2-ccdadb29edc54339afcb9bdf9350ba6b">Chapter 5</a>, <span class="strong"><em class="calibre12">Analyzing Sentiment with a Bidirectional LSTM</em></span>, load the Tensorflow weights, and modify the layer names as follows:</p><div class="informalexample"><pre class="programlisting">
+<span class="strong"><strong class="calibre2">from</strong></span> keras <span class="strong"><strong class="calibre2">import</strong></span> backend <span class="strong"><strong class="calibre2">as</strong></span> K
+<span class="strong"><strong class="calibre2">from</strong></span> keras.utils.conv_utils <span class="strong"><strong class="calibre2">import</strong></span> convert_kernel
+<span class="strong"><strong class="calibre2">from</strong></span> keras.models <span class="strong"><strong class="calibre2">import</strong></span> Model
+
+# build your Keras model HERE
+# then
+model.load_weights('my_weights_tensorflow.h5')
+
+<span class="strong"><strong class="calibre2">for</strong></span> layer <span class="strong"><strong class="calibre2">in</strong></span> model.layers:
+   <span class="strong"><strong class="calibre2">if</strong></span> layer.__class__.__name__ <span class="strong"><strong class="calibre2">in</strong></span> ['Convolution1D', 'Convolution2D']:
+      original_w = K.get_value(layer.W)
+      converted_w = convert_kernel(original_w)
+      K.set_value(layer.W, converted_w)
+
+model.save_weights('my_weights_theano.h5')</pre></div><p class="calibre8">A mirror sequence of operations enables us to do the contrary, from Theano to Tensorflow.</p><p class="calibre8">Another <a id="id511" class="calibre1"/>advantage of designing networks in Keras is the possibility to train them directly in the cloud, using the Google Cloud <a id="id512" class="calibre1"/>Machine Learning Engine, built with <span class="strong"><strong class="calibre2">Tensor Processing Units</strong></span> (<span class="strong"><strong class="calibre2">TPU</strong></span>), an alternative to GPU, designed from the ground for machine learning.</p><p class="calibre8">Let's take our example from <a class="calibre1" title="Chapter 5. Analyzing Sentiment with a Bidirectional LSTM" href="part0060_split_000.html#1P71O2-ccdadb29edc54339afcb9bdf9350ba6b">Chapter 5</a>, <span class="strong"><em class="calibre12">Analyzing Sentiment with a Bidirectional LSTM</em></span>.</p><p class="calibre8">To train the model in the cloud, I create a project named <span class="strong"><em class="calibre12">DeepLearning Theano</em></span> in the Google console <a class="calibre1" href="https://console.cloud.google.com/iam-admin/projects">https://console.cloud.google.com/iam-admin/projects</a>, and in the API manager of the project, enable the Machine Learning Engine API. A few installation requirements might be checked with instructions at: <a class="calibre1" href="https://cloud.google.com/ml-engine/docs/quickstarts/command-line">https://cloud.google.com/ml-engine/docs/quickstarts/command-line</a>, such as the Google Cloud SDK and the project configuration. With <code class="email">gcloud</code> <code class="email">init</code> command, your SDK configuration can be re-initialize to switch to the <span class="strong"><em class="calibre12">DeepLearning Theano</em></span> project.</p><p class="calibre8">Let's upload the data in a newly created bucket in the cloud, given the region you choose (here <code class="email">europe-west1</code>):</p><div class="informalexample"><pre class="programlisting">
+<span class="strong"><strong class="calibre2">gsutil</strong></span> mb -l europe-west1 gs://keras_sentiment_analysis
+<span class="strong"><strong class="calibre2">gsutil</strong></span> cp -r sem_eval2103.train gs://keras_sentiment_analysis/sem_eval2103.train
+<span class="strong"><strong class="calibre2">gsutil</strong></span> cp -r sem_eval2103.dev gs://keras_sentiment_analysis/sem_eval2103.dev
+<span class="strong"><strong class="calibre2">gsutil</strong></span> cp -r sem_eval2103.test gs://keras_sentiment_analysis/sem_eval2103.test</pre></div><p class="calibre8">Since the model is executed on a instance in the cloud, it is required:</p><div class="book"><ul class="itemizedlist"><li class="listitem">To modify the Python script to load the file stream from the remote bucket instead of a local directory, with the library <code class="email">tensorflow.python.lib.io.file_io.FileIO(train_file, mode='r') </code>rather than the standard method <code class="email">open(train_file, mode='r')</code>, with the same usage of the mode argument for both, 'r' for reading, <code class="email">w</code> for writing,</li><li class="listitem">To define a <code class="email">setup.py</code> file to configure the libraries required in the cloud instance environment:<div class="informalexample"><pre class="programlisting">
+<span class="strong"><strong class="calibre2">from</strong></span> setuptools <span class="strong"><strong class="calibre2">import</strong></span> setup, find_packages
+
+setup(<span class="strong"><strong class="calibre2">name</strong></span>='example5',
+  <span class="strong"><strong class="calibre2">version</strong></span>='0.1',
+  <span class="strong"><strong class="calibre2">packages</strong></span>=find_packages(),
+  <span class="strong"><strong class="calibre2">description</strong></span>='keras on gcloud ml-engine',
+  <span class="strong"><strong class="calibre2">install_requires</strong></span>=[
+      'keras',
+      'h5py',
+      'nltk'
+  ],
+  <span class="strong"><strong class="calibre2">zip_safe</strong></span>=False)</pre></div></li><li class="listitem">To define a cloud deployment configuration file, <code class="email">cloudml-gpu.yaml</code>:<div class="informalexample"><pre class="programlisting">  trainingInput:
+    scaleTier: CUSTOM
+    # standard_gpu provides 1 GPU. Change to complex_model_m_gpu for 4 GPUs
+    masterType: standard_gpu
+    runtimeVersion: "1.0"</pre></div></li></ul></div><p class="calibre8">To check <a id="id513" class="calibre1"/>the training works locally before submitting it to Google ML Cloud, run the following command:</p><div class="informalexample"><pre class="programlisting">
+<span class="strong"><strong class="calibre2">gcloud</strong></span> ml-engine local train --module-name 7-google-cloud.bilstm \
+  --package-path ./7-google-cloud  -- --job-dir ./7-google-cloud \
+  -t sem_eval2103.train -d sem_eval2103.dev -v sem_eval2103.test</pre></div><p class="calibre8">If everything works fine locally, let's submit it to the cloud:</p><div class="informalexample"><pre class="programlisting">JOB_NAME="keras_sentiment_analysis_train_$(date +%Y%m%d_%H%M%S)"
+
+<span class="strong"><strong class="calibre2">gcloud</strong></span> ml-engine jobs submit training $JOB_NAME \
+          --job-dir gs://keras_sentiment_analysis/$JOB_NAME \
+          --runtime-version 1.0 \
+          --module-name 7-google-cloud.bilstm  \
+          --package-path ./7-google-cloud \
+          --region europe-west1 \
+          --config=7-google-cloud/cloudml-gpu.yaml \
+          -- \
+          -t gs://keras_sentiment_analysis/sem_eval2103.train \
+          -d gs://keras_sentiment_analysis/sem_eval2103.dev \
+          -v gs://keras_sentiment_analysis/sem_eval2103.test
+
+<span class="strong"><strong class="calibre2">gcloud</strong></span> ml-engine jobs describe $JOB_NAME</pre></div><div class="mediaobject"><img src="../images/00272.jpeg" alt="Model conversions" class="calibre9"/></div><p class="calibre10"> </p><div class="informalexample" title="Note"><h3 class="title2"><a id="note07" class="calibre1"/>Note</h3><p class="calibre8">Note that Google ML Cloud uses Tensorflow as backend.</p></div></div></div>
+<div class="book" title="The future of artificial intelligence" id="3JCK21-ccdadb29edc54339afcb9bdf9350ba6b"><div class="book"><div class="book"><div class="book"><h1 class="title" id="calibre_pb_0"><a id="ch13lvl1sec113" class="calibre1"/>The future of artificial intelligence</h1></div></div></div><p class="calibre8">
+<a class="calibre1" title="Chapter 2. Classifying Handwritten Digits with a Feedforward Network" href="part0026_split_000.html#OPEK1-ccdadb29edc54339afcb9bdf9350ba6b">Chapter 2</a>, <span class="strong"><em class="calibre12">Classifying Handwritten Digits with a Feedforward Network</em></span> presented diverse <a id="id514" class="calibre1"/>optimization techniques (Adam, RMSProp, and so on) and mentioned second order optimization techniques. A generalization would be to also learn the update rule:</p><div class="mediaobject"><img src="../images/00273.jpeg" alt="The future of artificial intelligence" class="calibre9"/></div><p class="calibre10"> </p><p class="calibre8">Here, <span class="strong"><img src="../images/00274.jpeg" alt="The future of artificial intelligence" class="calibre23"/></span> is the parameter of the optimizer <span class="strong"><img src="../images/00275.jpeg" alt="The future of artificial intelligence" class="calibre23"/></span> to learn from different problem instances, a sort of <span class="strong"><em class="calibre12">generalization</em></span> or <span class="strong"><em class="calibre12">transfer learning</em></span> of the optimizer from problems to learn better on new problems. The objective to minimize under this <span class="strong"><em class="calibre12">learning to learn</em></span> or <span class="strong"><em class="calibre12">meta-learning</em></span> framework has to optimize the time to learn correctly and, consequently, be defined on multiple timesteps:</p><div class="mediaobject"><img src="../images/00276.jpeg" alt="The future of artificial intelligence" class="calibre9"/></div><p class="calibre10"> </p><p class="calibre8">Where:</p><div class="mediaobject"><img src="../images/00277.jpeg" alt="The future of artificial intelligence" class="calibre9"/></div><p class="calibre10"> </p><p class="calibre8">A recurrent neural network can be used as the optimizer model <span class="strong"><img src="../images/00275.jpeg" alt="The future of artificial intelligence" class="calibre23"/></span>. Such a generalization technique that solves a multi-objective optimization problem improves the learning rate of the neural networks in general.</p><p class="calibre8">Researchers <a id="id515" class="calibre1"/>have been looking one step further, searching for general artificial intelligence, which  aims for a human-level skill set with the capacity to improve itself and acquire new skills in a gradual way, using its <span class="strong"><strong class="calibre2">intrinsic</strong></span> and previously learned skills to search for the solutions of new optimization problems.</p><p class="calibre8">A <span class="strong"><strong class="calibre2">skill</strong></span> could be defined as a tool of intelligence to narrow or constrain the search space and restrict the behavior of the robot in the infinite world of possibilities.</p><p class="calibre8">Building a <span class="strong"><strong class="calibre2">General Artificial Intelligence</strong></span> requires you to define the architecture of the intelligence with the intrinsic skills, which will be hardcoded by programmers into the robot and help solve smaller subproblems, as well as to define the order in which new skills will be acquired, the <span class="strong"><strong class="calibre2">curriculum roadmap</strong></span> that could be taught in a <span class="strong"><strong class="calibre2">School for AI</strong></span>. While <span class="strong"><strong class="calibre2">gradual learning</strong></span> learns skill incrementally using simpler skills, <span class="strong"><strong class="calibre2">guided learning</strong></span> involves a teacher who has already discovered the skills and will teach them to other AI.</p><p class="calibre8">On natural language translation tasks, smaller networks have been proven to learn faster and better from a bigger network, the <span class="strong"><em class="calibre12">mentor</em></span>, which would have learned to translate and produce the translations for the smaller network to learn from, rather than learning directly from a real set of human translations.</p><div class="mediaobject"><img src="../images/00278.jpeg" alt="The future of artificial intelligence" class="calibre9"/></div><p class="calibre10"> </p><p class="calibre8">The preceding figure represents GoodAI Roadmap Institute to evaluate the learning roadmaps for AI.</p><p class="calibre8">Self exploration, communication with the mentor, and incorporation of negative and positive <a id="id516" class="calibre1"/>feedback are among the ideas toward autonomous intelligence that will develop itself, and the current Deep Learning networks open the way toward this future.</p><p class="calibre8">Among the companies that work toward this goal, it would be worth to quote GoodAI, as well as Amazon with its Echo product and the underlying voice control assistant technology, Alexa, that has already learned more than 10,000 skills in order to help you organize your life. Alexa's knowledge has become so vast that it becomes hard to dive deep into it and find its limitations. A test environment for developers enables them to insert <a id="id517" class="calibre1"/>these skills into intelligence tools of higher level:</p><div class="mediaobject"><img src="../images/00279.jpeg" alt="The future of artificial intelligence" class="calibre9"/></div><p class="calibre10"> </p></div>
+<div class="book" title="Further reading" id="3KB4K1-ccdadb29edc54339afcb9bdf9350ba6b"><div class="book"><div class="book"><div class="book"><h1 class="title" id="calibre_pb_0"><a id="ch13lvl1sec114" class="calibre1"/>Further reading</h1></div></div></div><p class="calibre8">You can refer to the following articles to learn more:</p><div class="book"><ul class="itemizedlist"><li class="listitem"><span class="strong"><em class="calibre12">An E</em></span><span class="strong"><em class="calibre12">asy Introduction to CUDA C and C++</em></span>, <a class="calibre1" href="https://devblogs.nvidia.com/parallelforall/easy-introduction-cuda-c-and-c/">https://devblogs.nvidia.com/parallelforall/easy-introduction-cuda-c-and-c/</a></li><li class="listitem"><span class="strong"><em class="calibre12">How to Access Global Memory</em></span><span class="strong"><em class="calibre12"> Efficiently in CUDA C/C++ Kernels</em></span>, <a class="calibre1" href="https://devblogs.nvidia.com/parallelforall/how-access-global-memory-efficiently-cuda-c-kernels/">https://devblogs.nvidia.com/parallelforall/how-access-global-memory-efficiently-cuda-c-kernels/</a></li><li class="listitem"><span class="strong"><em class="calibre12">Using Shared Memory in CUDA C/C++</em></span>, <a class="calibre1" href="https://devblogs.nvidia.com/parallelforall/using-shared-memory-cuda-cc/">https://devblogs.nvidia.com/parallelforall/using-shared-memory-cuda-cc/</a></li><li class="listitem"><span class="strong"><em class="calibre12">Just another Tensorflow beginner guide (Par</em></span><span class="strong"><em class="calibre12">t4 - Google Cloud ML + GUP + Keras),</em></span> <a class="calibre1" href="http://liufuyang.github.io/2017/04/02/just-another-tensorflow-beginner-guide-4.html">http://liufuyang.github.io/2017/04/02/just-another-tensorflow-beginner-guide-4.html</a></li><li class="listitem">Learning to learn by gradient descent by gradient descent, Marcin Andrychowicz, Misha Denil, Sergio Gomez, Matthew W. Hoffman, David Pfau, Tom Schaul, Brendan Shillingford, and Nando de Freitas, 2016</li><li class="listitem">A Framework for Searching for General Artificial Intelligence, Marek Rosa, and Jan Feyereisl, The GoodAI Collective, 2016</li></ul></div></div>
+<div class="book" title="Summary" id="3L9L61-ccdadb29edc54339afcb9bdf9350ba6b"><div class="book"><div class="book"><div class="book"><h1 class="title" id="calibre_pb_0"><a id="ch13lvl1sec115" class="calibre1"/>Summary</h1></div></div></div><p class="calibre8">This chapter concludes our overview of Deep Learning with Theano.</p><p class="calibre8">The first set of extensions of Theano, in Python and C for the CPU and GPU, has been exposed here to create new operators for the computation graph.</p><p class="calibre8">Conversion of the learned models from one framework to another is not a complicated task. Keras, a high-level library presented many times in this book as an abstraction on top of the Theano engine, offers a simple way to work with Theano and Tensorflow as well as to push the training of models in the Google ML Cloud.</p><p class="calibre8">Lastly, all the networks presented in this book are at the base of General Intelligence, which can use these first skills, such as vision or language understanding and generation, to learn a wider range of skills, still from experiences on real-world data or generated data.</p></div></body></html>
