@@ -1,0 +1,490 @@
+<html><head></head><body>
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Training Networks</h1>
+                </header>
+            
+            <article>
+                
+<p>In <a href="270a3617-74cd-4e64-98f7-eb0c4e3cbcf6.xhtml">Chapter 2</a>, <em>Composing Networks</em>, we learned how to create Caffe2 operators and how we can compose networks from them. In this chapter, the focus is on training neural networks. We will learn how to create a network that is intended for training and how to train it using Caffe2. We will continue to use the MNIST dataset as an example. However, instead of the MLP network we built in the previous chapter, we will create a popular network named LeNet.<br/></p>
+<p>This chapter will cover the following topics:</p>
+<ul>
+<li>Introduction to training a neural network</li>
+<li>Building the training network for LeNet</li>
+<li>Training and monitoring the LeNet network</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Introduction to training</h1>
+                </header>
+            
+            <article>
+                
+<p>In this section, we provide a brief overview of how a neural network is trained. This will help us to understand the later sections where we use Caffe2 to actually train a network.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Components of a neural network</h1>
+                </header>
+            
+            <article>
+                
+<p>We employ neural networks to solve a particular type of problem for which devising a computer algorithm would be onerous or difficult. For example, in the MNIST problem (introduced in <a href="270a3617-74cd-4e64-98f7-eb0c4e3cbcf6.xhtml">Chapter 2</a>, <em>Composing Networks</em>), handcrafting a complicated algorithm to detect the common stroke patterns for each digit, and thereby determining each digit, would be tedious. Instead, it is easier to design a neural network suited to this problem and then train it (as shown later in this chapter) using a lot of data to do the same. If the training data is diverse and the training is done carefully, such a network would also be far more robust to variations in the input data than any deterministic handcrafted algorithm would.</p>
+<p class="mce-root"/>
+<p>A neural network has two main components: its structure and its weights. We typically design the network structure and then use a training algorithm and training data to determine the weights. After it is trained, the network structure, with its embedded weights, can be used for inference on new unseen data, as shown in the following diagram:</p>
+<div class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-291 image-border" src="assets/990caef5-f3af-4b7d-871a-f26df03aeb66.png" style=""/></div>
+<div class="CDPAlignCenter CDPAlign packt_figref">Figure 3.1: Structure and weights of a network used for inference</div>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Structure of a neural network</h1>
+                </header>
+            
+            <article>
+                
+<p>The structure of a network is the series of its layers, their types, and their configurations. The structure is typically devised by a researcher or a practitioner familiar with the problem that the neural network is being designed to solve. For example, to solve image classification problems, computer vision researchers might typically use a series of convolution layers in the network. (We will learn about the convolution layer later in this chapter.) Various configuration parameters of each layer also need to be determined beforehand, such as the size and number of the convolution filters in a convolution layer. There is a huge amount of interest in using deep learning itself to ascertain the structure of a network suited to a particular problem. However, discussion of this meta-learning topic is beyond the scope of this book.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Weights of a neural network</h1>
+                </header>
+            
+            <article>
+                
+<p>The second component of a network is its weights and biases. We generally refer to them together as <strong>weights</strong>, or sometimes as <strong>parameters</strong>. These are the floating point values that are the parameters of every layer in the network. How the weights of a layer are used is determined by the type of layer. For example, in a fully connected layer, a bigger weight value might signify a stronger correlation between an input signal and the network's output. In a convolution layer, the weights of a convolution filter might signify what type of pattern or shape in the input it is looking for.</p>
+<p class="mce-root"/>
+<p>In summary, we sit down and devise the structure of a network to solve a particular problem. Our choices in this process will be limited by our understanding of the problem space, the types of layers available in the DL framework, the hardware constraints of the accelerator we are using, and how much training time we are prepared to put up with. For example, the memory available in a GPU or CPU might limit the number of weights we might use in a layer or the number of layers we might use in the network. The amount of training time we are willing to spend also limits the number of weights and layers we can use in a network, because the more of these we employ, the longer it may take for the network to converge and train.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Training process</h1>
+                </header>
+            
+            <article>
+                
+<p>Once we have a network structure fleshed out, we can then use a DL framework such as Caffe2 to describe that structure. We then apply one of the many training algorithms available in the framework on our training data. This trains the network and learns the weights of the layers that would best amplify the signal and dampen the noise. This process is depicted in Figure 3.2:</p>
+<div class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-292 image-border" src="assets/1286ef22-d6f7-41aa-b550-43778aff6980.png" style=""/></div>
+<div class="CDPAlignCenter CDPAlign packt_figref">Figure 3.2: Training is the process of learning the weights of a neural network using a training algorithm and data</div>
+<p>Neural networks are typically trained using a gradient-based optimization algorithm. To do this, we first define an <strong>objective function</strong> or <strong>loss function</strong> for the network. This function computes a loss or error value by comparing the output of the network on a given input to the ground truth result of that input. The training process iteratively picks training data and computes its loss, and then uses the optimization algorithm to update the weights so that the error is reduced. This process is repeated until we see no further improvement in the accuracy of the network:</p>
+<div class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-293 image-border" src="assets/6d3af34c-bebe-4b12-910d-1a905be35517.png" style=""/></div>
+<div class="CDPAlignCenter CDPAlign packt_figref">Figure 3.3: Three stages of an iteration in training</div>
+<p>A single iteration of the training process is depicted in <em>Figure 3.3</em>. We can see that it has three distinct stages. The first stage is a <strong>Forward pass</strong>, where we essentially perform inference of the network with its current weights to obtain the result or hypothesis of the network. In the second stage, we compute the loss of the network using a loss function. The third stage is a <strong>Backward pass</strong>, where we use an algorithm called backpropagation to update the weights of the network.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Gradient descent variants</h1>
+                </header>
+            
+            <article>
+                
+<p>There are commonly three variants of gradient descent we can employ to sample the training data used in every iteration of training. If we use the entire training dataset in each iteration, this process is called <strong>batch gradient descent</strong>. If we use one randomly chosen sample of the training data in each iteration, then the process is called <strong>stochastic gradient descent</strong>. The variant that is most commonly used is <strong>mini-batch gradient descent</strong>, where we use a randomly chosen subset of the training data in each iteration. For best results, this is done by shuffling the training data, and then dividing it into mini-batches used in each iteration. After we are finished with one run through the training data, called an <strong>epoch</strong>, we shuffle and divide again into batches and continue.</p>
+<p>In the remainder of this chapter, we will learn about the LeNet network that can be used for MNIST, how to build it, and how to use it for training using Caffe2.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">LeNet network</h1>
+                </header>
+            
+            <article>
+                
+<p>In <a href="270a3617-74cd-4e64-98f7-eb0c4e3cbcf6.xhtml">Chapter</a> 2, <em>Composing Networks</em>, we built an MLP network that was composed of multiple pairs of fully connected layers and activation layers. In this chapter, we will build and train a <strong>convolutional neural network</strong> (<strong>CNN</strong>). This type of network is so named because it primarily uses convolution layers (introduced in the next section). For computer vision problems, CNNs have been shown to deliver better results with fewer numbers of parameters compared to MLPs. One of the first successful CNNs was used to solve the MNIST problem that we looked at earlier. This network, named <strong>LeNet-5</strong>, was created by Yann LeCun and his colleagues:</p>
+<div class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-477 image-border" src="assets/b8d74f04-007f-4288-a8c2-7f2c537fd2a4.png" style=""/></div>
+<div class="mce-root CDPAlignCenter CDPAlign packt_figref">Figure 3.4: Structure of our LeNet model</div>
+<p> We will construct a network similar in spirit to the LeNet. We will refer to this as the LeNet model in the remainder of this book. From <em>Figure 3.4</em>, we can see that our LeNet network has eight layers. After the input layer, there are two pairs of convolution layers and pooling layers. They are followed by a pair of fully connected and ReLU activation layers and another fully connected layer. A final SoftMax layer is used to obtain the MNIST classification result.</p>
+<p>We next look at two new layers that are important in CNNs and are part of LeNet: convolution and pooling.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Convolution layer</h1>
+                </header>
+            
+            <article>
+                
+<p>The <em>convolution layer</em> is the most important layer in neural networks that are used to solve computer vision problems, involving images and video. The input tensor to a convolution layer has at least three dimensions in its size: <img class="fm-editor-equation" src="assets/0cfc418c-1293-4fde-b975-479b21fcecb4.png" style="width:4.75em;height:0.83em;"/>. That is, the input has <img class="fm-editor-equation" src="assets/c945c225-fbf5-4062-92f5-6224033d66a8.png" style="width:0.83em;height:0.92em;"/> channels, each channel being a 2D matrix of height <img class="fm-editor-equation" src="assets/6c535cec-90bc-4514-a283-f594567d32b5.png" style="width:1.00em;height:0.92em;"/> and width <img class="fm-editor-equation" src="assets/85b6c19e-b58c-4b0b-8e2f-ee6cc2ef4aa4.png" style="width:1.08em;height:0.92em;"/>. This follows naturally from the layout of images. For example, an RGB image has three channels, each channel of a certain height and width.</p>
+<p class="mce-root"/>
+<p>When we refer to <strong>convolution</strong>, we generally mean <strong>2-dimensional</strong> (<strong>2D</strong>) convolution. A 2D convolution layer has two sets of parameters that are learned during training: filter parameters and bias parameters.</p>
+<p>The first set of parameters associated with a 2D convolution layer is <img class="fm-editor-equation" src="assets/b00de931-2ab9-49a4-9a24-ef12fc601b8c.png" style="width:0.75em;height:0.67em;"/> filters. Each <strong>filter</strong> or <strong>kernel</strong> is a <strong>3-dimensional</strong> (<strong>3D</strong>) tensor of shape <img class="fm-editor-equation" src="assets/68dde4f0-a566-4cc2-8023-f7cb583b9038.png" style="width:4.00em;height:0.75em;"/> holding floating point values that were learned during training. So, the total number of filter parameters that need to be learned during training for a 2D convolution layer is <img class="fm-editor-equation" src="assets/a73b1f10-003e-47d0-bea6-7577d4814c77.png" style="width:5.58em;height:0.75em;"/>. Note how a kernel of a 2D convolution layer has the same number of channels, <img class="fm-editor-equation" src="assets/35e85920-9ccd-4bf8-8464-8685609f987d.png" style="width:0.58em;height:0.67em;"/>, as the input to the layer.</p>
+<p>The second set of parameters associated with a 2D convolution layer are <img class="fm-editor-equation" src="assets/a845ffeb-7a17-457a-a671-414b043747aa.png" style="width:0.92em;height:0.92em;"/> bias values, each value being associated with each of the <img class="fm-editor-equation" src="assets/55ff6eb5-7ff4-456d-9e9e-bd2ababe2676.png" style="width:0.92em;height:0.83em;"/> filters described previously.</p>
+<p>During convolution, each of the <img class="fm-editor-equation" src="assets/0b647453-d81b-4a4d-bcd3-c3d3555d652a.png" style="width:0.83em;height:0.83em;"/> kernels is slid across the width and height of the input. At every location where a kernel stops, a dot product is computed between the kernel values and the input values that overlap with the kernel, in order to obtain one output value for that location. Finally, the bias value associated with that kernel is added to each output value. This process is illustrated in Figure 3.5:</p>
+<div class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-478 image-border" src="assets/8f7525d1-6f20-4e70-acef-c0ba0404c8e1.png" style=""/></div>
+<div class="CDPAlignCenter CDPAlign packt_figref">Figure 3.5: 2D convolution of <img class="fm-editor-equation" src="assets/4cfefe2f-2b21-4f5f-bba1-96e80fb0b76c.png" style="width:2.75em;height:0.58em;"/> input with two filters of shape <img class="fm-editor-equation" src="assets/d9bfaa13-634c-4df9-a999-46af255782ad.png" style="width:2.75em;height:0.58em;"/>. Output is of the shape <img class="fm-editor-equation" src="assets/40b5a8c5-6887-4478-9d8a-e5e815cee36d.png" style="width:2.42em;height:0.50em;"/></div>
+<p>Note how convolving with each kernel results in an output tensor of size <img class="fm-editor-equation" src="assets/568b94bd-6728-4846-8c1e-05723ed034d7.png" style="width:3.00em;height:0.75em;"/>. Thus, when an input of size <img class="fm-editor-equation" src="assets/3074dce5-23d2-4c38-af4b-28a556b54d5b.png" style="width:4.67em;height:0.83em;"/> is fed to a 2D convolution layer, the resulting output is of size <img class="fm-editor-equation" src="assets/55440054-fd94-4cd0-90a9-2671ce0b9e6b.png" style="width:5.08em;height:0.83em;"/>. If we feed a batch of <img class="fm-editor-equation" src="assets/164214f4-a9f3-47f0-aabb-631e66695444.png" style="width:1.25em;height:1.17em;"/> inputs to a 2D convolution layer, the resulting output is of size <img class="fm-editor-equation" src="assets/3a91706e-03ab-4e94-b07b-e41dc7c7462b.png" style="width:7.58em;height:0.92em;"/>.</p>
+<p>A 2D convolution layer has a few other arguments. A couple of important arguments are the stride and padding. <strong>Stride</strong> indicates how many values along the height and width a kernel moves before stopping to perform a convolution. For example, if the stride is <img class="fm-editor-equation" src="assets/b20bf2d0-23dc-420a-a6f9-e9b75663ce10.png" style="width:2.42em;height:0.92em;"/>, kernels only visit every alternate location in the input. <strong>Padding</strong> indicates how much the height and width of input can be assumed to be expanded with <strong>padding values</strong> for performing convolution. Zero values are commonly used as padding values, and this is called <strong>zero padding</strong>.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Pooling layer</h1>
+                </header>
+            
+            <article>
+                
+<p>Another popular type of layer used in CNNs is called the <strong>pooling layer</strong>. It is typically used to reduce the width and height of the outputs of a previous layer. It operates by subsampling its input to produce the output. Unlike a convolution layer, a pooling layer does not have any pretrained parameters. It has two arguments associated with it: a <strong>window size</strong> and a <strong>reduction function</strong>. Similar to the convolution layer, a pooling layer has arguments such as stride and padding.</p>
+<p>What the pooling layer does is to slide the window of specified width and height across the input. At each location where it stops, it applies its reduction function to the input values in the window to produce a single output value:</p>
+<div class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-479 image-border" src="assets/2ba01ee9-2a27-4fc2-aaa9-43f129b9ffc8.png" style=""/></div>
+<div class="mce-root CDPAlignCenter CDPAlign packt_figref">Figure 3.6: Pooling layer producing <img class="fm-editor-equation" src="assets/88ded9de-47b1-41ff-83bc-d224e781cc30.png" style="width:3.17em;height:0.67em;"/> output after pooling <img class="fm-editor-equation" src="assets/95426f58-5746-4bcf-bb2c-23f19c438f96.png" style="width:3.58em;height:0.75em;"/> input with a <img class="fm-editor-equation" src="assets/bd09d1ca-b52e-4e3c-884d-026fe55ead2c.png" style="width:1.75em;height:0.67em;"/> pooling window</div>
+<p>Common reduction functions are max and average. In a max-pooling layer, the maximum of the values in the input window becomes the output value. In an <strong>average-pooling layer</strong>, the average of the values in the input window becomes the output value. <em>Figure 3.6</em> illustrates an operation in a max-pooling layer.</p>
+<p>The pooling window is 2D and moves along the width and height of the input. So, it only reduces the width and height of the input. The number of channels remains the same in the input and in the output.</p>
+<p>We are now ready to look at a code example that trains a LeNet network. The complete source code for this is available as <kbd>ch3/mnist_lenet.py</kbd>. We begin by reading the MNIST training data in the next section.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Training data</h1>
+                </header>
+            
+            <article>
+                
+<p>We use brew in this chapter to simplify the process of building our LeNet network. We begin by first initializing the model using <kbd>ModelHelper</kbd>, which was introduced in the previous chapter:</p>
+<pre class="mce-root"># Create the model helper for the train model<br/>train_model = model_helper.ModelHelper(name="mnist_lenet_train_model")</pre>
+<p class="mce-root">We then add inputs to the training network using our <kbd>add_model_inputs</kbd> method:</p>
+<pre class="mce-root"># Specify the input is from the train lmdb<br/>data, label = add_model_inputs(<br/>    train_model,<br/>    batch_size=64,<br/>    db=os.path.join(data_folder, "mnist-train-nchw-lmdb"),<br/>    db_type="lmdb",<br/>)</pre>
+<p>Training data is usually stored in a <strong>database</strong> (<strong>DB</strong>) so that it can be accessed efficiently. Reading from a DB is usually faster than reading from thousands of individual files on the filesystem. For every training image in the MNIST dataset, the DB stores the <img class="fm-editor-equation" src="assets/794e7fbf-e3ba-4db8-85c5-2896e17aed95.png" style="width:3.50em;height:0.92em;"/> grayscale pixel values of the image and the digit that is in the image. Each grayscale pixel value is an 8-bit unsigned integer, with values in the range <img class="fm-editor-equation" src="assets/30176a5d-e2f0-4dae-a677-971f411d6f79.png" style="width:2.92em;height:1.17em;"/>. The actual digit that is in each image is called a <strong>label</strong> and is usually annotated by a human by inspecting the image. For example, if the handwritten digit in the image is a 9, then a human annotator would have looked at the image and given it a label of 9.</p>
+<p>In our <kbd>add_model_inputs</kbd> method, we use a convenient brew helper function named <kbd>db_input</kbd> to connect the DB to our model:</p>
+<pre># Load data from DB<br/>input_images_uint8, input_labels = brew.db_input(<br/>    model,<br/>    blobs_out=["input_images_uint8", "input_labels"],<br/>    batch_size=batch_size,<br/>    db=db,<br/>    db_type=db_type,<br/>)</pre>
+<p>We specify the names of the blobs in our workspace to which the image and label data should be stored: <kbd>input_images_uint8</kbd> and <kbd>input_labels</kbd>. We also specify the batch size and information required to access the DB, such as its name and type.</p>
+<p>Neural networks almost always work with float values, ideally normalized to the range <img class="fm-editor-equation" src="assets/12c6eec1-e08e-476d-99b7-f59c6ff39426.png" style="width:2.17em;height:1.33em;"/>. So, we indicate that our input image data, which is an 8-bit unsigned integer data type, should be cast to the float data type and normalized:</p>
+<pre># Cast grayscale pixel values to float<br/># Scale pixel values to [0, 1]<br/>input_images = model.Cast(input_images_uint8, "input_images", to=core.DataType.FLOAT)<br/>input_images = model.Scale(input_images, input_images, scale=float(1./256))</pre>
+<p>Note how the Caffe2 <kbd>ModelHelper</kbd> provides helpful methods to perform both these operations with ease: <kbd>Cast</kbd> and <kbd>Scale</kbd>.</p>
+<p>Finally, we add a <kbd>StopGradient</kbd> operator to the image data blob to indicate to the backward pass algorithm not to compute gradients for it:</p>
+<pre># We do not need gradient for backward pass<br/># This op stops gradient computation through it<br/>input_images = model.StopGradient(input_images, input_images)</pre>
+<p>We do this because the input layer is not a real layer of the neural network. It has no learnable parameters and does not have anything to be trained. So, the backward pass can stop there and does not need to move past it. <kbd>StopGradient</kbd> is a pseudo operator in Caffe2 that achieves this effect.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Building LeNet</h1>
+                </header>
+            
+            <article>
+                
+<p>We build the LeNet layers required for inference by calling the <kbd>build_mnist_lenet</kbd> method in our script:</p>
+<pre># Build the LeNet network<br/>softmax_layer = build_mnist_lenet(train_model, data)</pre>
+<p class="mce-root"/>
+<p>Note how we only pass in the image pixel data input to this network and not the labels. The labels are not required for inference; they are required for training or testing to use as ground truth to compare against the prediction of the network’s final layer.<br/></p>
+<p>The remainder of the following subsections describe how we add pairs of convolution and pooling layers, the fully connected and ReLU layers, and the final SoftMax layer, to create the LeNet network.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Layer 1 – Convolution</h1>
+                </header>
+            
+            <article>
+                
+<p>The first layer in LeNet is a convolution layer, which we introduced earlier in this chapter. We build it from a Caffe2 2D convolution operator, <kbd>Conv2D</kbd>, available in the operators' catalog. This can be added to the model using the handy <kbd>brew.conv</kbd> method.</p>
+<p>When creating the operator, we specify that the input is a single-channel matrix of grayscale values. We also indicate that the output should have <kbd>20</kbd> channels, each channel holding a matrix. Finally, we specify that each convolution kernel used should have a width and height of <kbd>5</kbd> pixels. In Caffe2, we can provide minimal information like this and the API figures out the rest of the necessary arguments:</p>
+<pre># Convolution layer that operates on the input MNIST image<br/># Input is grayscale image of size 28x28 pixels<br/># After convolution by 20 kernels each of size 5x5,<br/># output is 20 channels, each of size 24x24<br/>layer_1_input_dims = 1   # Input to layer is grayscale, so 1 channel<br/>layer_1_output_dims = 20 # Output from this layer has 20 channels<br/>layer_1_kernel_dims = 5  # Each kernel is of size 1x5x5<br/>layer_1_conv = brew.conv(<br/>    model,<br/>    input_blob_name,<br/>    "layer_1_conv",<br/>    dim_in=layer_1_input_dims,<br/>    dim_out=layer_1_output_dims,<br/>    kernel=layer_1_kernel_dims,<br/>)</pre>
+<p>Let's expand these values to get a better idea of the sizes of the input, output, and kernels of this layer. Since the MNIST dataset is a <img class="fm-editor-equation" src="assets/164e8dc6-95e9-4536-9238-878e3fac1a99.png" style="width:3.58em;height:0.92em;"/> grid of values of a single grayscale channel, the input to this first layer of the network is a 3D array of size <img class="fm-editor-equation" src="assets/50a726c1-8bfb-4082-bd09-9da816d48385.png" style="width:4.42em;height:0.75em;"/>. We are performing 2D convolution here, where each kernel has the same number of channels as the input to the layer. Furthermore, we indicated that the kernel width and height should be 5. So, the size of each kernel is <img class="fm-editor-equation" src="assets/1c43255e-5f55-41d0-8d2d-91a990fb4818.png" style="width:4.00em;height:0.83em;"/>. Since we indicated that we want 20 channels of output from this layer, we need 20 such kernels. Hence, the actual size of kernel parameters of this layer is <img class="fm-editor-equation" src="assets/4302d892-80e0-402a-885f-3261315691a4.png" style="width:5.42em;height:0.75em;"/>. Convolution layers also use a bias value, one for each output channel, so the size of bias values is <img class="fm-editor-equation" src="assets/ec2c64ef-8cb2-4b64-9289-f339d9d492ae.png" style="width:2.58em;height:0.83em;"/>.</p>
+<p>If a <img class="fm-editor-equation" src="assets/94d82477-647b-4887-9b0c-d527cd3e3bf0.png" style="width:4.00em;height:0.83em;"/> kernel is convolved on a <img class="fm-editor-equation" src="assets/0096a185-07f2-4eb9-a84f-e8b185bf58d4.png" style="width:4.92em;height:0.83em;"/> input with a stride of 1, the result is <img class="fm-editor-equation" src="assets/c55d39ae-efd3-42d1-9911-152d98acfcdc.png" style="width:3.50em;height:0.92em;"/>. When 20 such kernels are used, the result is <img class="fm-editor-equation" src="assets/eabb0e24-f509-4813-bcf3-f5ab7c4e7884.png" style="width:6.00em;height:0.92em;"/>. This is the size of the output of this layer.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Layer 2 – Max-pooling</h1>
+                </header>
+            
+            <article>
+                
+<p>The output of the first convolution layer is connected to a max-pooling layer, introduced earlier in this chapter. We build it from a Caffe2 max-pooling operator, <kbd>MaxPool</kbd>, available in the operators' catalog. This can be added to the model using the handy <kbd>brew.max_pool</kbd> method. When creating this operator, we specify that its kernels are 2 x 2 <span>in size</span>, and that the stride is 2:</p>
+<pre># Max-pooling layer that operates on output from previous convolution layer<br/># Input is 20 channels, each of size 24x24<br/># After pooling by 2x2 windows and stride of 2, the output of this layer<br/># is 20 channels, each of size 12x12<br/>layer_2_kernel_dims = 2 # Max-pool over 2x2 windows<br/>layer_2_stride = 2      # Stride by 2 pixels between each pool<br/>layer_2_pool = brew.max_pool(<br/>    model,<br/>    layer_1_conv,<br/>    "layer_2_pool",<br/>    kernel=layer_2_kernel_dims,<br/>    stride=layer_2_stride,<br/>)</pre>
+<p class="mce-root">The output of the previous convolution layer was of the size <img class="fm-editor-equation" src="assets/53b05c6d-a7ac-4662-8ec4-3fe0b3823426.png" style="width:5.33em;height:0.83em;"/>. When max-pooling using window size <img class="fm-editor-equation" src="assets/a0bd1dfd-87bb-4d09-a39c-cf5d3930d410.png" style="width:1.75em;height:0.67em;"/> and stride 2 is performed, the output is of the size <img class="fm-editor-equation" src="assets/41f92570-45d4-4f54-b0a0-df93ccd522de.png" style="width:4.92em;height:0.75em;"/>.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Layers 3 and 4 – Convolution and max-pooling</h1>
+                </header>
+            
+            <article>
+                
+<p>The first pair of convolution and pooling layers is followed by another pair of convolution and pooling layers in LeNet, to further reduce the width and height and increase the channels:</p>
+<pre># Convolution layer that operates on output from previous pooling layer.<br/># Input is 20 channels, each of size 12x12<br/># After convolution by 50 kernels, each of size 20x5x5,<br/># the output is 50 channels, each of size 8x8<br/>layer_3_input_dims = 20  # Number of input channels<br/>layer_3_output_dims = 50 # Number of output channels<br/>layer_3_kernel_dims = 5  # Each kernel is of size 50x5x5<br/>layer_3_conv = brew.conv(<br/>    model,<br/>    layer_2_pool,<br/>    "layer_3_conv",<br/>    dim_in=layer_3_input_dims,<br/>    dim_out=layer_3_output_dims,<br/>    kernel=layer_3_kernel_dims,<br/>)<br/><br/># Max-pooling layer that operates on output from previous convolution layer<br/># Input is 50 channels, each of size 8x8<br/># Apply pooling by 2x2 windows and stride of 2<br/># Output is 50 channels, each of size 4x4<br/>layer_4_kernel_dims = 2 # Max-pool over 2x2 windows<br/>layer_4_stride = 2      # Stride by 2 pixels between each pool<br/>layer_4_pool = brew.max_pool(<br/>    model,<br/>    layer_3_conv,<br/>    "layer_4_pool",<br/>    kernel=layer_4_kernel_dims,<br/>    stride=layer_4_stride,<br/>)</pre>
+<p>The second pair of convolution and pooling layers is similar to the first pair, in that convolution kernels have a size of 5 x 5 and the stride is 2, while the max-pooling window size is <img class="fm-editor-equation" src="assets/5ce98050-ac22-45cc-bc9f-42ce41850c58.png" style="width:2.42em;height:0.92em;"/> and the stride is 2. What is different is that the second convolution layer uses 50 kernels to produce an output having 50 channels. After the second convolution layer, the output is of the size <img class="fm-editor-equation" src="assets/e333ca6a-e958-4d28-be29-7fc833f6bb1d.png" style="width:4.83em;height:0.92em;"/>. After the second max-pooling layer, the output is <img class="fm-editor-equation" src="assets/b024ade5-42d5-43a5-8142-03fc5b8dc05e.png" style="width:4.83em;height:0.92em;"/>. Note how the width and height of the inputs have gone down dramatically.</p>
+<p class="mce-root"/>
+<p class="mce-root"/>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Layers 5 and 6 – Fully connected and ReLU</h1>
+                </header>
+            
+            <article>
+                
+<p>The convolution and pooling layers are followed by a pair of fully connected and ReLU layers, added using the handy methods, <kbd>brew.fc</kbd> and <kbd>brew.relu</kbd>:</p>
+<pre># Fully-connected layer that operates on output from previous pooling layer<br/># Input is 50 channels, each of size 4x4<br/># Output is vector of size 500<br/>layer_5_input_dims = 50 * 4 * 4<br/>layer_5_output_dims = 500<br/>layer_5_fc = brew.fc(<br/>    model,<br/>    layer_4_pool,<br/>    "layer_5_fc",<br/>    dim_in=layer_5_input_dims,<br/>    dim_out=layer_5_output_dims,<br/>)<br/> <br/># ReLU layer that operates on output from previous fully-connected layer<br/># Input and output are both of size 500<br/>layer_6_relu = brew.relu(<br/>    model,<br/>    layer_5_fc,<br/>    "layer_6_relu",<br/>)</pre>
+<p>The input to the fully connected layer is of size <img class="fm-editor-equation" src="assets/d2047bd9-1ae3-4748-86a4-cbdbec659ae1.png" style="width:4.83em;height:0.92em;"/>. This 3D input is flattened to a vector of size 800 when fed to the fully connected layer. We have specified the output size of the layer as <kbd>500</kbd>. So this layer needs to learn <img class="fm-editor-equation" src="assets/6e72624a-259d-4f1c-b667-1f78d84e2b3b.png" style="width:4.17em;height:0.83em;"/> values, plus a bias value, during training, so that they can be used during inference. The output of the fully connected layer is fed to a ReLu layer, which acts as an activation function.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Layer 7 and 8 – Fully connected and Softmax</h1>
+                </header>
+            
+            <article>
+                
+<p>LeNet-5 uses a second fully connected layer to reduce the output down to the <kbd>10</kbd> values required to predict probabilities for the 10 digits:</p>
+<pre># Fully-connected layer that operates on output from previous ReLU layer<br/># Input is of size 500<br/># Output is of size 10, the number of classes in MNIST dataset<br/>layer_7_input_dims = 500<br/>layer_7_output_dims = 10<br/>layer_7_fc = brew.fc(<br/>    model,<br/>    layer_6_relu,<br/>    "layer_7_fc",<br/>    dim_in=layer_7_input_dims,<br/>    dim_out=layer_7_output_dims,<br/>)</pre>
+<p>A final SoftMax layer converts the 10 output values of the fully connected layer to a probability distribution:</p>
+<pre># Softmax layer that operates on output from previous fully-connected layer<br/># Input and output are both of size 10<br/># Each output (0 to 9) is a probability score on that digit<br/>layer_8_softmax = brew.softmax(<br/>    model,<br/>    layer_7_fc,<br/>    "softmax",<br/>)</pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Training layers</h1>
+                </header>
+            
+            <article>
+                
+<p>In earlier sections, we built the layers of a LeNet network required for inference and added inputs of image pixels and the label corresponding to each image. In this section, we are adding a few layers at the end of the network required to compute the loss function and for backpropagation. These layers are only required during training and can be discarded when using the trained network for inference.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Loss layer</h1>
+                </header>
+            
+            <article>
+                
+<p>As we noted in the <em>Introduction to training</em> section, we need a <kbd>loss</kbd> function at the end of the network to determine the error of the network. Caffe2 provides implementations of many common loss functions as operators in its operators' catalog.</p>
+<p>For this example, we compute the loss value using <strong>categorical cross-entropy loss</strong>. This loss is typically used to measure the performance of a classification model whose output is between <kbd>0</kbd> and <kbd>1</kbd>. In Caffe2, this loss can be implemented as a composition of two operators, <kbd>LabelCrossEntropy</kbd> and <kbd>AveragedLoss</kbd>, shown as follows:</p>
+<pre># Compute cross entropy between softmax scores and labels<br/>cross_entropy = train_model.LabelCrossEntropy([softmax_layer, label], "cross_entropy")<br/> <br/># Compute the expected loss<br/>loss = train_model.AveragedLoss(cross_entropy, "loss")</pre>
+<p class="mce-root"/>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Optimization layers</h1>
+                </header>
+            
+            <article>
+                
+<p>In the <em>Introduction to training</em> section, we noted how a gradient-based optimization algorithm lies at the heart of the training process.</p>
+<p>We first indicate to Caffe2 to use the output of the loss layer we added earlier to start the computation of gradients during the backward pass during training:</p>
+<pre># Use the average loss we just computed to add gradient operators to the model<br/>train_model.AddGradientOperators([loss])</pre>
+<p>The <kbd>AddGradientOperators</kbd> method takes away the pain of specifying these operators explicitly and adds them to the network for us.</p>
+<p>Finally, we specify the gradient-based optimization algorithm <strong>Stochastic Gradient Descent</strong> (<strong>SGD</strong>) to be used for our training:</p>
+<pre># Specify the optimization algorithm<br/>optimizer.build_sgd(<br/>    train_model,<br/>    base_learning_rate=0.1,<br/>    policy="step",<br/>    stepsize=1,<br/>    gamma=0.999,<br/>)</pre>
+<p>We specify important SGD parameters, such as the learning rate to use, the policy to use in order to change the learning rate, the step size, and gamma.</p>
+<p>Optimization algorithms are implemented as <kbd>Optimizer</kbd> in Caffe2. The DL framework has implementations of many common optimization algorithms, including SGD, Adam, AdaGrad, RMSProp, and AdaDelta. In our preceding call, we used a helpful wrapper, <kbd>build_sgd</kbd>, provided by the <kbd>optimizer</kbd> module that configures the SGD optimizer for us.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Accuracy layer</h1>
+                </header>
+            
+            <article>
+                
+<p>Finally, we indicate that the accuracy of the model should be tracked with a call to our <kbd>add_accuracy_op</kbd> method, which has this statement:</p>
+<pre>brew.accuracy(model, [softmax_layer, label], "accuracy")</pre>
+<p>Note the second argument to the function call. This indicates to Caffe2 that the output of the SoftMax layer should be compared against the ground truth labels to determine the accuracy of the model.</p>
+<p>The <kbd>accuracy</kbd> layer is helpful for human supervision of the training process. We can perform inference at any point in the training process and, using the output of the accuracy layer, get a sense of how accurate the network is at that point.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Training and monitoring
+</h1>
+                </header>
+            
+            <article>
+                
+<p>We begin the training process by creating the network in the workspace and initializing all the parameter blobs of the network in the workspace. This is done by calling the workspace <kbd>RunNetOnce</kbd> method:</p>
+<pre># The parameter initialization network only needs to be run once.<br/>workspace.RunNetOnce(train_model.param_init_net)</pre>
+<p>Next, we ask Caffe2 to create the network in memory:</p>
+<pre># Creating an actual network as a C++ object in memory.<br/># We need this as the object is going to be used a lot<br/># so we avoid creating an object every single time it is used.<br/>workspace.CreateNet(train_model.net, overwrite=True)</pre>
+<p>We are finally ready to train. We iterate a predetermined number of times and, in each iteration, we use the workspace <kbd>RunNet</kbd> method to run a forward pass and a backward pass.</p>
+<p>Training a small network such as our LeNet model is fast both on CPU and GPU. However, many of the real models you train might take several hours or days to train. For this reason, it is a good idea to constantly monitor the training process by extracting the loss and accuracy after every training iteration.</p>
+<p>For our LeNet model, we use the following code to extract the loss and accuracy values after each training iteration from the output blobs of the loss and accuracy layers we added earlier to the training network:</p>
+<pre># Run the network for some iterations and track its loss and accuracy<br/>total_iters = 100<br/>accuracy = np.zeros(total_iters)<br/>loss = np.zeros(total_iters)<br/>for i in range(total_iters):<br/>    workspace.RunNet(train_model.net)<br/>    accuracy[i] = workspace.blobs["accuracy"]<br/>    loss[i] = workspace.blobs["loss"]<br/>    print("Iteration: {}, Loss: {}, Accuracy: {}".format(i, loss[i], <br/>    accuracy[i]))<br/></pre>
+<p>We can monitor the health of the training by looking at the raw values, or importing them into a spreadsheet, or plotting them in a graph. Figure 3.7 shows a graph plotted from the values of one such training session:</p>
+<div class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-480 image-border" src="assets/0d9b338b-8f4d-49f9-a229-0509f7ec5df7.png" style=""/></div>
+<div class="mce-root CDPAlignCenter CDPAlign packt_figref">Figure 3.7: Loss and accuracy of training our model</div>
+<p>We can see that the loss is high at the beginning. This is expected, as we typically initialize a network with zero or random weights. As the training proceeds, we see that the loss decreases and, correspondingly, the accuracy of the network increases. If you do not see the loss decreasing or accuracy increasing, then that indicates a problem with our training parameters or training data. If the training pace is slow or is causing values to blow off, then you might need to tweak the learning rate and such parameters.</p>
+<p>We can typically stop training at any iteration where the loss curve is leveling off and the accuracy is suitable. To aid the export of a model at a particular iteration, it is a good idea to export the model to disk (demonstrated in <a href="4481e225-7882-4625-9d42-63ba41e74b4f.xhtml">Chapter 5</a>, <em>Working with Other Frameworks</em>) after each iteration. That way, you can pick the model at the best iteration after the training is complete.</p>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p>Another useful practice is to measure the accuracy on a validation dataset after every epoch or so. <strong>Validation data</strong> is typically a portion of the training data that is separated out for this purpose prior to the training. We did not use validation data in our example, in order to keep it simple.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Summary</h1>
+                </header>
+            
+            <article>
+                
+<p>In this chapter, we learned about the general training process for a neural network using a gradient-based optimization algorithm. We learned about CNNs and the classic LeNet CNN to solve the MNIST problem. We built this network, and learned how to add training and test layers to it, so that we could use it for training. We finally used this network to train and learned how to monitor the network during training using Caffe2. In the following chapters, we will learn how to work with models trained using other frameworks, such as Caffe, TensorFlow, and PyTorch.</p>
+
+
+            </article>
+
+            
+        </section>
+    </body></html>

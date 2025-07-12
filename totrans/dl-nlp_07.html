@@ -1,0 +1,575 @@
+<html><head></head><body>
+		<div class="Content" id="_idContainer189">
+			<h1 id="_idParaDest-160"><em class="italics"><a id="_idTextAnchor178"/>Chapter 7</em></h1>
+		</div>
+		<div class="Content" id="_idContainer190">
+			<h1 id="_idParaDest-161"><a id="_idTextAnchor179"/>Long Short-Term Memory (LSTM)</h1>
+		</div>
+		<div class="Content" id="_idContainer191">
+			<h2>Learning Objectives</h2>
+			<p>By the end of this chapter, you will be able to:</p>
+			<ul>
+				<li class="bullets">Describe the purpose of an LSTM</li>
+				<li class="bullets">Evaluate the architecture of an LSTM in detail</li>
+				<li class="bullets">Develop a simple binary classification model using LSTMs</li>
+				<li class="bullets">Implement neural language translation and develop an English-to-German translation model</li>
+			</ul>
+			<p>This chapter briefly introduces you to the LSTM architecture and its applications in the world of natural language processing.</p>
+		</div>
+		<div class="Content" id="_idContainer238">
+			<h2 id="_idParaDest-162"><a id="_idTextAnchor180"/>Introduction</h2>
+			<p>In the previous chapters, we studied Recurrent Neural Networks (RNNs) and a specialized architecture called the Gated Recurrent Unit (GRU), which helps combat the vanishing gradient problem. LSTMs offer yet another way to tackle the vanishing gradient problem. In this chapter, we will take a look at the architecture of LSTMs and see how they enable a neural network to propagate gradients in a faithful manner.</p>
+			<p>Additionally, we will look at an interesting application of LSTMs in the form of neural language translation, which will empower us to build a model that can be used to translate text given in one language to another language.</p>
+			<h3 id="_idParaDest-163"><a id="_idTextAnchor181"/>LSTM</h3>
+			<p><a id="_idTextAnchor182"/>The vanishing gradient problem makes it difficult for the gradient to propagate from the later layers in the network to the early layers, causing the initial weights of the network to not change much from the initial values. Thus, the model doesn't learn well and leads to poor performance. LSTMs solve the issue by introducing a "memory" to the network, which leads to the retention of long-term dependencies in the text structure. However, LSTMs add memory in a way that is different from the GRU's method. In the following sections, we will see how LSTMs accomplish this task.</p>
+			<p><a id="_idTextAnchor183"/>An LSTM helps a network to remember long-term dependencies in an explicit manner. As in the case of the GRU, this is achieved by introducing more variables in the structure of a simple RNN.</p>
+			<p>Using LSTMs, we allow the network to transfer most of the knowledge from the activation of previous timesteps, a feat difficult to achieve with simple RNNs.</p>
+			<p>Recall the structure of the simple RNN; it's essentially an unfolding of the same unit and can be represented by the following diagram:</p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer192">
+					<img alt="Figure 7.1: The repeating module in a standard RNN" src="image/C13783_07_01.jpg"/>
+				</div>
+			</div>
+			<h6>Figure 7.1: The repeating module in a standard RNN</h6>
+			<p>The recurrence of block "<strong class="bold">A</strong>"in the diagram signifies that it is the same structure that is repeated over time. The input to each unit is an activation from the previous timestep (represented by the letter "<strong class="bold">h</strong>"). Another input is the sequence value at time "<strong class="bold">t</strong>" (represented by the letter "<strong class="bold">x</strong>").</p>
+			<p>Similar to the case with a simple RNN, LSTMs also have a fixed, time-unfolding, repeating structure, but the repeated unit itself has a different structure. Each unit of an LSTM has several different kinds of modules that interoperate to impart memory to the model. An LSTM's structure can be represented by the following diagram:</p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer193">
+					<img alt="Figure 7.2: The LSTM unit&#13;&#10;" src="image/C13783_07_02.jpg"/>
+				</div>
+			</div>
+			<h6>Figure 7.2: The LSTM unit</h6>
+			<p>Let's also get familiar with the notations we'll be using for the diagrams:</p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer194">
+					<img alt="Figure 7.3: Notations used in the model&#13;&#10;" src="image/C13783_07_03.jpg"/>
+				</div>
+			</div>
+			<h6>Figure 7.3: Notations used in the model</h6>
+			<p>The most essential component of an LSTM is the cell state, henceforth represented by the letter "<strong class="bold">C</strong>". The cell state can be depicted by a constant bold line on the upper end of the boxes in the following diagram. It is often convenient to think of this line as a conveyor belt running through different time instances and carrying some information. Although there are several operations that can affect the value that propagates through the cell state, in practice, it is very easy for the information from previous cell states to reach the next cell state.</p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer195">
+					<img alt="Figure 7.4: Cell state&#13;&#10;" src="image/C13783_07_04.jpg"/>
+				</div>
+			</div>
+			<h6>Figure 7.4: Cell state</h6>
+			<p>It would be useful to understand LSTMs as seen from the perspective of the modification of this cell state. As with GRUs, the components of LSTMs that allow the modification of the cell state are called "<em class="italics">gates</em>".</p>
+			<p>An LSTM operates over several steps, which are described in the sections that follow.</p>
+			<h3 id="_idParaDest-164">The <a id="_idTextAnchor184"/>Forget Gate</h3>
+			<p>The forget gate is responsible for determining the cell state content that should be forgotten from the previous timestep. The expression for the forget gate is as follows: </p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer196">
+					<img alt="Figure 7.5: Expression for the forget gate&#13;&#10;" src="image/C13783_07_05.jpg"/>
+				</div>
+			</div>
+			<h6>Figure 7.5: Expression for the forget gate</h6>
+			<p>The input at timestep <strong class="bold">t</strong> is multiplied by a new set of weights, <strong class="bold">W_f</strong>, with the dimensions (<strong class="bold">n_h</strong>, <strong class="bold">n_x</strong>). The activation from the previous timestep (<strong class="bold">h[t-1]</strong>) is multiplied by another new set of weights,<strong class="bold"> U_f</strong>, with the dimensions (<strong class="bold">n_h</strong>, <strong class="bold">n_h</strong>). Note that the multiplications are matrix multiplications. These two terms are then added and passed through a sigmoid function to squish the output, <strong class="bold">f[t]</strong>, within a range of [0,1]. The output has the same number of dimensions as there are in cell state vector C (<strong class="bold">n_h</strong>,<strong class="bold">1</strong>). The forget gate outputs a '1' or a '0' for each dimension. A value of '1' signifies that all information from the previous cell state for this dimension should pass, retained, while a value '0' indicates that all information from the previous cell state for this dimension should be forgotten. Diagrammatically, it can be represented as shown:</p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer197">
+					<img alt="Figure 7.6: The forget gate" src="image/C13783_07_06.jpg"/>
+				</div>
+			</div>
+			<h6>Figure 7.6: The forget gate</h6>
+			<p>So, how does the output of the forget gate impact the sentence construction? Let's take a look at the generated sentence:</p>
+			<p>"<em class="italics">Jack goes for a walk when his daughter goes to bed</em>."</p>
+			<p>The first subject in the sentence is 'Jack,' which connotes the male gender. The cell state representing the gender of the subject has a value corresponding to 'Male' (this could be 0 or 1). Now, up to the word 'his' in the sentence, the subject of the sentence does not change, and the cell state for the subject's gender continues having the 'male' value. The next word, however, 'daughter,' is a new subject and hence there is a need to forget the old value in the cell state that represents the gender. Note that even if the old gender state was female, there is still a need to forget this value so that a value corresponding to the new subject can be used.</p>
+			<p>The forget gate accomplishes the 'forget' operation by setting the subject gender value to 0 (that is, f[t] will output 0 for the said dimension).</p>
+			<p>In Python, the forget gate can be calculated with the following code snippet:</p>
+			<p class="snippet"># Importing packages and setting the random seed to have a fixed output</p>
+			<p class="snippet">import numpy as np</p>
+			<p class="snippet">np.random.seed(0)</p>
+			<p class="snippet"># A sigmoid needs to be defined to be used later</p>
+			<p class="snippet">def sigmoid(x):</p>
+			<p class="snippet">    return 1 / (1 + np.exp(-x))</p>
+			<p class="snippet"># Simulating dummy values for the previous state and current input</p>
+			<p class="snippet">h_prev = np.random.randn(3, 1)</p>
+			<p class="snippet">x = np.random.randn(5, 1)</p>
+			<p>This code produces the following output for <strong class="inline">h_prev</strong> and <strong class="inline">x</strong>:</p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer198">
+					<img alt="Figure 7.7: Output for the previous state, ‘h_prev,’ and the current input, ‘x’&#13;&#10;" src="image/C13783_07_07.jpg"/>
+				</div>
+			</div>
+			<h6>Figure 7.7: Output for the previous state, 'h_prev,' and the current input, 'x'</h6>
+			<p>We can initialize some dummy values for <strong class="inline">W_f</strong> and <strong class="inline">U_f</strong>:</p>
+			<p class="snippet"># Initialize W_f and U_f with dummy values</p>
+			<p class="snippet">W_f = np.random.randn(3, 5) # n_h = 3, n_x=5</p>
+			<p class="snippet">U_f = np.random.randn(3, 3) # n_h = 3</p>
+			<p>This produces the following values:</p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer199">
+					<img alt="Figure 7.8: Output of the matrix values&#13;&#10;" src="image/C13783_07_08.jpg"/>
+				</div>
+			</div>
+			<h6>Figure 7.8: Output of the matrix values</h6>
+			<p>Now the forget gate can be calculated:</p>
+			<p class="snippet">f = sigmoid(np.matmul(W_f, x) + np.matmul(U_f, h_prev)</p>
+			<p>This produces the following values for <strong class="inline">f[t]</strong>:</p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer200">
+					<img alt="Figure 7.9: Output of the forget gate, f[t]&#13;&#10;" src="image/C13783_07_09.jpg"/>
+				</div>
+			</div>
+			<h6>Figure 7.9: Output of the forget gate, f[t]</h6>
+			<h2 id="_idParaDest-165">The Input<a id="_idTextAnchor185"/> Gate and the Candidate Cell State</h2>
+			<p>At each timestep, a new candidate cell state is also calculated using the following expression: </p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer201">
+					<img alt="Figure 7.10: Expression for candidate cell state&#13;&#10;" src="image/C13783_07_10.jpg"/>
+				</div>
+			</div>
+			<h6>Figure 7.10: Expression for candidate cell state</h6>
+			<p>The input at timestep <strong class="bold">t</strong> is multiplied by a new set of weights, <strong class="bold">W_c</strong>, with the dimensions (<strong class="bold">n_h</strong>, <strong class="bold">n_x</strong>). The activation from the previous timestep (<strong class="bold">h[t-1]</strong>) is multiplied by another new set of weights, <strong class="bold">U_c</strong>, with the dimensions (<strong class="bold">n_h</strong>, <strong class="bold">n_h</strong>). Note that the multiplications are matrix multiplications. These two terms are then added and passed through a hyperbolic tan function to squish the output, <strong class="bold">f[t]</strong>, within a range of [-1,1]. The output, <strong class="bold">C_candidate</strong>, has the dimensions (<strong class="bold">n_h</strong>,<strong class="bold">1</strong>). In the diagram that follows, the candidate cell state is represented by C tilde:</p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer202">
+					<img alt="Figure 7.11: Input gate and candidate state&#13;&#10;" src="image/C13783_07_11.jpg"/>
+				</div>
+			</div>
+			<h6>Figure 7.11: Input gate and candidate state</h6>
+			<p>The candidate aims at calculating the cell state that it deduces from the current timestep. In our example sentence, this corresponds to calculating the new subject gender value. This candidate cell state is not passed as is to update the next cell state but is regulated by an input gate.</p>
+			<p>The input gate determines which values of the candidate cell state get passed on to the next cell state. The following expression can be used to calculate the input gate value: </p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer203">
+					<img alt="Figure 7.12: Expression for the input gate value&#13;&#10;" src="image/C13783_07_12.jpg"/>
+				</div>
+			</div>
+			<h6>Figure 7.12: Expression for the input gate value</h6>
+			<p>The input at timestep <strong class="bold">t</strong> is multiplied by a new set of weights, <strong class="bold">W_i</strong>, with the dimensions (<strong class="bold">n_h</strong>, <strong class="bold">n_x</strong>). The activation from the previous timestep (<strong class="bold">h[t-1]</strong>) is multiplied by another new set of weights, <strong class="bold">U_i</strong>, with the dimensions (<strong class="bold">n_h</strong>, <strong class="bold">n_h</strong>). Note that the multiplications are matrix multiplications. These two terms are then added and passed through a sigmoid function to squish the output, <strong class="bold">i[t]</strong>, within a range of <strong class="bold">[0,1]</strong>. The output has the same number of dimensions as there are in cell state vector <strong class="bold">C</strong> (<strong class="bold">n_h</strong>, <strong class="bold">1</strong>). In our example sentence, after reaching the word 'daughter,' there is a need to update the cell state for the values that correspond to the gender of the subject. After having calculated the new candidate value for the subject gender through the candidate cell state, only the dimension corresponding to the subject gender is set to 1 in the input gate vector.</p>
+			<p>The Python code snippet for the candidate cell state and input gate is as follows:</p>
+			<p class="snippet"># Initialize W_i and U_i with dummy values</p>
+			<p class="snippet">W_i = np.random.randn(3, 5) # n_h = 3, n_x=5</p>
+			<p class="snippet">U_i = np.random.randn(3, 3) # n_h = 3</p>
+			<p>This produces the following values for the matrices:</p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer204">
+					<img alt="Figure 7.13: Screenshot of values of matrices for candidate cell state and input gate&#13;&#10;" src="image/C13783_07_13.jpg"/>
+				</div>
+			</div>
+			<h6>Figure 7.13: Screenshot of values of matrices for candidate cell state and input gate</h6>
+			<p>The input gate can be calculated as shown:</p>
+			<p class="snippet">i = sigmoid(np.matmul(W_i, x) + np.matmul(U_i, h_prev))</p>
+			<p>This outputs the following value for <strong class="inline">i</strong>:</p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer205">
+					<img alt="Figure 7.14: Screenshot of output of input gate&#13;&#10;" src="image/C13783_07_14.jpg"/>
+				</div>
+			</div>
+			<h6>Figure 7.14: Screenshot of output of input gate</h6>
+			<p>To calculate the candidate cell state, we first initialize the <strong class="inline">W_c</strong> and <strong class="inline">U_c</strong> matrices:</p>
+			<p class="snippet"># Initialize W_c and U_c with dummy values</p>
+			<p class="snippet">W_c = np.random.randn(3, 5) # n_h = 3, n_x=5</p>
+			<p class="snippet">U_c = np.random.randn(3, 3) # n_h = 3</p>
+			<p>The values produced for these matrices are as given:</p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer206">
+					<img alt="Figure 7.15: Screenshot for values of matrices W_c and U_c&#13;&#10;" src="image/C13783_07_15.jpg"/>
+				</div>
+			</div>
+			<h6>Figure 7.15: Screenshot for values of matrices W_c and U_c</h6>
+			<p>We can now use the update equation for the candidate cell state:</p>
+			<p class="snippet">c_candidate = np.tanh(np.matmul(W_c, x) + np.matmul(U_c, h_prev))</p>
+			<p>The candidate cell state produces the following value:</p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer207">
+					<img alt="Figure 7.16: Screenshot of the candidate cell state&#13;&#10;" src="image/C13783_07_16.jpg"/>
+				</div>
+			</div>
+			<h6>Figure 7.16: Screenshot of the candidate cell state</h6>
+			<h3 id="_idParaDest-166">Cell State Updat<a id="_idTextAnchor186"/>e</h3>
+			<p>At this point, we know what should be forgotten from the old cell state (forget gate), what should be allowed to affect the new cell state (input gate), and what value the candidate cell change should have (candidate cell state). Now, the cell state for the current timestep can be calculated as follows: </p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer208">
+					<img alt="Figure 7.17: Expression for cell state update&#13;&#10;" src="image/C13783_07_17.jpg"/>
+				</div>
+			</div>
+			<h6>Figure 7.17: Expression for cell state update</h6>
+			<p>In the preceding expression, '<strong class="bold">hadamard</strong>' represents element-wise multiplications. So, the forget gate gets multiplied element wise with the old cell state, allowing it to forget the gender of the subject in our example sentence. On the other hand, the input gate allows the new candidate value for the gender of the subject to affect the new cell state. These two terms are then added element-wise so that the current cell state now has a subject gender that corresponds to a value that corresponds to 'female.'</p>
+			<p>The next diagram depicts the operation</p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer209">
+					<img alt="Figure 7.18: Updated cell state&#13;&#10;" src="image/C13783_07_18.jpg"/>
+				</div>
+			</div>
+			<h6>Figure 7.18: Updated cell state</h6>
+			<p>Here is the code snippet for producing the current cell state.</p>
+			<p>First, initialize a value for the previous cell state:</p>
+			<p class="snippet"># Initialize c_prev with dummy value</p>
+			<p class="snippet">c_prev = np.random.randn(3,1)</p>
+			<p class="snippet">c_new = np.multiply(f, c_prev) + np.multiply(i, c_candidate)</p>
+			<p>The value becomes the following:</p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer210">
+					<img alt="Figure 7.19: Screenshot for output of updated cell state&#13;&#10;" src="image/C13783_07_19.jpg"/>
+				</div>
+			</div>
+			<h6>Figure 7.19: Screenshot for output of updated cell state</h6>
+			<h2 id="_idParaDest-167">Output Gate and Cu<a id="_idTextAnchor187"/>rrent Activation</h2>
+			<p>Note that all we have done is update the cell state until now. We need to generate the activation for the current state as well; that is, (<strong class="bold">h[t]</strong>). This is done using an output gate that is calculated as given: </p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer211">
+					<img alt="Figure 7.20: Expression for output gate.&#13;&#10;" src="image/C13783_07_20.jpg"/>
+				</div>
+			</div>
+			<h6>Figure 7.20: Expression for output gate.</h6>
+			<p>The input at timestep <strong class="bold">t</strong> is multiplied by a new set of weights, <strong class="bold">W_o</strong>, with the dimensions (<strong class="bold">n_h</strong>, <strong class="bold">n_x</strong>). The activation from the previous timestep (<strong class="bold">h[t-1]</strong>) is multiplied by another new set of weights, <strong class="bold">U_o</strong>, with the dimensions (<strong class="bold">n_h</strong>, <strong class="bold">n_h</strong>). Note that the multiplications are matrix multiplications. These two terms are then added and passed through a sigmoid function to squish the output, <strong class="bold">o[t]</strong>, within a range of [0,1]. The output has the same number of dimensions as there are in cell state vector <strong class="bold">h</strong> (<strong class="bold">n_h</strong>, <strong class="bold">1</strong>).</p>
+			<p>The output gate is responsible for regulating the amount by which the current cell state is allowed to affect the activation value for the timestep. In our example sentence, it is worth propagating the information that depicts whether the subject is singular or plural such that the correct verb form may be used. For example, if the word following the word 'daughter' is a verb such as 'goes,' it is important to use the correct form of the word, 'go'. Hence, the output gate allows relevant information to be passed on to the activation, which then goes as an input to the next timestep. In the next diagram, the output gate is represented as <strong class="bold">o_t</strong>: </p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer212">
+					<img alt="Figure 7.21: Output gate and current activation&#13;&#10;" src="image/C13783_07_21.jpg"/>
+				</div>
+			</div>
+			<h6>Figure 7.21: Output gate and current activation</h6>
+			<p>The following code snippet shows how the value for the output gate can be calculated:</p>
+			<p class="snippet"># Initialize dummy values for W_o and U_o</p>
+			<p class="snippet">W_o = np.random.randn(3, 5) # n_h = 3, n_x=5</p>
+			<p class="snippet">U_o = np.random.randn(3, 3) # n_h = 3</p>
+			<p>This produces the following output:</p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer213">
+					<img alt="Figure 7.22: Screenshot for output of matrices W_o and U_o&#13;&#10;" src="image/C13783_07_22.jpg"/>
+				</div>
+			</div>
+			<h6>Figure 7.22: Screenshot for output of matrices W_o and U_o</h6>
+			<p>Now the output can be calculated:</p>
+			<p class="snippet">o = np.tanh(np.matmul(W_o, x) + np.matmul(U_o, h_prev))</p>
+			<p>The value of the output gate is as follows:</p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer214">
+					<img alt="Figure 7.23: Screenshot of the value of the output gate&#13;&#10;" src="image/C13783_07_23.jpg"/>
+				</div>
+			</div>
+			<h6>Figure 7.23: Screenshot of the value of the output gate</h6>
+			<p>Once the output gate is evaluated, the value of the next activation can be calculated: </p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer215">
+					<img alt="Figure 7.24: Expression to calculate the value of the next activation&#13;&#10;" src="image/C13783_07_24.jpg"/>
+				</div>
+			</div>
+			<h6>Figure 7.24: Expression to calculate the value of the next activation</h6>
+			<p>First, a hyperbolic tangent function is applied to the current cell state. This limits the values in the vector between -1 and 1. Then, an element-wise product of this value is done with the output gate value that was just calculated.</p>
+			<p>Let's see the code snippet for calculating the current timestep activation:</p>
+			<p class="snippet">h_new = np.multiply(o, np.tanh(c_new))</p>
+			<p>This finally produces the following:</p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer216">
+					<img alt="Figure 7.25: Screenshot for the current timestep activation&#13;&#10;" src="image/C13783_07_25.jpg"/>
+				</div>
+			</div>
+			<h6>Figure 7.25: Screenshot for the current timestep activation</h6>
+			<p>Now let's build a very simple binary classifier to demonstrate the use of an LSTM.</p>
+			<h3 id="_idParaDest-168">Exercise 27: Building an <a id="_idTextAnchor188"/>LSTM-Based Model to Classify an Email as Spam or Not Spam (Ham)</h3>
+			<p>In this exerc<a id="_idTextAnchor189"/>ise, we will be building an LSTM-based model that will help us classify emails as spam or genuine:</p>
+			<ol>
+				<li>We will start by importing the required Python packages:<p class="snippet">import pandas as pd</p><p class="snippet">import numpy as np</p><p class="snippet">from keras.models import Model, Sequential</p><p class="snippet">from keras.layers import LSTM, Dense,Embedding</p><p class="snippet">from keras.preprocessing.text import Tokenizer</p><p class="snippet">from keras.preprocessing import sequence</p><h4>Note:</h4><p class="callout">The LSTM unit has been imported the same way as you would for a simple RNN or GRU.</p></li>
+				<li>We can now read the input file containing a column that contains text and another column that contains the label for the text depicting whether the text is spam or not.<h4>Note</h4><p class="callout">For the input file, go to the repository link at</p><p class="callout"><a href="">https://github.com/TrainingByPackt/Deep-Learning-for-Natural-Language-Processing/tree/master/Lesson%2007/exercise</a></p><p class="snippet">df = pd.read_csv("spam.csv", encoding="latin")</p><p class="snippet">df.head() </p></li>
+				<li>The data looks as depicted here:<div class="IMG---Figure" id="_idContainer217"><img alt="Figure 7.26: Screenshot of the output for spam classification&#13;&#10;" src="image/C13783_07_26.jpg"/></div><h6>Figure 7.26: Screenshot of the output for spam classification</h6></li>
+				<li>There are some irrelevant columns as well, but we only need the columns containing the text data and labels:<p class="snippet">df = df[["v1","v2"]]</p><p class="snippet">df.head()</p></li>
+				<li>The output should be as follows:<div class="IMG---Figure" id="_idContainer218"><img alt="Figure 7.27: Screenshot for columns with text and labels&#13;&#10;" src="image/C13783_07_27.jpg"/></div><h6>Figure 7.27: Screenshot for columns with text and labels</h6></li>
+				<li>We can check the label distribution:<p class="snippet">df["v1"].value_counts()</p><p>The label distribuiton would look like this:</p><div class="IMG---Figure" id="_idContainer219"><img alt="Figure 7.28: Screenshot for label distribution&#13;&#10;" src="image/C13783_07_28.jpg"/></div><h6>Figure 7.28: Screenshot for label distribution</h6></li>
+				<li>We can now map the label distribution to 0/1 so that it can be fed to a classifier. Also, an array is created to contain the texts:<p class="snippet">lab_map = {"ham":0, "spam":1}</p><p class="snippet">Y = df["v1"].map(lab_map).values</p><p class="snippet">X = df["v2"].values</p></li>
+				<li>This produces output X and Y as follows:<div class="IMG---Figure" id="_idContainer220"><img alt="Figure 7.29: Screenshot for output X&#13;&#10;" src="image/C13783_07_29.jpg"/></div><h6>Figure 7.29: Screenshot for output X</h6><div class="IMG---Figure" id="_idContainer221"><img alt="Figure 7.30: Screenshot for output Y&#13;&#10;" src="image/C13783_07_30.jpg"/></div><h6>Figure 7.30: Screenshot for output Y</h6></li>
+				<li>Next, we will restrict the maximum number of tokens to be generated for the 100 most frequent words. We will initialize a tokenizer that assigns an integer value to each word being used in the text corpus:<p class="snippet">max_words = 100</p><p class="snippet">mytokenizer = Tokenizer(nb_words=max_words,lower=True, split=" ")</p><p class="snippet">mytokenizer.fit_on_texts(X)</p><p class="snippet">text_tokenized = mytokenizer.texts_to_sequences(X)</p></li>
+				<li>This will produce a <strong class="inline">text_tokenized</strong> value:<div class="IMG---Figure" id="_idContainer222"><img alt="" src="image/C13783_07_31.jpg"/></div><h6>Figure 7.31: Screenshot for the output of tokenized values</h6><p>Note that since we restricted the maximum number words to be 100, only the words in the text that fall within the top 100 most frequent words will be assigned an integer index. The rest of the works will be ignored. So, even though the first sequence in X has 20 words, there are 6 indices in the tokenized representation of this sentence.</p></li>
+				<li>Next, we will allow a maximum sequence length of 50 words per sequence and pad the sequences that are shorter than this length. The longer sequences, on the other hand, get truncated:<p class="snippet">max_len = 50</p><p class="snippet">sequences = sequence.pad_sequences(text_tokenized, maxlen=max_len)</p><p>The output is as follows:</p><div class="IMG---Figure" id="_idContainer223"><img alt="Figure 7.32: Screenshot for padded sequences&#13;&#10;" src="image/C13783_07_32.jpg"/></div><h6>Figure 7.32: Screenshot for padded sequences</h6><p>Note that the padding was done in the 'pre' mode, meaning that the initial part of the sequences get padded to make the sequence length equal to max_len.</p></li>
+				<li>Next, we define the model with the LSTM layer having 64 hidden units and fit it to our sequence data with the respective target values:<p class="snippet">model = Sequential()</p><p class="snippet">model.add(Embedding(max_words, 20, input_length=max_len))</p><p class="snippet">model.add(LSTM(64))</p><p class="snippet">model.add(Dense(1, activation="sigmoid"))</p><p class="snippet">model.compile(loss='binary_crossentropy',</p><p class="snippet">              optimizer='adam',</p><p class="snippet">              metrics=['accuracy'])</p><p class="snippet">model.fit(sequences,Y,batch_size=128,epochs=10,</p><p class="snippet">          validation_split=0.2)</p><p>Here, we start with an embedding layer, which ensures a fixed size for input to the network (20). We have a dense layer with a single sigmoid output, which indicates whether the target variable is 0 or 1. We then compile the model with binary cross-entropy as the loss function and use Adam as the optimization strategy. After that, we fit the model to our data with a batch size of 128 and an epoch count of 10. Note that we also keep aside 20% of the training data as validation data. This starts a training session:</p></li>
+			</ol>
+			<div>
+				<div class="IMG---Figure" id="_idContainer224">
+					<img alt="Figure 7.33: Screenshot of model fitting to 10 epochs&#13;&#10;" src="image/C13783_07_33.jpg"/>
+				</div>
+			</div>
+			<h6>Figure 7.33: Screenshot of model fitting to 10 epochs</h6>
+			<p>After 10 epochs, a validation accuracy of 96% is achieved. This is remarkably good performance.</p>
+			<p>We can now try some test sequences and obtain the probability of the sequence being spam:</p>
+			<p class="snippet">inp_test_seq = "WINNER! U win a 500 prize reward &amp; free entry to FA cup final tickets! Text FA to 34212 to receive award"</p>
+			<p class="snippet">test_sequences = mytokenizer.texts_to_sequences(np.array([inp_test_seq]))</p>
+			<p class="snippet">test_sequences_matrix = sequence.pad_sequences(test_sequences,maxlen=max_len)</p>
+			<p class="snippet">model.predict(test_sequences_matrix)</p>
+			<p><strong class="bold">Expected output:</strong></p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer225">
+					<img alt="Figure 7.34: Screenshot of the output of model prediction&#13;&#10;" src="image/C13783_07_34.jpg"/>
+				</div>
+			</div>
+			<h6>Figure 7.34: Screenshot of the output of model prediction</h6>
+			<p>There is a very high probability of the test text being spam.</p>
+			<h3 id="_idParaDest-169">Activity 9: Building a Spam or Ham<a id="_idTextAnchor190"/><a id="_idTextAnchor191"/> Classifier Using a Simple RNN</h3>
+			<p>We will be building a spam-or-ham classifier using a simple RNN with the same hyperparameters as earlier and compare the performance with that of our LSTM-based solution. For a simple dataset such as this, a simple RNN would perform very close to an LSTM. However, this is usually not the case with more complex models, as we will see in the next section.</p>
+			<h4>Note</h4>
+			<p class="callout">Find the input file at <a href="">https://github.com/TrainingByPackt/Deep-Learning-for-Natural-Language-Processing/tree/master/Lesson%2007/exercise</a>.</p>
+			<ol>
+				<li value="1">Import the required Python packages.</li>
+				<li>Read the input file containing a column that contains text and another column that contains the label for the text depicting whether the text is spam or not.</li>
+				<li>Convert to sequences.</li>
+				<li>Pad the sequences.</li>
+				<li>Train the sequences.</li>
+				<li>Build the model.</li>
+				<li>Predict the mail category on the new test data.<p><strong class="bold">Expected output:</strong></p></li>
+			</ol>
+			<div>
+				<div class="IMG---Figure" id="_idContainer226">
+					<img alt="Figure 7.35: Output for mail category prediction&#13;&#10;" src="image/C13783_07_35.jpg"/>
+				</div>
+			</div>
+			<h6>Figure 7.35: Output for mail category prediction</h6>
+			<h4>Note</h4>
+			<p class="callout">The solution for the activity can be found on page 324.</p>
+			<h2 id="_idParaDest-170"><a id="_idTextAnchor192"/>Neural Language Translation</h2>
+			<p>The simple binary classifier described in the previous section is a basic use case for the area of natural language processing (NLP) and doesn't fully justify the use of any techniques that are more complex than using a simple RNN or even simpler techniques. However, there are many complex use cases for which it is imperative to use more complex units such as LSTMs. Neural language translation is one such application.</p>
+			<p>The goal of a neural language translation task is to build a model that can translate a piece of text from a source language to a target language. Before starting with the code, let's discuss the architecture of this system.</p>
+			<p>Neural language translation represents a many-to-many NLP application, which means that there are many inputs to the system and the system produces many outputs as well.</p>
+			<p>Additionally, the number of inputs and outputs could be different as the same text can have a different number of words in the source and target language. The area of NLP that solves such problems is referred to as sequence-to-sequence modeling. The architecture consists of an encoder block and a decoder block. The following diagram represents the architecture:</p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer227">
+					<img alt="Figure 7.36: Neural translation model&#13;&#10;" src="image/C13783_07_36.jpg"/>
+				</div>
+			</div>
+			<h6>Figure 7.36: Neural translation model</h6>
+			<p>The left part of the architecture is the encoder block, and the right part is the decoder block. The diagram attempts to translate an English sentence to German, as here:</p>
+			<p>English: I would like to go swimming</p>
+			<p>German: Ich möchte schwimmen gehen</p>
+			<h4>Note</h4>
+			<p class="callout">Periods have been dropped from the preceding sentences for demonstration purposes only. Periods are also considered valid tokens.</p>
+			<p>The encoder block takes each word of the English (source language) sentence as input at a given timestep. Each unit of the encoder block is an LSTM. The only outputs for the encoder block are the final cell state and activations. These are jointly referred to as the thought vector. The thought vector is used to initialize the activation and cell state for the decoder block, which is another LSTM block. During the training phase, at each timestep, the decoder output is the next word in the sentence. This is represented by a dense softmax layer that has a value 1 for the next word token and 0 for all the other entries in the vector. </p>
+			<p>The English sentence is fed to the encoder word by word, producing a final cell state and activation. During the training phase, the real output of the decoder at each timestep is known. This is simply the next German word in the sentence. Note that there is a '<strong class="bold">BEGIN_</strong>' token inserted at the sentence beginning and an '<strong class="bold">_END</strong>' token at the end of the sentence. The output for the '<strong class="bold">BEGIN_</strong>' token is the first word in the German sentence. This can be seen in the last diagram. At the time of training, the network is made to learn the translation word by word.</p>
+			<p>In the inference phase, the English input sentence is fed to the encoder block, producing a final cell state and activation. The decoder has the '<strong class="bold">BEGIN_</strong>' token as the input at the first timestep, along with the cell state and activations. Using these three inputs, a softmax output is produced for this timestep. In a well-trained network, the softmax value is the highest for the entry corresponding to the correct word. This next word is then fed as the input to the next timestep. This process is continued until an '<strong class="bold">_END</strong>' token is sampled or a maximum sentence length is reached.</p>
+			<p>Now let's go through the code for the model.</p>
+			<p>We read in the file containing sentence pairs first. We also keep the number of pairs restricted to 20,000 for demonstration purposes:</p>
+			<p class="snippet">import os</p>
+			<p class="snippet">import re</p>
+			<p class="snippet">import numpy as np</p>
+			<p class="snippet">with open("deu.txt", 'r', encoding='utf-8') as f:</p>
+			<p class="snippet">    lines = f.read().split('\n')</p>
+			<p class="snippet">num_samples = 20000 # Using only 20000 pairs for this example</p>
+			<p class="snippet">lines_to_use = lines[: min(num_samples, len(lines) - 1)]</p>
+			<p class="snippet">print(lines_to_use)</p>
+			<p><strong class="bold">Output:</strong></p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer228">
+					<img alt="Figure 7.37: Screenshot for the English-to-German translation of sentence pairs&#13;&#10;" src="image/C13783_07_37.jpg"/>
+				</div>
+			</div>
+			<h6>Figure 7.37: Screenshot for the English-to-German translation of sentence pairs</h6>
+			<p>Each line has first the English sentence, followed by a tab character, and then the German translation of the sentence. Next, we'll map all the numbers to a placeholder word, '<strong class="bold">NUMBER_PRESENT</strong>', and append the '<strong class="bold">BEGIN_</strong> ' and ' <strong class="bold">_END</strong>' tokens to each German sentence, as discussed previously:</p>
+			<p class="snippet">for l in range(len(lines_to_use)):</p>
+			<p class="snippet">    lines_to_use[l] = re.sub("\d", " NUMBER_PRESENT ",lines_to_use[l])</p>
+			<p class="snippet">input_texts = []</p>
+			<p class="snippet">target_texts = []</p>
+			<p class="snippet">input_words = set()</p>
+			<p class="snippet">target_words = set()</p>
+			<p class="snippet">for line in lines_to_use:</p>
+			<p class="snippet">    input_text, target_text = line.split('\t')</p>
+			<p class="snippet">    target_text = 'BEGIN_ ' + target_text + ' _END'</p>
+			<p class="snippet">    input_texts.append(input_text)</p>
+			<p class="snippet">    target_texts.append(target_text)</p>
+			<p class="snippet">    for word in input_text.split():</p>
+			<p class="snippet">        if word not in input_words:</p>
+			<p class="snippet">            input_words.add(word)</p>
+			<p class="snippet">    for word in target_text.split():</p>
+			<p class="snippet">        if word not in target_words:</p>
+			<p class="snippet">            target_words.add(word)</p>
+			<p>In the previous snippet, we obtained the input and output texts. They look as depicted:</p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer229">
+					<img alt="Figure 7.38: Screenshot for input and output texts after mapping&#13;&#10;" src="image/C13783_07_38.jpg"/>
+				</div>
+			</div>
+			<h6>Figure 7.38: Screenshot for input and output texts after mapping</h6>
+			<p>Next, we get the maximum length of the input and output sequences and get a list of all the words in the input and output corpus:</p>
+			<p class="snippet">max_input_seq_length = max([len(i.split()) for i in input_texts])</p>
+			<p class="snippet">max_target_seq_length = max([len(i.split()) for i in target_texts])</p>
+			<p class="snippet">input_words = sorted(list(input_words))</p>
+			<p class="snippet">target_words = sorted(list(target_words))</p>
+			<p class="snippet">num_encoder_tokens = len(input_words)</p>
+			<p class="snippet">num_decoder_tokens = len(target_words)</p>
+			<p>input_words and target_words look as shown in the following figure:</p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer230">
+					<img alt="Figure 7.39: Screenshot for input text and target words&#13;&#10;" src="image/C13783_07_39.jpg"/>
+				</div>
+			</div>
+			<h6>Figure 7.39: Screenshot for input text and target words</h6>
+			<p>Next, we generate an integer index for each token in the input and output words:</p>
+			<p class="snippet">input_token_index = dict(</p>
+			<p class="snippet">    [(word, i) for i, word in enumerate(input_words)])</p>
+			<p class="snippet">target_token_index = dict([(word, i) for i, word in enumerate(target_words)])</p>
+			<p>The values of these variables are as follows:</p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer231">
+					<img alt="Figure 7.40: Screenshot for output of integer index for each token&#13;&#10;" src="image/C13783_07_40.jpg"/>
+				</div>
+			</div>
+			<h6>Figure 7.40: Screenshot for output of integer index for each token</h6>
+			<p>We now define the arrays for the encoder input data, which is a 2-dimensional matrix with as many rows as sentence pairs and as many columns as the maximum input sequence length. Similarly, the decoder input data is also a 2-dimensional matrix with as many rows as sentence pairs and as many columns as the maximum sequence length in the target corpus. We also need target output data, which is required during the training phase. This is a 3-dimensional matrix where the first dimension has the same value as the number of sentence pairs. The second dimension has the same number of elements as the maximum target sequence length. The third dimension represents the number of decoder tokens (the number of distinct words in the target corpus). We initialize these variables with zeros:</p>
+			<p class="snippet">encoder_input_data = np.zeros(</p>
+			<p class="snippet">    (len(input_texts), max_input_seq_length),</p>
+			<p class="snippet">    dtype='float32')</p>
+			<p class="snippet">decoder_input_data = np.zeros(</p>
+			<p class="snippet">    (len(target_texts), max_target_seq_length),</p>
+			<p class="snippet">    dtype='float32')</p>
+			<p class="snippet">decoder_target_data = np.zeros(</p>
+			<p class="snippet">    (len(target_texts), max_target_seq_length, num_decoder_tokens),</p>
+			<p class="snippet">    dtype='float32')</p>
+			<p>We now populate these matrices:</p>
+			<p class="snippet">for i, (input_text, target_text) in enumerate(zip(input_texts, target_texts)):</p>
+			<p class="snippet">    for t, word in enumerate(input_text.split()):</p>
+			<p class="snippet">        encoder_input_data[i, t] = input_token_index[word]</p>
+			<p class="snippet">    for t, word in enumerate(target_text.split()):</p>
+			<p class="snippet">        decoder_input_data[i, t] = target_token_index[word]</p>
+			<p class="snippet">        if t &gt; 0:</p>
+			<p class="snippet">            # decoder_target_data is ahead of decoder_input_data by one timestep</p>
+			<p class="snippet">            decoder_target_data[i, t - 1, target_token_index[word]] = 1.</p>
+			<p>The values look as follows:</p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer232">
+					<img alt="Figure 7.41: Screenshot of matrix population&#13;&#10;" src="image/C13783_07_41.jpg"/>
+				</div>
+			</div>
+			<h6>Figure 7.41: Screenshot of matrix population</h6>
+			<p>We will now define a model. For this exercise, we'll use the functional API of Keras:</p>
+			<p class="snippet">from keras.layers import Input, LSTM, Embedding, Dense</p>
+			<p class="snippet">from keras.models import Model</p>
+			<p class="snippet">embedding_size = 50 # For embedding layer</p>
+			<p>Let's see the encoder block:</p>
+			<p class="snippet">encoder_inputs = Input(shape=(None,))</p>
+			<p class="snippet">encoder_after_embedding =  Embedding(num_encoder_tokens, embedding_size)(encoder_inputs)</p>
+			<p class="snippet">encoder_lstm = LSTM(50, return_state=True)</p>
+			<p class="snippet">_, state_h, state_c = encoder_lstm(encoder_after_embedding)</p>
+			<p class="snippet">encoder_states = [state_h, state_c]</p>
+			<p>First, an Input layer with a flexible number of inputs is defined (with the None attribute). Then, an embedding layer is defined and applied to the encoder inputs. Next, an LSTM unit is defined with 50 hidden units and applied to the embedding layer. Note that the return_state parameter in the LSTM definition is set to True since we would like to obtain the final encoder states to be used for initializing decoder cell state and activations. The encoder LSTM is then applied to the embeddings and the states are collected back into variables.</p>
+			<p>Now let's define the decoder block:</p>
+			<p class="snippet">decoder_inputs = Input(shape=(None,))</p>
+			<p class="snippet">decoder_after_embedding = Embedding(num_decoder_tokens, embedding_size)(decoder_inputs)</p>
+			<p class="snippet">decoder_lstm = LSTM(50, return_sequences=True, return_state=True)</p>
+			<p class="snippet">decoder_outputs, _, _ = decoder_lstm(decoder_after_embedding,</p>
+			<p class="snippet">                                     initial_state=encoder_states)</p>
+			<p class="snippet">decoder_dense = Dense(num_decoder_tokens, activation='softmax')</p>
+			<p class="snippet">decoder_outputs = decoder_dense(decoder_outputs)</p>
+			<p>The decoder takes in inputs and defines embedding layers in a way similar to that of the encoder. An LSTM block is then defined with the return_sequences and return_state parameters set to True. This is done since we wish to use the sequences and states for the decoder. A dense layer is then defined with a softmax activation and a number of outputs equal to the number of distinct tokens in the target corpus. We can now define a model that takes in the encoder and decoder inputs as its input and produces the decoder outputs as final outputs:</p>
+			<p class="snippet">model = Model([encoder_inputs, decoder_inputs], decoder_outputs)</p>
+			<p class="snippet">model.compile(optimizer='rmsprop', loss='categorical_crossentropy', metrics=['acc'])</p>
+			<p class="snippet">model.summary()</p>
+			<p>The following model summary is seen:</p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer233">
+					<img alt="Figure 7.42: Screenshot of model summary&#13;&#10;" src="image/C13783_07_42.jpg"/>
+				</div>
+			</div>
+			<h6>Figure 7.42: Screenshot of model summary</h6>
+			<p>We can now fit the model for our inputs and outputs:</p>
+			<p class="snippet">model.fit([encoder_input_data, decoder_input_data], decoder_target_data,</p>
+			<p class="snippet">          batch_size=128,</p>
+			<p class="snippet">          epochs=20,</p>
+			<p class="snippet">          validation_split=0.05)</p>
+			<p>We set a batch size of 128 with 20 epochs:</p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer234">
+					<img alt="Figure 7.43: Screenshot of model fitting with 20 epochs" src="image/C13783_07_43.jpg"/>
+				</div>
+			</div>
+			<h6>Figure 7.43: Screenshot of model fitting with 20 epochs</h6>
+			<p>The model is now trained. Now, as described in our section on neural language translation, the inference phase follows a slightly different architecture from the one used during training. We first define the encoder model, which takes encoder_inputs (with embedding) as input and produces encoder_states as output. This makes sense as the output of the encoder block is the cell state and activations:</p>
+			<p class="snippet">encoder_model = Model(encoder_inputs, encoder_states)</p>
+			<p>Next, a decoder inference model is defined:</p>
+			<p class="snippet">decoder_state_input_h = Input(shape=(50,))</p>
+			<p class="snippet">decoder_state_input_c = Input(shape=(50,))</p>
+			<p class="snippet">decoder_states_inputs = [decoder_state_input_h, decoder_state_input_c]</p>
+			<p class="snippet">decoder_outputs_inf, state_h_inf, state_c_inf = decoder_lstm(decoder_after_embedding, initial_state=decoder_states_inputs)</p>
+			<p>The initial states of decoder_lstm, which was trained earlier, are set to the decoder_states_inputs variable, which will be set to encoder state output later on. Then, we pass decoder outputs through a dense softmax layer for getting the index of the predicted word and define the decoder inference model:</p>
+			<p class="snippet">decoder_states_inf = [state_h_inf, state_c_inf]</p>
+			<p class="snippet">decoder_outputs_inf = decoder_dense(decoder_outputs_inf)</p>
+			<p class="snippet"># Multiple input, multiple output</p>
+			<p class="snippet">decoder_model = Model(</p>
+			<p class="snippet">    [decoder_inputs] + decoder_states_inputs,</p>
+			<p class="snippet">    [decoder_outputs_inf] + decoder_states_inf)</p>
+			<p>The decoder model takes multiple inputs in the form of decoder_input (with embedding) and decoder states. The output is also a multivariable where the dense layer output and decoder states are returned. The states are required here as they need to passed on as input states for the sampling of the word at the next timestep.</p>
+			<p>Since the output of the dense layer will return a vector, we need a reverse lookup dictionary to map the index for the generated word to an actual word:</p>
+			<p class="snippet"># Reverse-lookup token index to decode sequences</p>
+			<p class="snippet">reverse_input_word_index = dict(</p>
+			<p class="snippet">    (i, word) for word, i in input_token_index.items())</p>
+			<p class="snippet">reverse_target_word_index = dict(</p>
+			<p class="snippet">    (i, word) for word, i in target_token_index.items())</p>
+			<p>The values in the dictionaries are as follows:</p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer235">
+					<img alt="Figure 7.44: Screenshot of dictionary values&#13;&#10;" src="image/C13783_07_44.jpg"/>
+				</div>
+			</div>
+			<h6>Figure 7.44: Screenshot of dictionary values</h6>
+			<p>We now need to develop a sampling logic. Given a token representation for every word in an input sentence, we first get the output from encoder_model using these word tokens as inputs for the encoder. We also initialize the first input word to the decoder to be a '<strong class="bold">BEGIN_</strong>' token. We then sample a new word token using these values. The input to the decoder for the next timestep is this newly generated token. We continue in this fashion until we either sample the '<strong class="bold">_END</strong>' token or reach the maximum allowed output sequence length.</p>
+			<p>The first step is encoding the input as a state vector:</p>
+			<p class="snippet">def decode_sequence(input_seq):</p>
+			<p class="snippet">states_value = encoder_model.predict(input_seq)</p>
+			<p>Then, we generate an empty target sequence of length 1:</p>
+			<p class="snippet">    target_seq = np.zeros((1,1))</p>
+			<p class="snippet">    </p>
+			<p>Next, we populate the first character of the target sequence with the start character:</p>
+			<p class="snippet">    target_seq[0, 0] = target_token_index['BEGIN_']</p>
+			<p class="snippet">    </p>
+			<p>Then, we create a sampling loop for a batch of sequences:</p>
+			<p class="snippet">    stop_condition = False</p>
+			<p class="snippet">    decoded_sentence = ''</p>
+			<p class="snippet">    </p>
+			<p class="snippet">    while not stop_condition:</p>
+			<p class="snippet">        output_tokens, h, c = decoder_model.predict(</p>
+			<p class="snippet">            [target_seq] + states_value)</p>
+			<p class="snippet">        </p>
+			<p>Next, we sample a token:</p>
+			<p class="snippet">        sampled_token_index = np.argmax(output_tokens)</p>
+			<p class="snippet">        sampled_word = reverse_target_word_index[sampled_token_index]</p>
+			<p class="snippet">        decoded_sentence += ' ' + sampled_word</p>
+			<p class="snippet">        </p>
+			<p>Then, we state the exit condition "<strong class="bold">either hit max length</strong>":</p>
+			<p class="snippet">        # or find stop character.</p>
+			<p class="snippet">        if (sampled_word == '_END' or</p>
+			<p class="snippet">           len(decoded_sentence) &gt; 60):</p>
+			<p class="snippet">            stop_condition = True</p>
+			<p class="snippet">            </p>
+			<p class="snippet">        # Update the target sequence (of length 1).</p>
+			<p class="snippet">        target_seq = np.zeros((1,1))</p>
+			<p class="snippet">        target_seq[0, 0] = sampled_token_index</p>
+			<p>Then, we update the states:</p>
+			<p class="snippet">        states_value = [h, c]</p>
+			<p class="snippet">        </p>
+			<p class="snippet">    return decoded_sentence</p>
+			<p>In this instance, you can test the model by translating a user-defined English sentence to German:</p>
+			<p class="snippet">text_to_translate = "Where is my car?"</p>
+			<p class="snippet">encoder_input_to_translate = np.zeros(</p>
+			<p class="snippet">    (1, max_input_seq_length),</p>
+			<p class="snippet">    dtype='float32')</p>
+			<p class="snippet">for t, word in enumerate(text_to_translate.split()):</p>
+			<p class="snippet">    encoder_input_to_translate[0, t] = input_token_index[word]</p>
+			<p class="snippet">decode_sequence(encoder_input_to_translate)</p>
+			<p>The output is depicted in this screenshot:</p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer236">
+					<img alt="Figure 7.45: Screenshot of English-to-German translator" src="image/C13783_07_45.jpg"/>
+				</div>
+			</div>
+			<h6>Figure 7.45: Screenshot of English-to-German translator</h6>
+			<p>This is, indeed, the correct translation.</p>
+			<p>So, even a model trained on just 20,000 sequences for only 20 epochs is capable of producing good translations. With the current settings, the training session ran for about 90 minutes.</p>
+			<h3 id="_idParaDest-171">Activity 10: Creating a French-to-English tra<a id="_idTextAnchor193"/>nslation model</h3>
+			<p>In this activity, we aim to generate a language translator model that converts French text into English.</p>
+			<h4>Note</h4>
+			<p class="callout">You can find the related files to the activity at <a href="">https://github.com/TrainingByPackt/Deep-Learning-for-Natural-Language-Processing/tree/master/Lesson%2007/activity</a>.</p>
+			<ol>
+				<li value="1">Read in the sentence pairs (check the GitHub repository for the file).</li>
+				<li>Generate input and output texts with the '<strong class="bold">BEGIN_</strong>' and '<strong class="bold">_END</strong>' words attached to the output sentences.</li>
+				<li>Convert the input and output texts into input and output sequence matrices.</li>
+				<li>Define the encoder and decoder training models and train the network.</li>
+				<li>Define the encoder and decoder architecture for inference.</li>
+				<li>Create the user input text (French: ' <em class="italics">Où est ma voiture?</em>'). The sample output text in English should be '<em class="italics">Where is my car?</em>'. Refer to the '<em class="italics">French.txt</em>' file from the GitHub repository for some sample French words.<p><strong class="bold">Expected output:</strong></p></li>
+			</ol>
+			<div>
+				<div class="IMG---Figure" id="_idContainer237">
+					<img alt="Figure 7.46: Output for French to English translator model&#13;&#10;" src="image/C13783_07_46.jpg"/>
+				</div>
+			</div>
+			<h6>Figure 7.46: Output for French to English translator model</h6>
+			<h4>Note</h4>
+			<p class="callout">The solution for the activity can be found on page 327.</p>
+			<h2 id="_idParaDest-172"><a id="_idTextAnchor194"/>Summary</h2>
+			<p>We introduced LSTM units as a possible remedy to the vanishing gradient problem. We then discussed the LSTM architecture in detail and built a simple binary classifier using it. We then delved into a neural nanguage translation application that utilizes LSTM units, and we built a French-to-English translator model using the techniques we explored. In the next chapter, we will discuss the current state of the art in the NLP sphere.</p>
+		</div>
+	</body></html>

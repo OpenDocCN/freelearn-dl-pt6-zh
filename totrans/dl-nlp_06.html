@@ -1,0 +1,378 @@
+<html><head></head><body>
+		<div class="Content" id="_idContainer157">
+			<h1 id="_idParaDest-142"><em class="italics"><a id="_idTextAnchor156"/>Chapter 6</em></h1>
+		</div>
+		<div class="Content" id="_idContainer158">
+			<h1 id="_idParaDest-143"><a id="_idTextAnchor157"/>Gated Recurrent Units (GRUs)</h1>
+		</div>
+		<div class="Content" id="_idContainer159">
+			<h2>Learning Objectives</h2>
+			<p>By the end of this chapter, you will be able to:</p>
+			<ul>
+				<li class="bullets">Assess the drawback of simple Recurrent Neural Networks (RNNs) </li>
+				<li class="bullets">Describe the architecture of Gated Recurrent Units (GRUs)</li>
+				<li class="bullets">Perform sentiment analysis using GRUs</li>
+				<li class="bullets">Apply GRUs for text generation<a id="_idTextAnchor158"/></li>
+			</ul>
+			<p>The chapter aims to provide a solution to the existing drawbacks of the current architecture of RNNs.</p>
+		</div>
+		<div class="Content" id="_idContainer188">
+			<h2 id="_idParaDest-144"><a id="_idTextAnchor159"/>Introduction</h2>
+			<p>In previous chapters, we studied text processing techniques such as word embedding, tokenization, and Term Frequency Inverse Document Frequency (TFIDF). We also learned about a specific network architecture called a Recurrent Neural Network (RNN) that has the drawback of vanishing gradients. </p>
+			<p>In this chapter, we are going to study a mechanism that deals with vanishing gradients by using a methodical approach of adding memory to the network. Essentially, the gates that are used in GRUs are vectors that decide what information should be passed onto the next stage of the network. This, in turn, helps the network to generate output accordingly.</p>
+			<p>A basic RNN generally consists of an input layer, output layer, and several interconnected hidden layers. The following diagram displays the basic architecture of an RNN:</p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer160">
+					<img alt="Figure 6.1: A basic RNN&#13;&#10;" src="image/C13783_06_01.jpg"/>
+				</div>
+			</div>
+			<h6>Figure 6.1: A basic RNN</h6>
+			<p>RNNs, in their simplest form, suffer from a drawback, that is, their inability to retain long-term relationships in the sequence. To rectify this flaw, a special layer called Gated Recurrent Unit (GRU) needs to be added to the simple RNN network.</p>
+			<p>In this chapter, we will first explore the reason behind the inability of Simple RNNs to retain long term dependencies, followed by the introduction of the GRU layer and how it attempts to solve this specific issue. We will then go on to build a network with the GRU layer included.</p>
+			<h2 id="_idParaDest-145"><a id="_idTextAnchor160"/>The Drawback of Simple RNNs</h2>
+			<p>Let's take a look at a simple example in order to revisit the concept of vanishing gradients. </p>
+			<p>Essentially, you wish to generate an English poem using an RNN. Here, you set up a simple RNN to do your bidding and it ends up producing the following sentence:</p>
+			<p>"The flowers, despite it being autumn, blooms like a star".</p>
+			<p>One can easily spot the grammatical error here. The word 'blooms' should be 'bloom' since at the beginning of the sentence, the word 'flowers' indicates that you should be using the plural form of the word 'bloom' to bring about the subject-verb agreement in the sentence. A simple RNN fails at this job because it is incapable of retaining any information about a dependency between the word 'flowers' that occurs early in the sentence and the word 'blooms,' which occurs much later (theoretically, it should be able to!).</p>
+			<p>A <strong class="keyword">GRU</strong> helps to solve this issue by eliminating the 'vanishing gradient' problem that hinders the learning ability of the network where long-term relationships within the text are not preserved by the network. In the following sections, we'll focus our attention on understanding the vanishing gradient problem and discuss how a GRU resolves the issue in more detail</p>
+			<p>L<a id="_idTextAnchor161"/>et's now recall how a neural network learns. In the training phase, the inputs get propagated, layer by layer, up to the output layer. Since we know the exact value that the output should be producing for a given input during training, we calculate the error between the expected output and the output obtained. This error is then fed into a cost function (which varies depending on the problem and the creativity of the network developer). Now, the next step is to calculate the gradient of this cost function with respect to every parameter of the network, starting from the layer nearest to the output layer right down to the bottom layer where the input layer is present: </p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer161">
+					<img alt="Figure 6.2: A simple neural network&#13;&#10;" src="image/C13783_06_02.jpg"/>
+				</div>
+			</div>
+			<h6>Figure 6.2: A simple neural network</h6>
+			<p>Consider a very simple neural network with only four layers and only one connection between each layer and one single output, as shown in the preceding diagram. Note that you will never use such a network in practice; it is presented here only for demonstrating the concept of vanishing gradients.</p>
+			<p>Now, to calculate the gradient of the cost function with respect to the bias term of the first hidden layer (b[1]), the following calculation needs to be carried out:</p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer162">
+					<img alt="Figure 6.3: Gradient calculation using chain rule&#13;&#10;" src="image/C13783_06_03.jpg"/>
+				</div>
+			</div>
+			<h6>Figure 6.3: Gradient calculation using chain rule</h6>
+			<p>Here, each element can be explained as follows:</p>
+			<p>grad(x, y) = the gradient of x with respect to y</p>
+			<p>d(var) = the derivative of 'sigmoid' of the 'var' variable</p>
+			<p>w[i] = the weight of the 'i' layer</p>
+			<p>b[i] = the bias term in the 'i' layer</p>
+			<p>a[i] = the activation function of the 'i' layer</p>
+			<p>z[j] = w[j]*a[j-1] + b[j]</p>
+			<p>The preceding expression can be attributed to the chain rule of differentiation.</p>
+			<p>The preceding equation involves the multiplication of several terms. If the values of most of these terms are a fraction between -1 and 1, the multiplication of such fractions will yield a term with a very small value at the end. In the preceding example, the value of grad(C,b[1]) will a very small fraction. The problem here is, this gradient is the term that will be used to update the value of b[1] for the next iteration:</p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer163">
+					<img alt="Figure 6.4: Updating value of b[1] using the gradient&#13;&#10;" src="image/C13783_06_04.jpg"/>
+				</div>
+			</div>
+			<h6>Figure 6.4: Updating value of b[1] using the gradient</h6>
+			<h4>Note</h4>
+			<p class="callout">There could be several ways of performing an update using different optimizers, but the concept remains essentially the same.</p>
+			<p>The consequence of this action is that the value of b[1] hardly changes from the last iteration, which leads to a very slow learning progress. In a real-world network, which might be several layers deep, this update will be still smaller. Hence, the deeper the network, the more severe the problem with gradients. Another observation made here is that the layers that are closer to the output layer learn quicker than those that are closer to the input layer since there are fewer multiplication terms. This also leads to an asymmetry in learning, leading to the instability of the gradients. </p>
+			<p>So, what bearing does this issue have on simple RNNs? Recall the structure of RNNs;. it is essentially an unfolding of layers in time with as many layers as there are words (for a modelling problem). The learning proceeds through Backpropagation Through Time (BPTT), which is exactly the same as the regime that was described previously. The only difference is that the same parameters are updated in every layer. The later layers correspond to the words that appear later in the sentence, while the earlier layers are those that correspond to the words appearing earlier in the sentence. With vanishing gradients, the earlier layers do not change much from their initial values and, hence, they fail to have much effect on the later layers. The more far-back-in-time a layer is from a given layer at time, 't', the less influential it is for determining the output of the layer at 't'. Hence, in our example sentence, the network struggles to learn that the word 'flowers' is plural, which results in the wrong form of the word 'bloom' being used.</p>
+			<h3 id="_idParaDest-146">The <a id="_idTextAnchor162"/>Exploding Gradient Problem </h3>
+			<p>As it turns out, gradients not only vanish but they can explode as well – that is, early layers can learn too quickly with a large deviation in values from one training iteration to the next, while the gradients of the later layers don't change very quickly. How can this happen? Well, revisiting our equation, if the value of individual terms is much larger than the magnitude of 1, a multiplicative effect results in the gradients becoming huge. This leads to a destabilization of the gradients and causes issues with learning.</p>
+			<p>Ultimately, the problem is one of unstable gradients. In practice, the vanishing gradients problem is much more common and harder to solve than the exploding gradients problem.</p>
+			<p>Fortunately, the exploding gradient problem has a robust solution: clipping. Clipping simply refers to stopping the value of gradients from growing beyond a predefined value. If the value is not clipped, you will begin seeing NaNs (Not a Number) for the gradients and weights of the network due to the representational overflow of computers. Providing a ceiling for the value will help to avoid this issue. Note that clipping only curbs the magnitude of the gradient, but not its direction. So, the learning still proceeds in the correct direction. A simple visualization of the effect of gradient clipping can be seen in the following diagram:</p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer164">
+					<img alt="Figure 6.5: Clipping gradients to combat the explosion of gradients &#13;&#10;" src="image/C13783_06_05.jpg"/>
+				</div>
+			</div>
+			<h6>Figure 6.5: Clipping gradients to combat the explosion of gradients </h6>
+			<h2 id="_idParaDest-147">Gated<a id="_idTextAnchor163"/> Recurrent Units (GRUs) </h2>
+			<p>GRUs help the network to remember long-term dependencies in an explicit manner. This is achieved by introducing more variables in the structure of a simple RNN. </p>
+			<p>So, what will help us to get rid of the vanishing gradients problem? Intuitively speaking, if we allow the network to transfer most of the knowledge from the activation function of the previous timesteps, then an error can be backpropagated more faithfully than a simple RNN case. If you are familiar with residual networks for image classification, then you will recognize this function as being similar to that of a skip connection. Allowing the gradient to backpropagate without vanishing enables the network to learn more uniformly across layers and, hence, eliminates the issue of gradient instability:</p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer165">
+					<img alt="Figure 6.6: The full GRU structure&#13;&#10;" src="image/C13783_06_06.jpg"/>
+				</div>
+			</div>
+			<h6>Figure 6.6: The full GRU structure</h6>
+			<p>The different signs in the preceding diagram are as follows:</p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer166">
+					<img alt="Figure 6.7: The meanings of the different signs in the GRU diagram &#13;&#10;" src="image/C13783_06_07.jpg"/>
+				</div>
+			</div>
+			<h6>Figure 6.7: The meanings of the different signs in the GRU diagram </h6>
+			<h4>Note</h4>
+			<p class="callout">The Hadamard product operation is an elementwise matrix multiplication.</p>
+			<p>The preceding diagram has all its components exploited by a GRU. You can observe the activation functions, h, represented at different timesteps (<strong class="bold">h[t]</strong>, <strong class="bold">h[t-1]</strong>). The <strong class="bold">r[t]</strong> term refers to the reset gate and <strong class="bold">z[t]</strong> term refers to the update gate. The <strong class="bold">h'[t]</strong> term refers to a candidate function, which we'll represent using the <strong class="bold">h_candidate[t]</strong> variable in the equation for the purpose of being explicit. The GRU layer uses the update gate to decide on the amount of previous information that can be passed onto the next activation, while it uses the reset gate to determine the amount of previous information to forget. In this section, we shall examine each of these terms in detail and explore how they help the network to remember long-term relations in the text structure.</p>
+			<p>The expression for the activation function (hidden layer) for the next layer is as follows:</p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer167">
+					<img alt="Figure 6.8: The expression for the activation function for the next layer in terms of the candidate activation function" src="image/C13783_06_08.jpg"/>
+				</div>
+			</div>
+			<h6>Figure 6.8: The expression for the activation function for the next layer in terms of the candidate activation function</h6>
+			<p>The activation function is, therefore, a weighing of the activation from the previous timestep and a candidate activation function for this timestep. The <strong class="bold">z[t]</strong> function is a sigmoid function and, hence, it takes a value between 0 and 1. In most practical cases, the value is closer to 0 or 1. Before going into the preceding expression in more depth, let's take a moment to observe the effect of the introduction of a weighted summing scheme for updating the activation function. If the value of <strong class="bold">z[t]</strong> remains 1 for several timesteps, then that means the value of the activation function at a very early timestep can still be propagated to a much later timestep. This, in turn, provides the network with a memory. </p>
+			<p>Additionally, observe how this is different to a simple RNN, where the value of the activation function is overwritten at every timestep without an explicit weighing of the previous timestep activation (the contribution of the previous activation in a simple RNN is present within the nonlinearity and, hence, is implicit).</p>
+			<h3 id="_idParaDest-148"><a id="_idTextAnchor164"/>Types of Gates</h3>
+			<p>Let's no<a id="_idTextAnchor165"/>w expand on the previous equation for the activation update in the following sections.</p>
+			<h3 id="_idParaDest-149"><a id="_idTextAnchor166"/>The Update Gate</h3>
+			<p>The update gate is represented by the following diagram. As you can see from the full GRU diagram, only the relevant parts are highlighted. The purpose of the update gate is to determine the amount of information that needs to be passed on from the previous timesteps to the next step activation. To understand the diagram and the function of the update gate, consider the following expression for calculating the update gate:</p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer168">
+					<img alt="Figure 6.9: The expression for calculating the update gate&#13;&#10;" src="image/C13783_06_09.jpg"/>
+				</div>
+			</div>
+			<h6>Figure 6.9: The expression for calculating the update gate</h6>
+			<p>The following figure shows a graphical representation of the update gate:</p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer169">
+					<img alt="Figure 6.10: The update gate in a full GRU diagram&#13;&#10;" src="image/C13783_06_10.jpg"/>
+				</div>
+			</div>
+			<h6>Figure 6.10: The update gate in a full GRU diagram</h6>
+			<p>The number of hidden states is <strong class="bold">n_h</strong> (the dimensionality of <strong class="bold">h</strong>), while the number of input dimensions is n_x. The input at timestep t (<strong class="bold">x[t]</strong>), is multiplied by a new set of weights, <strong class="bold">W_z</strong>, using the dimensions (<strong class="bold">n_h, n_x</strong>). The activation function from the previous timestep, (<strong class="bold">h[t-1]</strong>), is multiplied by another new set of weights, <strong class="bold">U_z</strong>, using the dimensions (<strong class="bold">n_h, n_h</strong>). </p>
+			<p>Note that the multiplications here are matrix multiplications. These two terms are then added together and passed through a sigmoid function to squish the output, <strong class="bold">z[t]</strong>, within a range of [0,1]. The <strong class="bold">z[t]</strong> output has the same dimensions as the activation function, that is, (<strong class="bold">n_h, 1</strong>). The <strong class="bold">W_z</strong> and <strong class="bold">U_z</strong> parameters also need to be learned using BPTT. Let's write a simple Python snippet to aid in our understanding of the update gate:</p>
+			<p class="snippet">import numpy as np</p>
+			<p class="snippet"># Write a sigmoid function to be used later in the program</p>
+			<p class="snippet">def sigmoid(x):</p>
+			<p class="snippet">    return 1 / (1 + np.exp(-x))</p>
+			<p class="snippet">n_x = 5 # Dimensionality of input vector</p>
+			<p class="snippet">n_h = 3 # Number of hidden units</p>
+			<p class="snippet"># Define an input at time 't' having a dimensionality of n_x</p>
+			<p class="snippet">x_t = np.random.randn(n_x, 1)</p>
+			<p class="snippet"># Define W_z, U_z and h_prev (last time step activation)</p>
+			<p class="snippet">W_z = np.random.randn(n_h,  n_x) # n_h = 3, n_x=5</p>
+			<p class="snippet">U_z = np.random.randn(n_h, n_h) # n_h = 3</p>
+			<p class="snippet">h_prev = np.random.randn(n_h, 1)</p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer170">
+					<img alt="" src="image/C13783_06_11.jpg"/>
+				</div>
+			</div>
+			<h6>Figure 6.11: A screenshot displaying the weights and activation functions</h6>
+			<p>Following is the code snippet for update gate expression:</p>
+			<p class="snippet"># Calculate expression for update gate</p>
+			<p class="snippet">z_t = sigmoid(np.matmul(W_z, x_t) + np.matmul(U_z, h_prev))</p>
+			<p>In the previous code snippet, we initialised the random values for <strong class="bold">x[t]</strong>, <strong class="bold">W_z</strong>, <strong class="bold">U_z</strong>, and <strong class="bold">h_prev</strong> in order to demonstrate the calculation of <strong class="bold">z[t]</strong> . In a real network, these variables will have more relevant values.</p>
+			<h3 id="_idParaDest-150">The Reset G<a id="_idTextAnchor167"/>ate</h3>
+			<p>The reset gate is represented by the following diagram. As you can see from the full GRU diagram, only the relevant parts are highlighted. The purpose of the reset gate is to determine the amount of information from the previous timestep that should be forgotten in order to calculate the next step activation. In order to understand the diagram and the function of the reset gate, consider the following expression for calculating the reset gate:</p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer171">
+					<img alt="Figure 6.12: The expression for calculating the reset gate&#13;&#10;" src="image/C13783_06_12.jpg"/>
+				</div>
+			</div>
+			<h6>Figure 6.12: The expression for calculating the reset gate</h6>
+			<p>The following figure shows a graphical representation of the reset gate:</p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer172">
+					<img alt="Figure 6.13: The reset gate&#13;&#10;" src="image/C13783_06_13.jpg"/>
+				</div>
+			</div>
+			<h6>Figure 6.13: The reset gate</h6>
+			<p>The input at timestep, <strong class="bold">t</strong>, is multiplied by the weights, <strong class="bold">W_r</strong>, using the dimensions (<strong class="bold">n_h, n_x</strong>). The activation function from the previous timestep, (<strong class="bold">h[t-1]</strong>), is then multiplied by another new set of weights, <strong class="bold">U_r</strong>, using the dimensions (<strong class="bold">n_h, n_h</strong>). Note that the multiplications here are matrix multiplications. These two terms are then added together and passed through a sigmoid function to squish the r[t] output within a range of <strong class="bold">[0,1]</strong>. The <strong class="bold">r[t]</strong> output has the same dimensions as the activation function, that is, (<strong class="bold">n_h, 1</strong>).</p>
+			<p>The <strong class="bold">W_r</strong> and <strong class="bold">U_r</strong> parameters also need to be learned using BPTT. Let's take a look at how to calculate the reset gate expression in Python:</p>
+			<p class="snippet"># Define W_r, U_r</p>
+			<p class="snippet">W_r = np.random.randn(n_h,  n_x) # n_h = 3, n_x=5</p>
+			<p class="snippet">U_r = np.random.randn(n_h, n_h) # n_h = 3</p>
+			<p class="snippet"># Calculate expression for update gate</p>
+			<p class="snippet">r_t = sigmoid(np.matmul(W_r, x_t) + np.matmul(U_r, h_prev))</p>
+			<p>In the preceding snippet, the values of the <strong class="bold">x_t</strong>, <strong class="bold">h_prev</strong>, <strong class="bold">n_h</strong>, and <strong class="bold">n_x</strong> variables have been used from the update gate code snippet. Note that the values of <strong class="bold">r_t</strong> may not be particularly close to either 0 or 1 since it is an example. In a well-trained network, the values are expected to be close to 0 or 1:</p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer173">
+					<img alt="Figure 6.14: A screenshot displaying the values of the weights&#13;&#10;" src="image/C13783_06_14.jpg"/>
+				</div>
+			</div>
+			<h6>Figure 6.14: A screenshot displaying the values of the weights</h6>
+			<div>
+				<div class="IMG---Figure" id="_idContainer174">
+					<img alt="Figure 6.15: A screenshot displaying the r_t output&#13;&#10;" src="image/C13783_06_15.jpg"/>
+				</div>
+			</div>
+			<h6>Figure 6.15: A screenshot displaying the r_t output</h6>
+			<h3 id="_idParaDest-151">The Candidate A<a id="_idTextAnchor168"/>ctivation Function</h3>
+			<p>A candidate activation function for replacing the previous timestep activation function is also calculated at every timestep. As the name suggests, the candidate activation function represents an alternative value that the next timestep activation function should take. Take a look at the expression for calculating the candidate activation function, as follows: </p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer175">
+					<img alt="Figure 6.16: The expression for calculating the candidate activation function&#13;&#10;" src="image/C13783_06_16.jpg"/>
+				</div>
+			</div>
+			<h6>Figure 6.16: The expression for calculating the candidate activation function</h6>
+			<p>The following figure shows a graphical representation of the candidate activation function:</p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer176">
+					<img alt="Figure 6.17: The candidate activation function&#13;&#10;" src="image/C13783_06_17.jpg"/>
+				</div>
+			</div>
+			<h6>Figure 6.17: The candidate activation function</h6>
+			<p>The input at timestep, t, is multiplied by the weights, W, using the dimensions (<strong class="bold">n_h</strong>, <strong class="bold">n_x</strong>). The W matrix serves the same purpose as the matrix that is used in a simple RNN. Then, an element-wise multiplication is carried out between the reset gate and the activation function from the previous timestep, (<strong class="bold">h[t-1]</strong>). This operation is referred to as 'hadamard multiplication'. The result of this multiplication is matrix-multiplied by U using the dimensions (<strong class="bold">n_h, n_h</strong>). The U matrix is the same matrix that is used with a simple RNN. These two terms are then added together and passed through a hyperbolic tan function to squish the output <strong class="bold">h_candidate[t]</strong> within a range of [-1,1]. The <strong class="bold">h_candidate[t]</strong> output has the same dimensions as the activation function, that is, (<strong class="bold">n_h, 1</strong>): </p>
+			<p class="snippet"># Define W, U</p>
+			<p class="snippet">W = np.random.randn(n_h,  n_x) # n_h = 3, n_x=5</p>
+			<p class="snippet">U = np.random.randn(n_h, n_h) # n_h = 3</p>
+			<p class="snippet"># Calculate h_candidate</p>
+			<p class="snippet">h_candidate = np.tanh(np.matmul(W, x_t) + np.matmul(U,np.multiply(r_t, h_prev)))</p>
+			<p>Again, the same values for the variables have been used as in the calculation of the update and reset gate. Note that the Hadamard matrix multiplication has been implemented using the NumPy function, 'multiply':</p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer177">
+					<img alt="Figure 6.18: A screenshot displaying how the W and U weights are defined &#13;&#10;" src="image/C13783_06_18.jpg"/>
+				</div>
+			</div>
+			<h6>Figure 6.18: A screenshot displaying how the W and U weights are defined </h6>
+			<p>The following figure shows a graphical representation of the <strong class="bold">h_candidate</strong> function: </p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer178">
+					<img alt="Figure 6.19: A screenshot displaying the value of h_candidate&#13;&#10;" src="image/C13783_06_19.jpg"/>
+				</div>
+			</div>
+			<h6>Figure 6.19: A screenshot displaying the value of h_candidate</h6>
+			<p>Now, since the values of the update gate, the reset gate, and the candidate activation function have been calculated, we can code up the expression for the current activation function that will be passed onto the next layer:</p>
+			<p class="snippet"># Calculate h_new</p>
+			<p class="snippet">h_new = np.multiply(z_t, h_prev) + np.multiply((1-z_t), h_candidate)</p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer179">
+					<img alt="Figure 6.20: A screenshot displaying the value of the current activation function&#13;&#10;" src="image/C13783_06_20.jpg"/>
+				</div>
+			</div>
+			<h6>Figure 6.20: A screenshot displaying the value of the current activation function</h6>
+			<p>Mathematically speaking, the update gate serves the purpose of selecting a weighting between the previous activation function and the candidate activation function. Hence, it is responsible for the final update of the activation function for the current timestep and in determining how much of the previous activation function and candidate activation function will pass onto the next layer. The reset gate acts as a way to select or unselect the parts of the previous activation function. This is why an element-wise multiplication is carried out between the previous activation function and the reset gate vector. Consider our previous example of the poem generation sentence:</p>
+			<p>"The flowers, despite it being autumn, blooms like a star."</p>
+			<p>A reset gate will serve to remember that the word 'flowers' affect the plurality of the word 'bloom,' which occurs toward the end of the sentence. Hence, the particular value in the reset gate vector that is responsible for remembering the plurality or singularity of the word will hold a value that is closer to the values of 0 or 1. If a 0 value denotes that the word is singular, then, in our case, the reset gate will hold the value of 1 in order to remember that the word 'bloom' should now hold the plural form. Different values in the reset gate vector will remember different relations within the complex structure of the sentence. </p>
+			<p>As another example, consider the following sentence:</p>
+			<p>"The food from France was delicious, but French people were also very accommodating."</p>
+			<p>Examining the structure of the sentence, we can see that there are several complex relations that need to be kept in mind:</p>
+			<ul>
+				<li>The word 'food' corresponds with the word 'delicious' (here, 'delicious' can only be used in the context of 'food').</li>
+				<li>The word 'France' corresponds with 'French' people. </li>
+				<li>The word 'people' and 'were' are related to each other; that is, the use of the word 'people' dictates that the correct form of 'was' is used.</li>
+			</ul>
+			<p>In a well-trained network, the reset gate will have an entry in its vector for all such relations. The value of these entries will be suitably turned 'off' or 'on' depending on which relationship needs to be remembered from the previous activations and which needs to be forgotten. In practice, it is difficult to ascribe an entry of the reset gate or hidden state to a particular function. The interpretability of deep learning networks is, hence, a hot research topic.</p>
+			<h3 id="_idParaDest-152"><a id="_idTextAnchor169"/>GRU Variations</h3>
+			<p>The form of GRU just described form of a GRU is the full GRU. Several independent researchers have utilized different forms of GRU, such as by removing the reset gate entirely or by using activation functions. The full GRU is, however, still the most used approach.</p>
+			<h2 id="_idParaDest-153">Sentiment Analysis w<a id="_idTextAnchor170"/>ith GRU </h2>
+			<p>Sentiment analysis is a popular use case for applying natural language processing techniques. The aim of sentiment analysis is to determine whether a given piece of text can be considered as conveying a 'positive' sentiment or a 'negative' sentiment. For example, consider the following text reviewing a book:</p>
+			<p>"The book had its moments of glory, but seemed to be missing the point quite frequently. An author of such calibre certainly had more in him than what was delivered through this particular work."</p>
+			<p>To a human reader, it is perfectly clear that the mentioned book review conveys a negative sentiment. So, how would you go about building a machine learning model for the classification of sentiments? As always, for using a supervised learning approach, a text corpus containing several samples is needed. Each piece of text in this corpus should have a label indicating whether the text can be mapped to a positive or a negative sentiment. The next step will be to build a machine learning model using this data.</p>
+			<p>Observing the example sentence, you can already see that such a task could be challenging for a machine learning model to solve. If a simple tokenization or TFIDF approach is used, the words such as 'glory' and 'calibre' would be easily misunderstood by the classifier as conveying a positive sentiment. To make matters worse, there is no word in the text that can be directly interpreted as negative. This observation also brings about the need to connect different parts of the text structure in order to derive a meaning out of the sentence. For instance, the first sentence can be broken into two parts:</p>
+			<ol>
+				<li>"The book had its moments of glory"</li>
+				<li>",but seemed to be missing the point quite frequently."</li>
+			</ol>
+			<p>Looking at just the first part of the sentence can lead you to conclude that the remark is a positive one. It is only when the second sentence is taken into consideration that the meaning of the sentence can be truly understood as depicting negative feelings. Hence, there is a need to retain long term dependency here. A simple RNN is, therefore, not good enough for the task. Let's now apply a GRU to a sentiment classification task and see how it performs.</p>
+			<h3 id="_idParaDest-154"><a id="_idTextAnchor171"/>Exercise 25: Calculating the Model Validation Accuracy and Loss for Sentiment Classification</h3>
+			<p>In this exercise, will we code up a simple sentiment classification system using the imdb dataset. The imdb dataset consists of 25,000 train text sequences and 25,000 test text sequences – each containing a review for a movie. The output variable is a binary variable having a value of 0 if the review is negative, and a value of 1 if the review is positive:</p>
+			<h4>Note</h4>
+			<p class="callout">All exercises and activities should be run in a Jupyter notebook. The requirements.txt file for creating the Python environment for running this notebook is as h5py==2.9.0, keras==2.2.4, numpy==1.16.1, tensorflow==1.12.0.</p>
+			<p><strong class="bold">Solution:</strong></p>
+			<p>We begin by loading the dataset, as follows:</p>
+			<p class="snippet">from keras.datasets import imdb</p>
+			<ol>
+				<li value="1">Let's also define the maximum number of topmost frequent words to consider when generating the sequence for training as 10,000. We will also restrict the sequence length to 500:<p class="snippet">max_features = 10000</p><p class="snippet">maxlen = 500</p></li>
+				<li>Let's now load the data as follows:<p class="snippet">(train_data, y_train), (test_data, y_test) = imdb.load_data(num_words=max_features)</p><p class="snippet">print('Number of train sequences: ', len(train_data))</p><p class="snippet">print('Number of test sequences: ', len(test_data))</p><div class="IMG---Figure" id="_idContainer180"><img alt="Figure 6.21: A screenshot showing the train and test sequences&#13;&#10;" src="image/C13783_06_21.jpg"/></div><h6>Figure 6.21: A screenshot showing the train and test sequences</h6></li>
+				<li>There could be sequences having a length that is shorter than 500; therefore, we need to pad them out to have a length of exactly 500. We can use a Keras function for this purpose: <p class="snippet">from keras.preprocessing import sequence</p><p class="snippet">train_data = sequence.pad_sequences(train_data, maxlen=maxlen)</p><p class="snippet">test_data = sequence.pad_sequences(test_data, maxlen=maxlen)</p></li>
+				<li>Let's examine the shapes of the train and test data, as follows:<p class="snippet">print('train_data shape:', train_data.shape)</p><p class="snippet">print('test_data shape:', test_data.shape)</p><p>Verify that the shape of both the arrays is (25,000, 500).</p></li>
+				<li>Let's now build an RNN with a GRU unit. First, we need to import the necessary packages, as follows:<p class="snippet">from keras.models import Sequential</p><p class="snippet">from keras.layers import Embedding</p><p class="snippet">from keras.layers import Dense</p><p class="snippet">from keras.layers import GRU</p></li>
+				<li>Since we'll use the sequential API of Keras to build the model, we need to import the sequential model API from the Keras model. The embedding layer essentially turns input vectors into a fixed size, which can then be fed to the next layer of the network. If used, it must be added as the first layer to the network. We also import a Dense layer, since it is this layer that ultimately gives a distribution over the target variable (0 or 1). <p>Finally, we import the GRU unit; let's initialize the sequential model API and add the embedding layer, as follows:</p><p class="snippet">model = Sequential()</p><p class="snippet">model.add(Embedding(max_features, 32))</p><p>The embedding layer takes max_features as input, which is defined by us to be 10,000. The 32 value is set here as the next GRU layer expects 32 inputs from the embedding layer. </p></li>
+				<li>Next, we'll add the GRU and the dense layer, as follows:<p class="snippet">model.add(GRU(32))</p><p class="snippet">model.add(Dense(1, activation='sigmoid'))</p></li>
+				<li>The 32 value is arbitrarily chosen and can function as one of the hyperparameters to tune when designing the network. It represents the dimensionality of the activation functions. The dense layer only gives out the 1 value, which is a probability of the review (that is, our target variable) to be 1. We choose sigmoid as the activation function here. <p>Next, we compile the model with the binary cross-entropy loss and the rmsprop optimizer:</p><p class="snippet">model.compile(optimizer='rmsprop',</p><p class="snippet">              loss='binary_crossentropy',</p><p class="snippet">              metrics=['acc'])</p></li>
+				<li>We choose to track the accuracy (train and validation) as the metric. Next, we fit the model on our sequence data. Note that we also assign 20% of the sample from the training data as the validation dataset. We also set the number of epochs to be 10 and the batch_size to be 128 – that is, in a single forward-backward pass, we choose to pass 128 sequences in a single batch:<p class="snippet">history = model.fit(train_data, y_train,</p><p class="snippet">                    epochs=10,</p><p class="snippet">                    batch_size=128,</p><p class="snippet">                    validation_split=0.2</p><div class="IMG---Figure" id="_idContainer181"><img alt="Figure 6.22: A screenshot displaying the variable history output of the training model&#13;&#10;" src="image/C13783_06_22.jpg"/></div><h6>Figure 6.22: A screenshot displaying the variable history output of the training model</h6><p>The variable history can be used to keep track of the training progress. The previous function will trigger a training session, which, on a local CPU, should take a couple of minutes to train. </p></li>
+				<li>Next, let's take a look at how exactly the training progressed by plotting the losses and accuracy. For this, we'll define a plotting function as follows:<p class="snippet">import matplotlib.pyplot as plt</p><p class="snippet">def plot_results(history):</p><p class="snippet">    acc = history.history['acc']</p><p class="snippet">    val_acc = history.history['val_acc']</p><p class="snippet">    loss = history.history['loss']</p><p class="snippet">    val_loss = history.history['val_loss']</p><p class="snippet">    </p><p class="snippet">    epochs = range(1, len(acc) + 1)</p><p class="snippet">    plt.plot(epochs, acc, 'bo', label='Training Accuracy')</p><p class="snippet">    plt.plot(epochs, val_acc, 'b', label='Validation Accuracy')</p><p class="snippet">    plt.title('Training and validation Accuracy')</p><p class="snippet">    plt.legend()</p><p class="snippet">    plt.figure()</p><p class="snippet">    plt.plot(epochs, loss, 'bo', label='Training Loss')</p><p class="snippet">    plt.plot(epochs, val_loss, 'b', label='Validation Loss')</p><p class="snippet">    plt.title('Training and validation Loss')</p><p class="snippet">    plt.legend()</p><p class="snippet">    plt.show()</p></li>
+				<li>Let's call our function on the history variable that us obtained as an output of the 'fit' function:<p class="snippet">plot_results(history)</p></li>
+				<li>When run by author, the output of the preceding code looks like the following diagram:<p><strong class="bold">Expected Output:</strong></p></li>
+			</ol>
+			<div>
+				<div class="IMG---Figure" id="_idContainer182">
+					<img alt="Figure 6.23: The training and validation accuracy for the sentiment classification task&#13;&#10;" src="image/C13783_06_23.jpg"/>
+				</div>
+			</div>
+			<h6>Figure 6.23: The training and validation accuracy for the sentiment classification task</h6>
+			<p>The following diagram demonstrates the training and validation loss:</p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer183">
+					<img alt="Figure 6.24: The training and validation loss for the sentiment classification task&#13;&#10;" src="image/C13783_06_24.jpg"/>
+				</div>
+			</div>
+			<h6>Figure 6.24: The training and validation loss for the sentiment classification task</h6>
+			<h4>Note</h4>
+			<p class="callout">The validation accuracy is pretty high in the best epoch (~87%). </p>
+			<h3 id="_idParaDest-155"><a id="_idTextAnchor172"/>Activity 7: Developing a Sentiment Classification Model Using a Simple RNN</h3>
+			<p>In this activity, we aim to generate a model for sentiment classification using a simple RNN. This is done to judge the effectiveness of GRUs over simple RNNs.</p>
+			<ol>
+				<li value="1">Load the dataset.</li>
+				<li>Pad the sequences out so that each sequence has the same number of characters.</li>
+				<li>Define and compile the model using a simple RNN with 32 hidden units.</li>
+				<li>Plot the validation and training accuracy and losses.<h4>Note</h4><p class="callout">The solution for the activity can be found on page 317.</p></li>
+			</ol>
+			<h3 id="_idParaDest-156"><a id="_idTextAnchor173"/>Text Generation with GRUs </h3>
+			<p>The problem of text generation requires an algorithm in order to come up with new text based on a training corpus. For example, if you feed the poems of Shakespeare into a learning algorithm, then the algorithm should be able to generate new text (character by character or word by word) in the style of Shakespeare. We will now see how to approach this problem with what we have learned in this chapter.</p>
+			<h3 id="_idParaDest-157"><a id="_idTextAnchor174"/>Exercise 26: Generating Text Using GRUs</h3>
+			<p>So, let's revisit the problem that we introduced in the previous section of this chapter. That is, you wish to use a deep learning method to generate a poem. Let's go about solving this problem using a GRU. We will be using The Sonnets written by Shakespeare to train our model so that our output poem is in the style of Shakespeare:</p>
+			<ol>
+				<li value="1">Let's begin by importing the required Python packages, as follows:<p class="snippet">import io</p><p class="snippet">import sys</p><p class="snippet">import random</p><p class="snippet">import string</p><p class="snippet">import numpy as np</p><p class="snippet">from keras.models import Sequential</p><p class="snippet">from keras.layers import Dense</p><p class="snippet">from keras.layers import GRU</p><p class="snippet">from keras.optimizers import RMSprop</p><p>The use of each package will become clear in the code snippets that follow.</p></li>
+				<li>Next, we define a function that reads from the file that contains the Shakespearean sonnets and prints out the first 200 characters:<p class="snippet">def load_text(filename):</p><p class="snippet">    with open(filename, 'r') as f:</p><p class="snippet">        text = f.read()</p><p class="snippet">    return text</p><p class="snippet">file_poem = 'shakespeare_poems.txt' # Path of the file</p><p class="snippet">text = load_text(file_poem)</p><p class="snippet">print(text[:200])</p><div class="IMG---Figure" id="_idContainer184"><img alt="Figure 6.25: A screenshot of THE SONNETS" src="image/C13783_06_25.jpg"/></div><h6>Figure 6.25: A screensh<a id="_idTextAnchor175"/>ot of THE SONNETS</h6></li>
+				<li>Next, we'll perform certain data preparation steps. First, we will get a list of the distinct characters from the file that was read in. We will then make a dictionary that maps each character to an integer index. Finally, we will create another dictionary that maps an integer index to the characters: <p class="snippet">chars = sorted(list(set(text)))</p><p class="snippet">print('Number of distinct characters:', len(chars))</p><p class="snippet">char_indices = dict((c, i) for i, c in enumerate(chars))</p><p class="snippet">indices_char = dict((i, c) for i, c in enumerate(chars))</p></li>
+				<li>Now, we will generate the sequences for the training data from the text. We will feed a fixed length of 40 characters per sequence for the model. The sequences will be made such that there is a sliding window of three steps with each sequence. Consider the following part of the poem:</li>
+			</ol>
+			<p>"From fairest creatures we desire increase,</p>
+			<p>That thereby beauty's rose might never die,"</p>
+			<p>We aim to achieve the following result from the preceding snippet of text:</p>
+			<div>
+				<div class="IMG---Figure" id="_idContainer185">
+					<img alt="Figure 6.26: A screenshot of the training sequences&#13;&#10;" src="image/C13783_06_26.jpg"/>
+				</div>
+			</div>
+			<h6>Figure 6.26: A screenshot of the training sequences</h6>
+			<p>These are sequences with a length of 40 characters each. Each subsequent string is shifted by three steps to the right of the previous string. This arrangement is so that we end up with enough sequences (but not too many, which would be the case with a step of 1). In general, we could have more sequences, but since this example is a demonstration and, hence, will run on a local CPU, feeding in too many sequences will make the training process much longer than desired. </p>
+			<p>Additionally, for each of these sequences, we need to have one output character that is the next character in the text. Essentially, we are teaching the model to observe 40 characters and then learn what the next most likely character will be. To understand what the output character might be, consider the following sequence:</p>
+			<p>That thereby beauty's rose might never d</p>
+			<p>The output character for this sequence will be the i  character. This is because in the text, i is the next character. The following code snippet achieves the same:</p>
+			<p class="snippet">max_len_chars = 40</p>
+			<p class="snippet">step = 3</p>
+			<p class="snippet">sentences = []</p>
+			<p class="snippet">next_chars = []</p>
+			<p class="snippet">for i in range(0, len(text) - max_len_chars, step):</p>
+			<p class="snippet">    sentences.append(text[i: i + max_len_chars])</p>
+			<p class="snippet">    next_chars.append(text[i + max_len_chars])</p>
+			<p class="snippet">print('nb sequences:', len(sentences))</p>
+			<p>We now have the sequences that we wish to train on and the corresponding character output for the same. We will now need to obtain a training matrix for the samples and another matrix for the output characters, which can be fed to the model to train:</p>
+			<p class="snippet">x = np.zeros((len(sentences), max_len_chars, len(chars)), dtype=np.bool)</p>
+			<p class="snippet">y = np.zeros((len(sentences), len(chars)), dtype=np.bool)</p>
+			<p class="snippet">for i, sentence in enumerate(sentences):</p>
+			<p class="snippet">    for t, char in enumerate(sentence):</p>
+			<p class="snippet">        x[i, t, char_indices[char]] = 1</p>
+			<p class="snippet">    y[i, char_indices[next_chars[i]]] = 1</p>
+			<p>Here, x is the matrix that holds our input training samples. The shape of the x array is the number of sequences, the maximum number of characters, and the number of distinct characters. Therefore, x is a three-dimensional matrix. So, for each sequence, that is, for every timestep (= maximum number of characters), we have a one-hot-coded vector with the same length as the number of distinct characters in the text. This vector has a value of 1, where the character at the given step is present, and all the other entries are 0. y is a two-dimensional matrix with the shape of the number of sequences and the number of distinct characters). Thus, for every sequence, we have a one-hot-coded vector  with the same length as the number of distinct characters. This vector has all the entries as 0 except for the one that corresponds to the current output character. The one-hot-encoding is accomplished using the dictionary mappings that we created in the earlier step. </p>
+			<ol>
+				<li value="1">We are now ready to define our model, as follows:<p class="snippet">model = Sequential()</p><p class="snippet">model.add(GRU(128, input_shape=(max_len_chars, len(chars))))</p><p class="snippet">model.add(Dense(len(chars), activation='softmax'))</p><p class="snippet">optimizer = RMSprop(lr=0.01)</p><p class="snippet">model.compile(loss='categorical_crossentropy', optimizer=optimizer)</p></li>
+				<li>We make use of the sequential API, add a GRU layer with 128 hidden parameters, and then add a dense layer. <h4>Note</h4><p class="callout">The dense layer has the same number of outputs as the number of distinct characters. This is because we're essentially learning a distribution of the possible characters in our vocabulary. In this sense, this is essentially a multiclass classification problem, which also explains our choice of categorical cross-entropy for the cost function. </p></li>
+				<li>We will now go ahead and fit our model to the data, as follows:<p class="snippet">model.fit(x, y,batch_size=128,epochs=10)</p><p class="snippet">model.save("poem_gen_model.h5")</p><p>Here, we have selected a batch size of 128 sequences and training for 10 epochs. We will also save the model in hdf5 format file for later use:</p><div class="IMG---Figure" id="_idContainer186"><img alt="Figure 6.27: A screenshot displaying epochs&#13;&#10;" src="image/C13783_06_27.jpg"/></div><h6>Figure 6.27: A screenshot displaying epochs</h6><h4>Note</h4><p class="callout">You should increase the number of the GRUs and epochs. The higher the value for these, the more time it will take to train the model and better results can be expected.</p></li>
+				<li>Next, we need to be able to use the model to actually generate some text, as follows:<p class="snippet">from keras.models import load_model</p><p class="snippet">model_loaded = load_model('poem_gen_model.h5')</p></li>
+				<li>We also define a sampling function that selects a candidate character given a probability distribution over the number of characters:<p class="snippet">def sample(preds, temperature=1.0):</p><p class="snippet">    # helper function to sample an index from a probability array</p><p class="snippet">    preds = np.asarray(preds).astype('float64')</p><p class="snippet">    preds = np.log(preds) / temperature</p><p class="snippet">    exp_preds = np.exp(preds)</p><p class="snippet">    preds = exp_preds / np.sum(exp_preds)</p><p class="snippet">    probas = np.random.multinomial(1, preds, 1)</p><p class="snippet">    return np.argmax(probas)</p></li>
+				<li>We are sampling using a multinomial distribution; the temperature parameter helps to add bias to the probability distribution such that the less likely words can have more or less representation. You can also simply try to return an argument argmax over the preds variable, but this will likely result in a repetition of words: <p class="snippet">def generate_poem(model, num_chars_to_generate=400):</p><p class="snippet">    start_index = random.randint(0, len(text) - max_len_chars - 1)</p><p class="snippet">    generated = ''</p><p class="snippet">    sentence = text[start_index: start_index + max_len_chars]</p><p class="snippet">    generated += sentence</p><p class="snippet">    print("Seed sentence: {}".format(generated))</p><p class="snippet">    for i in range(num_chars_to_generate):</p><p class="snippet">        x_pred = np.zeros((1, max_len_chars, len(chars)))</p><p class="snippet">        for t, char in enumerate(sentence):</p><p class="snippet">            x_pred[0, t, char_indices[char]] = 1.</p><p class="snippet">            </p><p class="snippet">        preds = model.predict(x_pred, verbose=0)[0]</p><p class="snippet">        next_index = sample(preds, 1)</p><p class="snippet">        next_char = indices_char[next_index]</p><p class="snippet">        generated += next_char</p><p class="snippet">        sentence = sentence[1:] + next_char</p><p class="snippet">    return generated</p></li>
+				<li>We pass the loaded model and the number of characters that we wish to generate. We then pass a seed text for the model to use as the input (remember, we taught the model to predict the next character given a sequence length of 40 characters). This is being done before the for loop kicks in. In the first pass of the loop, we pass our seed text to the model, generate the output character, and append the output character in the 'generated' variable. In the next pass, we shift our newly updated sequence (with 41 characters after first pass) to the right by one character, so that the model can now take this 40 character input with the last character being the new character that we just generated. The function can now be called as follows:<p class="snippet">generate_poem(model_loaded, 100)</p><p>And voila! You have a poem written in Shakespearean style. An example output is shown as follows:</p></li>
+			</ol>
+			<div>
+				<div class="IMG---Figure" id="_idContainer187">
+					<img alt="" src="image/C13783_06_28.jpg"/>
+				</div>
+			</div>
+			<h6>Figure 6.28: A screenshot displaying the output of the generated poem sequence</h6>
+			<p>You will immediately notice that the poem does not really make sense. This can be attributed to two reasons:</p>
+			<ul>
+				<li>The preceding output was generated with a very small amount of data or sequences. Therefore, the model was unable to learn much. In practice, you would use a much larger dataset, make many more sequences out if it, and train the model using GPUs for a practical training time (we will learn about training on the cloud GPU in the last chapter 9- 'A practical flow NLP project workflow in an organization').</li>
+				<li>Even if trained with a massive amount of data, there will always be some errors since a model can only learn so much.</li>
+			</ul>
+			<p>We can still, however, see that even with this basic setup there are words that make sense despite our model being a character generation model. There are phrases such as 'I have liking' that are valid as standalone phrases. </p>
+			<h4>Note</h4>
+			<p class="callout">White space, newline characters, and more are also being learned by the model.</p>
+			<h3 id="_idParaDest-158">Activity 8: Train Your Own C<a id="_idTextAnchor176"/>haracter Generation Model Using a Dataset of Your Choice </h3>
+			<p>We just used some of Shakespeare's work to generate our own poem. You don't need to restrict yourself to poem generation but you can use any piece of text to start generating your own piece of writing. The basic steps and setup remains same as discussed in the previous example.</p>
+			<h4>Note</h4>
+			<p class="callout">Create a conda environment using the requirements file and activate it. Then, run the code in a Jupyter notebook. Don't forget to input a text file containing the text from an author in whose style you wish to generate new text.</p>
+			<ol>
+				<li value="1">Load the text file.</li>
+				<li>Create dictionaries mapping the characters to indices and vice versa.</li>
+				<li>Create sequences from the text.</li>
+				<li>Make input and output arrays to feed to the model.</li>
+				<li>Build and train the model using GRU.</li>
+				<li>Save the model.</li>
+				<li>Define the sampling and generation functions.</li>
+				<li>Generate the text.<h4>Note</h4><p class="callout">The solution for the activity can be found on page 320.</p></li>
+			</ol>
+			<h2 id="_idParaDest-159"><a id="_idTextAnchor177"/>Summary</h2>
+			<p>A GRU is an extension of a simple RNN, which helps to combat the vanishing gradient problem by allowing the model to learn long-term dependencies in the text structure. A variety of use cases can benefit from this architectural unit. We discussed a sentiment classification problem and learned how GRUs perform better than simple RNNs. We then saw how text can be generated using GRUs.</p>
+			<p>In the next chapter, we talk about another advancement over a simple RNN – Long Short-Term Memory (LSTM) networks, and explore what advantages they bring with their new architecture. </p>
+		</div>
+	</body></html>

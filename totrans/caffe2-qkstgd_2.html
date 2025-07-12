@@ -1,0 +1,515 @@
+<html><head></head><body>
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Composing Networks</h1>
+                </header>
+            
+            <article>
+                
+<p class="mce-root">In this chapter, we will learn about Caffe2 operators and how we can compose networks using these operators. To learn how to use operators, we will start off by building a simple computation graph from scratch. After that, we will solve a real computer vision problem called MNIST (by building a genuine neural network with trained parameters) and use it for inference.</p>
+<p>This chapter covers the following topics:</p>
+<ul>
+<li>Introduction to Caffe2 operators</li>
+<li>The difference between operators and layers</li>
+<li>How to use operators to compose a network</li>
+<li>Introduction to the MNIST problem</li>
+<li>Composing a network for the MNIST problem</li>
+<li>Inference through a Caffe2 network</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Operators</h1>
+                </header>
+            
+            <article>
+                
+<p>In Caffe2, a neural network can be thought of as a directed graph, where the nodes are operators and the edges represent the flow of data between operators. Operators are the basic units of computation in a Caffe2 network. Every operator is defined with a certain number of inputs and a certain number of outputs. When the operator is executed, it reads its inputs, performs the computation it is associated with, and writes the results to its outputs.</p>
+<p>To obtain the best possible performance, Caffe2 operators are typically implemented in C++ for execution on CPUs and implemented in CUDA for execution on GPUs. All operators in Caffe2 are derived from a common interface. You can see this common interface defined in the <kbd>caffe2/proto/caffe2.proto</kbd> <span>file </span>in the Caffe2 source code.</p>
+<p class="mce-root"/>
+<p>The following is the Caffe2 operator interface found in my <kbd>caffe2.proto</kbd> file:</p>
+<pre>// Operator Definition<br/>message OperatorDef {<br/>  repeated string input = 1; // the name of the input blobs<br/>  repeated string output = 2; // the name of output top blobs<br/>  optional string name = 3; // the operator name. This is optional.<br/>  // the operator type. This is needed to create the object from the <br/>  //operator<br/>  // registry.<br/>  optional string type = 4;<br/>  repeated Argument arg = 5;<br/><br/>  // The device option that the operator should run under.<br/>  optional DeviceOption device_option = 6;<br/><br/>  // Optionally, one can specify an engine when there are multiple<br/>  // implementations available simultaneously for one device type.<br/>  // If one specifies an engine but that engine does not exist in the    <br/>  //compiled<br/>  // Caffe2 binary, Caffe2 will fall back to the default engine of that <br/>  //device<br/>  // type.<br/>  optional string engine = 7;<br/><br/>  // Additional 'fake' inputs used for expressing control dependencies<br/>  // in the operator graph. This can be used to ensure that an<br/>  // operator does not run until another operator is ready, for e.g.<br/>  // scheduling control. These are not passed as actual inputs to the<br/>  // Operator implementation, and are only used by the Net class for<br/>  // scheduling purposes.<br/>  repeated string control_input = 8;<br/><br/>  // is_gradient_op argument is only used as a hint in shape inference<br/>  // and has no runtime significance<br/>  optional bool is_gradient_op = 9 [0,1][default = false];<br/><br/>  // debug information associated with the construction of the <br/>  //operator.<br/>  // This is an optional string with no assumed characteristics as<br/>  // operators can be constructed in any language.<br/>  optional string debug_info = 10;<br/>}</pre>
+<p class="mce-root"/>
+<p>The preceding code snippet is a definition in the <strong>Google Protocol Buffers</strong> (<strong>ProtoBuf</strong>) format. ProtoBuf is used by applications that need a mechanism to serialize and deserialize structured data. ProtoBuf's serialization and deserialization mechanisms are supported in most popular languages and across most popular platforms. Caffe2 uses ProtoBuf so that all of its structures, such as operators and networks, can be accessed easily through many programming languages, across different operating systems and CPU architectures.</p>
+<p>From the preceding operator definition, we can see that an operator in Caffe2 is defined to have <kbd>input</kbd> and, <kbd>output</kbd> blobs and has a <kbd>name</kbd>, a <kbd>type</kbd>, a <kbd>device</kbd> that it executes on (such as CPU or GPU), an execution <kbd>engine</kbd>, and other information.</p>
+<p>One of the compelling features of Caffe2 is that it has a large collection of hundreds of operators that are already defined and optimized for you. The advantage of this is that you have a large catalog of operators to compose your own networks with and there is a high probability that networks you borrow from elsewhere will be supported fully in Caffe2. This reduces the need for you to define your own operators. You can find a comprehensive list of Caffe2 operators and their documentation in the Caffe2 operators catalog at <a href="https://caffe2.ai/docs/operators-catalogue.html">https://caffe2.ai/docs/operators-catalogue.html</a>.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Example – the MatMul operator</h1>
+                </header>
+            
+            <article>
+                
+<p>As an example of a Caffe2 operator, consider the <strong>MatMul</strong> operator, which can be used to perform <strong>matrix multiplication</strong>. This linear algebra operation is hugely important in deep learning and lies at the heart of the implementation of important types of neural network layers, such as fully connected and convolution layers. (We will study these layers later in this chapter and in <a href="3c2dd7d3-b762-49a3-a5d6-0b791eadadb2.xhtml">Chapter 3</a>, <em>Training Networks</em>, respectively.) The matrix multiplication operation is depicted in Figure 2.1:</p>
+<div class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-281 image-border" src="assets/819e1c45-1973-4989-a6e5-8c7e5f30b1bc.png" style=""/></div>
+<div class="CDPAlignCenter CDPAlign packt_figref">Figure 2.1: Matrix multiplication</div>
+<p class="mce-root"/>
+<p>If we look up the MatMul operator in the Caffe2 operators catalog, we find the documentation shown in Figure 2.2:</p>
+<div class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-282 image-border" src="assets/85026d02-25c7-447c-87a4-2c992d9e495b.png" style=""/></div>
+<div class="CDPAlignCenter CDPAlign packt_figref">Figure 2.2: Documentation of the MatMul operator in Caffe2</div>
+<p>In the documentation of the MatMul operator in <em>Figure 2.2</em>, we can see a description of what the operator does. In the <span class="packt_screen">Interface</span> section, we see that it has two inputs: 2D matrices <span class="packt_screen">A</span> and <span class="packt_screen">B</span>, of sizes M×K and K×N, respectively. It performs matrix multiplication of A and B, and produces a single 2D matrix <span class="packt_screen">C</span>, of size M×N. We can also see that it has some optional arguments to specify if either or both A and B have an exclusive axis and are transposed matrices. Finally, we also see that the Caffe2 documentation helpfully points us to the actual C++ source code that defines the <kbd>MatMul</kbd> operator. The documentation of all operators in Caffe2 has the following useful structure: definition, inputs, outputs, optional arguments, and a pointer to the source code.</p>
+<p class="mce-root"/>
+<p>Having learned the definition of the <kbd>MatMul</kbd> operator, here is a code snippet to create a model and add a <kbd>MatMul</kbd> operator to it:</p>
+<pre>model = model_helper.ModelHelper("MatMul model")<br/>model.net.MatMul(["A", "B"], "C")</pre>
+<p>In the preceding code, we first create a model named <kbd>"MatMul model"</kbd> using the <kbd>ModelHelper</kbd> class of the Caffe2 <kbd>model_helper</kbd> module. A <strong>model</strong> is the structure used to hold a network, and the <strong>network</strong> is a directed graph of operators. <kbd>model_helper</kbd> is a high-level Caffe2 Python module, and its <kbd>ModelHelper</kbd> class can be used to create and manage models easily. The <kbd>model</kbd> object we created previously holds a network definition in its <kbd>net</kbd> member.</p>
+<p>We add a <kbd>MatMul</kbd> operator to this model by calling the <kbd>MatMul</kbd> method on the model's network definition. Note the two arguments to the <kbd>MatMul</kbd> operator. The first argument is a list consisting of the names of the two matrices that need to be multiplied. Here, <kbd>"A"</kbd> and <kbd>"B"</kbd> are the names of blobs that hold the matrix elements in the Caffe2 workspace. (We will learn about the Caffe2 workspace later in this chapter.) Similarly, the second argument, <kbd>"C"</kbd>, indicates the output matrix blob in the workspace.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Difference between layers and operators</h1>
+                </header>
+            
+            <article>
+                
+<p>Older deep learning frameworks, such as Caffe, did not have operators. Instead, their basic units of computation were called <strong>layers</strong>. These older frameworks chose the name <em>layer</em> inspired by the layers in neural networks.</p>
+<p>However, contemporary frameworks, such as Caffe2, TensorFlow, and PyTorch, prefer to use the term <em>operator</em> for their basic units of computation. There is a subtle difference between operators and layers. A layer in older frameworks, such as Caffe, was composed of both the computation function of that layer and the trained parameters of that layer. In contrast to this, an operator in Caffe2 only holds the computation function. Both the trained parameters and the inputs are external to the operator and need to be fed to it explicitly.</p>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p class="mceNonEditable"/>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Example – a fully connected operator</h1>
+                </header>
+            
+            <article>
+                
+<p>To illustrate the difference between layers and operators, consider the <strong>fully connected</strong> (<strong>FC</strong>) operator in Caffe2. The fully connected layer is the most traditional layer in neural networks. Early neural networks were mostly composed of an input layer, one or more fully connected layers, and an output layer:</p>
+<div class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-283 image-border" src="assets/f57894a0-1e4c-4c06-81dd-9a6630a1769b.png" style=""/></div>
+<div class="CDPAlignCenter CDPAlign packt_figref">Figure 2.3: Interface documentation of the FC operator from the Caffe2 operators' catalog</div>
+<p>Input <span class="packt_screen">X</span> to an FC operator is expected to be of size M×K. Here, M is the batch size. This means that if we fed 10 different inputs to the neural network as a <strong>batch</strong>, M would be the batch size value, 10. Hence, each input actually appears as a vector of size 1×K to this operator. We can see that, unlike the <kbd>MatMul</kbd> operator introduced earlier, which had no trained parameters, the FC operator has inputs that are trained parameters: <span class="packt_screen">W</span> and <span class="packt_screen">b</span>. The trained parameter <span class="packt_screen">W</span> is a 2D matrix of size K×N of weight values, and the trained parameter <span class="packt_screen">b</span> is a 1D vector of bias values. The FC operator computes the output <span class="packt_screen">Y</span> as X×W+b. This means that each input vector of size 1×K produces an output of size 1×N after being processed by this operator. And indeed, this explains the fully connected layer's name: each of the 1×K inputs is fully connected to each of the 1×N outputs:</p>
+<div class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-284 image-border" src="assets/d54f3fd3-68a1-4e18-9832-157c8919903b.png" style=""/></div>
+<div class="CDPAlignCenter CDPAlign packt_figref">Figure 2.4: Difference between the Caffe layer and the Caffe2 operator</div>
+<p>In older frameworks such as Caffe, the weight and bias trained parameters of the fully connected layer were stored along with the layer. In contrast, in Caffe2, the FC operator does not store any parameters. Both the trained parameters and the inputs are fed to the operator. <em>Figure 2.4</em> shows the difference between a Caffe layer and Caffe2 operator, using the fully connected layer as an example. Since most deep learning literature still refers to these entities as layers, we will use the words <em>layer</em> and <em>operator</em> interchangeably throughout the rest of this book.</p>
+<p class="mce-root"/>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Building a computation graph</h1>
+                </header>
+            
+            <article>
+                
+<p>In this section, we will learn how to build a network in Caffe2 using <kbd>model_helper</kbd>. (<kbd>model_helper</kbd> was introduced earlier in this chapter.) To maintain the simplicity of this example, we use mathematical operators that require no trained parameters. So, our network is a computation graph rather than a neural network because it has no trained parameters that were learned from training data. The network we will build is illustrated by the graph shown in Figure 2.5:</p>
+<div class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-285 image-border" src="assets/eb8244e8-c488-453c-bf1f-ac9bc71f22a9.png" style=""/></div>
+<div class="CDPAlignCenter CDPAlign packt_figref">Figure 2.5: Our simple computation graph with three operators</div>
+<p>As you can see, we provide two inputs to the network: a matrix, <strong>A</strong>, and a vector, <strong>B</strong>. A <kbd>MatMul</kbd> operator is applied to <strong>A</strong> and <strong>B</strong> and its result is fed to a <kbd>Sigmoid</kbd> function, designated by <strong>σ</strong> in Figure 2.5. The result of the <kbd>Sigmoid</kbd> function is fed to a <kbd>SoftMax</kbd> function. (We will learn a bit more about the <kbd>Sigmoid</kbd> and <kbd>SoftMax</kbd> operators next in this section.) Output <strong>E</strong> of the <kbd>Sigmoid</kbd> function is the output of the network.</p>
+<p>Here is the Python code to build the preceding graph, feed it inputs, and obtain its output:</p>
+<pre>#!/usr/bin/env python2<br/><br/>"""Create a network that performs some mathematical operations.<br/>Run inference on this network."""<br/><br/>from caffe2.python import workspace, model_helper<br/>import numpy as np<br/><br/># Initialize Caffe2<br/>workspace.GlobalInit(["caffe2",])<br/><br/># Initialize a model with the name "Math model"<br/>model = model_helper.ModelHelper("Math model")<br/><br/># Add a matrix multiplication operator to the model.<br/># This operator takes blobs "A" and "B" as inputs and produces blob "C" as output.<br/>model.net.MatMul(["A", "B"], "C")<br/><br/># Add a Sigmoid operator to the model.<br/># This operator takes blob "C" as input and produces blob "D" as output.<br/>model.net.Sigmoid("C", "D")<br/><br/># Add a Softmax operator to the model.<br/># This operator takes blob "D" as input and produces blob "E" as output.<br/>model.net.Softmax("D", "E", axis=0)<br/><br/># Create input A, a 3x3 matrix initialized with some values<br/>A = np.linspace(-0.4, 0.4, num=9, dtype=np.float32).reshape(3, 3)<br/><br/># Create input B, a 3x1 matrix initialized with some values<br/>B = np.linspace(0.01, 0.03, num=3, dtype=np.float32).reshape(3, 1)<br/><br/># Feed A and B to the Caffe2 workspace as blobs.<br/># Provide names "A" and "B" for these blobs.<br/>workspace.FeedBlob("A", A)<br/>workspace.FeedBlob("B", B)<br/><br/># Run the network inside the Caffe2 workspace.<br/>workspace.RunNetOnce(model.net)<br/><br/># Extract blob "E" from the workspace.<br/>E = workspace.FetchBlob("E")<br/><br/># Print inputs A and B and final output E<br/>print A<br/>print B<br/>print E</pre>
+<p>This program can be broken down into four stages:</p>
+<ol>
+<li style="font-weight: 400">Initializing Caffe2</li>
+<li style="font-weight: 400">Composing the model network</li>
+<li style="font-weight: 400">Adding input blobs to the workspace</li>
+<li style="font-weight: 400">Running the model's network in the workspace and obtaining the output</li>
+</ol>
+<p>You could use a similar structure in your own programs that compose a network and use it for inference.</p>
+<p>Let's examine the Python code of each of these stages in detail.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Initializing Caffe2</h1>
+                </header>
+            
+            <article>
+                
+<p>Before we call any Caffe2 methods, we need to import the Caffe2 Python modules that we might need:</p>
+<ol>
+<li>First, import the <kbd>workspace</kbd> and <kbd>module_helper</kbd> modules:</li>
+</ol>
+<pre style="padding-left: 60px">from caffe2.python import workspace, model_helper<br/>import numpy as np</pre>
+<p style="padding-left: 60px">This step also imports the <kbd>numpy</kbd> module so that we can create matrices and vectors easily in our program. <strong>NumPy</strong> is a popular Python library that provides multi-dimensional arrays (including vectors and matrices) and a large collection of mathematical operations that can be applied to such arrays.</p>
+<ol start="2">
+<li>Next, initialize the default Caffe2 workspace using this call:</li>
+</ol>
+<pre style="padding-left: 60px">workspace.GlobalInit(["caffe2",])</pre>
+<p>The workspace is where all the data is created, read from, and written to in Caffe2. This means that we will use the workspace to load our inputs, the trained parameters of our network, intermediate results between operators, and the final outputs from our network. We also use the workspace to execute our network during inference.</p>
+<div class="packt_tip">We created the default workspace of Caffe2 earlier. We could create other workspaces with unique names too. For example, to create a second workspace and switch to it, execute the following code: <kbd>workspace.SwitchWorkspace("Second Workspace", True)</kbd></div>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Composing the model network</h1>
+                </header>
+            
+            <article>
+                
+<ol>
+<li>We use the <kbd>ModelHelper</kbd> class (described earlier in this chapter) to create an empty model name it <kbd>Math model</kbd>:</li>
+</ol>
+<pre style="padding-left: 60px"># Initialize a model with the name "Math model"<br/>model = model_helper.ModelHelper("Math model")</pre>
+<ol start="2">
+<li>Next, we add our first operator, <kbd>MatMul</kbd>, to the network of this model:</li>
+</ol>
+<pre style="padding-left: 60px"># Add a matrix multiplication operator to the model.<br/># This operator takes blobs "A" and "B" as inputs and produces blob "C" as output.<br/>model.net.MatMul(["A", "B"], "C")</pre>
+<p style="padding-left: 60px">The <kbd>MatMul</kbd> operator was described earlier in this chapter. We indicate the names of the input blobs <kbd>["A", "B"]</kbd> and output blob <kbd>"C"</kbd> in the call. A <strong>blob</strong> is an N-dimensional array with a name, and it holds values of the same type. For example, we could represent a matrix of floating point values as a two-dimensional blob. A blob differs from most Python data structures, such as <kbd>list</kbd> and <kbd>dict</kbd>, because all the values in it have to be of the same data type (such as <kbd>float</kbd> or <kbd>int</kbd>). All input data, output data, and trained parameters used in neural networks are stored as blobs in Caffe2.</p>
+<div style="padding-left: 60px" class="packt_infobox">We have not yet created these blobs in the workspace. We are adding the operator to the network and informing Caffe2 that blobs of these names will be available in the workspace by the time the network is actually used.</div>
+<ol start="3">
+<li>After that, we add our next operator, <kbd>Sigmoid</kbd>, to the network:</li>
+</ol>
+<pre style="padding-left: 60px"># Add a Sigmoid operator to the model.<br/># This operator takes blob "C" as input and produces blob "D" as output.<br/>model.net.Sigmoid("C", "D")</pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Sigmoid operator</h1>
+                </header>
+            
+            <article>
+                
+<p>The <kbd>Sigmoid</kbd> operator implements the <strong>Sigmoid function</strong>. This function is popular in neural networks, and is also known as the <strong>logistic function</strong>. It is defined as follows:</p>
+<div class="CenterAlign"><img class="fm-editor-equation" src="assets/f4c4fc53-e1db-45cf-a21a-048fd26572bf.png" style="width:9.50em;height:3.17em;"/></div>
+<p>Figure 2.6 shows a plot of this function:</p>
+<div class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-286 image-border" src="assets/9ff419f8-cc9c-4386-bb2c-d0c0c42c460e.png" style=""/></div>
+<div class="CDPAlignCenter CDPAlign packt_figref">Figure 2.6: A plot of the Sigmoid function</div>
+<p><kbd>Sigmoid</kbd> is a non-linear function that is typically used in neural networks as an activation function. An <strong>activation function</strong> is a common layer that is introduced between one or more sequences of layers. It converts its input into an activation, which decides whether a neuron in the following layer is activated (or fired) or not. Activation functions typically introduce non-linear characteristics into a network.</p>
+<p>Note how the Sigmoid looks like the letter <em>S</em>. It looks like a smoothed step function, and its outputs are bounded by 0 and 1. So, for example, it could be used to classify any input value to determine whether it belongs to a class (value <strong>1.0</strong>) or not (value <strong>0.0</strong>).</p>
+<p>The Sigmoid function in Caffe2 is an <strong>elementwise operator</strong>. This means that it is applied individually to each element of the input. In our preceding code snippet, we are informing Caffe2 that this operator that we added to the network will take an input blob of name <kbd>"C"</kbd> from the workspace and write its output to blob <kbd>"D"</kbd> in the workspace.</p>
+<p>As a final and third operator, we add the <kbd>Softmax</kbd> operator to the network:</p>
+<pre style="padding-left: 30px"># Add a Softmax operator to the model.<br/># This operator takes blob "D" as input and produces blob "E" as output.<br/>model.net.Softmax("D", "E", axis=0)</pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Softmax operator</h1>
+                </header>
+            
+            <article>
+                
+<p>The <kbd>Softmax</kbd> operator implements the <strong>SoftMax function</strong>. This function takes a vector as input and normalizes the elements of the vector in a probability distribution. It is defined on each element of a vector as follows:</p>
+<div class="CenterAlign"><img class="fm-editor-equation" src="assets/50468955-feae-4b46-8d76-bc2adad2cadb.png" style="width:8.83em;height:3.42em;"/></div>
+<p>The output values of a <kbd>SoftMax</kbd> function have nice properties. Every output value <img class="fm-editor-equation" src="assets/0d596984-ff51-4b0e-92f7-90409504d308.png" style="width:1.25em;height:1.00em;"/> is bounded by <img class="fm-editor-equation" src="assets/502a1524-8112-4aac-8832-921a38ed97a3.png" style="width:1.83em;height:1.17em;"/>, and all the values of the output vector total 1. Due to these characteristics, this function is typically used as the last layer in a neural network used for classification.</p>
+<p>In the preceding code snippet, we added a <kbd>Softmax</kbd> operator to the network that will use a blob named <kbd>"D"</kbd> as input and write output to a blob named <kbd>"E"</kbd>. The <kbd>axis</kbd> parameter is used to indicate the axis along which the input N-dimensional array is split apart and coerced into a 2D array. Typically, <kbd>axis=1</kbd> is used to indicate that the first axis of the blob is the batch dimension and that the rest should be coerced into a vector. Since we are using a single input in our example, we use <kbd>axis=0</kbd> here to indicate that the entire input should be coerced into a 1D vector for <kbd>Softmax</kbd>.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Adding input blobs to the workspace</h1>
+                </header>
+            
+            <article>
+                
+<p>Our model is now ready. We now initialize our two input blobs, <kbd>A</kbd> and <kbd>B</kbd>, to this model to a linear distribution of values using NumPy:</p>
+<pre># Create input A, a 3x3 matrix initialized with some values<br/>A = np.linspace(-0.4, 0.4, num=9, dtype=np.float32).reshape(3, 3)<br/><br/># Create input B, a 3x1 matrix initialized with some values<br/>B = np.linspace(0.01, 0.03, num=3, dtype=np.float32).reshape(3, 1)</pre>
+<p>Note how we are specifying that all the values in these arrays will be of the floating point data type. This is indicated in NumPy using <kbd>np.float32</kbd>. The NumPy <kbd>reshape</kbd> function is used to convert the one-dimensional array of values into matrices of sizes <img class="fm-editor-equation" src="assets/08dbd3e7-7e05-4a90-b2ca-cdf8f44610b2.png" style="width:2.50em;height:0.92em;"/>, and <img class="fm-editor-equation" src="assets/79bb9ad4-05a5-4668-a43e-ebb67899f202.png" style="width:2.42em;height:0.92em;"/>, respectively.</p>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p>Since we will perform inference on the network in Caffe2, we need to set the input blobs into the workspace. <strong>Inference</strong> is the act of passing inputs to a trained neural network and <em>inferring</em>, or obtaining, the output from it. The act of setting a blob into the workspace with a name and its values is called <strong>feeding</strong> in Caffe2.</p>
+<p>Feeding our input blobs is executed using <kbd>FeedBlob</kbd> calls, shown as follows:</p>
+<pre># Feed A and B to the Caffe2 workspace as blobs.<br/># Provide names "A" and "B" for these blobs.<br/>workspace.FeedBlob("A", A)<br/>workspace.FeedBlob("B", B)</pre>
+<p>In the preceding code snippet, we fed tensors <kbd>A</kbd> and <kbd>B</kbd> into our workspace and named those blobs <kbd>"A"</kbd> and <kbd>"B"</kbd> respectively.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Running the network</h1>
+                </header>
+            
+            <article>
+                
+<p>We built a network and we have its inputs ready in the workspace. We are now ready to perform inference on the network. In Caffe2, this is called a <strong>run</strong>. We perform a run on the network in the workspace as follows:</p>
+<pre># Run the network inside the Caffe2 workspace.<br/>workspace.RunNetOnce(model.net)</pre>
+<p>After the run is done, we can extract or fetch the output blob from the workspace and print our input and output blobs for reference:</p>
+<pre># Extract blob "E" from the workspace.<br/>E = workspace.FetchBlob("E")<br/><br/># Print inputs A and B and final output E<br/>print A<br/>print B<br/>print E</pre>
+<p>When this computation graph code is executed, it should produce an output like the following:</p>
+<pre><strong>$ ./computation_graph.py</strong><br/><strong>A: [[-0.4 -0.3 -0.2]</strong><br/><strong> [-0.1  0.   0.1]</strong><br/><strong> [ 0.2  0.3  0.4]]</strong><br/><strong>B: [[0.01]</strong><br/><strong> [0.02]</strong><br/><strong> [0.03]]</strong><br/><strong>E: [[0.3318345 ]</strong><br/><strong> [0.33333108]</strong><br/><strong> [0.33483443]]</strong></pre>
+<p>You can work through the matrix multiplication, Sigmoid, and SoftMax layers of this graph with inputs <kbd>A</kbd> and <kbd>B</kbd> and see that <kbd>E</kbd> does indeed have the correct output values.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Building a multilayer perceptron neural network</h1>
+                </header>
+            
+            <article>
+                
+<p>In this section, we introduce the MNIST problem and learn how to build a <strong>MultiLayer Perceptron </strong><span>(</span><strong>MLP</strong><span>)</span> network using Caffe2 to solve it. We also learn how to load pretrained parameters into the network and use it for inference.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">MNIST problem</h1>
+                </header>
+            
+            <article>
+                
+<p>The <strong>MNIST problem</strong> is a classic image classification problem that used to be popular in machine learning. State-of-the-art methods can now achieve greater than 99% accuracy in relation to this problem, so it is no longer relevant. However, it acts as a stepping stone for us to learn how to build a Caffe2 network that solves a real machine learning problem.</p>
+<p>The MNIST problem lies in identifying the handwritten digit that is present in a grayscale image of size 28 x 28 pixels. These images are from the MNIST database, a modified version of a scanned document dataset that was originally shared by the <strong>National Institute of Standards and Technology</strong> (<strong>NIST</strong>), hence the name <strong>modified NIST</strong> (<strong>MNIST</strong>). Examples from this dataset are shown in Figure 2.7:</p>
+<div class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-287 image-border" src="assets/e1c8295a-6dca-4a6d-968d-14fac3b6f1b0.png" style=""/></div>
+<div class="packt_figref CDPAlignCenter CDPAlign">Figure 2.7: A random sample of 10 images each digit from 0 to 9, in the MNIST dataset</div>
+<p>Note how some of the handwritten digits could be difficult for even humans to classify.</p>
+<p>Every image in the MNIST dataset contains a single handwritten digit, between 0 and 9. The grayscale values in each image are normalized and the handwritten digit is centered in the image. This makes MNIST a good dataset for beginners since we do not need to do any image cleaning, preprocessing, or augmentation operations before using it for inference or training. (Such operations are typically required if we are using other image datasets.) Typically, 60,000 images from this dataset are used as training data, and a separate set of 10,000 images is used for testing.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Building a MNIST MLP network</h1>
+                </header>
+            
+            <article>
+                
+<p>To solve the MNIST problem, we will create a neural network known as a <strong>MultiLayer Perceptron</strong> (<strong>MLP</strong>). This is the classic name given to neural networks that have an input layer, an output layer, and one or more hidden layers between them. An MLP is a type of <strong>feedforward neural network</strong> because its network is a <strong>directed acyclic graph</strong> (<strong>DAG</strong>); that is, it does not have cycles.</p>
+<p>The Python code to create the MLP network described in this section, to load pretrained parameters into it, and use it for inference, can be found in the <kbd>mnist_mlp.py</kbd> <span>file </span>that accompanies this book. In the sections that follow, we dissect this code and try to understand it.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Initializing global constants</h1>
+                </header>
+            
+            <article>
+                
+<p>Our Python Caffe2 code for a MNIST MLP network begins by initializing some MNIST constants:</p>
+<pre># Number of digits in MNIST<br/>MNIST_DIGIT_NUM = 10<br/># Every grayscale image in MNIST is of dimensions 28x28 pixels in a single channel<br/>MNIST_IMG_HEIGHT = 28<br/>MNIST_IMG_WIDTH = 28<br/>MNIST_IMG_PIXEL_NUM = MNIST_IMG_HEIGHT * MNIST_IMG_WIDTH</pre>
+<p>There are <kbd>10</kbd> (<kbd>MNIST_DIGIT_NUM</kbd>) digits in the MNIST dataset (0-9) that we want to identify. And the dimensions of every MNIST image are 28 x 28 pixels (<kbd>MNIST_IMG_HEIGHT</kbd>, <kbd>MNIST_IMG_WIDTH</kbd>).</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Composing network layers</h1>
+                </header>
+            
+            <article>
+                
+<p>The following is a diagram of the <span>MNIST MLP network we will build:</span></p>
+<div class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-288 image-border" src="assets/51643eef-76db-447d-9822-d7112b0c0303.png" style=""/></div>
+<div class="CDPAlignCenter CDPAlign packt_figref">Figure 2.8: Our MNIST MLP network comprising an input layer, three pairs of FC and ReLU layers, and a final SoftMax layer</div>
+<p>We will build a simple feedforward neural network composed of three pairs of fully connected layers and ReLU activation layers. Each pair of layers is connected to the output of its previous pair of layers. The output of the third pair of fully connected and ReLU activation layers is passed through a SoftMax layer to get the output classification values of the network. This network structure is depicted in Figure 2.8.</p>
+<p>To build this network, we first initialize a model using <kbd>ModelHelper</kbd>, just like in our earlier computation graph example. We then use the <strong>Brew</strong> API to add the layers of the network.</p>
+<div class="packt_infobox">While using raw operator calls as in our computation graph example is possible, using Brew is far more preferable if we are building real neural networks. This is because the <kbd>helper</kbd> functions in Brew make it very easy to initialize parameters for each layer and pick a device for each layer. Doing the same using operator methods would require multiple calls with several parameters.</div>
+<p>A typical call to a Brew <kbd>helper</kbd> function to add a layer would require these parameters:</p>
+<ul>
+<li style="font-weight: 400">A model containing the network where we are adding this layer</li>
+<li style="font-weight: 400">The name of the input blob or previous layer</li>
+<li style="font-weight: 400">The name of this layer</li>
+<li style="font-weight: 400">The dimensions of input to this layer</li>
+<li style="font-weight: 400"><span>The d</span>imensions of output from this layer</li>
+</ul>
+<p>We begin by adding the first pair of fully connected and ReLU layers using the following code:</p>
+<pre># Create first pair of fullyconnected and ReLU activation layers<br/># This FC layer is of size (MNIST_IMG_PIXEL_NUM * 2)<br/># On its input side it is fed the MNIST_IMG_PIXEL_NUM pixels<br/># On its output side it is connected to a ReLU layer<br/>fc_layer_0_input_dims = MNIST_IMG_PIXEL_NUM<br/>fc_layer_0_output_dims = MNIST_IMG_PIXEL_NUM * 2<br/>fc_layer_0 = brew.fc(<br/>    model,<br/>    input_blob_name,<br/>    "fc_layer_0",<br/>    dim_in=fc_layer_0_input_dims,<br/>    dim_out=fc_layer_0_output_dims<br/>)<br/>relu_layer_0 = brew.relu(model, fc_layer_0, "relu_layer_0")</pre>
+<p>Notice that, in this pair of layers, the input is of the <kbd>MNIST_IMG_PIXEL_NUM</kbd> dimensions, and the output is of the <kbd>MNIST_IMG_PIXEL_NUM * 2</kbd> <span>dimensions.</span></p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">ReLU layer</h1>
+                </header>
+            
+            <article>
+                
+<p>The following figure shows the ReLU function:</p>
+<div class="CDPAlignCenter CDPAlign"><img class="aligncenter size-full wp-image-289 image-border" src="assets/d48373ca-b384-4dc5-9557-78d0e10885da.png" style=""/></div>
+<div class="CDPAlignCenter CDPAlign packt_figref">Figure 2.9: The ReLU function</div>
+<p>We introduced an activation layer called Sigmoid while building the computation graph. Here, we use another popular activation layer called <strong>Rectified Linear Unit</strong> (<strong>ReLU</strong>). This function can be seen in <em>Figure 2.9</em>, and is defined as follows:</p>
+<div class="CenterAlign"><img class="fm-editor-equation" src="assets/ba3eaef3-60b9-4180-9640-0686426cb246.png" style="width:11.58em;height:3.17em;"/></div>
+<p>We add a second and a third pair of layers named (<kbd>"fc_layer_1"</kbd>, <kbd>"relu_layer_1"</kbd>) and (<kbd>"fc_layer_2"</kbd>, <kbd>"relu_layer_2"</kbd>), respectively, using the following code:</p>
+<pre># Create second pair of fullyconnected and ReLU activation layers<br/>fc_layer_1_input_dims = fc_layer_0_output_dims<br/>fc_layer_1_output_dims = MNIST_IMG_PIXEL_NUM * 2<br/>fc_layer_1 = brew.fc(<br/>    model,<br/>    relu_layer_0,<br/>    "fc_layer_1",<br/>    dim_in=fc_layer_1_input_dims,<br/>    dim_out=fc_layer_1_output_dims<br/>)<br/>relu_layer_1 = brew.relu(model, fc_layer_1, "relu_layer_1")<br/># Create third pair of fullyconnected and ReLU activation layers<br/>fc_layer_2_input_dims = fc_layer_1_output_dims<br/>fc_layer_2_output_dims = MNIST_IMG_PIXEL_NUM<br/>fc_layer_2 = brew.fc(<br/>    model,<br/>    relu_layer_1,<br/>    "fc_layer_2",<br/>    dim_in=fc_layer_2_input_dims,<br/>    dim_out=fc_layer_2_output_dims<br/>)<br/>relu_layer_2 = brew.relu(model, fc_layer_2, "relu_layer_2")</pre>
+<p>The second pair takes in <kbd>MNIST_IMG_PIXEL_NUM * 2</kbd>-sized input and outputs <kbd>MNIST_IMG_PIXEL_NUM * 2</kbd>. The third pair takes in <kbd>MNIST_IMG_PIXEL_NUM * 2</kbd> and outputs <kbd>MNIST_IMG_PIXEL_NUM</kbd>.</p>
+<p>When solving a classification problem using a neural network, we typically need a probability distribution over the classes. We add a SoftMax layer to the end of our network to achieve this:</p>
+<pre># Create a softmax layer to provide output probabilities for each of<br/># 10 digits. The digit with highest probability value is considered to be<br/># the prediction of the network.<br/>softmax_layer = brew.softmax(model, relu_layer_2, "softmax_layer")</pre>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p>Notice how the <kbd>brew.softmax</kbd> method does not need to be told the input and output dimensions explicitly when that information can be obtained from the input it is connected to. This is one of the advantages of using Brew methods.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Set weights of network layers</h1>
+                </header>
+            
+            <article>
+                
+<p>After composing the network, we now incorporate the pretrained weights of the layers into the network. These weights were obtained by training this network on the MNIST training data. We will learn how to train a network in the next chapter. In this chapter, we focus on loading those pretrained weights into our network and performing inference.</p>
+<p>Note that, of the three types of layer we use in this network, only the fully connected layers need pretrained weights. We have stored the weights as NumPy files for ease of loading. They can be loaded from disk using the NumPy <kbd>load</kbd> method. These values are set in the workspace using the <kbd>workspace.FeedBlob</kbd> method by specifying the layer name to which they belong.</p>
+<p>The code snippet to achieve this is as follows:</p>
+<pre>for i, layer_blob_name in enumerate(inference_model.params):<br/>   layer_weights_filepath = "mnist_mlp_weights/{}.npy".format(str(i))<br/>   layer_weights = np.load(layer_weights_filepath, allow_pickle=False)<br/>   workspace.FeedBlob(layer_blob_name, layer_weights)</pre>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Running the network</h1>
+                </header>
+            
+            <article>
+                
+<p>So we have built a network and we have initialized its layers with pretrained weights. We are now ready to feed it input and execute an inference through the network to get its output.</p>
+<p>We could feed input images one by one to our network and obtain the output classification results. However, doing this in production systems would not utilize the computation resources of the CPU or GPU effectively and would result in a low throughput for inference. So, almost all deep learning frameworks allow users to feed a batch of input data to a network, for both inference and training purposes.</p>
+<p>To illustrate feeding a batch of input images, we have the <kbd>mnist_data.npy</kbd> file, which holds the data for a batch of 64 MNIST images. We read this batch from the file and set it as the data blob in the workspace so that it acts as the input to the network:</p>
+<pre># Read MNIST images from file to use as input<br/>input_blob = None<br/>with open("mnist_data.npy") as in_file:<br/>   input_blob = np.load(in_file)<br/># Set MNIST image data as input data<br/>workspace.FeedBlob("data", input_blob)</pre>
+<p>We execute inference on the network by calling the <kbd>workspace.RunNetOnce</kbd> method with the network as input:</p>
+<pre>workspace.RunNetOnce(inference_model.net)</pre>
+<p>We fetch the output blob of the network from the workspace and, for each of the 64 inputs, we determine which MNIST digit class has the highest confidence value; that is what the network believes was the digit in the MNIST image:</p>
+<pre>network_output = workspace.FetchBlob("softmax_layer")<br/>for i in range(len(network_output)):<br/>    # Get prediction and confidence by finding max value and its index <br/>    # in preds array<br/>    prediction, confidence = max(enumerate(network_output[i]), <br/>    key=operator.itemgetter(1))<br/>    print("Input: {} Prediction: {} Confidence: {}".format(i, <br/>    prediction, confidence)</pre>
+<p>When we execute this script, we obtain outputs like the following:</p>
+<pre><strong>Input: 0 Prediction: 5 Confidence: 0.609326720238</strong><br/><strong>Input: 1 Prediction: 7 Confidence: 0.99536550045</strong><br/><strong>Input: 2 Prediction: 9 Confidence: 0.877566576004</strong><br/><strong>Input: 3 Prediction: 9 Confidence: 0.741059184074</strong><br/><strong>Input: 4 Prediction: 2 Confidence: 0.794860899448</strong><br/><strong>Input: 5 Prediction: 0 Confidence: 0.987336695194</strong><br/><strong>Input: 6 Prediction: 7 Confidence: 0.900308787823</strong><br/><strong>Input: 7 Prediction: 1 Confidence: 0.993218839169</strong><br/><strong>Input: 8 Prediction: 6 Confidence: 0.612009465694</strong></pre>
+<p>This means that the network thinks that the first input image had the digit 5, the second one had 7, and so on.</p>
+<p class="mce-root"/>
+<p class="mce-root"/>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Summary</h1>
+                </header>
+            
+            <article>
+                
+<p>In this chapter, we learned about Caffe2 operators and how they differ from layers used in older deep learning frameworks. We built a simple computation graph by composing several operators. We then tackled the MNIST machine learning problem and built an MLP network using Brew helper functions. We loaded pretrained weights into this network and used it for inference on a batch of input images. We also introduced several common layers, such as matrix multiplication, fully connected, Sigmoid, SoftMax, and ReLU.</p>
+<p>We learned about performing inference on our networks in this chapter. In the next chapter, we will learn about training and how to train a network to solve the MNIST problem.</p>
+
+
+            </article>
+
+            
+        </section>
+    </body></html>
