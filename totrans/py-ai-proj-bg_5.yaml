@@ -1094,14 +1094,18 @@
   id: totrans-150
   prefs: []
   type: TYPE_NORMAL
+  zh: 这实际上相当节省内存。你不需要提前加载整个数据集。它只会按需加载，但你必须调用`fit_generator`，而不是仅仅使用fit。你提供的不是训练输入和输出，而是生成器。生成器知道如何生成图像矩阵，也知道如何生成一热编码（one-hot
+    encoding）。所以，当你有图像数据时，这非常方便。还有其他类型的生成器，可以查阅Keras文档了解更多。`steps_per_epoch`显示每个训练周期需要生成多少张图片，或者说需要生成多少批次。默认情况下，生成器每次生成32张图片。关于训练周期数量，如果你想在TensorBoard上查看一些统计信息，可以设置一个回调函数，并设置verbose为2，这样我们就可以看到一些输出了。
 - en: 'There are 10 epochs:'
   id: totrans-151
   prefs: []
   type: TYPE_NORMAL
+  zh: 总共有10个训练周期（epochs）：
 - en: '![](img/00211.jpeg)'
   id: totrans-152
   prefs: []
   type: TYPE_IMG
+  zh: '![](img/00211.jpeg)'
 - en: We can see that the training accuracy is on the images that is training on.
     It's not very accurate for what the accuracy is going to be on the test set, so
     we do this separately. The test images are also in a generator. You don't just
@@ -1110,6 +1114,8 @@
   id: totrans-153
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们可以看到，训练准确度是在训练图片上进行的。它并不是很准确，无法预测测试集上的准确度，所以我们需要分开处理。测试图片也在生成器中。你不只是进行评估——你需要使用`evaluate_generator`，然后你会说，*你想评估多少张图片？*
+    我们只评估1,000张，结果得到了22%的准确率。
 - en: That's not so bad. Random guessing would yield 0.5%, so 22% is pretty good,
     and that's just from a handcrafted model starting from scratch that had to learn
     everything from those bird images. The reason I'm saying things like this is because
@@ -1118,15 +1124,18 @@
   id: totrans-154
   prefs: []
   type: TYPE_NORMAL
+  zh: 这还算不错。随机猜测的准确率大约是0.5%，所以22%是相当不错的，而这仅仅是从一个从零开始的手工制作的模型，学习了所有的鸟类图片后得到的结果。我之所以这么说，是因为接下来我们要做的就是扩展一个预训练模型，以获得更高的准确度提升。
 - en: 'This model was built by hand, but it would be even better to extend something
     such as `Inceptionv3`, which is shown here:'
   id: totrans-155
   prefs: []
   type: TYPE_NORMAL
+  zh: 这个模型是手工构建的，但要是扩展像`Inceptionv3`这样的模型会更好，如图所示：
 - en: '![](img/00212.jpeg)'
   id: totrans-156
   prefs: []
   type: TYPE_IMG
+  zh: '![](img/00212.jpeg)'
 - en: It's quite deep; it has a lot of convolutional layers and, like most CNNs, it
     ends with a fully-connected layer or perhaps multiple fully connected layers.
     The `Inceptionv3` model was designed for ImageNet. Well, it's the dataset, and
@@ -1142,6 +1151,7 @@
   id: totrans-157
   prefs: []
   type: TYPE_NORMAL
+  zh: 这个模型相当深，它有很多卷积层，和大多数CNN一样，它以一个全连接层结束，或者可能是多个全连接层。`Inceptionv3`模型是为ImageNet设计的。嗯，这是一个数据集，并且它有一些相关的竞赛，里面有数百万张图片，包含1,000个不同类别，比如昆虫、房屋、汽车等等。`Inceptionv3`模型是最先进的，或者至少曾经是。它是ImageNet的竞赛模型，用来与其他数据库竞争。我们将使用这个网络的大部分部分，一直到全连接层。我们不需要最后的全连接或密集层，因为这些是为ImageNet设计的。具体来说，ImageNet有1,000个输出，而这对我们来说并不合适。我们不需要识别ImageNet中的图像，但我们确实需要识别我们的鸟类图像，而且只有200个不同的类别。
 - en: 'So, we just chop off the front of that and replace it with our own fully-connected
     layer, or multiple layers. We''re going to use all the convolutions that it learned,
     and all of the kernels that it learned based on those ImageNet images. Let''s
@@ -1150,22 +1160,27 @@
   id: totrans-158
   prefs: []
   type: TYPE_NORMAL
+  zh: 所以，我们只是去掉前面的部分，并用我们自己的全连接层或多个层替换它。我们将使用它学习到的所有卷积和卷积核，这些都是基于ImageNet图像学习得到的。接下来，我们来看看代码。为了实现这一点，从Keras的applications模块导入`Inceptionv3`。Keras还提供了其他可以选择的模型：
 - en: '![](img/00213.jpeg)'
   id: totrans-159
   prefs: []
   type: TYPE_IMG
+  zh: '![](img/00213.jpeg)'
 - en: We're going to use the data generator just like we did previously.
   id: totrans-160
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们将像之前一样使用数据生成器。
 - en: 'This is where it starts to become different:'
   id: totrans-161
   prefs: []
   type: TYPE_NORMAL
+  zh: 这时开始有所不同：
 - en: '![](img/00214.jpeg)'
   id: totrans-162
   prefs: []
   type: TYPE_IMG
+  zh: '![](img/00214.jpeg)'
 - en: First, load the `InceptionV3` model using the ImageNet weights. `include_top
     =False` means to drop off the dense fully connected layers at the top. That's
     what they call the top. That's where it finally produces 1,000 different outputs.
@@ -1180,12 +1195,15 @@
   id: totrans-163
   prefs: []
   type: TYPE_NORMAL
+  zh: 首先，加载`InceptionV3`模型，并使用ImageNet的权重。`include_top=False`意味着去掉顶部的密集全连接层。这就是所谓的顶部，它最终输出1000个不同的结果。我们不需要这个，我们只需要卷积层。这将被称为`base_model`。调用`x`，这是基础模型的输出，添加一个`GlobalAveragePooling`，它会计算整个卷积的平均值，然后加入一些全连接层，包含1024个神经元和另一个200个神经元的层。当然，200个神经元是因为我们有200个不同的鸟类物种，1024个神经元则是为了学习卷积如何匹配鸟类物种，然后生成包含这些层的模型。模型的输入是`Inceptionv3`的输入，输出是`out_layer
+    = Dense(200, activation='softmax')(x)`。
 - en: At this point, you can call regular model functions such as compile, but before
     we compile, we want to mark all of the base model layers and all of the convolutions
     as not trainable.
   id: totrans-164
   prefs: []
   type: TYPE_NORMAL
+  zh: 此时，你可以调用常规的模型函数，比如`compile`，但在编译之前，我们希望将所有基础模型的层和所有卷积层标记为不可训练。
 - en: 'We''re going to perform two steps here. When we attached our new two dense
     layers, the 1,024 dense and the 200 dense, those have random weights, so they''re
     pretty much useless so far. The convolutions have been learned on ImageNet, so
@@ -1197,30 +1215,37 @@
   id: totrans-165
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们将执行两个步骤。在我们添加了新的两层全连接层，即1024和200个神经元时，这些层的权重是随机的，所以它们现在几乎没有用。卷积层已经在ImageNet上进行了学习，所以它们已经很好了。我们不希望在训练我们的鸟类图片时更改这些卷积层，直到我们将那对新的全连接层排列正确。所以，我们首先将Inception模型中的那些层标记为不可训练；只保留那些卷积层的权重不变——我们只训练我们新添加的那两层：
 - en: '![](img/00215.jpeg)'
   id: totrans-166
   prefs: []
   type: TYPE_IMG
+  zh: '![](img/00215.jpeg)'
 - en: That happens next on the fit generator, just like before.
   id: totrans-167
   prefs: []
   type: TYPE_NORMAL
+  zh: 接下来的操作是对生成器进行拟合，就像之前一样。
 - en: 'We will do 100 epochs to start off:'
   id: totrans-168
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们将开始训练100个epoch：
 - en: '![](img/00216.jpeg)'
   id: totrans-169
   prefs: []
   type: TYPE_IMG
+  zh: '![](img/00216.jpeg)'
 - en: 'And we''ll do an evaluation:'
   id: totrans-170
   prefs: []
   type: TYPE_NORMAL
+  zh: 然后我们将进行评估：
 - en: '![](img/00217.jpeg)'
   id: totrans-171
   prefs: []
   type: TYPE_IMG
+  zh: '![](img/00217.jpeg)'
 - en: So, now, we're up to 44% accuracy. So just by using the inception v3 weights
     and structure or ImageNet but replacing the top two layers with our own fully-connected
     network, we get a 20% boost from what we had with our own custom convolutional
@@ -1228,15 +1253,18 @@
   id: totrans-172
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在，我们的准确率达到了44%。通过使用Inception v3的权重和结构，或者ImageNet，但将顶部的两层替换为我们自己的全连接网络，我们比之前自定义卷积神经网络的结果提高了20%。但我们可以做得更好。
 - en: 'We can use what we just got so that the model has now trained the top two layers
     and marked everything as trainable:'
   id: totrans-173
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们可以使用我们刚刚得到的模型，这样模型就能训练顶部的两层并将所有层标记为可训练：
 - en: '![](img/00218.jpeg)'
   id: totrans-174
   prefs: []
   type: TYPE_IMG
+  zh: '![](img/00218.jpeg)'
 - en: 'So, now that the top two layers are kind of massaged into a form that is reasonable,
     with 44% accuracy, we''re going to let the entire network update all of our bird
     images. We''re going to do it very slowly using stochastic gradient descent with
