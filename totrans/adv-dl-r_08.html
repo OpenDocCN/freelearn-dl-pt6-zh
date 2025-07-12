@@ -1,0 +1,615 @@
+<html><head></head><body>
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Image Classification Using Convolutional Neural Networks</h1>
+                </header>
+            
+            <article>
+                
+<p><strong>Convolutional neural networks</strong> (<strong>CNNs</strong>) are popular deep neural networks and are considered to be the gold standard for large-scale image classification tasks. Applications involving CNNs include image recognition and classification, natural language processing, medical image classification, and many others. In this chapter, we will continue with supervised learning situations where a response variable exists. This chapter provides steps for applying image classification and recognition using convolutional neural networks with an easy-to-follow practical example involving fashion-related <span><strong>Modified National Institute of Standards and Technology</strong> (</span><strong>MNIST</strong>) data. We also make use of images of fashion items downloaded from the internet to explore the generalization potential of the classification model that we develop.</p>
+<p class="mce-root">More specifically in this chapter, we cover the following topics:</p>
+<ul>
+<li class="mce-root">Data preparation</li>
+<li>Layers in convolutional neural networks</li>
+<li>Fitting the model</li>
+<li>Model evaluation and prediction</li>
+<li>Performance optimization tips and best practices</li>
+<li>Summary</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Data preparation</h1>
+                </header>
+            
+            <article>
+                
+<p>In this chapter, we will make use of the Keras and EBImage libraries:</p>
+<pre># Libraries<br/>library(keras)<br/>library(EBImage)</pre>
+<p>Let's get started by looking at some images downloaded from the internet. There are 20 images that include fashion articles such as shirts, bags, sandals, dresses, and others. These images were obtained using a Google search. We will try to develop an image recognition and classification model that recognizes these images and classifies them in appropriate categories. And to develop such a model, we will make use of the fashion-MNIST database of fashion articles:</p>
+<pre># Read data<br/>setwd("~/Desktop/image20")<br/>temp = list.files(pattern = "*.jpg")<br/>mypic &lt;- list()<br/>for (i in 1:length(temp))  {mypic[[i]] &lt;- readImage(temp[[i]])}<br/>par(mfrow = c(5,4))<br/>for (i in 1:length(temp)) plot(mypic[[i]])</pre>
+<p>The 20 images of fashion items downloaded from the internet are shown as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/909db000-7ce0-40ca-9380-3972d160ed9a.png" style="width:30.00em;height:30.00em;"/></p>
+<p><span>Next, let's look at the fashion-MNIST data that contains a much larger collection of images of such fashion items.</span></p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Fashion-MNIST data</h1>
+                </header>
+            
+            <article>
+                
+<p>We can access fashion-MNIST data from Keras using the<kbd>dataset_fashion_mnist</kbd> function. Take a look at the following code and its output:</p>
+<pre># MNIST data<br/>mnist &lt;- dataset_fashion_mnist()<br/>str(mnist)<br/><br/>OUTPUT<br/><strong><span>List of 2
+ $ train:List of 2
+  ..$ x: int [1:60000, 1:28, 1:28] 0 0 0 0 0 0 0 0 0 0 ...
+  ..$ y: int [1:60000(1d)] 9 0 0 3 0 2 7 2 5 5 ...
+ $ test :List of 2
+  ..$ x: int [1:10000, 1:28, 1:28] 0 0 0 0 0 0 0 0 0 0 ...
+  ..$ y: int [1:10000(1d)] 9 2 1 1 6 1 4 6 5 7 ...</span></strong></pre>
+<p>Looking at the structure of the preceding data, we see that it contains train data with 60,000 images and test data with 10,000 images. All these images are 28 x 28 grayscale images. We know from the previous chapter that images can be represented as numeric data based on color and intensity. The independent variable x contains the intensity values, and the dependent variable y contains labels from 0 to 9.</p>
+<p>The 10 different fashion items in the fashion-MNIST dataset are labelled from 0 to 9, as shown in the following table:</p>
+<table border="1" style="border-collapse: collapse;width: 716px;height: 439px">
+<thead>
+<tr>
+<th class="CDPAlignCenter CDPAlign" style="width: 229px">Label</th>
+<th class="CDPAlignCenter CDPAlign" style="width: 480px">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="CDPAlignCenter CDPAlign" style="width: 229px">0</td>
+<td class="CDPAlignCenter CDPAlign" style="width: 480px">T-shirt/Top</td>
+</tr>
+<tr>
+<td class="CDPAlignCenter CDPAlign" style="width: 229px">1</td>
+<td class="CDPAlignCenter CDPAlign" style="width: 480px">Trouser</td>
+</tr>
+<tr>
+<td class="CDPAlignCenter CDPAlign" style="width: 229px">2</td>
+<td class="CDPAlignCenter CDPAlign" style="width: 480px">Pullover</td>
+</tr>
+<tr>
+<td class="CDPAlignCenter CDPAlign" style="width: 229px">3</td>
+<td class="CDPAlignCenter CDPAlign" style="width: 480px">Dress</td>
+</tr>
+<tr>
+<td class="CDPAlignCenter CDPAlign" style="width: 229px">4</td>
+<td class="CDPAlignCenter CDPAlign" style="width: 480px">Coat</td>
+</tr>
+<tr>
+<td class="CDPAlignCenter CDPAlign" style="width: 229px">5</td>
+<td class="CDPAlignCenter CDPAlign" style="width: 480px">Sandal</td>
+</tr>
+<tr>
+<td class="CDPAlignCenter CDPAlign" style="width: 229px">6</td>
+<td class="CDPAlignCenter CDPAlign" style="width: 480px">Shirt</td>
+</tr>
+<tr>
+<td class="CDPAlignCenter CDPAlign" style="width: 229px">7</td>
+<td class="CDPAlignCenter CDPAlign" style="width: 480px">Sneaker</td>
+</tr>
+<tr>
+<td class="CDPAlignCenter CDPAlign" style="width: 229px">8</td>
+<td class="CDPAlignCenter CDPAlign" style="width: 480px">Bag</td>
+</tr>
+<tr>
+<td class="CDPAlignCenter CDPAlign" style="width: 229px">9</td>
+<td class="CDPAlignCenter CDPAlign" style="width: 480px">Ankle Boot</td>
+</tr>
+</tbody>
+</table>
+<p> </p>
+<p>Looking at the preceding table, we may observe that developing a classification model for these images will be challenging as some categories will be difficult to differentiate.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Train and test data</h1>
+                </header>
+            
+            <article>
+                
+<p>We extract train image data, store it in <kbd>trainx</kbd>, and store the respective labels in <kbd>trainy</kbd>. In a similar fashion, we create <kbd>testx</kbd> and <kbd>testy</kbd> from the test data. The table based on <kbd>trainy</kbd> indicates that there are exactly 6,000 images each for the 10 different fashion articles in the train data, while in the test data, there are exactly 1,000 images of each fashion article:</p>
+<pre>#train and test data<br/>trainx &lt;- mnist$train$x<br/>trainy &lt;- mnist$train$y<br/>testx &lt;- mnist$test$x<br/>testy &lt;- mnist$test$y<br/>table(mnist$train$y, mnist$train$y)<br/><br/><span>       0    1    2    3    4    5    6    7    8    9
+  0 6000    0    0    0    0    0    0    0    0    0
+  1    0 6000    0    0    0    0    0    0    0    0
+  2    0    0 6000    0    0    0    0    0    0    0
+  3    0    0    0 6000    0    0    0    0    0    0
+  4    0    0    0    0 6000    0    0    0    0    0
+  5    0    0    0    0    0 6000    0    0    0    0
+  6    0    0    0    0    0    0 6000    0    0    0
+  7    0    0    0    0    0    0    0 6000    0    0
+  8    0    0    0    0    0    0    0    0 6000    0
+  9    0    0    0    0    0    0    0    0    0 6000
+   <br/></span>table(mnist$test$y,mnist$test$y)<span>      <br/></span><span>       0    1    2    3    4    5    6    7    8    9
+  0 1000    0    0    0    0    0    0    0    0    0
+  1    0 1000    0    0    0    0    0    0    0    0
+  2    0    0 1000    0    0    0    0    0    0    0
+  3    0    0    0 1000    0    0    0    0    0    0
+  4    0    0    0    0 1000    0    0    0    0    0
+  5    0    0    0    0    0 1000    0    0    0    0
+  6    0    0    0    0    0    0 1000    0    0    0
+  7    0    0    0    0    0    0    0 1000    0    0
+  8    0    0    0    0    0    0    0    0 1000    0
+  9    0    0    0    0    0    0    0    0    0 1000</span></pre>
+<p>We next plot the first 64 images in the train data. Note that these are grayscale image data and that each image has a black background. Since our image classification model will be based on this data, the color images that we started with will have to be converted into grayscale images too. In addition, images of shirts, coats, and dresses are somewhat challenging to differentiate and this may impact the accuracy of our model. Let's have a look at the following lines of code:</p>
+<pre># Display images<br/>par(mfrow = c(8,8), mar = rep(0, 4))<br/>for (i in 1:84) plot(as.raster(trainx[i,,], max = 255))<br/>par(mfrow = c(1,1))</pre>
+<p>We get the output of the f<span>irst 64 images in the train data</span> as shown:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/08e58ae2-975a-47d4-afba-8d1169790f2a.png" style="width:27.83em;height:17.17em;"/></p>
+<p>A histogram based on the first image <span>(an ankle boot)</span> in the train data is shown in the following graph:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/d6a41ac4-0875-4150-bd49-e01e44962d9d.png" style="width:25.75em;height:16.75em;"/></p>
+<p>The highest bar on the left is from the low intensity data points that capture the black background in the image. The higher intensity values representing the lighter color of the ankle boot are reflected in the higher bars toward the right. These intensity values in the histogram range from 0 to 255.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Reshaping and resizing</h1>
+                </header>
+            
+            <article>
+                
+<p>Next, we reshape, train, and test data. We also divide the train and the test data by 255 to change the range of values from 0-255 to 0-1. The codes used are as follows:</p>
+<pre># Reshape and resize<br/>trainx &lt;- array_reshape(trainx, c(nrow(trainx), 784))<br/>testx &lt;- array_reshape(testx, c(nrow(testx), 784))<br/>trainx &lt;- trainx / 255<br/>testx &lt;- testx / 255<br/>str(trainx)<br/><br/>OUTPUT<br/><br/>num [1:60000, 1:784] 0 0 0 0 0 0 0 0 0 0 ...<br/><br/></pre>
+<p>The structure of the preceding <kbd>trainx </kbd>shows that after reshaping the train data, we now have data with 60,000 rows and 784 (28 x 28) columns.</p>
+<p>We get the output of the h<span>istogram based on the first image (an ankle boot) in the train data after dividing the data by 255, as shown in the following screenshot</span>:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/8732ae1c-7c1b-460f-af40-9c69b7ec14e2.png" style="width:27.75em;height:17.00em;"/></p>
+<p>The preceding histogram shows that the range of data points has now changed to values between 0 and 1. However, the shape observed in the previous histogram has not changed.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">One-hot encoding</h1>
+                </header>
+            
+            <article>
+                
+<p>Next, we do one-hot encoding of labels stored in <kbd>trainy</kbd> and <kbd>testy</kbd> using the following code:</p>
+<pre># One-hot encoding<br/>trainy &lt;- to_categorical(trainy, 10)<br/>testy &lt;- to_categorical(testy, 10)<br/>head(trainy)<br/><span>     [,1] [,2] [,3] [,4] [,5] [,6] [,7] [,8] [,9] [,10]
+[1,]    0    0    0    0    0    0    0    0    0     1
+[2,]    1    0    0    0    0    0    0    0    0     0
+[3,]    1    0    0    0    0    0    0    0    0     0
+[4,]    0    0    0    1    0    0    0    0    0     0
+[5,]    1    0    0    0    0    0    0    0    0     0
+[6,]    0    0    1    0    0    0    0    0    0     0</span></pre>
+<p>After one-hot encoding, the first row for the train data indicates a value of 1 for the tenth category (ankle boot). Similarly, the second row for the train data indicates a value of 1 for the first category (t-shirt/top). After completing the changes mentioned previously, now the fashion-MNIST data is ready for developing an image recognition and classification model.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Layers in the convolutional neural networks</h1>
+                </header>
+            
+            <article>
+                
+<p>In this section, we will develop model architecture and then compile the model. We will also carry out calculations to compare the convolutional network with a fully connected network. Let's get started by specifying the model architecture.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Model architecture and related calculations</h1>
+                </header>
+            
+            <article>
+                
+<p>We start by creating a model using the <kbd>keras_model_sequential</kbd> function. The codes used for the model architecture are given as follows:</p>
+<pre># Model architecture<br/>model &lt;- keras_model_sequential() <br/>model %&gt;% <br/>         layer_conv_2d(filters = 32, <br/>                        kernel_size = c(3,3), <br/>                        activation = 'relu', <br/>                        input_shape = c(28,28,1)) %&gt;%   <br/>         layer_conv_2d(filters = 64, <br/>                        kernel_size = c(3,3), <br/>                        activation = 'relu') %&gt;%  <br/>         layer_max_pooling_2d(pool_size = c(2,2)) %&gt;% <br/>         layer_dropout(rate = 0.25) %&gt;%   <br/>         layer_flatten() %&gt;% <br/>         layer_dense(units = 64, activation = 'relu') %&gt;%  <br/>         layer_dropout(rate = 0.25) %&gt;% <br/>         layer_dense(units = 10, activation = 'softmax')</pre>
+<p>As shown in the preceding code, we add various layers to develop a CNN model. The input layer in this network has 28 x 28 x 1 dimensions based on the height and width of the images, which are 28 each. And since we are using grayscale images, the color channel is one. We use <span>two-dimensional </span>convolutional layers here as we are building a deep learning model with gray-scale images.</p>
+<div class="packt_tip">Note that when developing an image recognition and classification model with gray scale image data, we make use of a 2D convolutional layer, and with color images, we make use of a 3D convolutional layer.</div>
+<p>Let's look at some calculations involving the first convolutional layer of the network, which will help us to appreciate the use of such layers compared to a densely connected layer. In a CNN, neurons in a layer are not connected to all the neurons in the next layer.</p>
+<p>Here, the input layer has an image with dimensions of 28 x 28 x 1. To obtain the output shape, we subtract three (from <kbd>kernel_size</kbd>) from 28 (height of the input image) and add one. This gives us 26. The final dimension for the output shape becomes 26 x 26 x 32, where 32 is the number of output filters. Thus, the output shape has reduced height and width, but it has a greater depth. To arrive at the number of parameters, we use 3 x 3 x 1 x 32 + 32 = 320, where 3 x 3 is the <kbd>kernel_size</kbd>, 1 is the number of channels for the image, 32 is the number of output filters, and to this we add 32 bias terms.</p>
+<p>If we compare this to a fully connected neural network, we will obtain a much larger number of parameters. In a fully connected network, 28 x 28 x 1 = 784 neurons will be connected to 26 x 26 x 32 = 21,632 neurons. So, the total number of parameters will be 784 x 21,632 + 21,632 = 16,981,120. This is more than 53,000 times the number of parameters for a densely connected layer compared to what we get for a convolutional layer. This, in turn, helps to significantly reduce the processing time and thereby the processing cost. </p>
+<p>The number of parameters for each layer is indicated in the following code:</p>
+<pre># Model summary<br/>summary(model)<br/><strong>__________________________________________________________________
+Layer (type                   Output Shape             Param #        
+==================================================================
+conv2d_1 (Conv2D)          (None, 26, 26, 32)            320            
+__________________________________________________________________
+conv2d_2 (Conv2D)          (None, 24, 24, 64)            18496          
+__________________________________________________________________
+max_pooling2d_1 (MaxPooling2D) (None, 12, 12, 64)         0              
+__________________________________________________________________
+dropout_1 (Dropout)        (None, 12, 12, 64)             0              
+__________________________________________________________________
+flatten_1 (Flatten)        (None, 9216)                   0              
+__________________________________________________________________
+dense_1 (Dense)            (None, 64)                    589888         
+__________________________________________________________________
+dropout_2 (Dropout)        (None, 64)                     0              
+__________________________________________________________________
+dense_2 (Dense)            (None, 10)                     650            
+==================================================================
+Total params: 609,354
+Trainable params: 609,354
+Non-trainable params: 0
+___________________________________________________________________</strong></pre>
+<p>The output shape for the second convolutional network is 24 x 24 x 64, where 64 is the number of output filters. Here too, the output shape has a reduced height and width, but it has a greater depth. To arrive at a number of parameters, we use 3 x 3 x 32 x 64 + 64 = 18,496, where 3 x 3 is the <kbd>kernel_size</kbd>, 32 is the number of filters in the previous layer, and 64 is the number of output filters, and to this, we add 64 bias terms.</p>
+<p>The next layer is the pooling layer, which is usually placed after the convolutional layer and performs a down-sampling operation. This helps to reduce processing time and also helps to reduce overfitting. To obtain output shape, we can divide 24 by 2, where 2 comes from the pool size that we have specified. The output shape here is 12 x 12 x 64 and no new parameters are added. The pooling layer is followed by a dropout layer with the same output shape and, once again, no new parameters are added.</p>
+<p>In the flattened layer, we go from 3 dimensions (12 x 12 x 64) to one dimension by multiplying the three numbers to obtain 9,216. This is followed by a densely connected layer with 64 units. The number of parameters here can be obtained as 9216 x 64 + 64 = 589,888. This is followed by another dropout layer to avoid the overfitting problem and no parameters are added here. And finally, we have the last layer, which is a densely connected layer with 10 units representing 10 fashion items. The number of parameters here is 64 x 10 + 10 = 650. The total number of parameters is thus 609,354. In the CNN architecture that we have, we are using the relu activation function for the hidden layers and softmax for the output layer.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Compiling the model</h1>
+                </header>
+            
+            <article>
+                
+<p>Next, we compile the model using the following code:</p>
+<pre># Compile model<br/>model %&gt;% compile(loss = 'categorical_crossentropy',<br/>                  optimizer = optimizer_adadelta(),<br/>                  metrics = 'accuracy')</pre>
+<p>In the preceding code, loss is specified as <kbd>categorical_crossentropy</kbd> as there are 10 categories of fashion items. For the optimizer, we make use of <kbd>optimizer_adadelta</kbd> with its recommended default settings. Adadelta is an adaptive learning rate method for gradient descent. As the name suggests, it dynamically adapts over time and doesn't require manual tuning of the learning rate. We have also specified <kbd>accuracy</kbd> for the metrics.</p>
+<p>In the next section, we will fit the model for image recognition and classification.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Fitting the model</h1>
+                </header>
+            
+            <article>
+                
+<p>For fit the model, we will continue with the format that we have been using in the earlier chapters. The following code is used to fit the model:</p>
+<pre># Fit model<br/>model_one &lt;- model %&gt;% fit(trainx, <br/>                         trainy, <br/>                         epochs = 15, <br/>                         batch_size = 128, <br/>                         validation_split = 0.2)<br/>plot(model_one)</pre>
+<p>Here, we are using 20 epochs, a batch size of 128, and 20% of the training data is reserved for validation. Since the neural network used here is more complex than the previous chapters, each run is likely to take relatively more time.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Accuracy and loss</h1>
+                </header>
+            
+            <article>
+                
+<p>After fitting the model, accuracy and loss values for the 15 epochs are plotted as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/ee1fd997-7042-4d80-bc61-e1b1badabac2.png" style="width:40.00em;height:24.67em;"/></p>
+<p>We can observe from the preceding plot that training accuracy continues to increase, whereas validation accuracy for the last few epochs is more or less flat. A similar pattern in the opposite direction is observed for the loss values. However, we do not observe any major overfitting problem.</p>
+<p>Let's now evaluate this model and see how predictions with this model perform.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Model evaluation and prediction</h1>
+                </header>
+            
+            <article>
+                
+<p>After fitting the model, we will evaluate its performance in terms of loss and accuracy. We will also create a confusion matrix to assess classification performance across all 10 types of fashion items. We will perform a model evaluation and prediction for both train and test data. We will also obtain images of fashion items that do not belong to the MNIST fashion data and explore how well the performance of the model can be generalized to new images.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Training data</h1>
+                </header>
+            
+            <article>
+                
+<p>Loss and accuracy based on training data are obtained as 0.115 and 0.960, respectively, as shown in the following code:</p>
+<pre># Model evaluation<br/>model %&gt;% evaluate(trainx, trainy)<br/><br/>$loss  <span>0.1151372</span><br/>$acc  0.9603167</pre>
+<p>Next, we create a confusion matrix based on the predicted and actual values:</p>
+<pre># Prediction and confusion matrix<br/>pred &lt;- model %&gt;%   predict_classes(trainx)<br/>table(Predicted=pred, Actual=mnist$train$y)<br/><br/>OUTPUT<br/><br/><span><strong>         Actual
+Predicted    0    1    2    3    4    5    6    7    8    9
+        0 5655    1   53   48    1    0  359    0    2    0
+        1    1 5969    2    8    1    0    3    0    0    0
+        2   50    0 5642   23  219    0  197    0    2    0
+        3   42   23   20 5745   50    0   50    0    3    0
+        4    7    1  156  106 5566    0  122    0    4    0
+        5    0    0    0    0    0 5971    0    6    1   12
+        6  230    3  121   68  159    0 5263    0   11    0
+        7    0    0    0    0    0   22    0 5958    3  112
+        8   15    3    6    2    4    4    6    0 5974    0
+        9    0    0    0    0    0    3    0   36    0 5876</strong></span></pre>
+<p>From the preceding confusion matrix, we can make the following observations:</p>
+<ul>
+<li>The correct classifications shown on the diagonal for all 10 categories have large values, with the lowest being 5,263 out of 6,000 for item 6 (shirt). </li>
+<li>The best classification performance is seen for item 8 (bag), where this model correctly classifies 5,974 bag images out of 6,000.</li>
+<li>Among off-diagonal numbers representing misclassifications by the model, the highest value is 359, where item 6 (shirt) is mistaken for item 0 (t-shirt/top). There are 230 occasions when item-0 (t-shirt/top) is misclassified as item 6 (shirt). So, this model certainly has some difficulty differentiating between item 0 and item 6.</li>
+</ul>
+<p>Let's also look deeper by calculating prediction probabilities for the first five items, as shown in the following code:</p>
+<pre># Prediction probabilities<br/>prob &lt;- model %&gt;%   predict_proba(trainx) <br/>prob &lt;- round(prob, 3)<br/>cbind(prob, Predicted_class = pred, Actual = mnist$train$y)[1:5,]<br/><br/>OUTPUT<br/><span>                                                  Predicted_class Actual
+[1,] 0.000 0.000 0.000 0.000 0 0 0.000 0.001 0 0.999         9      9
+[2,] 1.000 0.000 0.000 0.000 0 0 0.000 0.000 0 0.000         0      0
+[3,] 0.969 0.000 0.005 0.003 0 0 0.023 0.000 0 0.000         0      0
+[4,] 0.023 0.000 0.000 0.968 0 0 0.009 0.000 0 0.000         3      3
+[5,] 0.656 0.001 0.000 0.007 0 0 0.336 0.000 0 0.000         0      0</span></pre>
+<p><span>We can observe from the preceding output that all five fashion items are correctly classified. The correct classification probabilities range from 0.656 (item 0 in the fifth row) to 1.000 (item 0 in the second row). These probabilities are significantly high to effect correct classification without any confusion.</span></p>
+<p><span>Now, let's see whether this performance is replicated with test data.</span></p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Test data</h1>
+                </header>
+            
+            <article>
+                
+<p>We start by looking at loss and accuracy values based on the test data:</p>
+<pre># Model evaluation<br/>model %&gt;% evaluate(testx, testy)<br/><br/><span>$loss  0.240465
+$acc   0.9226</span></pre>
+<p>We observe that loss is higher and accuracy is lower compared to the values obtained from the train data. This is as expected considering a similar situation with validation data that we observed earlier.</p>
+<p>Confusion matrix for test data is provided as follows:</p>
+<pre># Prediction and confusion matrix<br/>pred &lt;- model %&gt;% predict_classes(testx)<br/>table(Predicted=pred, Actual=mnist$test$y)<br/><br/>OUTPUT<br/>         Actual<br/>Predicted   0   1   2   3   4   5   6   7   8   9<br/>        0 878   0  14  15   0   0  91   0   0   0<br/>        1   1 977   0   2   1   0   1   0   2   0<br/>        2  22   1 899   9  55   0  65   0   2   0<br/>        3  12  14   6 921  14   0  20   0   3   0<br/>        4   2   5  34  26 885   0  57   0   0   0<br/>        5   1   0   0   0   0 988   0   8   1   6<br/>        6  74   1  43  23  43   0 755   0   2   0<br/>        7   0   0   0   0   0   6   0 969   3  26<br/>        8  10   2   4   4   2   0  11   0 987   1<br/>        9   0   0   0   0   0   6   0  23   0 967</pre>
+<p>From the preceding confusion matrix, we can make the following observations:</p>
+<ul>
+<li>This model is most confused regarding item 6 (shirt), with 91 instances where it classifies fashion items as item-0 (t-shirt/top).</li>
+<li>The best image recognition and classification performance is for item-5 (sandal), with 988 correct predictions out of 1,000.</li>
+<li>Overall, the confusion matrix exhibits a similar pattern to the one we observed with the training data.</li>
+</ul>
+<p>Looking at prediction probabilities for the first five items in the test data, we observe that all five predictions are correct. Prediction probability for all five items is quite high:</p>
+<pre># Prediction probabilities<br/>prob &lt;- model %&gt;% predict_proba(testx) <br/>prob &lt;- round(prob, 3)<br/>cbind(prob, Predicted_class = pred, Actual = mnist$test$y)[1:5,]<br/><br/>OUTPUT<br/><strong><span>                                   Predicted_class Actual <br/>[1,] 0.000 0 0.000 0 0.000 0 0.000 0 0 1     9         9 <br/>[2,] 0.000 0 1.000 0 0.000 0 0.000 0 0 0     2         2 <br/>[3,] 0.000 1 0.000 0 0.000 0 0.000 0 0 0     1         1 <br/>[4,] 0.000 1 0.000 0 0.000 0 0.000 0 0 0     1         1 <br/>[5,] 0.003 0 0.001 0 0.004 0 0.992 0 0 0     6         6</span></strong></pre>
+<p><span>Now, with sufficiently high classification performances with both the training and testing data in terms of accuracy, let's see if we can do the same with the 20 images of fashion items with which we started this chapter.</span></p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">20 fashion items from the internet</h1>
+                </header>
+            
+            <article>
+                
+<p>We read the <span><span>20 </span></span>colored images from the desktop and change them to gray to maintain compatibility with the data and model that we have used so far. Take a look at the following code:</p>
+<pre>setwd("~/Desktop/image20")<br/>temp = list.files(pattern = "*.jpg")<br/>mypic &lt;- list()<br/>for (i in 1:length(temp))  {mypic[[i]] &lt;- readImage(temp[[i]])}<br/>for (i in 1:length(temp))  {mypic[[i]] &lt;- channel(mypic[[i]], "gray")}<br/>for (i in 1:length(temp)) {mypic[[i]] &lt;- 1-mypic[[i]]}<br/>for (i in 1:length(temp)) {mypic[[i]] &lt;- resize(mypic[[i]], 28, 28)}<br/>par(mfrow = c(5,4), mar = rep(0, 4))<br/>for (i in 1:length(temp)) plot(mypic[[i]])</pre>
+<p>As seen previously, we also resize all 20 images to 28 x 28, and the resulting 20 images to be classified are as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img class="details-image" src="assets/4b80c10e-8cee-4778-901e-047fd020ab1a.png" style="width:25.42em;height:15.67em;"/></p>
+<p>As we can observe from the preceding plot, there are two fashion items belonging to each of the 10 categories of the fashion-MNIST data:</p>
+<pre># Reshape and row-bind<br/>for (i in 1:length(temp)) {mypic[[i]] &lt;- array_reshape(mypic[[i]], c(1,28,28,1))}<br/>new &lt;- NULL<br/>for (i in 1:length(temp)) {new &lt;- rbind(new, mypic[[i]])}<br/>str(new)<br/><br/>OUTPUT<br/><br/><span>num [1:20, 1:784] 0.0458 0.0131 0 0 0 ...</span></pre>
+<p>We reshape images in the required dimensions and then row-bind them. Looking at the structure of <kbd>new</kbd>, we see a 20 x 784 matrix. However, to get an appropriate, structure we will reshape it further to 20 x 28 x 28 x 1, as shown in the following code:</p>
+<pre># Reshape<br/>newx &lt;- array_reshape(new, c(nrow(new),28,28,1))<br/>newy &lt;- c(0,4,5,5,6,6,7,7,8,8,9,0,9,1,1,2,2,3,3,4)</pre>
+<p>We reshape <kbd>new</kbd> to get the appropriate format, and save the result in <kbd>newx</kbd>. We use <kbd>newy</kbd> to store the actual labels for the 20 fashion items.</p>
+<p>Now, we are ready to use the prediction model, and create a confusion matrix as shown in the following code:</p>
+<pre># Confusion matrix for 20 images<br/>pred &lt;- model %&gt;%   predict_classes(newx)<br/>table(Predicted=pred, Actual=newy)<br/><br/>OUTPUT<br/><strong><span>         Actual
+Predicted 0 1 2 3 4 5 6 7 8 9
+        0 1 0 0 0 0 0 0 0 0 0
+        1 0 1 0 0 0 0 0 0 0 0
+        2 0 0 1 0 0 0 0 0 0 0
+        3 1 1 0 2 0 0 0 0 0 2
+        4 0 0 1 0 1 0 0 0 0 0
+        5 0 0 0 0 0 0 0 1 0 0
+        6 0 0 0 0 0 0 2 0 0 0
+        8 0 0 0 0 1 2 0 1 2 0</span></strong></pre>
+<p>We observe from the numbers on the diagonal that only 10 items are correctly classified out of 20. This translates to a low accuracy of only 50%, compared to over 90% accuracy observed for the train and test data.</p>
+<p>Next, we summarize these predictions in the form of a plot that includes the prediction probabilities, predicted class, and actual class, using the following code:</p>
+<pre># Images with prediction probabilities, predicted class, and actual class <br/>setwd("~/Desktop/image20")<br/>temp = list.files(pattern = "*.jpg")<br/>mypic &lt;- list()<br/>for (i in 1:length(temp))  {mypic[[i]] &lt;- readImage(temp[[i]])}<br/>for (i in 1:length(temp))  {mypic[[i]] &lt;- channel(mypic[[i]], "gray")}<br/>for (i in 1:length(temp)) {mypic[[i]] &lt;- 1-mypic[[i]]}<br/>for (i in 1:length(temp)) {mypic[[i]] &lt;- resize(mypic[[i]], 28, 28)}<br/>predictions &lt;-  predict_classes(model, newx)<br/>probabilities &lt;- predict_proba(model, newx)<br/>probs &lt;- round(probabilities, 2)<br/>par(mfrow = c(5, 4), mar = rep(0, 4))<br/>for(i in 1:length(temp)) {plot(mypic[[i]])<br/>         legend("topleft", legend = max(probs[i,]),  <br/>                bty = "n",text.col = "white",cex = 2)<br/>         legend("top", legend = predictions[i],  <br/>                bty = "n",text.col = "yellow", cex = 2) <br/>         legend("topright", legend = newy[i],  <br/>                bty = "",text.col = "darkgreen", cex = 2) }</pre>
+<p>The preceding plot summarizes the performance of the classification model with the help of p<span>rediction probabilities, predicted class, and actual class (<kbd>model-one</kbd>):</span></p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/281a96f9-b448-475d-bea5-c3c323e6f39b.png" style="width:37.75em;height:29.33em;"/></p>
+<p>In the preceding plot, the first number in the top-left position is the prediction probability, the second number in the top-middle position is the predicted class, and the third number in the top-right position is the actual class. Looking at some of these misclassifications, what stands out is the fact that surprisingly, all images of the sandal (item 5), sneakers (item 7), and ankle boots (item 9) are incorrectly classified. These categories of images were classified with high accuracy in the training as well as test data. These six misclassifications have contributed to the significantly low accuracy value.</p>
+<p>Two key aspects of what we have done so far can now be summarized as follows:</p>
+<ul>
+<li>The first one is what we would generally expect—<span>model performance with the test data is usually lower compared to what is observed with the training data. </span></li>
+<li>The second one is a bit of an unexpected outcome. The 20 fashion item images that were downloaded from the internet had significantly reduced accuracy with the same model.</li>
+</ul>
+<p>Let's see whether we can devise a strategy or make changes to the model to obtain better performance. We plan to have a closer look at the data and find a way to translate the performance that we saw with training and test data, if possible, to the 20 new images.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Performance optimization tips and best practices</h1>
+                </header>
+            
+            <article>
+                
+<p>In any data analysis task, it is important to understand how the data was collected. With the model that we developed in the previous section, the accuracy dropped from over 90% for the test data to 50% for the 20 fashion item images that were downloaded from the internet. If this difference is not addressed, it will be difficult for this model to generalize well with any fashion items that are not part of the training or test data, and therefore will not be of much practical use. In this section, we will explore improvements to the classification performance of the model.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Image modification</h1>
+                </header>
+            
+            <article>
+                
+<p>Looking at the 64 images at the beginning of this chapter reveals some clues as to what's going on. We notice that images of the sandals, sneakers, and ankle boots seem to have a specific pattern. In all pictures involving these fashion items, the toe has always been pictured pointing in the left direction. On the other hand, in the images downloaded from the internet for the three footwear fashion items, we notice that the toe has been pictured pointing in the right direction. To address this, let's modify images of the 20 fashion items with a <kbd>flop</kbd> function that will make the toes point in the left direction, and then we can again assess the classification performance of the model:</p>
+<pre># Images with prediction probabilities, predicted class, and actual class setwd("~/Desktop/image20")<br/>temp = list.files(pattern = "*.jpg")<br/>mypic &lt;- list()<br/>for (i in 1:length(temp)) {mypic[[i]] &lt;- readImage(temp[[i]])}<br/>for (i in 1:length(temp)) {mypic[[i]] &lt;- flop(mypic[[i]])}<br/>for (i in 1:length(temp)) {mypic[[i]] &lt;- channel(mypic[[i]], "gray")}<br/>for (i in 1:length(temp)) {mypic[[i]] &lt;- 1-mypic[[i]]}<br/>for (i in 1:length(temp)) {mypic[[i]] &lt;- resize(mypic[[i]], 28, 28)}<br/>predictions &lt;- predict_classes(model, newx)<br/>probabilities &lt;- predict_proba(model, newx)<br/>probs &lt;- round(probabilities, 2)<br/>par(mfrow = c(5, 4), mar = rep(0, 4))<br/>for(i in 1:length(temp)) {plot(mypic[[i]])<br/> legend("topleft", legend = max(probs[i,]), <br/> bty = "",text.col = "black",cex = 1.2)<br/> legend("top", legend = predictions[i], <br/> bty = "",text.col = "darkred", cex = 1.2) <br/> legend("topright", legend = newy[i], <br/> bty = "",text.col = "darkgreen", cex = 1.2) }</pre>
+<p>The following screenshot shows the p<span>rediction probabilities, predicted class, and actual class after applying the flop (<kbd>model-one</kbd>) function:</span></p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/8438c6a4-c1fe-4b8c-9964-92537cc9a22e.png" style="width:42.17em;height:32.83em;"/></p>
+<p class="mce-root"/>
+<p class="mce-root">As observed from the preceding plot, after changing the orientation of the images of the fashion items, we now get correct classifications by the model for sandals, sneakers, and ankle boots. With 16 correct classifications out of 20, the accuracy improves to 80%, compared to a figure of 50% that we obtained earlier. Note that this improvement in accuracy comes from the same model. The only thing that we did here was to observe how the original data was collected and then maintain consistency with the new image data being used. Next, let's work on the modification of the deep network architecture and see whether we can improve results further.</p>
+<div class="packt_tip">Before prediction models are used for generalizing the results to new data, it is a good idea to review how data was originally collected and then maintain consistency in terms of the format for the new data.</div>
+<p>We encourage you to experiment a bit further to explore and see what happens if certain percentages of images in the fashion-MNIST data are changed to their mirror images. Can this help to generalize even better without a need to make changes to the new data?</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Changes to the architecture</h1>
+                </header>
+            
+            <article>
+                
+<p>We modify the architecture of the CNN by adding more convolutional layers to illustrate how such layers can be added. Take a look at the following code:</p>
+<pre># Model architecture<br/>model &lt;- keras_model_sequential() <br/>model %&gt;% <br/>         layer_conv_2d(filters = 32, kernel_size = c(3,3), <br/>                        activation = 'relu', input_shape = c(28,28,1)) %&gt;%   <br/>         layer_conv_2d(filters = 32, kernel_size = c(3,3), <br/>                        activation = 'relu') %&gt;%  <br/>         layer_max_pooling_2d(pool_size = c(2,2)) %&gt;% <br/>         layer_dropout(rate = 0.25) %&gt;%   <br/>         layer_conv_2d(filters = 64, kernel_size = c(3,3), <br/>                        activation = 'relu') %&gt;% <br/>         layer_conv_2d(filters = 64, kernel_size = c(3,3), <br/>                        activation = 'relu') %&gt;%  <br/>         layer_max_pooling_2d(pool_size = c(2,2)) %&gt;% <br/>         layer_dropout(rate = 0.25) %&gt;%   <br/>         layer_flatten() %&gt;% <br/>         layer_dense(units = 512, activation = 'relu') %&gt;%  <br/>         layer_dropout(rate = 0.5) %&gt;% <br/>         layer_dense(units = 10, activation = 'softmax')<br/><br/># Compile model<br/>model %&gt;% compile(loss = 'categorical_crossentropy',<br/>                  optimizer = optimizer_adadelta(),<br/>                  metrics = 'accuracy')<br/><br/># Fit model<br/>model_two &lt;- model %&gt;% fit(trainx, <br/>                         trainy, <br/>                         epochs = 15, <br/>                         batch_size = 128, <br/>                         validation_split = 0.2)<br/>plot(model_two)</pre>
+<p>In the preceding code, for the first two convolutional layers, we use 32 filters each, and for the next set of convolutional layers, we use 64 filters each. After each pair of convolutional layers, as done earlier, we add pooling and dropout layers. Another change carried out here is the use of 512 units in the dense layer. Other settings are similar to the earlier network.</p>
+<p>The following screenshot shows a<span>ccuracy and loss for training and validation data (<kbd>model_two</kbd>):</span></p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/ea618897-a548-4815-a69e-d52c9bf5036d.png" style="width:45.08em;height:27.83em;"/></p>
+<p>The plot based on <kbd>model_two</kbd> shows closer performance between training and validation data for loss and accuracy compared to <kbd>model_one</kbd>. In addition, a flattening of the lines toward the fifteenth epoch also suggests that increasing the number of epochs is not likely to help much in improving the classification performance further.</p>
+<p>Loss and accuracy values for the training data are obtained as follows:</p>
+<pre># Loss and accuracy<br/>model %&gt;% evaluate(trainx, trainy)<br/><br/><span>$loss </span><span>0.1587473<br/></span><span>$acc </span><span>0.94285</span></pre>
+<p>The loss and accuracy values based on this model do not show a major improvement, with the loss value being slightly higher and accuracy values being slightly lower.</p>
+<p>The following confusion matrix summarizes the predicted and actual classes:</p>
+<pre># Confusion matrix for training data<br/>pred &lt;- model %&gt;%   predict_classes(trainx)<br/>table(Predicted=pred, Actual=mnist$train$y)<br/><br/>OUTPUT<br/><strong><span>         Actual
+Predicted    0    1    2    3    4    5    6    7    8    9
+        0 5499    0   58   63    3    0  456    0    4    0
+        1    2 5936    1    5    3    0    4    0    1    0
+        2   83    0 5669   13  258    0  438    0    7    0
+        3   69   52   48 5798  197    0  103    0    6    0
+        4    3    3  136   49 5348    0  265    0    5    0
+        5    0    0    0    0    0 5879    0    3    0    4
+        6  309    6   73   67  181    0 4700    0    2    0
+        7    0    0    0    0    0   75    0 5943    1  169
+        8   35    3   15    5   10    3   34    0 5974    2
+        9    0    0    0    0    0   43    0   54    0 5825</span></strong></pre>
+<p>From the confusion matrix, we can make the following observations:</p>
+<ul>
+<li>It shows that the model has maximum confusion (456 misclassifications) between item 6 (shirt) and item 0 (t-shirt/top). And this confusion is observed in both directions, where item 6 is confused for item 0, and item-0 being confused for item 6.</li>
+<li>Item 8 (bag) has been classified most accurately, with 5,974 instances out of a total of 6,000 (about 99.6% accuracy).</li>
+<li>Item-6 (shirt) has been classified with the lowest accuracy out of 10 categories, with 4,700 instances out of 6,000 (about 78.3% accuracy).</li>
+</ul>
+<p>For the test data loss, the accuracy and confusion matrices are provided as follows:</p>
+<pre># Loss and accuracy for the test data<br/>model %&gt;% evaluate(testx, testy)<br/><br/><span>$loss </span><span>0.2233179<br/></span><span>$acc 0.9211<br/><br/># Confusion matrix for test data<br/></span>pred &lt;- model %&gt;% predict_classes(testx)<br/>table(Predicted=pred, Actual=mnist$test$y)<br/><br/>OUTPUT<br/><strong><span>         Actual
+Predicted   0   1   2   3   4   5   6   7   8   9
+        0 875   1  18   8   0   0 104   0   3   0
+        1   0 979   0   2   0   0   0   0   0   0
+        2  19   0 926   9  50   0  78   0   1   0
+        3  10  14   9 936  35   0  19   0   3   0
+        4   2   0  30  12 869   0  66   0   0   0
+        5   0   0   0   0   0 971   0   2   1   2
+        6  78   3  16  29  45   0 720   0   1   0
+        7   0   0   0   0   0  18   0 988   1  39
+        8  16   3   1   4   1   0  13   0 989   1
+        9   0   0   0   0   0  11   0  10   1 958</span></strong></pre>
+<p>From the preceding output, we observe that loss is lower than we obtained with the earlier model, while accuracy is slightly lower than the earlier performance. From the confusion matrix, we can make the following observations:</p>
+<ul>
+<li>It shows that the model has the maximum confusion (104 misclassifications) between item 6 (shirt) and item 0 (t-shirt/top).</li>
+<li>Item 8 (bag) has been classified most accurately, with 989 instances out of a total of 1,000 (about 98.9% accuracy).</li>
+<li>Item 6 (shirt) has been classified with the lowest accuracy out of 10 categories, with 720 instances out of 1,000 (about 72.0% accuracy).</li>
+</ul>
+<p>Thus, overall, we observe a similar performance to the one that we observed with the training data.</p>
+<p>For the 20 images of fashion items downloaded from the internet, the following screenshot summarizes the performance of the model:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/dfb34d18-652e-478c-a156-d52b01e6da0a.png" style="width:44.25em;height:37.83em;"/></p>
+<p>As seen from the preceding plot, this time, we have 17 out 20 images correctly classified. Although this is a slightly better performance, it is still a little lower than the figure in the region of 92% accuracy for the test data. In addition, note that due to a much smaller sample, the accuracy values can fluctuate significantly.</p>
+<p>In this section, we made modifications to the 20 new images and made some changes to the CNN model architecture to obtain a better classification performance.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Summary</h1>
+                </header>
+            
+            <article>
+                
+<p>In this chapter, we showed how to use a <strong>convolutional neural network</strong> (<strong>CNN</strong>) deep learning model for image recognition and classification. We made use of the popular fashion-MNIST data for training and testing the image classification model. We also went over calculations involving a number of parameters, and were able to contrast this with the number of parameters that would have been needed by a densely connected neural network. CNN models help to significantly reduce the number of parameters needed and thus result in significant savings in computing time and resources. We also used images of fashion items downloaded from the internet to see whether a classification model based on fashion-MNIST data can be generalized to similar items. We did notice that it is important to maintain consistency in the way images are laid out in the training data. Additionally, we also showed how we can add more convolutional layers in the model architecture to develop a deeper CNN model.</p>
+<p>So far, we have gradually progressed from not-so-deep neural network models to more complex and deeper neural network models. We also mainly covered such applications that are categorized under supervised learning methods. In the next chapter, we will go over another interesting class of deep neural network models called autoencoders. We will cover applications involving autoencoder networks that can be classified under unsupervised learning approaches.</p>
+
+
+            </article>
+
+            
+        </section>
+    </body></html>

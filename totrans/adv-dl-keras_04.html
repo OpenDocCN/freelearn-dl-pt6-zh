@@ -1,0 +1,424 @@
+<html><head></head><body><div class="chapter" title="Chapter&#xA0;4.&#xA0;Generative Adversarial Networks (GANs)"><div class="titlepage"><div><div><h1 class="title"><a id="ch04"/>Chapter 4. Generative Adversarial Networks (GANs)</h1></div></div></div><p>In this chapter, we'll be investigating<span class="strong"><strong> Generative Adversarial Networks</strong></span> (<span class="strong"><strong>GAN</strong></span>s) [1], the first of three artificial intelligence algorithms that we'll be looking at. GANs belong to the family of generative models. However, unlike <a id="id158" class="indexterm"/>autoencoders, generative models are able to create new and meaningful outputs given arbitrary encodings.</p><p>In this chapter, the working principles of GANs will be discussed. We'll also review the implementations of several early GANs within Keras. While later on the chapter, we'll be demonstrating the techniques needed to achieve stable training. The scope of this chapter covers two popular examples of GAN implementations, <span class="strong"><strong>Deep Convolutional GAN</strong></span> (<span class="strong"><strong>DCGAN</strong></span>) [2] and <span class="strong"><strong>Conditional GAN</strong></span> (<span class="strong"><strong>CGAN</strong></span>) [3].</p><p>In summary, the goal of this chapter is to:</p><div class="itemizedlist"><ul class="itemizedlist"><li class="listitem" style="list-style-type: disc">Introduce the principles of GANs</li><li class="listitem" style="list-style-type: disc">How to implement GANs such as DCGAN and CGAN in Keras</li></ul></div><div class="section" title="An overview of GANs"><div class="titlepage"><div><div><h1 class="title"><a id="ch04lvl1sec23"/>An overview of GANs</h1></div></div></div><p>Before we move into the more advanced concepts of GANs, let's start by going over GANs, and introducing the underlying concepts of them. GANs are very powerful; this simple statement is proven by the fact that they can generate new celebrity faces that are not of real people by performing latent space interpolations.</p><p>A great example of the advanced features of GANs [4] can be seen with this YouTube video (<a class="ulink" href="https://youtu.be/G06dEcZ-QTg">https://youtu.be/G06dEcZ-QTg</a>). The video, which shows how GANs can be utilized to produce realistic faces just shows how powerful they can be. This topic is much more advanced than anything we've looked at before in this book. For example, the above video is something that can't be accomplished easily by autoencoders, which we covered in <a class="link" href="ch03.html" title="Chapter 3. Autoencoders">Chapter 3</a>, <span class="emphasis"><em>Autoencoders</em></span>.</p><p>GANs are able to learn how to <a id="id159" class="indexterm"/>model the input <a id="id160" class="indexterm"/>distribution by training two competing (and cooperating) networks referred to as <span class="strong"><strong>generator</strong></span> and <span class="strong"><strong>discriminator</strong></span> (sometimes known as <span class="strong"><strong>critic</strong></span>). The role<a id="id161" class="indexterm"/> of the generator is to keep on figuring out how to generate fake data or signals (this includes, audio and images) that can fool the discriminator. Meanwhile, the discriminator is trained to distinguish between fake and real signals. As the training progresses, the discriminator will no longer be able to see the difference between the synthetically generated data and the real ones. From there, the discriminator can be discarded, and the generator can now be used to create new realistic signals that have never been observed before.</p><p>The underlying concept of GANs is straightforward. However, one thing we'll find is that the most challenging aspect is how do we achieve stable training of the generator-discriminator network? There must be a healthy competition between the generator and discriminator in order for both networks to be able to learn simultaneously. Since the loss function is computed from the output of the discriminator, its parameters update is fast. When the discriminator converges faster, the generator no longer receives sufficient gradient updates for its parameters and fails to converge. Other than being hard to train, GANs can also suffer from either a partial or total modal collapse, a situation wherein the generator is producing almost similar outputs for different latent encodings.</p></div></div>
+<div class="section" title="Principles of GANs"><div class="titlepage"><div><div><h1 class="title"><a id="ch04lvl1sec24"/>Principles of GANs</h1></div></div></div><p>As shown <a id="id162" class="indexterm"/>in <span class="emphasis"><em>Figure 4.1.1</em></span> a GAN is analogous to a counterfeiter (generator) - police (discriminator) scenario. At the academy, the police are taught how to determine if a dollar bill is either genuine or fake. Samples of real dollar bills from the bank and fake money from the counterfeiter are used to train the police. However, from time to time, the counterfeiter will attempt to pretend that he printed real dollar bills. Initially, the police will not be fooled and will tell the counterfeiter why the money is fake. Taking into consideration this feedback, the counterfeiter hones his skills again and attempts to produce <a id="id163" class="indexterm"/>new fake dollar bills. As expected the police will be able to both spot the money as fake and justify why the dollar bills are fake.</p><div class="mediaobject"><img src="graphics/B08956_04_01.jpg" alt="Principles of GANs"/><div class="caption"><p>Figure 4.1.1: The generator and discriminator of GANs are analogous to the counterfeiter and the police. The goal of the counterfeiter is to fool the police into believing that the dollar bill is real.</p></div></div><p>This scenario continues indefinitely but eventually, a time will come when the counterfeiter has mastered his skills in making fake dollar bills that are indistinguishable from real ones. The counterfeiter can then infinitely print dollar bills without getting caught by the police as they are no longer indefinable as counterfeit.</p><div class="mediaobject"><img src="graphics/B08956_04_02.jpg" alt="Principles of GANs"/><div class="caption"><p>Figure 4.1.2: A GAN is made up of two networks, a generator, and a discriminator. The discriminator is trained to distinguish between real and fake signals or data. The generator's job is to generate fake signals or data that can eventually fool the discriminator.</p></div></div><p>As shown in <span class="emphasis"><em>Figure 4.1.2</em></span>, a GAN is made up of two networks, a generator, and a discriminator. The input to the generator is noise, and the output is a synthesized signal. Meanwhile, the discriminator's input will be either a real or a synthesized signal. Genuine signals come from the true sampled data, while the fake signals come from the generator. All of the valid signals are labeled 1.0 (that is, 100% probability of being real) while all the synthesized signals are labeled 0.0 (that is, 0% probability of being real). Since the labeling process is automated, GANs are still considered part of the unsupervised learning approach in deep learning.</p><p>The objective of the discriminator is to learn from this supplied dataset on how to distinguish real signals from fake signals. During this part of GAN training, only the discriminator parameters will be updated. Like a typical binary classifier, the discriminator is trained to predict on a range of 0.0 to 1.0 in confidence values on how close a given input signal is to the true one. However, this is only half of the story.</p><p>At regular intervals, the generator will pretend that its output is a genuine signal and will ask the GAN to label it as 1.0. When the fake signal is then presented to the discriminator, naturally it will be classified as fake with a label close to 0.0. The optimizer computes the generator parameter updates based on the presented label (that is, 1.0). It also takes its own prediction into account when training on this new data. In other words, the discriminator has some doubt about its prediction, and so, GANs takes that into consideration. This time, GANs will let the gradients backpropagate from the last layer of the discriminator down to the first layer of the generator. However, in most practices, during this phase of training, the discriminator parameters are temporarily frozen. The generator will use the gradients to update its parameters and improve its ability to synthesize fake signals.</p><p>Overall, the whole process is akin to <a id="id164" class="indexterm"/>two networks competing with one another while still cooperating at the same time. When the GAN training converges, the end result is a generator that can synthesize signals. The discriminator thinks these synthesized signals are real or with a label near 1.0, which means the discriminator can then be discarded. The generator part will be useful in producing meaningful outputs from arbitrary noise inputs.</p><div class="mediaobject"><img src="graphics/B08956_04_03.jpg" alt="Principles of GANs"/><div class="caption"><p>Figure 4.1.3: Training the discriminator is similar to training a binary classifier network using binary cross-entropy loss. The fake data is supplied by the generator while real data is from true samples.</p></div></div><p>As shown in the preceding figure, the discriminator can be trained by minimizing the loss function in the following equation:</p><p><span class="inlinemediaobject"><img src="graphics/B08956_04_001.jpg" alt="Principles of GANs"/></span>          (Equation 4.1.1)</p><p>The equation is just the standard binary <a id="id165" class="indexterm"/>cross-entropy cost function. The loss is the negative sum of the expectation of correctly identifying real data, <span class="inlinemediaobject"><img src="graphics/B08956_04_002.jpg" alt="Principles of GANs"/></span>, and the expectation of 1.0 minus correctly identifying synthetic data, <span class="inlinemediaobject"><img src="graphics/B08956_04_003.jpg" alt="Principles of GANs"/></span>. The log does not change the location of the local minima. Two mini-batches of data are supplied to the discriminator during training:</p><div class="orderedlist"><ol class="orderedlist arabic"><li class="listitem"><span class="inlinemediaobject"><img src="graphics/B08956_04_004.jpg" alt="Principles of GANs"/></span>, real from sampled data (that is, <span class="inlinemediaobject"><img src="graphics/B08956_04_005.jpg" alt="Principles of GANs"/></span>) with label 1.0
+</li><li class="listitem"><span class="inlinemediaobject"><img src="graphics/B08956_04_006.jpg" alt="Principles of GANs"/></span>
+, fake data from the generator with label 0.0
+</li></ol></div><p>In order to minimize the loss function, the discriminator parameters, <span class="inlinemediaobject"><img src="graphics/B08956_04_007.jpg" alt="Principles of GANs"/></span>, will be updated through backpropagation by correctly identifying the genuine data, <span class="inlinemediaobject"><img src="graphics/B08956_04_008.jpg" alt="Principles of GANs"/></span>, and synthetic data, <span class="inlinemediaobject"><img src="graphics/B08956_04_009.jpg" alt="Principles of GANs"/></span>. Correctly identifying real data is equivalent to <span class="inlinemediaobject"><img src="graphics/B08956_04_010.jpg" alt="Principles of GANs"/></span> while correctly classifying fake data is the same as <span class="inlinemediaobject"><img src="graphics/B08956_04_011.jpg" alt="Principles of GANs"/></span> or <span class="inlinemediaobject"><img src="graphics/B08956_04_012.jpg" alt="Principles of GANs"/></span>. In this equation, <span class="inlinemediaobject"><img src="graphics/B08956_04_013.jpg" alt="Principles of GANs"/></span> is the arbitrary encoding or noise vector that is used by the generator to synthesize new signals. Both contribute to minimizing the loss function.</p><p>To train the generator, GAN considers the total of the discriminator and generator losses as a zero-sum game. The generator loss function is simply the negative of the discriminator loss function:</p><div class="mediaobject"><img src="graphics/B08956_04_014.jpg" alt="Principles of GANs"/></div><p>          (Equation 4.1.2)</p><p>This can then be rewritten more aptly as a value function:</p><div class="mediaobject"><img src="graphics/B08956_04_015.jpg" alt="Principles of GANs"/></div><p>          (Equation 4.1.3)</p><p>From the perspective of the generator, <span class="emphasis"><em>Equation 4.1.3</em></span> should be minimized. From the point of view of the discriminator, the value function should be maximized. Therefore, the generator training criterion can be written as a minimax problem:</p><div class="mediaobject"><img src="graphics/B08956_04_016.jpg" alt="Principles of GANs"/></div><p>          (Equation 4.1.4)</p><p>Occasionally, we'll try to fool the discriminator by pretending that the synthetic data is real with label 1.0. By maximizing with respect to <span class="inlinemediaobject"><img src="graphics/B08956_04_017.jpg" alt="Principles of GANs"/></span>, the optimizer sends gradient updates to the discriminator <a id="id166" class="indexterm"/>parameters to consider this synthetic data as real. At the same time, by minimizing with respect to <span class="inlinemediaobject"><img src="graphics/B08956_04_018.jpg" alt="Principles of GANs"/></span>, the optimizer will train the generator's parameters on how to trick the discriminator. However, in practice, the discriminator is confident in its prediction in classifying the synthetic data as fake and will not update its parameters. Furthermore, the gradient updates are small and have diminished significantly as they propagate to the generator layers. As a result, the generator fails to converge:</p><div class="mediaobject"><img src="graphics/B08956_04_04.jpg" alt="Principles of GANs"/><div class="caption"><p>Figure 4.1.4: Training the generator is like training a network using a binary cross-entropy loss function. The fake data from the generator is presented as genuine.</p></div></div><p>The solution is to reformulate the loss function of the generator in the form:</p><div class="mediaobject"><img src="graphics/B08956_04_019.jpg" alt="Principles of GANs"/></div><p>          (Equation 4.1.5)</p><p>The loss function simply maximizes the chance of the discriminator into believing that the synthetic data is real by training the generator. The new formulation is no longer zero-sum and is purely heuristics-driven. <span class="emphasis"><em>Figure 4.1.4</em></span> shows the generator during training. In this figure, the generator parameters are only updated when the whole adversarial network is trained. This is because the gradients are passed down from the <a id="id167" class="indexterm"/>discriminator to the generator. However, in practice, the discriminator weights are only temporarily frozen during adversarial training.</p><p>In deep learning, both the generator and discriminator can be implemented using a suitable neural network architecture. If the data or signal is an image, both the generator and discriminator networks will use a CNN. For single-dimensional sequences like in NLP, both networks are usually recurrent (RNN, LSTM or GRU).</p></div>
+<div class="section" title="GAN implementation in Keras"><div class="titlepage"><div><div><h1 class="title"><a id="ch04lvl1sec25"/>GAN implementation in Keras</h1></div></div></div><p>In the previous section, we learned that the principles behind GANs are straightforward. We also learned how GANs <a id="id168" class="indexterm"/>could be implemented by familiar network layers such as CNNs and RNNs. What differentiates GANs from other networks is they are notoriously <a id="id169" class="indexterm"/>difficult to train. Something as simple as a minor change in the layers can drive the network to training instability.</p><p>In this section, we'll examine one of the early successful implementations of GANs using deep CNNs. It is called DCGAN [3].</p><p>
+<span class="emphasis"><em>Figure 4.2.1</em></span> shows DCGAN that is used to generate fake MNIST images. DCGAN recommends the following design principles:</p><div class="itemizedlist"><ul class="itemizedlist"><li class="listitem" style="list-style-type: disc">Use of <span class="emphasis"><em>strides</em></span> &gt; 1 convolution instead of <code class="literal">MaxPooling2D</code> or <code class="literal">UpSampling2D</code>. With <span class="emphasis"><em>strides</em></span> &gt; 1, the CNN learns how to resize the feature maps.</li><li class="listitem" style="list-style-type: disc">Avoid using <code class="literal">Dense</code> layers. Use CNN in all layers. The <code class="literal">Dense</code> layer is utilized only as the first layer of the generator to accept the <span class="emphasis"><em>z</em></span>-vector. The output of the <code class="literal">Dense</code> layer is resized and becomes the input of the succeeding CNN layers.</li><li class="listitem" style="list-style-type: disc">Use of <span class="strong"><strong>Batch Normalization</strong></span> (<span class="strong"><strong>BN</strong></span>) to stabilize learning by normalizing the input to each layer to have zero <a id="id170" class="indexterm"/>mean and unit variance. No BN in the generator output layer and discriminator input layer. In the implementation example to be presented here, no batch normalization is used in the discriminator.</li><li class="listitem" style="list-style-type: disc"><span class="strong"><strong>Rectified Linear Unit</strong></span> (<span class="strong"><strong>ReLU</strong></span>) is used in all layers of the generator except in the output layer where the <span class="emphasis"><em>tanh</em></span> activation is <a id="id171" class="indexterm"/>utilized. In the implementation example to be presented here, <span class="emphasis"><em>sigmoid</em></span> is used instead of <span class="emphasis"><em>tanh</em></span> in the output of the generator since it generally results in a more stable training for MNIST digits.</li><li class="listitem" style="list-style-type: disc">Use of <span class="strong"><strong>Leaky ReLU</strong></span> in all layers <a id="id172" class="indexterm"/>of the discriminator. Unlike ReLU, instead of zeroing out all outputs when the input is less than zero, Leaky ReLU generates a small gradient equal to <span class="emphasis"><em>alpha</em></span> × <span class="emphasis"><em>input</em></span>. In the following example, <span class="emphasis"><em>alpha</em></span> = 0.2.</li></ul></div><div class="mediaobject"><img src="graphics/B08956_04_05.jpg" alt="GAN implementation in Keras"/><div class="caption"><p>Figure 4.2.1: A DCGAN model</p></div></div><p>The generator learns to generate fake images from 100-dim input vectors ([-1.0, 1.0] range 100-dim random noise with uniform distribution). The discriminator classifies real from fake images but inadvertently coaches the generator how to generate real images when the adversarial network <a id="id173" class="indexterm"/>is trained. The kernel size used in our DCGAN implementation is 5, this is to allow it to increase the coverage and expressive power of the convolution.</p><p>The generator accepts the 100-dim <span class="emphasis"><em>z</em></span>-vector generated by a uniform distribution with a range of -1.0 to 1.0. The first layer <a id="id174" class="indexterm"/>of the generator is a 7 × 7 ×128 = 6,272 - <span class="emphasis"><em>unit</em></span> <code class="literal">Dense</code> layer. The number of units is computed based on the intended ultimate dimensions of the output image (28 × 28 × 1, 28 is a multiple of 7) and the number of filters of the first <code class="literal">Conv2DTranspose</code>, which is equal to 128. We can imagine transposed CNNs (<code class="literal">Conv2DTranspose</code>) as the reversed process of CNN. In a simple example, if a CNN converts an image to feature maps, a transposed CNN will produce an image given feature maps. Hence, transposed CNNs were used in the decoder in the previous chapter and here on generators.</p><p>After undergoing two <code class="literal">Conv2DTranspose</code> with <code class="literal">strides = 2</code>, the feature maps will have a size of 28 × 28 × <span class="emphasis"><em>number of filters</em></span>. Each <code class="literal">Conv2DTranspose</code> is preceded by batch normalization and ReLU. The final layer has <span class="emphasis"><em>sigmoid</em></span> activation that generates the 28 × 28 × 1 fake MNIST images. Each <a id="id175" class="indexterm"/>pixel is normalized to [0.0, 1.0] corresponding to [0, 255] grayscale levels. Following listing shows the implementation of the generator network in Keras. A function is defined to <a id="id176" class="indexterm"/>build the generator model. Due to the length of the entire code, we will limit the listing to the particular lines being discussed.</p><div class="note" title="Note" style=""><div class="inner"><h3 class="title"><a id="note03"/>Note</h3><p>The complete code is available on GitHub: <a class="ulink" href="https://github.com/PacktPublishing/Advanced-Deep-">https://github.com/PacktPublishing/Advanced-Deep-</a>
+<a class="ulink" href="http://Learning-with-Keras">Learning-with-Keras</a>.</p></div></div><p>Listing 4.2.1, <code class="literal">dcgan-mnist-4.2.1.py</code> shows us the generator network builder function for DCGAN:</p><div class="informalexample"><pre class="programlisting">def build_generator(inputs, image_size):
+    """Build a Generator Model
+
+    Stack of BN-ReLU-Conv2DTranpose to generate fake images.
+    Output activation is sigmoid instead of tanh in [1].
+    Sigmoid converges easily.
+
+    # Arguments
+        inputs (Layer): Input layer of the generator (the z-vector)
+        image_size: Target size of one side (assuming square image)
+
+    # Returns
+        Model: Generator Model
+    """
+
+    image_resize = image_size // 4
+    # network parameters 
+    kernel_size = 5
+    layer_filters = [128, 64, 32, 1]
+
+    x = Dense(image_resize * image_resize * layer_filters[0])(inputs)
+    x = Reshape((image_resize, image_resize, layer_filters[0]))(x)
+
+    for filters in layer_filters:
+        # first two convolution layers use strides = 2
+        # the last two use strides = 1
+        if filters &gt; layer_filters[-2]:
+            strides = 2
+        else:
+            strides = 1
+        x = BatchNormalization()(x)
+        x = Activation('relu')(x)
+        x = Conv2DTranspose(filters=filters,
+                            kernel_size=kernel_size,
+                            strides=strides,
+                            padding='same')(x)
+
+    x = Activation('sigmoid')(x)
+    generator = Model(inputs, x, name='generator')
+    return generator</pre></div><p>The discriminator is similar to many CNN-based classifiers. The input is a 28 × 28 × 1 MNIST image that is classified as either real (1.0) or fake (0.0). There are four CNN layers. Except for the last convolution, each <code class="literal">Conv2D</code> uses <code class="literal">strides = 2</code> to down sample the feature maps by two. Each <code class="literal">Conv2D</code> is then preceded by a Leaky ReLU layer. The final filter size is 256, while the initial filter size is 32 and doubles every convolution layer. The final filter size of 128 also works. However, we'll find that the generated images look better with 256. The final output layer is flattened, and a single unit <code class="literal">Dense</code> layer generates the prediction between 0.0 to 1.0 after scaling by the sigmoid activation layer. The output is modeled as a Bernoulli distribution. Hence, the binary cross-entropy <a id="id177" class="indexterm"/>loss function is used.</p><p>After building the generator and discriminator models, the adversarial model is made by concatenating the generator and <a id="id178" class="indexterm"/>discriminator networks. Both discriminator and adversarial networks use the RMSprop optimizer. The learning rate for the discriminator is 2e-4 while for the adversarial network, it is 1e-4. RMSprop decay rates of 6e-8 for discriminator and 3e-8 for the adversarial network are applied. Setting the learning rate of the adversarial equal to half of the discriminator will result in a more stable training. We'll recall from <span class="emphasis"><em>Figure 4.1.3</em></span> and <span class="emphasis"><em>4.1.4</em></span>, that the GAN training has two parts: discriminator training and generator training, which is adversarial training, with discriminator weights frozen.</p><p>
+<span class="emphasis"><em>Listing</em></span> <span class="emphasis"><em>4.2.2</em></span> shows the implementation of the discriminator in Keras. A function is defined to build the discriminator model. In <span class="emphasis"><em>Listing</em></span> <span class="emphasis"><em>4.2.3</em></span>, we'll illustrate how to build GAN models. Firstly, the discriminator model is built and following on from that the generator model is instantiated. The adversarial model is just the generator and the discriminator put together. Across many GANs, the batch size of 64 appears to be the most common. The network parameters are shown in <span class="emphasis"><em>Listing</em></span> <span class="emphasis"><em>4.2.3</em></span>.</p><p>As can be seen in <span class="emphasis"><em>Listing</em></span> <span class="emphasis"><em>4.2.1</em></span> and <span class="emphasis"><em>4.2.2</em></span>, the DCGAN models are straightforward. What makes it difficult to build <a id="id179" class="indexterm"/>is small changes in the network design can easily break the training convergence. For example, if batch normalization is used in the discriminator or if <code class="literal">strides = 2</code> in the generator <a id="id180" class="indexterm"/>is transferred to the latter CNN layers, DCGAN will fail to converge.</p><p>Listing 4.2.2, <code class="literal">dcgan-mnist-4.2.1.py</code> shows us the discriminator network builder function for DCGAN:</p><div class="informalexample"><pre class="programlisting">def build_discriminator(inputs):
+    """Build a Discriminator Model
+
+    Stack of LeakyReLU-Conv2D to discriminate real from fake.
+    The network does not converge with BN so it is not used here
+    unlike in [1] or original paper.
+
+    # Arguments
+        inputs (Layer): Input layer of the discriminator (the image)
+
+    # Returns
+        Model: Discriminator Model
+    """
+    kernel_size = 5
+    layer_filters = [32, 64, 128, 256]
+
+    x = inputs
+    for filters in layer_filters:
+        # first 3 convolution layers use strides = 2
+        # last one uses strides = 1
+        if filters == layer_filters[-1]:
+            strides = 1
+        else:
+            strides = 2
+        x = LeakyReLU(alpha=0.2)(x)
+        x = Conv2D(filters=filters,
+                   kernel_size=kernel_size,
+                   strides=strides,
+                   padding='same')(x)
+
+    x = Flatten()(x)
+    x = Dense(1)(x)
+    x = Activation('sigmoid')(x)
+    discriminator = Model(inputs, x, name='discriminator')
+    return discriminator</pre></div><p>Listing 4.2.3, <code class="literal">dcgan-mnist-4.2.1.py</code>: Function to build DCGAN models and call the training routine:</p><div class="informalexample"><pre class="programlisting">def build_and_train_models():
+    # load MNIST dataset
+    (x_train, _), (_, _) = mnist.load_data()
+
+    # reshape data for CNN as (28, 28, 1) and normalize
+    image_size = x_train.shape[1]
+    x_train = np.reshape(x_train, [-1, image_size, image_size, 1])
+    x_train = x_train.astype('float32') / 255
+
+    model_name = "dcgan_mnist"
+    # network parameters
+    # the latent or z vector is 100-dim
+    latent_size = 100
+    batch_size = 64
+    train_steps = 40000
+    lr = 2e-4
+    decay = 6e-8
+    input_shape = (image_size, image_size, 1)
+
+    # build discriminator model
+    inputs = Input(shape=input_shape, name='discriminator_input')
+    discriminator = build_discriminator(inputs)
+    # [1] or original paper uses Adam, 
+    # but discriminator converges easily with RMSprop
+    optimizer = RMSprop(lr=lr, decay=decay)
+    discriminator.compile(loss='binary_crossentropy',
+                          optimizer=optimizer,
+                          metrics=['accuracy'])
+    discriminator.summary()
+
+    # build generator model
+    input_shape = (latent_size, )
+    inputs = Input(shape=input_shape, name='z_input')
+    generator = build_generator(inputs, image_size)
+    generator.summary()
+
+    # build adversarial model
+    optimizer = RMSprop(lr=lr * 0.5, decay=decay * 0.5)
+    # freeze the weights of discriminator 
+    # during adversarial training
+    discriminator.trainable = False
+    # adversarial = generator + discriminator
+    adversarial = Model(inputs,
+                        discriminator(generator(inputs)),
+                        name=model_name)
+    adversarial.compile(loss='binary_crossentropy',
+                        optimizer=optimizer,
+                        metrics=['accuracy'])
+    adversarial.summary()
+
+    # train discriminator and adversarial networks
+    models = (generator, discriminator, adversarial)
+    params = (batch_size, latent_size, train_steps, model_name)
+    train(models, x_train, params)</pre></div><p>
+<span class="emphasis"><em>Listing</em></span> <span class="emphasis"><em>4.2.4</em></span> shows the function dedicated to training the discriminator and adversarial networks. Due to custom training, the usual <code class="literal">fit()</code> function is not going to be used. Instead, <code class="literal">train_on_batch()</code> is called up to run a single gradient update for the given batch of data. The generator is then trained via an adversarial network. The training first randomly picks a batch of real images from the dataset. This is labeled as real (1.0). Then a batch of fake images will be generated by the generator. This is labeled as fake (0.0). The two batches are concatenated and are used to train the discriminator.</p><p>After this is completed, a new batch of fake images will be generated by the generator and labeled as real (1.0). This batch will be used to train the adversarial network. The two <a id="id181" class="indexterm"/>networks are trained alternately for about 40,000 steps. At regular intervals, the generated MNIST digits based on a certain noise vector are saved on the filesystem. At the last <a id="id182" class="indexterm"/>training step, the network has converged. The generator model is also saved on a file so we can easily reuse the trained model for future MNIST digits generation. However, only the generator model is saved since that is the useful part of GANs in the generation of new MNIST digits. For example, we can generate new and random MNIST digits by executing:</p><div class="informalexample"><pre class="programlisting">
+<span class="strong"><strong>python3 dcgan-mnist-4.2.1.py --generator=dcgan_mnist.h5</strong></span>
+</pre></div><p>Listing 4.2.4, <code class="literal">dcgan-mnist-4.2.1.py</code> shows us the function to train the discriminator and adversarial networks:</p><div class="informalexample"><pre class="programlisting">def train(models, x_train, params):
+    """Train the Discriminator and Adversarial Networks
+
+    Alternately train Discriminaor and Adversarial networks by batch.
+    Discriminator is trained first with properly real and fake images.
+    Adversarial is trained next with fake images pretending to be real
+    Generate sample images per save_interval.
+
+    # Arguments
+        models (list): Generator, Discriminator, Adversarial models
+        x_train (tensor): Train images
+        params (list) : Networks parameters
+
+    """
+    # the GAN models
+    generator, discriminator, adversarial = models
+    # network parameters
+    batch_size, latent_size, train_steps, model_name = params
+    # the generator image is saved every 500 steps
+    save_interval = 500
+    # noise vector to see how the generator output evolves 
+    # during training
+    noise_input = np.random.uniform(-1.0, 1.0, size=[16, latent_size])
+    # number of elements in train dataset
+    train_size = x_train.shape[0]
+    for i in range(train_steps):
+        # train the discriminator for 1 batch
+        # 1 batch of real (label=1.0) and fake images (label=0.0)
+        # randomly pick real images from dataset
+        rand_indexes = np.random.randint(0, train_size, size=batch_size)
+        real_images = x_train[rand_indexes]
+        # generate fake images from noise using generator 
+        # generate noise using uniform distribution
+        noise = np.random.uniform(-1.0, 1.0, size=[batch_size, latent_size])
+        # generate fake images
+        fake_images = generator.predict(noise)
+        # real + fake images = 1 batch of train data
+        x = np.concatenate((real_images, fake_images))
+        # label real and fake images
+        # real images label is 1.0
+        y = np.ones([2 * batch_size, 1])
+        # fake images label is 0.0
+        y[batch_size:, :] = 0.0
+        # train discriminator network, log the loss and accuracy
+        loss, acc = discriminator.train_on_batch(x, y)
+        log = "%d: [discriminator loss: %f, acc: %f]" % (i, loss, acc)
+
+        # train the adversarial network for 1 batch
+        # 1 batch of fake images with label=1.0
+        # since the discriminator weights are frozen in adversarial network
+        # only the generator is trained
+        # generate noise using uniform distribution
+        noise = np.random.uniform(-1.0, 1.0, size=[batch_size, latent_size])
+        # label fake images as real or 1.0
+        y = np.ones([batch_size, 1])
+        # train the adversarial network 
+        # note that unlike in discriminator training, 
+        # we do not save the fake images in a variable
+        # the fake images go to the discriminator input of the adversarial
+        # for classification
+        # log the loss and accuracy
+        loss, acc = adversarial.train_on_batch(noise, y)
+        log = "%s [adversarial loss: %f, acc: %f]" % (log, loss, acc)
+        print(log)
+        if (i + 1) % save_interval == 0:
+            if (i + 1) == train_steps:
+                show = True
+            else:
+                show = False
+
+            # plot generator images on a periodic basis
+            plot_images(generator,
+                        noise_input=noise_input,
+                        show=show,
+                        step=(i + 1),
+                        model_name=model_name)
+
+    # save the model after training the generator
+    # the trained generator can be reloaded for future MNIST digit generation
+    generator.save(model_name + ".h5")</pre></div><p>
+<span class="emphasis"><em>Figure 4.2.1</em></span> shows the evolution of <a id="id183" class="indexterm"/>fake images from the generator as a function of training steps. At 5,000 steps, the generator is already producing recognizable images. It's very much like having an agent that knows <a id="id184" class="indexterm"/>how to draw digits. It's worth noting that some digits change from one recognizable form (for example, 8 on the 2nd column of the last row) to another (for example, 0). When the training converges, the discriminator loss reaches near 0.5 while the adversarial loss approaches near 1.0 as follows:</p><div class="informalexample"><pre class="programlisting">39997: [discriminator loss: 0.423329, acc: 0.796875] [adversarial loss: 0.819355, acc: 0.484375]
+39998: [discriminator loss: 0.471747, acc: 0.773438] [adversarial loss: 1.570030, acc: 0.203125]
+39999: [discriminator loss: 0.532917, acc: 0.742188] [adversarial loss: 0.824350, acc: 0.453125]</pre></div><div class="mediaobject"><img src="graphics/B08956_04_06.jpg" alt="GAN implementation in Keras"/><div class="caption"><p>Figure 4.2.2: The fake images generated by the DCGAN generator at different training steps</p></div></div></div>
+<div class="section" title="Conditional GAN"><div class="titlepage"><div><div><h1 class="title"><a id="ch04lvl1sec26"/>Conditional GAN</h1></div></div></div><p>In the previous section, the fake images generated by the DCGAN are random. There is no control over which specific digits <a id="id185" class="indexterm"/>will be produced by the generator. There is no mechanism for how to request a particular digit from the generator. This problem can be addressed by a variation of GAN called <span class="strong"><strong>Conditional GAN</strong></span> (<span class="strong"><strong>CGAN</strong></span>) [4].</p><p>Using the same GAN, a condition is imposed on both the generator and discriminator inputs. The condition is in the form of a one-hot vector version of the digit. This is associated with the image to produce (generator) or classified as real or fake (discriminator). The CGAN model is shown in <span class="emphasis"><em>Figure 4.3.1</em></span>.</p><p>CGAN is similar to DCGAN except for the additional one-hot vector input. For the generator, the one-hot label is concatenated with the latent vector before the <code class="literal">Dense</code> layer. For the discriminator, a new <code class="literal">Dense</code> layer is <a id="id186" class="indexterm"/>added. The new layer is used to process the one-hot vector and reshape it so that it is suitable for concatenation to the other input of the succeeding CNN layer:</p><div class="mediaobject"><img src="graphics/B08956_04_08.jpg" alt="Conditional GAN"/><div class="caption"><p>Figure 4.3.1: The CGAN model is similar to DCGAN except for the one-hot vector, which is used to condition the generator and discriminator outputs</p></div></div><p>The generator learns to generate fake images from a 100-dim input vector and a specified digit. The discriminator classifies real from fake images based on real and fake images and their corresponding labels.</p><p>The basis of CGAN is still the same as the original GAN principle except that the discriminator and generator inputs are conditioned <a id="id187" class="indexterm"/>on one-hot labels, <span class="emphasis"><em>y</em></span>. By incorporating this condition in <span class="emphasis"><em>Equations</em></span> <span class="emphasis"><em>4.1.1</em></span> and <span class="emphasis"><em>4.1.5</em></span>, the loss functions for the discriminator and generator are shown in <span class="emphasis"><em>Equations</em></span> <span class="emphasis"><em>4.3.1</em></span> and <span class="emphasis"><em>4.3.2</em></span> respectively.</p><p>Given <span class="emphasis"><em>Figure 4.3.2</em></span>, it may be more appropriate to write the loss functions as:</p><div class="mediaobject"><img src="graphics/B08956_04_021.jpg" alt="Conditional GAN"/></div><p>and </p><div class="mediaobject"><img src="graphics/B08956_04_022.jpg" alt="Conditional GAN"/></div><p>.</p><div class="mediaobject"><img src="graphics/B08956_04_023.jpg" alt="Conditional GAN"/></div><p>          (Equation 4.3.1)</p><div class="mediaobject"><img src="graphics/B08956_04_025.jpg" alt="Conditional GAN"/></div><p>          (Equation 4.3.2)</p><p>The new loss function of the discriminator aims to minimize the error of predicting real images coming from the dataset <a id="id188" class="indexterm"/>and fake images coming from the generator given their one-hot labels. <span class="emphasis"><em>Figure 4.3.2</em></span> shows how to train the discriminator.</p><div class="mediaobject"><img src="graphics/B08956_04_09.jpg" alt="Conditional GAN"/><div class="caption"><p>Figure 4.3.2: Training the CGAN discriminator is similar to training the GAN discriminator. The only difference is both the generated fake and the dataset's real images are conditioned with their corresponding one-hot labels.</p></div></div><p>The new loss function of the generator minimizes the correct prediction of the discriminator on fake images conditioned on the specified one-hot labels. The generator learns how to generate the specific MNIST digit given its one-hot vector that can fool the discriminator. The following figure shows how to train the generator:</p><div class="mediaobject"><img src="graphics/B08956_04_07.jpg" alt="Conditional GAN"/><div class="caption"><p>Figure 4.3.3: Training the CGAN generator through the adversarial network is similar to training GAN generator. The only difference is the generated fake images are conditioned with one-hot labels.</p></div></div><p>Following listing highlights the minor changes needed in the discriminator model. The code processes the one-hot vector using a <code class="literal">Dense</code> layer and concatenates it with the image input. The <code class="literal">Model</code> instance is <a id="id189" class="indexterm"/>modified for the image and one-hot vector inputs.</p><p>Listing 4.3.1, <code class="literal">cgan-mnist-4.3.1.py</code> shows us the CGAN discriminator. In highlight are the changes made in DCGAN.</p><div class="informalexample"><pre class="programlisting">def build_discriminator(inputs, y_labels, image_size):
+    """Build a Discriminator Model
+
+    Inputs are concatenated after Dense layer.
+    Stack of LeakyReLU-Conv2D to discriminate real from fake.
+    The network does not converge with BN so it is not used here
+    unlike in DCGAN paper.
+
+    # Arguments
+        inputs (Layer): Input layer of the discriminator (the image)
+        y_labels (Layer): Input layer for one-hot vector to condition
+            the inputs
+        image_size: Target size of one side (assuming square image)
+
+    # Returns
+        Model: Discriminator Model
+    """
+    kernel_size = 5
+    layer_filters = [32, 64, 128, 256]
+
+    x = inputs
+
+    y = Dense(image_size * image_size)(y_labels)
+    y = Reshape((image_size, image_size, 1))(y)
+    x = concatenate([x, y])
+
+    for filters in layer_filters:
+        # first 3 convolution layers use strides = 2
+        # last one uses strides = 1
+        if filters == layer_filters[-1]:
+            strides = 1
+        else:
+            strides = 2
+        x = LeakyReLU(alpha=0.2)(x)
+        x = Conv2D(filters=filters,
+                   kernel_size=kernel_size,
+                   strides=strides,
+                   padding='same')(x)
+
+    x = Flatten()(x)
+    x = Dense(1)(x)
+    x = Activation('sigmoid')(x)
+<span class="strong"><strong>    </strong></span>
+<span class="strong"><strong># input is conditioned by y_labels</strong></span>
+<span class="strong"><strong>    discriminator = Model([inputs, y_labels], </strong></span>
+<span class="strong"><strong>                                   x,</strong></span>
+<span class="strong"><strong>                                   name='discriminator')</strong></span>
+    return discriminator</pre></div><p>Following listing highlights the code changes to incorporate the conditioning one-hot labels in the generator builder <a id="id190" class="indexterm"/>function. The <code class="literal">Model</code> instance is modified for the <span class="emphasis"><em>z</em></span>-vector and one-hot vector inputs.</p><p>Listing 4.3.2, <code class="literal">cgan-mnist-4.3.1.py</code> shows us the CGAN generator. In highlight are the changes made in DCGAN:</p><div class="informalexample"><pre class="programlisting">def build_generator(inputs, y_labels, image_size):
+    """Build a Generator Model
+
+    Inputs are concatenated before Dense layer.
+    Stack of BN-ReLU-Conv2DTranpose to generate fake images.
+    Output activation is sigmoid instead of tanh in orig DCGAN.
+    Sigmoid converges easily.
+
+    # Arguments
+        inputs (Layer): Input layer of the generator (the z-vector)
+        y_labels (Layer): Input layer for one-hot vector to condition
+            the inputs
+        image_size: Target size of one side (assuming square image)
+
+    # Returns
+        Model: Generator Model
+    """
+    image_resize = image_size // 4
+    # network parameters
+    kernel_size = 5
+    layer_filters = [128, 64, 32, 1]
+
+<span class="strong"><strong>    x = concatenate([inputs, y_labels], axis=1)</strong></span>
+    x = Dense(image_resize * image_resize * layer_filters[0])(x)
+    x = Reshape((image_resize, image_resize, layer_filters[0]))(x)
+
+    for filters in layer_filters:
+        # first two convolution layers use strides = 2
+        # the last two use strides = 1
+        if filters &gt; layer_filters[-2]:
+            strides = 2
+        else:
+            strides = 1
+        x = BatchNormalization()(x)
+        x = Activation('relu')(x)
+        x = Conv2DTranspose(filters=filters,
+                            kernel_size=kernel_size,
+                            strides=strides,
+                            padding='same')(x)
+
+    x = Activation('sigmoid')(x)
+<span class="strong"><strong>    # input is conditioned by y_labels</strong></span>
+<span class="strong"><strong>    generator = Model([inputs, y_labels], x, name='generator')</strong></span>
+    return generator</pre></div><p>
+<span class="emphasis"><em>Listing</em></span> <span class="emphasis"><em>4.3.3</em></span> highlights the changes made in the <code class="literal">train()</code> function to accommodate the conditioning one-hot vector for the discriminator and the generator. The CGAN discriminator is firstly trained with one batch of real and fake data conditioned on their respective one-hot labels. Then, the generator <a id="id191" class="indexterm"/>parameters are updated by training the adversarial network given one-hot label conditioned fake data pretending to be real. Similar to DCGAN, the discriminator weights are frozen during adversarial training.</p><p>Listing 4.3.3, <code class="literal">cgan-mnist-4.3.1.py</code> shows us the CGAN training. In highlight are the changes made in DCGAN:</p><div class="informalexample"><pre class="programlisting">def train(models, data, params):
+    """Train the Discriminator and Adversarial Networks
+
+    Alternately train Discriminator and Adversarial networks by batch.
+    Discriminator is trained first with properly labelled real and fake images.
+    Adversarial is trained next with fake images pretending to be real.
+    Discriminator inputs are conditioned by train labels for real images,
+    and random labels for fake images.
+    Adversarial inputs are conditioned by random labels.
+    Generate sample images per save_interval.
+
+    # Arguments
+        models (list): Generator, Discriminator, Adversarial models
+        data (list): x_train, y_train data
+        params (list): Network parameters
+
+    """
+    # the GAN models
+    generator, discriminator, adversarial = models
+    # images and labels
+    x_train, <span class="strong"><strong>y_train</strong></span> = data
+    # network parameters
+    batch_size, latent_size, train_steps, num_labels, model_name = params
+    # the generator image is saved every 500 steps
+    save_interval = 500
+    # noise vector to see how the generator output evolves during training
+    noise_input = np.random.uniform(-1.0, 1.0, size=[16, latent_size])
+<span class="strong"><strong>    # one-hot label the noise will be conditioned to</strong></span>
+<span class="strong"><strong>    noise_class = np.eye(num_labels)[np.arange(0, 16) % num_labels]</strong></span>
+    # number of elements in train dataset
+    train_size = x_train.shape[0]
+
+    print(model_name,
+          "Labels for generated images: ",
+          np.argmax(noise_class, axis=1))
+
+    for i in range(train_steps):
+        # train the discriminator for 1 batch
+        # 1 batch of real (label=1.0) and fake images (label=0.0)
+        # randomly pick real images from dataset
+        rand_indexes = np.random.randint(0, train_size, size=batch_size)
+        real_images = x_train[rand_indexes]
+<span class="strong"><strong>        </strong></span>
+<span class="strong"><strong># corresponding one-hot labels of real images</strong></span>
+<span class="strong"><strong>        real_labels = y_train[rand_indexes]</strong></span>
+        # generate fake images from noise using generator
+        # generate noise using uniform distribution
+        noise = np.random.uniform(-1.0, 1.0, size=[batch_size, latent_size])
+<span class="strong"><strong>        # assign random one-hot labels</strong></span>
+<span class="strong"><strong>        fake_labels = np.eye(num_labels)[np.random.choice(num_labels,</strong></span>
+<span class="strong"><strong>                                                          batch_size)]</strong></span>
+
+<span class="strong"><strong>        # generate fake images conditioned on fake labels</strong></span>
+<span class="strong"><strong>        fake_images = generator.predict([noise, fake_labels])</strong></span>
+        # real + fake images = 1 batch of train data
+        x = np.concatenate((real_images, fake_images))
+        <span class="strong"><strong># real + fake one-hot labels = 1 batch of train one-hot labels</strong></span>
+<span class="strong"><strong>        y_labels = np.concatenate((real_labels, fake_labels))</strong></span>
+
+        # label real and fake images
+        # real images label is 1.0
+        y = np.ones([2 * batch_size, 1])
+        # fake images label is 0.0
+        y[batch_size:, :] = 0.0
+        # train discriminator network, log the loss and accuracy
+<span class="strong"><strong>        </strong></span>
+<span class="strong"><strong>loss, acc = discriminator.train_on_batch([x, y_labels], y)</strong></span>
+        log = "%d: [discriminator loss: %f, acc: %f]" % (i, loss, acc)
+
+        # train the adversarial network for 1 batch
+<span class="strong"><strong>        # 1 batch of fake images conditioned on fake 1-hot labels w/ label=1.0</strong></span>
+        # since the discriminator weights are frozen in adversarial network
+        # only the generator is trained
+        # generate noise using uniform distribution        
+        noise = np.random.uniform(-1.0, 1.0, size=[batch_size, latent_size])
+<span class="strong"><strong>        # assign random one-hot labels</strong></span>
+<span class="strong"><strong>        fake_labels = np.eye(num_labels)[np.random.choice(num_labels,batch_size)]</strong></span>
+        # label fake images as real or 1.0
+        y = np.ones([batch_size, 1])
+        # train the adversarial network 
+        # note that unlike in discriminator training, 
+        # we do not save the fake images in a variable
+        # the fake images go to the discriminator input of the adversarial
+        # for classification
+        # log the loss and accuracy
+<span class="strong"><strong>        loss, acc = adversarial.train_on_batch([noise, fake_labels], y)</strong></span>
+        log = "%s [adversarial loss: %f, acc: %f]" % (log, loss, acc)
+        print(log)
+        if (i + 1) % save_interval == 0:
+            if (i + 1) == train_steps:
+                show = True
+            else:
+                show = False
+
+            # plot generator images on a periodic basis
+<span class="strong"><strong>            plot_images(generator,</strong></span>
+<span class="strong"><strong>                        noise_input=noise_input,</strong></span>
+<span class="strong"><strong>                        noise_class=noise_class,</strong></span>
+<span class="strong"><strong>                        show=show,</strong></span>
+<span class="strong"><strong>                        step=(i + 1),</strong></span>
+<span class="strong"><strong>                        model_name=model_name)</strong></span>
+
+    # save the model after training the generator
+    # the trained generator can be reloaded for 
+    # future MNIST digit generation
+    generator.save(model_name + ".h5")</pre></div><p>
+<span class="emphasis"><em>Figure 4.3.4</em></span> shows the evolution of MNIST digits generated when the generator is conditioned <a id="id192" class="indexterm"/>to produce digits with the following labels:</p><p>[0 1 2 3 </p><p> 4 5 6 7 </p><p> 8 9 0 1 </p><p> 2 3 4 5]</p><div class="mediaobject"><img src="graphics/B08956_04_10.jpg" alt="Conditional GAN"/><div class="caption"><p>Figure 4.3.4: The fake images generated by CGAN at different training steps when conditioned with labels [0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5]</p></div></div><p>You're encouraged to run the trained generator model to see new synthesized MNIST digits images:</p><div class="informalexample"><pre class="programlisting">
+<span class="strong"><strong>python3 cgan-mnist-4.3.1.py --generator=cgan_mnist.h5</strong></span>
+</pre></div><p>Alternatively, a specific digit (for example, 8) to be generated can also be requested:</p><div class="informalexample"><pre class="programlisting">
+<span class="strong"><strong>cgan-mnist-4.3.1.py --generator=cgan_mnist.h5 --digit=8</strong></span>
+</pre></div><p>With CGAN it's like having an agent that we can ask to draw digits similar to how humans <a id="id193" class="indexterm"/>write digits. The key advantage of CGAN over DCGAN is that we can specify which digit we want the agent to draw.</p></div>
+<div class="section" title="Conclusion"><div class="titlepage"><div><div><h1 class="title"><a id="ch04lvl1sec27"/>Conclusion</h1></div></div></div><p>This chapter discussed the general principles behind GANs, to give you a foundation to the more advanced topics we'll now move on to, including Improved GANs, Disentangled Representations GANs, and Cross-Doman GANs. We started this chapter by understanding how GANs are made up of two networks called generator and discriminator. The role of the discriminator is to discriminate between real and fake signals. The aim of the generator is to fool the discriminator. The generator is normally combined with the discriminator to form an adversarial network. It is through training the adversarial network that the generator learns how to produce fake signals that can trick the discriminator.</p><p>We also learned how GANs are easy to build but notoriously difficult to train. Two example implementations in Keras were presented. DCGAN demonstrated that it is possible to train GANs to generate fake images using deep CNNs. The fake images are MNIST digits. However, the DCGAN generator has no control over which specific digit it should draw. CGAN addressed this problem by conditioning the generator to draw a specific digit. The condition is in the form of a one-hot label. CGAN is useful if we want to build an agent that can generate data of a specific class.</p><p>In the next chapter, improvements on the DCGAN and CGAN will be introduced. In particular, the focus is on how to stabilize the training of DCGAN and how to improve the perceptive quality of CGAN. This will be done by introducing new loss functions and slightly different model architectures.</p></div>
+<div class="section" title="References"><div class="titlepage"><div><div><h1 class="title"><a id="ch04lvl1sec28"/>References</h1></div></div></div><div class="orderedlist"><ol class="orderedlist arabic"><li class="listitem">Ian Goodfellow. <span class="emphasis"><em>NIPS 2016 Tutorial: Generative Adversarial Networks</em></span>. arXiv preprint arXiv:1701.00160, 2016 (<a class="ulink" href="https://arxiv.org/pdf/1701.00160.pdf">https://arxiv.org/pdf/1701.00160.pdf</a>).</li><li class="listitem">Alec Radford, Luke Metz, and Soumith Chintala. <span class="emphasis"><em>Unsupervised Representation Learning with Deep Convolutional Generative Adversarial Networks</em></span>. arXiv preprint arXiv:1511.06434, 2015 (<a class="ulink" href="https://arxiv.org/pdf/1511.06434.pdf">https://arxiv.org/pdf/1511.06434.pdf</a>).</li><li class="listitem">Mehdi Mirza and Simon Osindero. <span class="emphasis"><em>Conditional Generative Adversarial Nets</em></span>. arXiv preprint arXiv:1411.1784, 2014 (<a class="ulink" href="https://arxiv.org/pdf/1411.1784.pdf">https://arxiv.org/pdf/1411.1784.pdf</a>).</li><li class="listitem">Tero Karras and others. <span class="emphasis"><em>Progressive Growing of GANs for Improved Quality, Stability, and Variation</em></span>. ICLR, 2018 (<a class="ulink" href="https://arxiv.org/pdf/1710.10196.pdf">https://arxiv.org/pdf/1710.10196.pdf</a>).</li></ol></div></div></body></html>

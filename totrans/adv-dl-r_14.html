@@ -1,0 +1,475 @@
+<html><head></head><body>
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Text Classification Using Recurrent Neural Networks</h1>
+                </header>
+            
+            <article>
+                
+<p class="mce-root">Recurrent neural networks are useful for solving problems where data involves sequences. Some examples of applications involving sequences are seen in text classification, time series prediction, the sequence of frames in videos, DNA sequences, and speech recognition.</p>
+<p>In this chapter, we will develop a sentiment (positive or negative) classification model using a recurrent neural network. We will begin by preparing the data for developing the text classification model, followed by developing a sequential model, compiling the model, fitting the model, evaluating the model, prediction, and model performance assessment using a confusion matrix. We will also review some tips for sentiment classification performance optimization.</p>
+<p>More specifically, in this chapter, we will cover the following topics:</p>
+<ul>
+<li class="mce-root">Preparing data for model building</li>
+<li>Developing a recurrent neural network model</li>
+<li>Fitting the model</li>
+<li>Model evaluation and prediction</li>
+<li>Performance optimization tips and best practices</li>
+</ul>
+<p class="mce-root"/>
+<p class="mce-root"/>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Preparing data for model building</h1>
+                </header>
+            
+            <article>
+                
+<p>In this chapter, we'll be using the <strong>Internet Movie Database</strong> (<strong>IMDb</strong>) movie reviews text data <span><span>that'</span></span>s available in the Keras package. Note that there is no need to download this data from anywhere as it can be easily accessed from the Keras library using code that we will discuss soon. In addition, this dataset is preprocessed so that text data is converted into a sequence of integers. We cannot use text data directly for model building, and such preprocessing of text data into a sequence of integers is necessary before the data can be used as input for developing deep learning networks.</p>
+<p><span>We</span> will start b<span>y loading the <kbd>imdb</kbd> data using the <kbd>dataset_imdb</kbd> function, where we will also specify the number of most frequent words as 500 using <kbd>num_words</kbd>. Then, we'll split the <kbd>imdb</kbd> data into <kbd>train</kbd> and <kbd>test</kbd> datasets. Let's take a look at the following code to understand this data:<br/></span></p>
+<pre># IMDB data<br/>imdb &lt;- dataset_imdb(num_words = 500)<br/>c(c(train_x, train_y), c(test_x, test_y)) %&lt;-% imdb<br/>length(train_x); length(test_x)<br/>[1] 25000<br/>[1] 25000<br/><br/>table(train_y)<br/>train_y<br/>    0     1 <br/>12500 12500 <br/><br/>table(test_y)<br/>test_y<br/>    0     1 <br/>12500 12500</pre>
+<p>Let's take a look at the preceding code:</p>
+<ul>
+<li><kbd>train_x</kbd><span> and </span><kbd>test_x</kbd><span> contain integers representing reviews in the train and test data, respectively.</span></li>
+<li><span>Similarly, </span><kbd>train_y</kbd><span> and </span><kbd>test_y</kbd><span> contain <kbd>0</kbd> and <kbd>1</kbd> labels, representing negative and positive sentiments, respectively.</span></li>
+<li><span>Using the <kbd>length</kbd> function, we can see that both </span><kbd>train_x</kbd><span> and </span><kbd>test_x</kbd><span> are based on 25,000 movie reviews each.</span></li>
+<li><span>The tables for </span><kbd>train_y</kbd><span> and </span><kbd>test_y</kbd><span> show that there is an equal number of positive (12,500) and negative (12,500) reviews in the train and test data.</span></li>
+</ul>
+<p class="mce-root"/>
+<p><span>Having such a balanced dataset is useful in avoiding any bias due to class imbalance issues.</span></p>
+<p><span>The words in the movie review are represented by unique integers and each integer that is assigned to a word is based on its overall frequency in the dataset. For example, integer 1 represents the most frequent word, while integer 2 represents the second most frequent word, and so on. In addition, integer 0 is not used for any specific word but it indicates an unknown word.</span></p>
+<p>Let's take a look at the third and sixth sequences in the<span> </span><kbd>train_x</kbd><span> </span>data using the following code:</p>
+<pre># Sequence of integers<br/>train_x[[3]]<br/>  [1]   1  14  47   8  30  31   7   4 249 108   7   4   2  54  61 369<br/> [17]  13  71 149  14  22 112   4   2 311  12  16   2  33  75  43   2<br/> [33] 296   4  86 320  35   2  19 263   2   2   4   2  33  89  78  12<br/> [49]  66  16   4 360   7   4  58 316 334  11   4   2  43   2   2   8<br/> [65] 257  85   2  42   2   2  83  68   2  15  36 165   2 278  36  69<br/> [81]   2   2   8 106  14   2   2  18   6  22  12 215  28   2  40   6<br/> [97]  87 326  23   2  21  23  22  12 272  40  57  31  11   4  22  47<br/>[113]   6   2  51   9 170  23   2 116   2   2  13 191  79   2  89   2<br/>[129]  14   9   8 106   2   2  35   2   6 227   7 129 113<br/><br/>train_x[[6]]<br/> [1]   1   2 128  74  12   2 163  15   4   2   2   2   2  32  85 156  45<br/>[18]  40 148 139 121   2   2  10  10   2 173   4   2   2  16   2   8   4<br/>[35] 226  65  12  43 127  24   2  10  10<br/><br/>for (i in 1:6) print(length(train_x[[i]]))<br/><br/>Output<br/><br/><strong>[1] 218</strong><br/><strong>[1] 189</strong><br/><strong>[1] 141</strong><br/><strong>[1] 550</strong><br/><strong>[1] 147</strong><br/><strong>[1] 43</strong></pre>
+<p>From the preceding code and output, we can observe the following:</p>
+<ul>
+<li>From the output of the third movie review-related sequence of integers, we can observe that the third review contains 141 integers between 1 (1st integer) and 369 (16th integer).</li>
+<li>Since we restricted the use of the most frequent words to 500, for the third review, there is no integer larger than 500.</li>
+<li>Similarly, from the output of the sixth review's related sequence of integers, we can observe that the sixth review contains 43 integers between 1 (1st integer) and 226 (35th integer).</li>
+<li>Looking at the length of the first six sequences in the<span> </span><kbd>train_x</kbd><span> </span>data, we can observe that the length of the movie review varies between 43 (6th review in train data) and 550 (4th review in train data). Such variation in the length of the movie reviews is normal and is as expected. </li>
+</ul>
+<p class="mce-root">Before we can develop a movie review sentiment classification model, we need to find a way to make the length of a sequence of integers the same for all the movie reviews. We can achieve this by padding sequences.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Padding sequences</h1>
+                </header>
+            
+            <article>
+                
+<p>Padding the text sequences is carried out to ensure that all the sequences have the same length. Let's take a look at the following code:</p>
+<pre># Padding and truncation<br/>train_x &lt;- pad_sequences(train_x, maxlen = 100)<br/>test_x &lt;- pad_sequences(test_x, maxlen = 100)</pre>
+<p>From the preceding code, we can observe the following:</p>
+<ul>
+<li>We can achieve equal length for all the sequences of integers with the help of the <kbd>pad_sequences</kbd> function and by specifying a value for <kbd>maxlen</kbd>.</li>
+<li>In this example, we have restricted the length of each movie review sequence in the train and test data to 100. Note that before padding of sequences, the structure of <kbd>train_x</kbd> and <kbd>test_x</kbd> is a list of 25,000 reviews.</li>
+<li>However, after padding the sequences, the structure for both changes to a matrix that's 25,000 x 100. This can be easily verified by running <kbd>str(train_x)</kbd> before and after padding.</li>
+</ul>
+<p>To observe the impact of padding on a sequence of integers, let's take a look at the following code, along with its output:</p>
+<pre># Sequence of integers<br/>train_x[3,]<br/>  [1]   2   4   2  33  89  78  12  66  16   4 360   7   4  58 316 334<br/> [17]  11   4   2  43   2   2   8 257  85   2  42   2   2  83  68   2<br/> [33]  15  36 165   2 278  36  69   2   2   8 106  14   2   2  18   6<br/> [49]  22  12 215  28   2  40   6  87 326  23   2  21  23  22  12 272<br/> [65]  40  57  31  11   4  22  47   6   2  51   9 170  23   2 116   2<br/> [81]   2  13 191  79   2  89   2  14   9   8 106   2   2  35   2   6<br/> [97] 227   7 129 113<br/><br/>train_x[6,]<br/>  [1]   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0<br/> [17]   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0<br/> [33]   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0<br/> [49]   0   0   0   0   0   0   0   0   0   1   2 128  74  12   2 163<br/> [65]  15   4   2   2   2   2  32  85 156  45  40 148 139 121   2   2<br/> [81]  10  10   2 173   4   2   2  16   2   8   4 226  65  12  43 127<br/> [97]  24   2  10  10</pre>
+<p>The output of the third sequence of integers after padding of the <kbd>train_x</kbd> can be seen in the preceding code. Here, we can observe the following:</p>
+<ul>
+<li>The third sequence now has a length of 100. The third sequence originally had 141 integers and we can observe that 41 integers that were located at the beginning of the sequence have been truncated.</li>
+<li>On the other hand, the output of the sixth sequence shows a different pattern.</li>
+<li>The sixth sequence originally had a length of 43, but now 57 zeros have been added to the beginning of the sequence to artificially extended the length to 100.</li>
+<li>All 25,000 sequences of integers related to movie reviews in each of the train and test data are impacted in a similar way.</li>
+</ul>
+<p>In the next section, we will develop an architecture for a recurrent neural network that will be used for developing a movie review sentiment classification model.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Developing a recurrent neural network model</h1>
+                </header>
+            
+            <article>
+                
+<p>In this section, we will develop the architecture for the recurrent neural network and compile it. Let's look at the following code:</p>
+<pre># Model architecture<br/>model &lt;- keras_model_sequential() <br/>model %&gt;% <br/>         layer_embedding(input_dim = 500, output_dim = 32) %&gt;%<br/>         layer_simple_rnn(units = 8) %&gt;%  <br/>         layer_dense(units = 1, activation = "sigmoid")</pre>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p class="mceNonEditable"/>
+<p class="mceNonEditable"/>
+<p><span>We start by initializing the model using the <kbd>keras_model_sequential</kbd> function. Then, we add embedding and simple <strong>recurrent neural network</strong> (<strong>RNN</strong>) layers. For the embedding layer, we specify </span><kbd>input_dim</kbd><span> to be 500, which is the same as the number of most frequent words that we had specified earlier. The next layer is a simple RNN layer, with the number of hidden units specified as 8.</span></p>
+<div class="packt_infobox"><span>Note that the default activation function for the <kbd>layer_simple_rnn</kbd> layer is a hyperbolic tangent (tanh), which is an S-shaped curve where the output ranges from -1 to +1.</span></div>
+<p><span>The last dense layer has one unit to capture movie review sentiment (positive or negative) with the activation function sigmoid. When an output lies between 0 and 1, as in this case, it is convenient for interpretation as it can be thought of as a probability.<br/></span></p>
+<div class="packt_infobox"><span>Note that the sigmoid activation function is an S-shaped curve where the output ranges between 0 and 1.</span></div>
+<p class="mce-root">Now, let's look at the model summary and understand how we can calculate on the number of parameters that are required.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Calculation of parameters</h1>
+                </header>
+            
+            <article>
+                
+<p>The summary of the RNN model is as follows:</p>
+<pre># Model summary<br/>model<br/><br/>OUTPUT<br/><br/><strong>Model</strong><br/><strong>________________________________________________________________________</strong><br/><strong>Layer (type)                    Output Shape                 Param #    </strong><br/><strong>========================================================================</strong><br/><strong>embedding_21 (Embedding)        (None, None, 32)             16000      </strong><br/><strong>________________________________________________________________________</strong><br/><strong>simple_rnn_23 (SimpleRNN)       (None, 8)                    328        </strong><br/><strong>________________________________________________________________________</strong><br/><strong>dense_24 (Dense)                (None, 1)                    9          </strong><br/><strong>========================================================================</strong><br/><strong>Total params: 16,337</strong><br/><strong>Trainable params: 16,337</strong><br/><strong>Non-trainable params: 0</strong><br/><strong>________________________________________________________________________</strong></pre>
+<p>The number of parameters for the embedding layer is arrived at by multiplying 500 (number of most frequent words) and 32 (output dimension) to obtain 16,000. To arrive at the number of parameters for the simple RNN layer, we use <em>(h(h+i) + h)</em>, where <em>h</em> represents the number of hidden units and <em>i</em> represents the input dimension for this layer. In this case, this is 32.</p>
+<p>Thus, we have (8(8 + 32)+8) = 328 parameters.</p>
+<div class="packt_infobox">Note that if we consider a fully connected dense layer here, we would have obtained (8 x 32 + 8) = 264. However, the additional 64 parameters are due to the fact that we use recurrent layers to capture sequences in the text data.</div>
+<p>In recurrent layers, information from the previous input is also used, which leads to these extra parameters that we can see here. This is the reason why RNNs are better suited for handling sequence data compared to a regular densely connected neural network layer. For the last layer, which is a dense layer, we have (1 x 8 + 1) = 9 parameters. Overall, this architecture has 16,337 parameters.</p>
+<div class="packt_tip">In recurrent layers, the use of information from the previous input helps to provide a better representation of a sequence that is present in text or similar data that contains some kind of sequence.</div>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Compiling the model</h1>
+                </header>
+            
+            <article>
+                
+<p> The code for compiling the model is as follows: </p>
+<pre># Compile model<br/>model %&gt;% compile(optimizer = "rmsprop",<br/>         loss = "binary_crossentropy",<br/>         metrics = c("acc"))</pre>
+<p class="mce-root"/>
+<p>We compile the model with the <kbd>rmsprop</kbd> optimizer, which is recommended for recurrent neural networks. We make use of <kbd>binary_crossentropy</kbd> as the loss function due to a binary type of response since movie reviews are either positive or negative. Finally, for metrics, we have specified accuracy.</p>
+<p>In the next section, we will use this architecture to develop a movie review sentiment classification model that uses recurrent neural networks.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Fitting the model</h1>
+                </header>
+            
+            <article>
+                
+<p>The code for fitting the model is as follows:</p>
+<pre># Fit model<br/>model_one &lt;- model %&gt;% fit(train_x, train_y,<br/>         epochs = 10,<br/>         batch_size = 128,<br/>         validation_split = 0.2)</pre>
+<p>For fitting the model,  we will make use of a 20% validation split, which uses 20,000 movie review data from training data for building the model. The remaining 5,000 movie review training data is used for assessing validation in the form of loss and accuracy. <span>We run 10 epochs with a batch size of 128.</span></p>
+<div class="packt_tip">When using a validation split, it is important to note that, with 20%, it uses the first 80% of the training data for training and the last 20% of the training data for validation. Thus, if the first 50% of the review data was negative and the last 50% was positive, the 20% validation split will cause model validation to be based only on positive reviews. Therefore, before using a validation split, we must verify that this is not the case; otherwise, it will introduce significant bias.</div>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Accuracy and loss</h1>
+                </header>
+            
+            <article>
+                
+<p>The accuracy and loss values after 10 epochs for training and validation data using <kbd>plot(model_one)</kbd> can be seen in the following graph:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/296b64bb-74b6-4079-b07d-d50070d75845.png"/></p>
+<p><span>From the preceding graph, the following observations can be made:</span></p>
+<ul>
+<li><span>The training loss continues to decrease from epoch 1 to 10.</span></li>
+<li><span>Validation loss reduces initially, but it starts to look flat after 3 epochs.</span></li>
+<li><span>A similar pattern is also observed for accuracy in the opposite direction.</span></li>
+</ul>
+<p>In the next section, we will evaluate the classification model and assess model prediction performance with the help of train and test data.</p>
+<p class="mce-root"/>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Model evaluation and prediction</h1>
+                </header>
+            
+            <article>
+                
+<p>First, we will evaluate the model based on the train data for loss and accuracy. We will also obtain a confusion matrix based on the train data. The same process shall be repeated with the test data.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Training the data</h1>
+                </header>
+            
+            <article>
+                
+<p>We will use the <kbd>evaluate</kbd> function to obtain the loss and accuracy values, as shown in the following code:</p>
+<pre># Loss and accuracy<br/>model %&gt;% evaluate(train_x, train_y)<br/>$loss<br/>[1] 0.4057531<br/><br/>$acc<br/>[1] 0.8206</pre>
+<p>As seen from the preceding output, the loss and accuracy values based on the training data are 0.406 and 0.821, respectively.</p>
+<p>Predictions using training data are used for developing a confusion matrix, as shown in the following code:</p>
+<pre># Prediction and confusion matrix<br/>pred &lt;- model %&gt;% predict_classes(train_x)<br/>table(Predicted=pred, Actual=imdb$train$y)<br/> Actual<br/>Predicted 0 1<br/> 0 9778 1762<br/> 1 2722 10738</pre>
+<p>The following observations can be made by looking at the preceding confusion matrix:</p>
+<ul>
+<li>There are 9,778 movie reviews that are correctly classified as negative and there are 10,738 movie reviews that are correctly classified as positive. We can observe that the model does a decent job of classifying the reviews as positive or negative.</li>
+<li>Looking at the misclassifications, we can also observe that, on 2,722 occasions, negative movie reviews are misclassified as positive movie reviews. This is relatively higher compared to the misclassification of positive reviews as negative (1,762 times) by the classification model.</li>
+</ul>
+<p class="mce-root"/>
+<p>Next, let's do a similar assessment based on test data.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Testing the data</h1>
+                </header>
+            
+            <article>
+                
+<p>The code to obtain the loss and accuracy values is as follows:</p>
+<pre># Loss and accuracy<br/>model %&gt;% evaluate(test_x, test_y)<br/>$loss<br/>[1] 0.4669374<br/><br/>$acc<br/>[1] 0.77852</pre>
+<p><span>Here, we can see that the loss and accuracy based on the test data are 0.467 and 0.778, respectively. These results are slightly inferior to what we observed for the train data.</span></p>
+<p>Next, we'll predict the classes for the test data and use the results to obtain a confusion matrix, as shown in the following code:</p>
+<pre># Prediction and confusion matrix<br/>pred1 &lt;- model %&gt;%   predict_classes(test_x)<br/>table(Predicted=pred1, Actual=imdb$test$y)<br/>         Actual<br/>Predicted     0     1<br/>        0  9134  2171<br/>        1  3366 10329</pre>
+<p><span>Apart from the overall results being slightly inferior to the ones that we obtained from the train data, we can't see any major differences between the train and test data.</span></p>
+<p>In the next section, we will explore a few strategies to improve model performance.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Performance optimization tips and best practices</h1>
+                </header>
+            
+            <article>
+                
+<p>When developing a recurrent neural network model, we come across situations where we need to make several decisions related to the network. These decisions could include trying a different activation function rather than the default one that we had used. Let's make such changes and see what impact they have on the movie review sentiment classification performance of the model.</p>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p>In this section, we will experiment with the following four factors:</p>
+<ul>
+<li>Number of units in the simple RNN layer</li>
+<li>Using different activation functions in the simple RNN layer</li>
+<li>Adding more recurrent layers </li>
+<li>Changes in the maximum length for padding sequences</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Number of units in the simple RNN layer</h1>
+                </header>
+            
+            <article>
+                
+<p>The code for incorporating this change and then compiling/fitting the model is as follows:</p>
+<pre># Model architecture<br/>model &lt;- keras_model_sequential() <br/>model %&gt;% <br/>         layer_embedding(input_dim = 500, output_dim = 32) %&gt;%<br/>         layer_simple_rnn(units = 32) %&gt;% <br/>         layer_dense(units = 1, activation = "sigmoid")<br/><br/># Compile model<br/>model %&gt;% compile(optimizer = "rmsprop",<br/>         loss = "binary_crossentropy",<br/>         metrics = c("acc"))<br/><br/># Fit model<br/>model_two &lt;- model %&gt;% fit(train_x, train_y,<br/>         epochs = 10,<br/>         batch_size = 128,<br/>         validation_split = 0.2)</pre>
+<p>Here, we change the architecture by increasing the number of units in the simple RNN layer from 8 to 32. Everything else is kept the same. Then, we compile and fit the model, as shown in the preceding code.</p>
+<p class="mce-root"/>
+<p>The accuracy and loss values after 10 epochs can be seen in the following graph:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/a5f3db7e-27c4-4c12-a305-528783ec3d78.png"/></p>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p>The preceding plot indicates the following:</p>
+<ul>
+<li>A significantly bigger gap between training and validation data on epoch 3 onward.</li>
+<li>This clearly suggests an increased level of overfitting compared to the preceding plot, where the number of units in the simple RNN was 8.</li>
+<li>This is also reflected in the higher loss value of 0.585 and the lower accuracy value of 0.757 that we obtained for the test data based on this new model.</li>
+</ul>
+<p>Now, let's experiment with a different activation function in the simple RNN layer and see whether this overfitting issue can be resolved.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Using different activation functions in the simple RNN layer</h1>
+                </header>
+            
+            <article>
+                
+<p>This change can be seen in the following code:</p>
+<pre># Model architecture<br/>model &lt;- keras_model_sequential() <br/>model %&gt;% <br/>         layer_embedding(input_dim = 500, output_dim = 32) %&gt;%<br/>         layer_simple_rnn(units = 32, activation = "relu") %&gt;% <br/> layer_dense(units = 1, activation = "sigmoid")<br/><br/># Compile model<br/>model %&gt;% compile(optimizer = "rmsprop",<br/> loss = "binary_crossentropy",<br/> metrics = c("acc"))<br/><br/># Fit model<br/>model_three &lt;- model %&gt;% fit(train_x, train_y,<br/> epochs = 10,<br/> batch_size = 128,<br/> validation_split = 0.2)</pre>
+<p>In the preceding code, we are changing the default activation function in the simple RNN layer to a ReLU activation function. We keep everything else the same as what we had in the previous experiment.</p>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p>The accuracy and loss values after 10 epochs can be seen in the following graph:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/381e8b5e-2d09-42d2-bdce-ff8d0b3feb7c.png"/></p>
+<p class="mce-root"/>
+<p>From the preceding plot, we can observe the following:</p>
+<ul>
+<li>The loss and accuracy values look much better now.</li>
+<li>Both the loss and accuracy curves based on training and validation are now closer to each other.</li>
+<li>We used the model to find the loss and accuracy values based on the test data that we obtained, that is, 0.423 and 0.803, respectively. This shows better results compared to the results we've obtained so far. </li>
+</ul>
+<p>Next, we will experiment further by adding more recurrent layers. This will help us build a deeper recurrent neural network model.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Adding more recurrent layers </h1>
+                </header>
+            
+            <article>
+                
+<p>Now, we will experiment by adding two additional recurrent layers to the current network. The code that's incorporating this change is as follows:</p>
+<pre># Model architecture<br/>model &lt;- keras_model_sequential() %&gt;% <br/>         layer_embedding(input_dim = 500, output_dim = 32) %&gt;% <br/>         layer_simple_rnn(units = 32, <br/>                          return_sequences = TRUE, <br/>                          activation = 'relu') %&gt;% <br/>         layer_simple_rnn(units = 32, <br/>                          return_sequences = TRUE, <br/>                          activation = 'relu') %&gt;% <br/>         layer_simple_rnn(units = 32, <br/>                          activation = 'relu') %&gt;%<br/>         layer_dense(units = 1, activation = "sigmoid")<br/><br/># Compile model<br/>model %&gt;% compile(optimizer = "rmsprop",<br/> loss = "binary_crossentropy",<br/> metrics = c("acc"))<br/><br/># Fit model<br/>model_four &lt;- model %&gt;% fit(train_x, train_y,<br/>0 epochs = 10,<br/> batch_size = 128,<br/> validation_split = 0.2)</pre>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p class="mce-root"/>
+<p class="mceNonEditable"/>
+<p>When we add these additional recurrent layers, we also set <kbd>return_sequences</kbd> to <kbd>TRUE</kbd>. We keep everything else the same and compile/fit the model. The plot for the loss and accuracy values based on the training and validation data is as follows: </p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/82787f84-dbc6-4bba-a200-7fe4294bfbf3.png"/></p>
+<p class="mce-root"/>
+<p>From the preceding plot, we can observe the following:</p>
+<ul>
+<li>After 10 epochs, the loss and accuracy values for training and validation show a reasonable level of closeness, indicating the absence of overfitting.</li>
+<li>The loss and accuracy based on the test data we calculated show a decent improvement in the results with 0.403 and 0.816, respectively.</li>
+<li>This shows that deeper recurrent layers did help capture sequences of words in the movie reviews in a much better way. This, in turn, enabled improved classification of the sentiment in movie reviews as positive or negative.</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">The maximum length for padding sequences</h1>
+                </header>
+            
+            <article>
+                
+<p>So far, we have used a maximum length of 100 for padding sequences of movie reviews in the train and test data. Let's look at the summary of the length of movie reviews in the <kbd>train</kbd> and <kbd>test</kbd> data using the following code:</p>
+<pre># Summary of padding sequences<br/>z &lt;- NULL<br/>for (i in 1:25000) {z[i] &lt;- print(length(train_x[[i]]))}<br/>   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. <br/>   11.0   130.0   178.0   238.7   291.0  2494.0 <br/><br/>z &lt;- NULL<br/>for (i in 1:25000) {z[i] &lt;- print(length(test_x[[i]]))}<br/>   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. <br/>    7.0   128.0   174.0   230.8   280.0  2315.0</pre>
+<p>From the preceding code, we can make the following observations:</p>
+<ul>
+<li>From the summary of the length of movie reviews in the train data, we can see that the minimum length is 11, the maximum length is 2,494, and that the median length is 178.</li>
+<li>Similarly, the test data has a minimum review length of 7, a maximum length of 2,315, and a median length of 174.</li>
+</ul>
+<p><span>Note that when the maximum padding length is below the median (which is the case with a maximum length of 100), we tend to truncate more movie reviews by removing words beyond 100. At the same time, when we choose a maximum length for padding to be significantly above the median, we will have a situation where a higher number of movie reviews will need to contain zeros and fewer number of reviews will be truncated.</span></p>
+<p class="mce-root"/>
+<p>In this section, we are going to explore the impact of keeping the maximum length of the sequence of words in the movie reviews near the median value. The code for incorporating this change is as follows:</p>
+<pre># IMDB data<br/>c(c(train_x, train_y), c(test_x, test_y)) %&lt;-% imdb<br/>train_x &lt;- pad_sequences(train_x, maxlen = 200)  <br/>test_x &lt;- pad_sequences(test_x, maxlen = 200)<br/><br/># Model architecture<br/>model &lt;- keras_model_sequential() %&gt;% <br/>         layer_embedding(input_dim = 500, output_dim = 32) %&gt;% <br/>         layer_simple_rnn(units = 32, <br/>                          return_sequences = TRUE, <br/>                          activation = 'relu') %&gt;% <br/>         layer_simple_rnn(units = 32, <br/>                          return_sequences = TRUE, <br/>                          activation = 'relu') %&gt;% <br/>         layer_simple_rnn(units = 32, <br/>                          return_sequences = TRUE, <br/>                          activation = 'relu') %&gt;% <br/>         layer_simple_rnn(units = 32, <br/>                          activation = 'relu') %&gt;%<br/>         layer_dense(units = 1, activation = "sigmoid")<br/><br/># Compile model<br/>model %&gt;% compile(optimizer = "rmsprop",<br/>         loss = "binary_crossentropy",<br/>         metrics = c("acc"))<br/><br/># Fit model<br/>model_five &lt;- model %&gt;% fit(train_x, train_y,<br/>         epochs = 10,<br/>         batch_size = 128,<br/>         validation_split = 0.2)</pre>
+<p>From the preceding code, we can see that we run the model after specifying <kbd>maxlen</kbd> as 200. We keep everything else the same as what we had for <kbd>model_four</kbd>.</p>
+<p class="mce-root"/>
+<p>The plot for the loss and accuracy for the training and validation data is as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/43039c1f-594a-45eb-861a-3800e19aab7a.png"/></p>
+<p>From the preceding plot, we can make the following observations:</p>
+<ul>
+<li>There's the absence of an overfitting issue since the training and validation data points are very close to each other.</li>
+<li>The loss and accuracy based on the test data were calculated as 0.383 and 0.830, respectively.</li>
+<li>The loss and accuracy values are at their best level at this stage.</li>
+</ul>
+<p class="mce-root"/>
+<p><span>The confusion matrix based on the test data is as follows:</span></p>
+<pre># Prediction and confusion matrix<br/>pred1 &lt;- model %&gt;%   predict_classes(test_x)<br/>table(Predicted=pred1, Actual=imdb$test$y)<br/>         Actual<br/>Predicted     0     1<br/>        0 10066  1819<br/>        1  2434 10681</pre>
+<p><span>From the confusion matrix, we can make the following observations:</span></p>
+<ul>
+<li><span>This classification model seems to performs slightly better when correctly classifying the movie review as positive (10,681) compared to when classifying a negative (10,066) review correctly.</span></li>
+<li><span>As far as reviews that are classified incorrectly are concerned, the trend that we had observed earlier, where negative movie reviews were mistakenly classified by the model as positive being on the higher side, exists in this case too.</span></li>
+</ul>
+<p>In this section, we experimented with a number of units, activation functions, the number of recurrent layers in the network, and the amount of padding in order to improve the movie review sentiment classification model. Some other factors that you could explore further include the number of most frequent words to include and changing the maximum length at the time of padding sequences.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Summary</h1>
+                </header>
+            
+            <article>
+                
+<p>In this chapter, we illustrated the use of the recurrent neural network model for text sentiment classification using IMDb movie review data. Compared to a regular densely connected network, recurrent neural networks are better suited to deal with data that has sequences in it. Text data is one such example that we worked with in this chapter.</p>
+<p class="mce-root"/>
+<p>In general, deep networks involve many factors or variables, and this calls for some amount of experimentation involving making changes to the levels for such factors before arriving at a useful model. In this chapter, we also developed five different movie review sentiment classification models. </p>
+<p>A variant of recurrent neural networks that has become popular is <strong>Long Short-Term Memory</strong> (<strong>LSTM</strong>) networks. LSTM networks are capable of learning long-term dependencies and help recurrent networks remember inputs for a longer time.</p>
+<p>In the next chapter, we will go over an application example of using an LSTM network, where we will continue to use IMDb movie review data and explore further improvements that can be made to the sentiment classification model's performance.</p>
+
+
+            </article>
+
+            
+        </section>
+    </body></html>

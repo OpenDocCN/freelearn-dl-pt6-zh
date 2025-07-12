@@ -1,0 +1,554 @@
+<html><head></head><body>
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Text Classification Using Convolutional Recurrent Neural Networks</h1>
+                </header>
+            
+            <article>
+                
+<p class="mce-root"><strong>Convolutional neural networks</strong> (<strong>CNNs</strong>) have been found to be useful in capturing high-level local features from data. On the other hand, <strong>recurrent neural networks</strong> (<strong>RNNs</strong>), such as <strong>long short-term memory</strong> (<strong>LSTM</strong>), have been found to be useful in capturing long-term dependencies in data involving sequences such as text. When we use CNNs and RNNs in the same model architecture, it gives rise to what's called <strong>convolutional recurrent neural networks</strong> (<strong>CRNNs</strong>).</p>
+<p class="mce-root">This chapter illustrates how to apply convolutional recurrent neural networks to text classification problems by combining the advantages of RNNs and CNNs networks. The steps that are involved in this process include text data preparation, defining a convolutional recurrent network model, training the model, and model assessment.</p>
+<p>More specifically, in this chapter, we will cover the following topics:</p>
+<ul>
+<li>Working with the reuter_50_50 dataset</li>
+<li>Preparing the data for model building</li>
+<li>Developing the model architecture</li>
+<li>Compiling and fitting the model</li>
+<li>Evaluating the model and predicting classes</li>
+<li>Performance optimization tips and best practices</li>
+</ul>
+<p class="mce-root"/>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Working with the reuter_50_50 dataset</h1>
+                </header>
+            
+            <article>
+                
+<p>In the previous chapters, when dealing with text data, we made use of data that had already been converted into a sequence of integers for developing deep network models. In this chapter, we will use text data that needs to be converted into a sequence of integers. We will start by reading the data that we will use to illustrate how to develop a text classification deep network model. We will also explore the dataset that we'll use so that we have a better understanding of it.</p>
+<p>In this chapter, we will make use of the <kbd>keras</kbd>, <kbd>deepviz</kbd>, and <kbd>readtext</kbd> libraries, as shown in the following code:</p>
+<pre># Libraries used<br/>library(keras)<br/>library(deepviz)<br/>library(readtext)</pre>
+<p>For illustrating the steps involved in developing a convolutional recurrent network model, we will make use of the <kbd>reuter_50_50</kbd> text dataset, which is available from the UCI Machine Learning Repository: <a href="https://archive.ics.uci.edu/ml/datasets/Reuter_50_50#">https://archive.ics.uci.edu/ml/datasets/Reuter_50_50#</a>.</p>
+<p>This dataset contains text files in two folders, with one folder for the training data and another for the test data:</p>
+<ul>
+<li>The folder containing the training data has 2,500 text files with 50 articles each from 50 authors.</li>
+<li>Similarly, the folder containing the test data also has 2,500 text files with 50 articles each from the same 50 authors.</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Reading the training data</h1>
+                </header>
+            
+            <article>
+                
+<p>We can access the <kbd>reuter_50_50</kbd> dataset by going to <kbd>Data</kbd> folder from the link that we provided for the UCI Machine Learning Repository. From here, we can download the <kbd>C50.zip</kbd> folder. When unzipped, it contains a <kbd>C50</kbd> folder containing <kbd>C50train</kbd> and <kbd>C50test</kbd> folders. First, we will read the text files from the <kbd>C50train</kbd> folder using the following code:</p>
+<pre># Reading Reuters train data<br/>setwd("~/Desktop/C50/C50train")<br/>temp = list.files(pattern="*.*")<br/>k &lt;- 1; tr &lt;- list(); trainx &lt;- list(); trainy &lt;- list()<br/>for (i in 1:length(temp)) {for (j in 1:50) <br/>         { trainy[k] &lt;- temp[i]<br/>         k &lt;- k+1}<br/>author &lt;- temp[i]<br/>files &lt;- paste0("~/Desktop/C50/C50train/", author, "/*")<br/>tr &lt;- readtext(files)<br/>trainx &lt;- rbind(trainx, tr)}<br/>trainx &lt;- trainx$text</pre>
+<p>With the help of the preceding code, we can read data on 2,500 articles from the <kbd>C50train</kbd> folder into <kbd>trainx</kbd> and also save information about the author's names into <kbd>trainy</kbd>. We start by setting the working directory to the <kbd>C50train</kbd> folder using the <kbd>setwd</kbd> function. The <kbd>C50train</kbd> folder contains 50 folders named after 50 authors, and each folder contains 50 articles written by the corresponding author. We assign a value of 1 to k and initiate <kbd>tr</kbd>, <kbd>trainx</kbd>, and <kbd>trainy</kbd> as a list. Then, we create a loop so that the author's name is stored in <kbd>trainy</kbd>, which contains the author's names for each article, and so that <kbd>trainx</kbd> contains the corresponding articles written by the authors. Note that, after reading data on these 2,500 text files, <kbd>trainx</kbd> also contains information about file names. Using the last line of code, we retain data on only 2,500 texts and remove information about the file names that we will not need.</p>
+<p>Now, let's look at the content of text file 901 from the train data using the following code:</p>
+<pre># Text file 901<br/>trainx[901]<br/>[1] "Drug discovery specialist Chiroscience Group plc said on Monday it is testing two anti-cancer compounds before deciding which will go forward into human trials before the end of the year.\nBoth are MMP inhibitors, the same novel class of drug as British Biotech Plc's potential blockbuster Marimastat, which are believed to stop cancer cells from spreading.\nIn an interview, chief executive John Padfield said Chiroscience hoped to have its own competitor to Marimastat in early trials next year and Phase III trials in 1998."<br/><br/># Author<br/>trainy[901]<br/>[[1]]<br/>[1] "JonathanBirt"</pre>
+<p>From the preceding code and output, we can make the following observations:</p>
+<ul>
+<li>The test file 901 in <kbd>trainx</kbd> contains certain news items about drug trials by the Chiroscience Group</li>
+<li>The author of this short article is Jonathan Birt</li>
+</ul>
+<p class="mce-root"/>
+<p>Having read the text files and author names for the training data, we can repeat this process for the test data.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Reading the test data</h1>
+                </header>
+            
+            <article>
+                
+<p>Now, we will read the text files from the <kbd>C50test</kbd> folder located within the <kbd>C50</kbd> folder. We will use the following code to do so:</p>
+<pre># Reuters test data<br/>setwd("~/Desktop/C50/C50test")<br/>temp = list.files(pattern="*.*")<br/>k &lt;- 1; tr &lt;- list(); testx &lt;- list(); testy &lt;- list()<br/>for (i in 1:length(temp)) {for (j in 1:50) <br/>         { testy[k] &lt;- temp[i]<br/>         k &lt;- k+1}<br/>         author &lt;- temp[i]<br/>         files &lt;- paste0("~/Desktop/C50/C50test/", author, "/*")<br/>         tr &lt;- readtext(files)<br/>         testx &lt;- rbind(testx, tr)}<br/>testx &lt;- testx$text</pre>
+<p>Here, we can see that the only change in this code is that we are creating <kbd>testx</kbd> and <kbd>testy</kbd> based on the test data located within the <kbd>C50test</kbd> folder. We read 2,500 articles from the <kbd>C50test</kbd> folder into <kbd>testx</kbd> and save information about the author's names into <kbd>testy</kbd>. Once again, we use the last line of code to retain data on only 2,500 texts from the test data and remove information on file names, which isn't required for our analysis.</p>
+<p>Now that we've created the training and test data, we will carry out data preprocessing so that we can develop an author classification model.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Preparing the data for model building</h1>
+                </header>
+            
+            <article>
+                
+<p>In this section, we will prepare some data so that we can develop an author classification model. We will start by using tokens to convert text data that is available in the form of articles into a sequence of integers. We will also make changes to identify each author by unique integers. Subsequently, we will use padding and truncation to arrive at the same length for the sequence of integers that represent the articles by 50 authors. We will end this section by partitioning the training data into train and validation datasets and then carrying out one-hot encoding on the response variables.</p>
+<p class="mce-root"/>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Tokenization and converting text into a sequence of integers</h1>
+                </header>
+            
+            <article>
+                
+<p>We will start by carrying out tokenization and then converting the articles, which are in text form, into a sequence of integers. To do this, we can use the following code:</p>
+<pre class="cdpcomment"># Tokenization<br/>token &lt;- text_tokenizer(num_words = 500) %&gt;%    <br/>         fit_text_tokenizer(trainx)<br/><br/># Text to sequence of integers<br/>trainx &lt;- texts_to_sequences(token, trainx)<br/>testx &lt;- texts_to_sequences(token, testx)<br/><br/># Examples<br/>trainx[[7]]<br/>[1] 98   4  41  5  4  2  4  425  5  20  4  9  4  195  5  157  1  18<br/>[19] 87  3  90  3  59 1 169 346  2  29  52 425   6  72 386 110 331  24<br/>[37] 5   4  3  31  3  22   7  65  33 169 329  10 105  1 239  11   4  31<br/>[55] 11 422  8  60 163 318  10  58 102   2 137 329 277  98 58 287  20  81<br/>[73] 3 142  9   6  87   3  49  20 142   2 142   6   2  60  13   1 470   8<br/>[91] 137 190  60   1  85 152   5  6 211  1  3  1  85  11  2 211 233  51<br/>[109] 233 490  7 155   3 305   6  4  86  3  70  4  3 157  52 142   6 282<br/>[127] 233  4 286  11 485  47  11   9  1 386 497  2  72  7  33   6  3  1<br/>[145] 60   3 234  23  32  72 485   7 203   6  29 390  5   3  19  13  55 184<br/>[163] 53  10   1  41  19 485 119  18   6  59  1 169   1  41  10  17 458  91<br/>[181] 6  23  12   1   3   3  10 491   2  14   1   1 194 469 491  2  1   4<br/>[199] 331 112 485 475  16  1 469  1 331  14   2 485 234  5 171 296  1  85<br/>[217] 11 135 157  2 189  1  31  24   4   5 318 490 338   6 147 194  24 347<br/>[235] 386  23  24  32 117 286 161  6 338  25   4  32  2  9  1  38  8 316<br/>[253] 60 153  27 234 496 457 153  20 316  2 254 219 145 117  25  46  27  7<br/>[271] 228  34 184  75 11 418  52 296   1 194 469 180 469  6  1 268  6 250<br/>[289] 469  29 90  6  15  58 175  32  33 229  37 424  36  51  36  3 169  15<br/>[307] 1  7 175  1 319 207  5   4<br/><br/>trainx[[901]]<br/>[1]  74 356 7  9 199  12  11  61 145 31  22 399 79 145  1 133  3  1  28 203<br/>[21] 29  1 319  3  18 101 470 31  29  2  20  5  33 369 116 134  7  2  25 17<br/>[41] 303  2  5 222 100  28   6   5</pre>
+<p>From the preceding code and output, we can observe the following:</p>
+<ul>
+<li>For tokenization, we specify <kbd>num_words</kbd> as 500, indicating that we will use the 500 most frequent words from the text in the training data.</li>
+<li>Note that using <kbd>fit_text_tokenizer</kbd> automatically converts text into lowercase and removes any punctuation that can be observed in the articles containing text data. Converting text into lowercase helps us avoid duplicates of words, where one may contain lowercase alphabetical characters and another may have uppercase alphabetical characters. Punctuation is removed since it doesn't add value when developing the author classification model with text as input.</li>
+<li>We use <kbd>texts_to_sequences</kbd> to convert the most frequent words in the text into a sequence of integers. The reason for doing this is to convert the unstructured data so that it has a structured format, which is required by deep learning models.</li>
+<li>The output of text file 7 shows a total of 314 integers that are between 1 and 497.</li>
+<li>Looking at the output for text file 901 (the same example in the training data that we reviewed earlier), we can see that it consists of 48 integers between 1 and 470. The original text consists of over 80 words and those words that do not belong to the 500 most frequent words are not represented in this sequence of integers.</li>
+<li>The first five integers, that is, 74, 356, 7, 9, and 199, correspond to the words <kbd>group</kbd>, <kbd>plc</kbd>, <kbd>said</kbd>, <kbd>on</kbd>, and <kbd>monday</kbd>, respectively. Other words at the beginning of the text that haven't been converted into integers do not belong to the top 500 most frequent words in the articles.</li>
+</ul>
+<p>Now, let's look at the number of integers per article in the training and test data. We can do this with the following code:</p>
+<pre># Integers per article for train data<br/>z &lt;- NULL<br/>for (i in 1:2500) {z[i] &lt;- print(length(trainx[[i]]))}<br/>summary(z)<br/>   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. <br/>   31.0   271.0   326.0   326.8   380.0   918.0 <br/><br/># Intergers per article for text data<br/>z &lt;- NULL<br/>for (i in 1:2500) {z[i] &lt;- print(length(testx[[i]]))}<br/>summary(z)<br/>   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. <br/>   39.0   271.0   331.0   329.1   384.0  1001.0 </pre>
+<p>From the preceding summary, we can make the following observations:</p>
+<ul>
+<li>The number of integers per article in the training data ranges from 31 to 918, with a median of about 326 words.</li>
+<li>Similarly, the integers per article range from 39 to 1001 for the test data, with a median of about 331.</li>
+<li>If the number of most frequent words is increased from 500 to a higher value, the median number of words is also expected to increase. This may lead to suitable changes needing to be made in the model architecture and parameter values. As an example, an increase in the number of words per article may call for more neurons in the deep network.</li>
+</ul>
+<p>A histogram of the number of integers per text file for the training data is as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/5c45c3a5-2685-4d49-acbd-0be7edf681d6.png" style="width:24.33em;height:27.67em;"/></p>
+<p>The preceding histogram of integers per text file for the training data shows the overall pattern, with a mean and median of about 326. The tail of this histogram is slightly longer toward the higher value, giving it a moderately right-skewed or positively-skewed pattern.</p>
+<p>Now that we've converted the text data into a sequence of integers, we will change the labels for the train and text data into integers as well.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Changing labels into integers</h1>
+                </header>
+            
+            <article>
+                
+<p>When developing deep learning networks for classification problems, we always use responses or labels in the form of integers. Author names for the train and test text data are stored in <kbd>trainy</kbd> and <kbd>testy</kbd>, respectively. Both <kbd>trainy</kbd> and <kbd>testy</kbd> are lists of 2,500 items that contain the names of 50 authors. To change the labels into integers, we can use the following code:</p>
+<pre># Train and test labels to integers<br/>trainy &lt;- as.factor(unlist(trainy))<br/>trainy &lt;- as.integer(trainy) -1 <br/>testy &lt;- as.factor(unlist(testy))<br/>testy &lt;- as.integer(testy) -1<br/><br/># Saving original labels<br/>trainy_org &lt;- trainy<br/>testy_org &lt;- testy</pre>
+<p>As we can see, to convert labels containing author names into integers, we need to unlist them and then use integers from 0 to 49 to represent the 50 authors. We can also use <kbd>trainy_org</kbd> and <kbd>testy_org</kbd> to save these original integer labels for later use.</p>
+<p>Next, we will carry out padding and truncation to make the data on a sequence of integers have an equal length for each article.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Padding and truncation of sequences</h1>
+                </header>
+            
+            <article>
+                
+<p>When developing the author classification model, the number of integers for each training and test text data need to be of equal length. We can achieve this by padding and truncating the sequence of integers, as follows:</p>
+<pre># Padding and truncation<br/>trainx &lt;- pad_sequences(trainx, maxlen = 300) <br/>testx &lt;- pad_sequences(testx, maxlen = 300)<br/>dim(trainx) <br/>[1] 2500  300</pre>
+<p>Here, we are specifying the maximum length of all the sequences, that is, <kbd>maxlen</kbd>, to be 300. This will truncate any sequences that are longer than 300 integers in an article and add zeroes to sequences that are shorter than 300 integers in an article. Note that for padding and truncation, a default setting of "pre" has been used and is not specifically indicated in the code.</p>
+<p>This means that for truncation and padding, the integers at the beginning of the sequence of integers are impacted. For padding and/or truncation toward the end of the sequence of integers, we can make use of <kbd>padding = "post"</kbd> and/or <kbd>truncation = "post"</kbd> within the code. We can also see that the dimensions of <kbd>trainx</kbd> show a 2,500 x 300 matrix.</p>
+<p>Let's look at the output from text files 7 and 901 in the train data, as follows:</p>
+<pre># Example of truncation<br/>trainx[7,]<br/>  [1]   5 157   1  18  87   3  90   3  59   1 169 346   2  29  52 425<br/> [17]   6  72 386 110 331  24   5   4   3  31   3  22   7  65  33 169<br/> [33] 329  10 105   1 239  11   4  31  11 422   8  60 163 318  10  58<br/> [49] 102   2 137 329 277  98  58 287  20  81   3 142   9   6  87   3<br/> [65]  49  20 142   2 142   6   2  60  13   1 470   8 137 190  60   1<br/> [81]  85 152   5   6 211   1   3   1  85  11   2 211 233  51 233 490<br/> [97]   7 155   3 305   6   4  86   3  70   4   3 157  52 142   6 282<br/>[113] 233   4 286  11 485  47  11   9   1 386 497   2  72   7  33   6<br/>[129]   3   1  60   3 234  23  32  72 485   7 203   6  29 390   5   3<br/>[145]  19  13  55 184  53  10   1  41  19 485 119  18   6  59   1 169<br/>[161]   1  41  10  17 458  91   6  23  12   1   3   3  10 491   2  14<br/>[177]   1   1 194 469 491   2   1   4 331 112 485 475  16   1 469   1<br/>[193] 331  14   2 485 234   5 171 296   1  85  11 135 157   2 189   1<br/>[209]  31  24   4   5 318 490 338   6 147 194  24 347 386  23  24  32<br/>[225] 117 286 161   6 338  25   4  32   2   9   1  38   8 316  60 153<br/>[241]  27 234 496 457 153  20 316   2 254 219 145 117  25  46  27   7<br/>[257] 228  34 184  75  11 418  52 296   1 194 469 180 469   6   1 268<br/>[273]   6 250 469  29  90   6  15  58 175  32  33 229  37 424  36  51<br/>[289]  36   3 169  15   1   7 175   1 319 207   5   4<br/><br/># Example of padding<br/>trainx[901,]<br/>  [1]   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0<br/> [17]   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0<br/> [33]   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0<br/> [49]   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0<br/> [65]   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0<br/> [81]   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0<br/> [97]   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0<br/>[113]   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0<br/>[129]   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0<br/>[145]   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0<br/>[161]   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0<br/>[177]   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0<br/>[193]   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0<br/>[209]   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0<br/>[225]   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0<br/>[241]   0   0   0   0   0   0   0   0   0   0   0   0  74 356   7   9<br/>[257] 199  12  11  61 145  31  22 399  79 145   1 133   3   1  28 203<br/>[273]  29   1 319   3  18 101 470  31  29   2  20   5  33 369 116 134<br/>[289]   7   2  25  17 303   2   5 222 100  28   6   5</pre>
+<p>From the preceding output, we can make the following observations:</p>
+<ul>
+<li>Text file 7, which had 314 integers, has been reduced to 300 integers. Note that this step removed 14 integers at the beginning of the sequence.</li>
+<li>Text file 901, which had 48 integers, now has 300 integers, which has been achieved by adding zeros at the beginning of the sequence to artificially make the total number of integers 300.</li>
+</ul>
+<p>Next, we will partition the training data into train and validation data, which will be required for training and assessing the network at the time of fitting the model.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Data partitioning</h1>
+                </header>
+            
+            <article>
+                
+<p>At the time of training the model, we use <kbd>validation_split</kbd>, which uses a specified percentage of training data to assess validation errors. The training data in this example contains data of the first 50 articles from the first author, followed by 50 articles from the second author, and so on. If we specify <kbd>validation_split</kbd> as 0.2, the model will be trained based on the first 80% (or 2,000) articles from the first 40 authors, and the last 20% (or 500) articles written by the last 10 authors will be used for assessing validation errors. This will cause no input from the last 10 authors to be used in the model training. To overcome this problem, we will randomly partition the training data into train and validation data using the following code:</p>
+<pre># Data partition<br/>trainx_org &lt;- trainx  <br/>testx_org &lt;- testx<br/>set.seed(1234)<br/>ind &lt;- sample(2, nrow(trainx), replace = T, prob=c(.8, .2))<br/>trainx &lt;- trainx_org[ind==1, ]<br/>validx &lt;- trainx_org[ind==2, ]<br/>trainy &lt;- trainy_org[ind==1]<br/>validy &lt;- trainy_org[ind==2]</pre>
+<p>As we can see, to partition the data into train and validation data, we have used an 80:20 split. We also used the <kbd>set.seed</kbd> function for repeatability purposes.</p>
+<p>After partitioning the train data, we will carry out one-hot encoding on the labels, which helps us represent the correct author with a value of one, and all the other authors with a value of zero.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">One-hot encoding the labels</h1>
+                </header>
+            
+            <article>
+                
+<p>To carry out one-hot encoding on the labels, we will use the following code:</p>
+<pre># OHE<br/>trainy &lt;- to_categorical(trainy, 50)<br/>validy &lt;- to_categorical(validy, 50)<br/>testy &lt;- to_categorical(testy, 50)</pre>
+<p>Here, we have used the <kbd>to_categorical</kbd> function to one-hot encode the response variable. We used 50 to indicate the presence of 50 classes since the articles have been written by 50 authors that we plan to classify, using articles that have been written by them as input.</p>
+<p>Now, the data is ready for developing the convolutional recurrent network model for author classification based on the articles they have written.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Developing the model architecture</h1>
+                </header>
+            
+            <article>
+                
+<p>In this section, we will make use of convolutional and LSTM layers in the same network. The convolutional recurrent network architecture can be captured in the form of a simple flowchart:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/92ef946a-77e5-4756-a3a1-a2617ba2b4ff.png" style="width:6.25em;height:23.08em;"/></p>
+<p>Here, we can see that the flowchart contains embedding, convolutional 1D, maximum pooling, LSTM, and dense layers. Note that the embedding layer is always the first layer in the network and is commonly used for applications involving text data. The main purpose of the embedding layer is to find a mapping of each unique word, which in our example is 500, and turn it into a vector that is smaller in size, which we will specify using <kbd>output_dim</kbd>. In the convolutional layer, we will use the <kbd>relu</kbd> activation function. Similarly, the activation functions that will be used for the LSTM and dense layers will be <kbd>tanh</kbd> and <kbd>softmax</kbd>, respectively.</p>
+<p>We can use the following code to develop the model architecture. This also includes the output of the model summary:</p>
+<pre># Model architecture<br/>model &lt;- keras_model_sequential() %&gt;%<br/>         layer_embedding(input_dim = 500, <br/>                         output_dim = 32, <br/>                         input_length = 300) %&gt;%<br/>         layer_conv_1d(filters = 32, <br/>                  kernel_size = 5, <br/>                  padding = "valid",<br/>                  activation = "relu",<br/>                  strides = 1) %&gt;%<br/>         layer_max_pooling_1d(pool_size = 4) %&gt;%<br/>         layer_lstm(units = 32) %&gt;%<br/>         layer_dense(units = 50, activation = "softmax") <br/><br/># Model summary<br/>summary(model)<br/>___________________________________________________________________________<br/>Layer (type)                     Output Shape                  Param #     <br/>===========================================================================<br/>embedding (Embedding)            (None, 300, 32)               16000       <br/>___________________________________________________________________________<br/>conv1d (Conv1D)                  (None, 296, 32)               5152        <br/>___________________________________________________________________________<br/>max_pooling1d (MaxPooling1D)     (None, 74, 32)                0           <br/>___________________________________________________________________________<br/>lstm (LSTM)                      (None, 32)                    8320        <br/>___________________________________________________________________________<br/>dense (Dense)                    (None, 50)                    1650        <br/>===========================================================================<br/>Total params: 31,122<br/>Trainable params: 31,122<br/>Non-trainable params: 0<br/>___________________________________________________________________________</pre>
+<p>From the preceding code, we can make the following observations:</p>
+<ul>
+<li>We have specified <kbd>input_dim</kbd> as 500, which was used as the number of most frequent words during data preparation.</li>
+<li>For <kbd>output_dim</kbd>, we are using 32, which represents the size of the embedding vector. However, note that other numbers can also be explored and we will do so later in this chapter, at the time of performance optimization.</li>
+<li>For <kbd>input_length</kbd>, we have specified 300, which is the number of integers in each sequence.</li>
+</ul>
+<p>After the embedding layer, we have added a 1D convolutional layer with 32 filters. In the previous chapters, we used a 2D convolutional layer when working on image classification problems. In this example, we have data involving sequences and, in such situations, a 1D convolutional layer is more appropriate. For this layer, we have specified the following:</p>
+<ul>
+<li>The length of the 1D convolutional window is specified as 5 using <kbd>kernel_size</kbd>. </li>
+<li>We use <kbd>valid</kbd> for padding to indicate that no padding is required.</li>
+<li>We have specified the activation function as <kbd>relu</kbd>.</li>
+<li>The strides of the convolution have been specified at 1.</li>
+</ul>
+<p>The convolutional layer is followed by a pooling layer. The following are some of the comments for pooling and the subsequent layer:</p>
+<ul>
+<li>The convolutional layer helps us extract features, while the pooling layer after the convolutional layer helps us carry out downsampling and detect important features.</li>
+<li>In this example, we have specified a pooling size of 4, which means that the size of the output (74) is one-fourth of the input (296). This can also be seen in the model summary.</li>
+<li>The next layer is the LSTM with 32 units.</li>
+<li>The last layer is a dense layer with 50 units for the 50 authors, along with the <kbd>softmax</kbd> activation function.</li>
+<li>The <kbd>softmax</kbd> activation function makes all 50 outputs have a total value of one and thus allows them to be used as probabilities for each of the 50 authors.</li>
+<li>As we can see from the summary of the model, the total number of parameters in this network is 31,122.</li>
+</ul>
+<p>Next, we will compile the model, followed by training it.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Compiling and fitting the model</h1>
+                </header>
+            
+            <article>
+                
+<p>In this section, we will compile the model and then train the model using the <kbd>fit</kbd> function using the training and validation dataset. We will also plot the loss and accuracy values that were obtained while training the model.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Compiling the model</h1>
+                </header>
+            
+            <article>
+                
+<p>For compiling the model, we will use the following code:</p>
+<pre># Compile model<br/>model %&gt;% compile(optimizer = "adam",  <br/>         loss = "categorical_crossentropy",<br/>         metrics = c("acc"))</pre>
+<p>Here, we've specified the <kbd>adam</kbd> optimizer. We're using <kbd>categorical_crossentropy</kbd> as the loss function since the labels are based on 50 authors. For the metrics, we've specified the accuracy of the author's classification.</p>
+<p>Now that the model has been compiled, it's ready for training.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Fitting the model</h1>
+                </header>
+            
+            <article>
+                
+<p>We will train the model using the following code:</p>
+<pre># Fitting the model<br/>model_one &lt;- model %&gt;% fit(trainx, trainy,<br/>         epochs = 30,<br/>         batch_size = 32,<br/>         validation_data = list(validx, validy))<br/><br/># Loss and accuracy plot<br/>plot(model_one)</pre>
+<p>Here, we're training the model using <kbd>trainx</kbd> as input and <kbd>trainy</kbd> as output. The model's training is carried out for 30 epochs with a batch size of 32. For assessing the validation loss and validation accuracy for each epoch during the training process, we make use of <kbd>validx</kbd> and <kbd>validy</kbd>, which we created earlier by taking approximately a 20% random sample from the training data.</p>
+<p>The loss and accuracy values based on the train and validation data for each of the 30 epochs are stored in <kbd>model_one</kbd>. The following is a plot of this data:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/2647d6db-d60f-434a-a1e5-ecec9ff2e0e2.png" style="width:37.08em;height:40.67em;"/></p>
+<p>From the preceding plot, we can make the following observations:</p>
+<ul>
+<li>The loss values for the training and validation data reduce as we go from 1 to 30 epochs. However, the loss values for the validation data reduce at a slower pace compared to those for the training data as the training proceeds.</li>
+<li>The accuracy values for the training and validation data show a similar pattern in the opposite direction.</li>
+</ul>
+<ul>
+<li>Increasing the number of epochs during training is likely to improve the loss and accuracy values; however, divergence between the curves is also expected to increase, with this potentially leading to an overfitting situation.</li>
+</ul>
+<p>Next, we will evaluate <kbd>model_one</kbd> and make predictions using training and test data.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Evaluating the model and predicting classes</h1>
+                </header>
+            
+            <article>
+                
+<p>In this section, we will evaluate the model based on our training and test data. We will obtain accuracy by correctly classifying each author using a confusion matrix for the training and test data to gain further insights. We will also use bar plots to visualize the accuracy of identifying each author.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Model evaluation with training data</h1>
+                </header>
+            
+            <article>
+                
+<p>First, we will evaluate the model's performance using training data. Then, we will use the model to predict the class representing each of the 50 authors. The code for evaluating the model is as follows:</p>
+<pre># Loss and accuracy<br/>model %&gt;% evaluate(trainx, trainy)<br/>$loss<br/>[1] 1.45669<br/>$acc<br/>[1] 0.5346288</pre>
+<p>Here, we can see that, by using the training data, we obtain a loss value of about 1.457 and an accuracy of about 0.535. Next, we use the model to make a prediction about the classes for the articles in the training data. These predictions are then used to arrive at an accuracy reading for each of the 50 classes representing 50 authors. The code that's used to achieve this is as follows:</p>
+<pre># Prediction and confusion matrix<br/>pred &lt;- model %&gt;%   predict_classes(trainx_org)<br/>tab &lt;- table(Predicted=pred, Actual=trainy_org)<br/>(accuracy &lt;- 100*diag(tab)/colSums(tab))<br/> 0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 <br/>82 40 30 10 54 46 54 82  8 56 46 36 76 18 52 90 50 56  8 66 80 24 30 46 32 <br/>25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 <br/>46 88 62 22 64 76  2 74 88 72 74 76 86 70 60 86 38 32  0 48  6 24 76  8 22 </pre>
+<p>In the preceding code, to conserve space, we haven't printed the output of the confusion matrix since it will be a 50 x 50 matrix. However, we have used information in the confusion matrix to arrive at the model's accuracy by correctly predicting each author based on the articles they have written. The output that we've obtained is as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/5d97e23e-30f6-4829-afd0-3995073166e8.png"/></p>
+<p>The preceding bar plot provides further insight into the model's performance with respect to each author:</p>
+<ul>
+<li>The accuracy of correctly classifying an author has the highest value of 90% for author 15.</li>
+<li>The accuracy of correctly classifying an author has the lowest value of 0% for author 43.</li>
+<li>This model struggles to correctly classify articles from certain authors, such as those labeled 3, 8, 18, 31, 43, 45, and 48.</li>
+</ul>
+<p>Having assessed the model using training data, we will repeat this process with the test data.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Model evaluation with test data</h1>
+                </header>
+            
+            <article>
+                
+<p>We will use the model to obtain the loss and accuracy values from the test data using the following code:</p>
+<pre># Loss and accuracy<br/>model %&gt;% evaluate(testx, testy)<br/>$loss<br/>[1] 2.460835<br/>$acc<br/>[1] 0.2508</pre>
+<p>From the preceding code, we can see that the loss and accuracy values based on the test data are 2.461 and 0.251, respectively. Both of these results are inferior to the ones we obtained based on the training data, which is usually expected. Predicting the classes and calculating the accuracy of classification for each author, as shown in the following code, would help provide further insights:</p>
+<pre># Prediction and confusion matrix<br/>pred1 &lt;- model %&gt;%   predict_classes(testx)<br/>tab1 &lt;- table(Predicted=pred1, Actual=testy_org)<br/>(accuracy &lt;- 100*diag(tab1)/colSums(tab1))<br/> 0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 <br/>22 28  2  2 28 14 14 20  6 28 24  8 28  8 46 84 14 36 10 50 40 12  4 22  4 <br/>25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 <br/>18 54 38 12 34 46  0 52 26 48 40 26 84 46 18 24 26 10  0 46  0  4 38  0 10</pre>
+<p>The information in the confusion matrix is stored in <kbd>tab1</kbd>, which is used for arriving at the accuracy of correctly classifying articles from each author. The results are as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/1292f3a5-02ee-4259-bbc8-eaf82fbc1b23.png"/></p>
+<p>An overall accuracy of about 25% for the test data already suggested significantly inferior performance based on the test data. This can also be seen in the preceding bar chart. Let's take a look at some of the observations we can make from this:</p>
+<ul>
+<li>For the authors labeled 31, 43, 45, and 48, none of the 50 articles written by each author were correctly classified.</li>
+<li>More than 80% of the articles from the authors labeled 15 and 38 were correctly classified.</li>
+</ul>
+<p>From this initial example, we can see that our model classification performance needs further improvement. The differences in performance that we have observed between the training and test data also indicate the presence of an overfitting problem. Thus, we need to make changes to the model architecture to obtain a model that not only provides higher accuracy in classification performance but also shows consistent performance between the training and test data. We will explore this in the next section.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Performance optimization tips and best practices</h1>
+                </header>
+            
+            <article>
+                
+<p>In this section, we will explore changes we can make to the model architecture and other settings to improve author classification performance. We will carry out two experiments, and, for both of these two experiments, we will increase the number of most frequent words from 500 to 1,500 and increase the length of the sequences of integers from 300 to 400. For both experiments, we will also add a dropout layer after the pooling layer.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Experimenting with reduced batch size</h1>
+                </header>
+            
+            <article>
+                
+<p>The code that we'll be using for this experiment is as follows:</p>
+<pre># Model architecture<br/>model &lt;- keras_model_sequential() %&gt;%<br/>         layer_embedding(input_dim = 1500, <br/>                         output_dim = 32, <br/>                         input_length = 400) %&gt;%<br/>         layer_conv_1d(filters = 32, <br/>                  kernel_size = 5, <br/>                  padding = "valid",<br/>                  activation = "relu",<br/>                  strides = 1) %&gt;%<br/>         layer_max_pooling_1d(pool_size = 4) %&gt;%<br/>         layer_dropout(0.25) %&gt;%<br/>         layer_lstm(units = 32) %&gt;%<br/>         layer_dense(units = 50, activation = "softmax") <br/><br/># Compiling the model<br/>model %&gt;% compile(optimizer = "adam",  <br/>         loss = "categorical_crossentropy",<br/>         metrics = c("acc"))<br/><br/># Fitting the model<br/>model_two &lt;- model %&gt;% fit(trainx, trainy,<br/>         epochs = 30,<br/>         batch_size = 16,<br/>         validation_data = list(validx, validy))<br/><br/># Plot of loss and accuracy<br/>plot(model_two)</pre>
+<p>From the preceding code, we can make the following observations:</p>
+<ul>
+<li>We will update the model architecture by specifying <kbd>input_dim</kbd> as 1,500 and <kbd>input_length</kbd> as 400.</li>
+<li>We will reduce the batch size that's used at the time of fitting the model from 32 to 16.</li>
+<li>To address the overfitting problem, we have added a dropout layer with a rate of 25%.</li>
+<li>We have kept all other settings the same as those we had used for the previous model.</li>
+</ul>
+<p>The loss and accuracy values based on the training and validation data for each of the 30 epochs is stored in <kbd>model_two</kbd>. The results can be seen in the following plot:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/d33b921e-8107-4abb-b084-e851906e486d.png" style="width:37.17em;height:36.92em;"/></p>
+<p>The preceding plot indicates that the loss and accuracy values for the validation data stay flat for the last few epochs. However, they do not deteriorate. Next, we will obtain the loss and accuracy values based on the training and test data using the <kbd>evaluate</kbd> function, as follows:</p>
+<pre># Loss and accuracy for train data<br/>model %&gt;% evaluate(trainx, trainy)<br/>$loss<br/>[1] 0.3890106<br/>$acc<br/>[1] 0.9133034<br/><br/># Loss and accuracy for test data<br/>model %&gt;% evaluate(testx, testy)<br/>$loss<br/>[1] 2.710119<br/>$acc<br/>[1] 0.308</pre>
+<p>From the preceding code and output, we can observe that the loss and accuracy values for the training data show better results compared to the previous model. However, for the test data, although the accuracy value is better, the loss value is slightly worse.</p>
+<p>The accuracy that was obtained by correctly classifying the articles in the testing data from each author can be seen in the following bar plot:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/698c0af5-4bf0-4171-aea2-62ad35dc4d4f.png" style="width:40.33em;height:40.00em;"/></p>
+<p>From the preceding bar plot, we can make the following observations:</p>
+<ul>
+<li>The bar plot visually shows improvements compared to the previous model.</li>
+<li>In the previous model, for the test data, we had four authors with no articles classified correctly. However, now, we don't have any authors with no correct classification.</li>
+</ul>
+<p>In the next experiment, we will look at more changes we can make in an effort to improve the author's classification performance even further.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Experimenting with batch size, kernel size, and filters in CNNs</h1>
+                </header>
+            
+            <article>
+                
+<p>The code that will be used for this experiment is as follows:</p>
+<pre># Model architecture<br/>model &lt;- keras_model_sequential() %&gt;%<br/>          layer_embedding(input_dim = 1500,<br/>                          output_dim = 32,<br/>                          input_length = 400) %&gt;%<br/>          layer_conv_1d(filters = 64,<br/>                   kernel_size = 4,<br/>                   padding = "valid",<br/>                   activation = "relu",<br/>                   strides = 1) %&gt;%<br/>          layer_max_pooling_1d(pool_size = 4) %&gt;%<br/>          layer_dropout(0.25) %&gt;%<br/>          layer_lstm(units = 32) %&gt;%<br/>          layer_dense(units = 50, activation = "softmax")<br/><br/># Compiling the model<br/> model %&gt;% compile(optimizer = "adam",  <br/>          loss = "categorical_crossentropy",<br/>          metrics = c("acc"))<br/><br/> # Fitting the model<br/> model_three &lt;- model %&gt;% fit(trainx, trainy,<br/>          epochs = 30,<br/>          batch_size = 8,<br/>          validation_data = list(validx, validy))<br/><br/># Loss and accuracy plot<br/>plot(model_three)</pre>
+<p>From the preceding code, we can make the following observations:</p>
+<ul>
+<li>We have reduced the kernel size from 5 to 4.</li>
+<li>We have increased the number of filters for the convolutional layer from 32 to 64.</li>
+<li>We have reduced the batch size from 16 to 8 while training the model.</li>
+<li>We have kept all other settings the same as what was used for the previous model.</li>
+</ul>
+<p>The loss and accuracy values based on the training and validation data for each of the 30 epochs are stored in <kbd>model_three</kbd>. A plot of this data is as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/cfc795b3-827b-4043-b66f-968f6e21af1d.png" style="width:37.58em;height:40.67em;"/></p>
+<p class="mce-root"/>
+<p>The plot for the loss and accuracy shows the following:</p>
+<ul>
+<li>The accuracy values for the validation data remain flat for the last few epochs, whereas it increases at a relatively slower pace in the last few epochs for the training data.</li>
+<li>The loss values based on the validation data start to increase during the last few epochs and continue to decrease for the training data.</li>
+</ul>
+<p>Now, we will obtain the loss and accuracy values based on the train and test data using the <kbd>evaluate</kbd> function, as follows:</p>
+<pre># Loss and accuracy for train data<br/>model %&gt;% evaluate(trainx, trainy)<br/>$loss<br/>[1] 0.1093387<br/>$acc<br/>[1] 0.9880419<br/><br/># Loss and accuracy for test data<br/>model %&gt;% evaluate(testx, testy)<br/>[1] 3.262691<br/>$acc<br/>[1] 0.337</pre>
+<p>From the preceding code and output, we can observe the following:</p>
+<ul>
+<li>The loss and accuracy values based on the training data show an improvement compared to the previous two models.</li>
+<li>For the test data, although the loss value is higher compared to the first two models, an accuracy value of about 34% shows better accuracy in classifying author articles.</li>
+</ul>
+<p>The following bar plot shows the accuracy of correctly classifying the authors of articles in the test data:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/eb04c5b6-ee46-46b9-9145-30b64a20acfb.png"/></p>
+<p>From the preceding bar plot, we can observe the following:</p>
+<ul>
+<li>The accuracy of correctly classifying articles from each author shows better performance compared to the previous two models since we don't have any authors with zero accuracy.</li>
+<li>When comparing the three models that we've used so far using test data, we can see that the first model has four authors classified with 50% or higher accuracy. However, for the second and third models, the number of authors classified with 50% or higher accuracy increases to 8 and 9, respectively.</li>
+</ul>
+<p>In this section, we carried out two experiments that showed that the author classification performance of the model can be improved further.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Summary</h1>
+                </header>
+            
+            <article>
+                
+<p>In this chapter, we illustrated the steps for developing a convolutional recurrent neural network for author classification based on articles that they have written. Convolutional recurrent neural networks combine the advantages of two networks into one network. On one hand, convolutional networks can capture high-level local features from the data, while, on the other hand, recurrent networks can capture long-term dependencies in the data involving sequences.</p>
+<p>First, convolutional recurrent neural networks extract features using a one-dimensional convolutional layer. These extracted features are then passed to the LSTM recurrent layer to obtain hidden long-term dependencies, which are then passed to a fully connected dense layer. This dense layer obtains the probability of the correct classification of each author based on the data in the articles. Although we used a convolutional recurrent neural network for the author classification problem, this type of deep network can be applied to other types of data involving sequences, such as natural language processing, speech, and video-related problems.</p>
+<p>The next chapter will be the last chapter of this book and will go over tips, tricks, and the road ahead. Developing deep learning networks for different types of data is both art and science. Every application brings new challenges, as well as an opportunity for us to learn and improve our skills. In the next chapter, we will summarize some such experiences that can turn out to be very useful in certain applications and help save a significant amount of time in arriving at models that perform well.</p>
+<p><span> </span></p>
+
+
+            </article>
+
+            
+        </section>
+    </body></html>

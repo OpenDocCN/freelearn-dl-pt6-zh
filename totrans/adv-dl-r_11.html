@@ -1,0 +1,516 @@
+<html><head></head><body>
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Creating New Images Using Generative Adversarial Networks</h1>
+                </header>
+            
+            <article>
+                
+<p>This chapter illustrates the application of <strong>generative adversarial networks</strong> (<strong>GANs</strong>) for generating new images using a practical example. So far in this book, using image data, we have illustrated the use of deep networks for image classification tasks. However, in this chapter, we will explore an interesting and popular approach that helps create new images. Generative adversarial networks have been applied for generating new images, improving image quality, and generating new text and new music. Another interesting application of GANs is in the area of anomaly detection. Here, a GAN is trained to generate data that is considered normal. When this network is used for reconstructing data that is considered not normal or anomalous, the differences in results can help us detect the presence of an anomaly. We will look at an example of generating new images in this chapter.</p>
+<p>More specifically, in this chapter, we will cover the following topics:</p>
+<ul>
+<li>Generative adversarial network overview</li>
+<li>Processing MNIST image data </li>
+<li>Developing the generator network</li>
+<li>Developing the discriminator network</li>
+<li>Training the network</li>
+<li>Reviewing results</li>
+<li>Performance optimization tips and best practices</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Generative adversarial network overview</h1>
+                </header>
+            
+            <article>
+                
+<p>GANs make use of two networks:</p>
+<ul>
+<li>Generator network</li>
+<li>Discriminator network</li>
+</ul>
+<p>For the generator network, noisy data, which is usually random numbers that have been generated from a standard normal distribution are provided as input. A flow chart showing an overview of a generative adversarial network is as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/02dd32ee-b66b-462b-9b75-8fc5ec56a546.png" style="width:22.92em;height:12.67em;"/></p>
+<p>As indicated in the preceding flowchart, the generator network uses noisy data as input and tries to create an image that we can label as fake. These fake images, along with the labels representing them as fake, are provided as input to the discriminator network. Along with the labeled fake images, we can also provide real images with labels as input to the discriminator network.</p>
+<p>During the training process, the discriminator network tries to differentiate between a fake image created by the generator network and a real image. While developing a generative adversarial network, this process continues so that a generator network tries its best to generate an image that a discriminator network cannot classify as fake. At the same time, the discriminator network gets better and better at correctly discriminating between a fake and a real image.</p>
+<p>Success is achieved when the generator network learns to consistently produce images that are not available in the training data and the discriminator network is unable to classify them as fake. For the real images in this chapter, we will make use of MNIST train data that contains images of handwritten digits.</p>
+<p>In the upcoming sections, we will illustrate the steps we need to follow in order to develop a generative adversarial network for the handwritten digit five, which is available in the MNIST data.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Processing MNIST image data</h1>
+                </header>
+            
+            <article>
+                
+<p>In this section, will use the Keras library, which also includes MNIST data. We will also make use of the EBImage library, which is useful for processing image data. MNIST data contains handwritten images from 0 to 9. Let's take a look at the following code to understand this data:</p>
+<pre># Libraries and MNIST data<br/>library(keras)<br/>library(EBImage)<br/>mnist &lt;- dataset_mnist()<br/>str(mnist)<br/>List of 2<br/> $ train:List of 2<br/> ..$ x: int [1:60000, 1:28, 1:28] 0 0 0 0 0 0 0 0 0 0 ...<br/> ..$ y: int [1:60000(1d)] 5 0 4 1 9 2 1 3 1 4 ...<br/> $ test :List of 2<br/> ..$ x: int [1:10000, 1:28, 1:28] 0 0 0 0 0 0 0 0 0 0 ...<br/> ..$ y: int [1:10000(1d)] 7 2 1 0 4 1 4 9 5 9 ...</pre>
+<p>From the preceding code, we can make the following observations:</p>
+<ul>
+<li>Looking at the structure of this data, we can see that there are 60,000 images in the training data and 10,000 images in the test data.</li>
+<li>These handwritten images are 28 x 28 in size and are black and white in color. This means that there's one channel.</li>
+</ul>
+<p>In this chapter, we will only make use of digit five from the training data for training the generative adversarial network and for generating new images of digit five.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Digit five from the training data</h1>
+                </header>
+            
+            <article>
+                
+<p>Although a generative adversarial network can be developed to generate all 10 digits, for someone just getting started, it is advisable to get started with just one digit. Let's take a look at the following code:</p>
+<pre># Data on digit five<br/>c(c(trainx, trainy), c(testx, testy)) %&lt;-% mnist<br/>trainx &lt;- trainx[trainy==5,,]<br/>str(trainx)<br/> int [1:5421, 1:28, 1:28] 0 0 0 0 0 0 0 0 0 0 ...<br/>summary(trainx)<br/>   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. <br/>   0.00    0.00    0.00   33.32    0.00  255.00 <br/><br/>par(mfrow = c(8,8), mar = rep(0, 4))<br/>for (i in 1:64) plot(as.raster(trainx[i,,], max = 255))<br/>par(mfrow = c(1,1))<br/><br/></pre>
+<p>As seen in the preceding code, we are selecting images that contain digit five and are saving them in <kbd>trainx</kbd>. The structure of <kbd>trainx</kbd> shows us that there are 5,421 such images and they all have dimensions of 28 x 28. The summary function shows that the values in <kbd>trainx</kbd> range from 0 to 255. The first 64 images of the handwritten digit five from the train data can be seen in the following image:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/b27ce764-d851-46b1-a947-b51b206bc129.png" style="width:26.67em;height:36.92em;"/></p>
+<p>These handwritten images show a high amount of variability. Such variability is expected since different people have different handwriting styles. Although most of these digits are clearly written and easy to recognize, there are some that are somewhat less clear.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Data processing</h1>
+                </header>
+            
+            <article>
+                
+<p>To prepare our data for the steps that follow, we'll reshape <kbd>trainx</kbd> so that its dimensions are 5,421 x 28 x 28 x 1, as shown in the <span>following code:</span></p>
+<pre># Reshaping data<br/>trainx &lt;- array_reshape(trainx, c(nrow(trainx), 28, 28, 1))<br/>trainx &lt;- trainx / 255</pre>
+<p>Here, we also divide the values in <kbd>trainx</kbd> by 255 to obtain a range of values between 0 and 1. With the data processed in the required format, we can move on and develop the architecture for the generator network.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Developing the generator network</h1>
+                </header>
+            
+            <article>
+                
+<p>The generator network will be used for generating fake images from data that's provided in the form of noise. In this section, we will develop the architecture of the generator network and look at the parameters that are involved by summarizing the network.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Network architecture</h1>
+                </header>
+            
+            <article>
+                
+<p>Let's take a look at the code for developing the generator network architecture:</p>
+<pre># Generator network<br/>h &lt;- 28; w &lt;- 28; c &lt;- 1; l &lt;- 28  <br/>gi &lt;- layer_input(shape = l)<br/>go &lt;- gi %&gt;% layer_dense(units = 32 * 14 * 14) %&gt;%<br/>         layer_activation_leaky_relu() %&gt;% <br/>         layer_reshape(target_shape = c(14, 14, 32)) %&gt;% <br/>         layer_conv_2d(filters = 32, <br/>                       kernel_size = 5,<br/>                       padding = "same") %&gt;% <br/>         layer_activation_leaky_relu() %&gt;% <br/>         layer_conv_2d_transpose(filters = 32, <br/>                                 kernel_size = 4,<br/>                                 strides = 2,<br/>                                 padding = "same") %&gt;% <br/>         layer_activation_leaky_relu() %&gt;% <br/>         layer_conv_2d(filters = 1, <br/>                       kernel_size = 5,<br/>                       activation = "tanh", <br/>                       padding = "same")<br/>g &lt;- keras_model(gi, go)</pre>
+<p>In the preceding code, we can observe the following:</p>
+<ul>
+<li>We have specified height (h), width (w), number of channels (c), and the latent dimension (l) as 28, 28, 1, and 28, respectively.</li>
+<li>We have specified the input shape for the generator input (gi) as 28. At the time of training, the generator network will be provided an input of 28 random numbers that have been obtained from a standard normal distribution which is simply noise.</li>
+<li>Next, we have specified the architecture for the generator network's output (go).</li>
+<li>The last layer is a convolutional 2D layer with a <kbd>tanh</kbd> activation function. In the last layer, we have set the filter as 1 since we will not be using color images.</li>
+<li>Note that <kbd>layer_conv_2d_transpose</kbd> is required to be 28 x 28 in size.</li>
+<li>The output dimensions from the generator output will be 28 x 28 x 1.</li>
+<li>The other values that were used, such as the number of filters, <kbd>kernel_size</kbd>, or strides can be experimented with later if you wish to explore improving the results.</li>
+<li><kbd>gi</kbd> and <kbd>go</kbd> are used for the generator network (g).</li>
+</ul>
+<p>Now, let's look at the summary of this network.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Summary of the generator network</h1>
+                </header>
+            
+            <article>
+                
+<p>A summary of the generator network is as follows:</p>
+<pre># Summary of generator network model <br/>summary(g)<br/><strong>____________________________________________________________________________</strong><br/><strong>Layer (type)                      Output Shape                 Param #       </strong><br/><strong>============================================================================</strong><br/><strong>input_7 (InputLayer)              [(None, 28)]                   0             </strong><br/><strong>____________________________________________________________________________</strong><br/><strong>dense_4 (Dense)                   (None, 6272)                181888        </strong><br/><strong>____________________________________________________________________________</strong><br/><strong>leaky_re_lu_8 (LeakyReLU)         (None, 6272)                   0             </strong><br/><strong>____________________________________________________________________________</strong><br/><strong>reshape_2 (Reshape)               (None, 14, 14, 32)             0             </strong><br/><strong>____________________________________________________________________________</strong><br/><strong>conv2d_6 (Conv2D)                 (None, 14, 14, 32)            25632         </strong><br/><strong>____________________________________________________________________________</strong><br/><strong>leaky_re_lu_9 (LeakyReLU)          (None, 14, 14, 32)             0             </strong><br/><strong>____________________________________________________________________________</strong><br/><strong>conv2d_transpose_2 (Conv2DTranspose) (None, 28, 28, 32)         16416         </strong><br/><strong>____________________________________________________________________________</strong><br/><strong>leaky_re_lu_10 (LeakyReLU)          (None, 28, 28, 32)            0             </strong><br/><strong>____________________________________________________________________________</strong><br/><strong>conv2d_7 (Conv2D)                    (None, 28, 28, 1)           801           </strong><br/><strong>============================================================================</strong><br/><strong>Total params: 224,737</strong><br/><strong>Trainable params: 224,737</strong><br/><strong>Non-trainable params: 0</strong><br/><strong>_______________________________________________________________________________________</strong></pre>
+<p>The summary of the generator network shows the output's shape and the number of parameters for each layer. Note that the final output shape is 28 x 28 x 1. The fake images that will be generated will have these dimensions. Overall, for this network, we have 224,737 parameters.</p>
+<p>Now that we've specified the structure of the generator network, we can develop the architecture for the discriminator network.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Developing the discriminator network</h1>
+                </header>
+            
+            <article>
+                
+<p>The discriminator network will be used for classifying fake and real images. The architecture and summary of the network will be discussed in this section.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Architecture</h1>
+                </header>
+            
+            <article>
+                
+<p>The code that's used for developing the discriminator network architecture is as follows:</p>
+<pre># Discriminator network<br/>di &lt;- layer_input(shape = c(h, w, c))<br/>do &lt;- di %&gt;% <br/>         layer_conv_2d(filters = 64, kernel_size = 4) %&gt;% <br/>         layer_activation_leaky_relu() %&gt;% <br/>         layer_flatten() %&gt;%<br/>         layer_dropout(rate = 0.3) %&gt;%  <br/>         layer_dense(units = 1, activation = "sigmoid")<br/>d &lt;- keras_model(di, do)</pre>
+<p>From the preceding cod<span>e, we can observe the following:</span></p>
+<ul>
+<li>We provided an input shape (di) with h = 28, w = 28, and c = 1. This is the dimension of fake and real images that will be used at the time of training the network.</li>
+<li>In the last layer of the discriminator output (do), we have specified the activation function as <kbd>sigmoid</kbd> and the units as 1, since an image is differentiated as either real or fake.</li>
+<li><kbd>di</kbd> and <kbd>do</kbd> are used for the discriminator network model (d).</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Summary of the discriminator network</h1>
+                </header>
+            
+            <article>
+                
+<p>The summary of the discriminator network shows the output shape and number of parameters for each layer:</p>
+<pre># Summary of discriminator network model <br/>summary(d)<br/>___________________________________________________<br/><strong>Layer (type) Output Shape Param # </strong><br/><strong>===================================================</strong><br/><strong>input_10 (InputLayer) [(None, 28, 28, 1)] 0 </strong><br/><strong>___________________________________________________</strong><br/><strong>conv2d_12 (Conv2D) (None, 25, 25, 64) 1088 </strong><br/><strong>____________________________________________________</strong><br/><strong>leaky_re_lu_17 (LeakyReLU) (None, 25, 25, 64) 0 </strong><br/><strong>____________________________________________________</strong><br/><strong>flatten_2 (Flatten) (None, 40000) 0 </strong><br/><strong>____________________________________________________</strong><br/><strong>dropout_2 (Dropout) (None, 40000) 0 </strong><br/><strong>____________________________________________________</strong><br/><strong>dense_7 (Dense) (None, 1) 40001 </strong><br/><strong>====================================================</strong><br/><strong>Total params: 41,089</strong><br/><strong>Trainable params: 41,089</strong><br/><strong>Non-trainable params: 0</strong><br/><strong>_____________________________________________________</strong></pre>
+<p>Here, the output of the first layer is 28 x 28 x 1 in size, which matches the dimensions of the fake and real images. The total number of parameters is 41,089.</p>
+<p>Now, we can compile the discriminator network model using the following code:</p>
+<pre># Compile discriminator network<br/>d %&gt;% compile(optimizer = 'rmsprop',<br/>         loss = "binary_crossentropy")</pre>
+<p>Here, we have compiled the discriminator network using the <kbd>rmsprop</kbd> optimizer. For the loss, we have specified <kbd>binary_crossentropy</kbd>.</p>
+<p>Next, we freeze the weight of the discriminator network. Note that we freeze these weights after compiling the discriminator network so that it applies them to the <kbd>gan</kbd> model only:</p>
+<pre># Freeze weights and compile<br/>freeze_weights(d) <br/>gani &lt;- layer_input(shape = l)<br/>gano &lt;- gani %&gt;% g %&gt;% d<br/>gan &lt;- keras_model(gani, gano)<br/>gan %&gt;% compile(optimizer = 'rmsprop', <br/>                loss = "binary_crossentropy")</pre>
+<p>Here, the generative adversarial network's output (gano) uses the generator network and the discriminator network with frozen weights. The generative adversarial network (gan) is based on <kbd>gani</kbd> and <kbd>gano</kbd>. The network is then compiled with the <kbd>rmsprop</kbd> optimizer and with the loss specified as <kbd>binary_crossentropy</kbd>.</p>
+<p>Now, we are ready to train the network.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Training the network</h1>
+                </header>
+            
+            <article>
+                
+<p>In this section, we will <span><span>out training of </span></span>the network. While training the network, we will save fake images and store loss values to review the training progress. They will help us assess the effectiveness of the network when creating realistic fake images.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Initial setup for saving fake images and loss values</h1>
+                </header>
+            
+            <article>
+                
+<p>We will start by specifying a few things that we will need for the training process. Let's take a look at the following code:</p>
+<pre># Initial settings<br/>b &lt;- 50  <br/>setwd("~/Desktop/")<br/>dir &lt;- "FakeImages"<br/>dir.create(dir)<br/>start &lt;- 1; dloss &lt;- NULL; gloss &lt;- NULL</pre>
+<p><span>From the preceding code, we can observe the following:</span></p>
+<ul>
+<li>We will use a batch size (b) of 50.</li>
+<li>We will save fake images in the <kbd>FakeImages</kbd> directory, which is created on the desktop of our computer.</li>
+<li>We will also make use of discriminator loss values (dloss) and GAN loss values (gloss), which are initialized with <kbd>NULL</kbd>. </li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Training process</h1>
+                </header>
+            
+            <article>
+                
+<p>Next, we will train the model. Here, we will be using 100 iterations. Let's go over the code for this, which has been summarized into five points:</p>
+<pre># 1. Generate 50 fake images from noise<br/>for (i in 1:100) {noise &lt;- matrix(rnorm(b*l), nrow = b, ncol= l)}<br/>fake &lt;- g %&gt;% predict(noise)<br/><br/># 2. Combine real &amp; fake images<br/>stop &lt;- start + b - 1 <br/>real &lt;- trainx[start:stop,,,]<br/>real &lt;- array_reshape(real, c(nrow(real), 28, 28, 1))<br/>rows &lt;- nrow(real)<br/>both &lt;- array(0, dim = c(rows * 2, dim(real)[-1]))<br/>both[1:rows,,,] &lt;- fake<br/>both[(rows+1):(rows*2),,,] &lt;- real<br/>labels &lt;- rbind(matrix(runif(b, 0.9,1), nrow = b, ncol = 1),<br/> matrix(runif(b, 0, 0.1), nrow = b, ncol = 1))<br/>start &lt;- start + b<br/><br/># 3. Train discriminator<br/>dloss[i] &lt;- d %&gt;% train_on_batch(both, labels) <br/><br/># 4. Train generator using gan <br/>fakeAsReal &lt;- array(runif(b, 0, 0.1), dim = c(b, 1))<br/>gloss[i] &lt;- gan %&gt;% train_on_batch(noise, fakeAsReal) <br/><br/># 5. Save fake image<br/>f &lt;- fake[1,,,] <br/>dim(f) &lt;- c(28,28,1)<br/>image_array_save(f, path = file.path(dir, paste0("f", i, ".png")))}</pre>
+<p>In the preceding code, we can observe the following:</p>
+<ol>
+<li>We start by simulating random data points from the standard normal distribution and the save results as noise. Then, we use the generator network <kbd>g</kbd> to create fake images from this data containing random noise. Note that <kbd>noise</kbd> is 50 x 28 in size and that <kbd>fake</kbd> is 50 x 28 x 28 x 1 in size and contains 50 fake images in each iteration.</li>
+<li>We update the values of start and stop based on the batch size. For the first iteration, start and stop have values of 1 and 50, respectively. For the second iteration, start and stop have values of 51 and 100, respectively. Similarly, for the 100th iteration, start and stop have values of 4,951 and 5,000, respectively. Since <kbd>trainx</kbd>, which contains the handwritten digit five, has more than 5,000 images, none of the images are repeated during these 100 iterations. Thus, in each iteration, 50 real images are selected and stored in <kbd>real</kbd>, which is 50 x 28 x 28 in size. We use reshape to change the dimensions to 50 x 28 x 28 x 1, so that they match the dimensions of the fake images.</li>
+<li>Then, we create an empty array called <kbd>both</kbd> that's 100 x 28 x 28 x 1 in size to store real and fake image data. The first 50 images in <kbd>both</kbd> contain fake data while the next 50 images contain real images. We also generate 50 random numbers between 0.9 and 1 using uniform distribution to use as labels for fake images and similar random numbers between 0 and 0.1 to use as labels for real images. Note that we do not use 0 to represent real and 1 to represent fake images and instead introduce some randomness or noise. Artificially introducing some noise in the values of labels helps at the time of training the network.</li>
+<li>We train the discriminator network using image data contained in <kbd>both</kbd> and the correct category information contained in <kbd>labels</kbd>. We also store the discriminator loss values in <kbd>dloss</kbd> for all 100 iterations. If the discriminator network learns to do well in classifying fake and real images, then this loss value will be low.</li>
+<li>We try to fool the network by labeling the noise containing random values between 0 and 0.1, which we had used for real images. The resulting loss values are stored in <kbd>gloss</kbd> for all 100 iterations. If the network learns to do well in presenting fake images and makes the network classify them as real, then this loss value will be low.</li>
+<li>We save the first fake image from each of the 100 iterations so that we can review it and observe the impact of the training process.</li>
+</ol>
+<p>Note that, usually, the training process for generative adversarial networks requires a significant amount of computational resources. However, the example we are using here is meant to quickly illustrate how this process works and complete the training process in a reasonable amount of time. For 100 iterations and a computer with 8 GB of RAM, it should take less than a minute to run all the code.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Reviewing results</h1>
+                </header>
+            
+            <article>
+                
+<p>In this section, we will review the network losses that were obtained from 100 iterations. We will also take a look at the progress of using fake images from iteration 1 to 100.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Discriminator and GAN losses</h1>
+                </header>
+            
+            <article>
+                
+<p>The discriminator and GAN loss values that were obtained from our 100 iterations can be plotted as follows. The discriminator loss is based on the loss values for the fake and real images:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/92ead08f-6541-4a19-8d5c-04d2fb0da7ea.png" style="width:28.17em;height:29.17em;"/></p>
+<p>From the preceding plot, we can make the following observations:</p>
+<ul>
+<li>The loss values for the discriminator network and the GAN show high variability during the first 20 iterations. This variability is an outcome of the learning process.</li>
+<li>The discriminator and generator networks are competing against each other and trying to do better than one another. When one network performs better, it is at the cost of the other network. This is the reason why, if <kbd>dloss</kbd> and <kbd>gloss</kbd> were plotted on a scatter plot, we would expect to see some amount of negative correlation between them. The correlation is not expected to be perfectly negative, but the overall pattern is expected to indicate a negative relationship. In the long run, both loss values are expected to converge.</li>
+<li>The loss values that were obtained from the GAN show higher fluctuations compared to the loss values that are obtained from the discriminator network.</li>
+<li>After about 50 iterations, we notice that the discriminator loss values show a small but gradual increase. This suggests that the discriminator network is finding it increasingly difficult to differentiate between the real and fake images that are being generated by the generator network.</li>
+<li>Note that an increase in loss values is not necessarily a negative outcome. In this case, this is positive feedback and it indicates that pitting the generator network against the discriminator network is yielding results. This means that the generator network is able to create fake images that increasingly look like real images and helps us achieve our main objective.</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Fake images</h1>
+                </header>
+            
+            <article>
+                
+<p>We will use the following code to read fake images and then plot them:</p>
+<pre># Fake image data<br/>library(EBImage)<br/>setwd("~/Desktop/FakeImages")<br/>temp = list.files(pattern = "*.png")<br/>mypic &lt;- list()<br/>for (i in 1:length(temp)) {mypic[[i]] &lt;- readImage(temp[[i]])}<br/>par(mfrow = c(10,10))<br/>for (i in 1:length(temp)) plot(mypic[[i]])</pre>
+<p>In the preceding code, we have made use of the EBImage library to process fake image data. We have read all 100 images that are saved in the <kbd>FakeImages</kbd> directory. Now, we can plot all the images in a 10 x 10 grid, as shown in the following image:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/c9b410e9-63fd-494b-8546-e948b8536f4e.png" style="width:27.25em;height:29.42em;"/></p>
+<p>In the preceding image, the first fake image from each of the 100 iterations is shown. From this, we can make the following observations:</p>
+<ul>
+<li>The first ten images in the first row represent the first 10 iterations.</li>
+<li>The first image simply reflects random noise. As we reach 10 iterations, the image begins to capture the essence of the handwritten digit five.</li>
+<li>By the time the network training goes through iterations 91 to 100, digit five becomes visually more clear.</li>
+</ul>
+<p>In the next section, we will carry out an experiment by making some changes in the network and observing its impact on the network's training process.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Performance optimization tips and best practices</h1>
+                </header>
+            
+            <article>
+                
+<p>In this section, we will carry out an experiment by inserting an additional convolutional layer into the generator network, as well as in the discriminator network. Through this experiment, we will convey performance optimization tips and best practices.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Changes in the generator and discriminator network</h1>
+                </header>
+            
+            <article>
+                
+<p>The changes in the generator network are shown in the following code:</p>
+<pre># Generator network<br/>gi &lt;- layer_input(shape = l)<br/>go &lt;- gi %&gt;% layer_dense(units = 32 * 14 * 14) %&gt;%<br/>         layer_activation_leaky_relu() %&gt;% <br/>         layer_reshape(target_shape = c(14, 14, 32)) %&gt;% <br/>         layer_conv_2d(filters = 32, <br/>                       kernel_size = 5,<br/>                       padding = "same") %&gt;% <br/>         layer_activation_leaky_relu() %&gt;% <br/>         layer_conv_2d_transpose(filters = 32, <br/>                                 kernel_size = 4,<br/>                                 strides = 2, <br/>                                 padding = "same") %&gt;% <br/>         layer_activation_leaky_relu() %&gt;%      <br/>         layer_conv_2d(filters = 64, <br/>                      kernel_size = 5, <br/>                      padding = "same") %&gt;% <br/>         layer_activation_leaky_relu() %&gt;% <br/>         layer_conv_2d(filters = 1, <br/>                       kernel_size = 5,<br/>                       activation = "tanh", <br/>                       padding = "same")<br/>g &lt;- keras_model(gi, go)</pre>
+<p>Here, we can see that, in the generator network, we are adding the <kbd>layer_conv_2d</kbd> and <kbd>layer_activation_leaky_relu</kbd> layers just before the last layer. The total number of parameters for the generator network has increased to 276,801.</p>
+<p>The changes in the discriminator network are shown in the following code:</p>
+<pre># Discriminator network<br/>di &lt;- layer_input(shape = c(h, w, c))<br/>do &lt;- di %&gt;% <br/>         layer_conv_2d(filters = 64, kernel_size = 4) %&gt;% <br/>         layer_activation_leaky_relu() %&gt;% <br/>         layer_conv_2d(filters = 64, kernel_size = 4, strides = 2) %&gt;% <br/>         layer_activation_leaky_relu() %&gt;% <br/>         layer_flatten() %&gt;%<br/>         layer_dropout(rate = 0.3) %&gt;%  <br/>         layer_dense(units = 1, activation = "sigmoid")<br/>d &lt;- keras_model(di, do)</pre>
+<p>Here, we have added the <kbd>layer_conv_2d</kbd> and <kbd>layer_activation_leaky_relu</kbd> layers before the flattening layer in the discriminator network. The number of parameters in the discriminator network has increased to 148,866. We have kept everything else the same and then trained the network again for 100 iterations.</p>
+<p>Now, we can assess the impact of these changes.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Impact of these changes on the results</h1>
+                </header>
+            
+            <article>
+                
+<p>The discriminator and GAN loss values for 100 iterations can be plotted as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/f0b7934c-683d-488a-b9de-b4375b35f698.png" style="width:30.50em;height:23.75em;"/></p>
+<p>From the preceding plot, we can observe the following:</p>
+<ul>
+<li>By increasing the number of layers, the fluctuation in the loss values for the discriminator and GAN network has reduced compared to the results we obtained earlier.</li>
+<li>The spikes or high loss values that have been observed for some of the iterations indicate the corresponding network struggling, while competing against the other network.</li>
+<li>The variability in the GAN loss values continues to be higher compared to those for discriminator network-related loss.</li>
+</ul>
+<p>The following plot is of the first fake image in each of the 100 iterations:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/6ea51275-7d28-4f89-ae28-e8054420bf78.png" style="width:25.75em;height:22.50em;"/></p>
+<p>From the preceding images, we can observe the following:</p>
+<ul>
+<li>With additional convolutional layers in the generator and discriminator networks, the network begins to generate images replicating the handwritten digit five much earlier.</li>
+<li>In the previous network, fake images that consistently looked like handwritten digit five did not appear until about 70-80 iterations.</li>
+<li>Due to the use of additional layers, we can see the digit five being formed more or less consistently after about 20-30 iterations, which suggests an improvement.</li>
+</ul>
+<p>Next, we will try to use this network to generate another handwritten digit.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Generating a handwritten image of digit eight</h1>
+                </header>
+            
+            <article>
+                
+<p>In this experiment, we will make use of the same network architecture as the previous one. However, we will use it for generating a handwritten image of digit eight. The discriminator and GAN loss values for 100 iterations for this experiment can be plotted as follows: </p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/69db0b7a-6a39-40c3-906a-54311552e074.png" style="width:35.33em;height:31.17em;"/></p>
+<p>From the preceding plot, we can make the following observations:</p>
+<ul>
+<li>The discriminator and GAN loss values show variability that tends to reduce as the number of iterations goes from 1 to 100.</li>
+<li>High spikes at certain intervals for the GAN loss are diminishing as the network's training proceeds.</li>
+</ul>
+<p>A plot of the first fake image from each iteration is as follows:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/28729cfc-3050-4fc5-bfcc-bd9a0f23691e.png" style="width:24.58em;height:24.58em;"/></p>
+<p>Compared to digit five, digit eight takes more iterations before it starts to form a recognizable pattern.</p>
+<p>In this section, we experimented with additional convolutional layers in the generator and the discriminator networks. Due to this, we can make the following observations:</p>
+<ul>
+<li>Additional convolutional layers seem to have a positive impact on the generation of fake images that began to look like handwritten images of digit five much quicker.</li>
+<li>Although the results for the data that we referred to in this chapter were decent, for other data, we may have to make other changes to the model architecture.</li>
+<li>We also used the network with the same architecture to generate realistic-looking fake images of handwritten digit eight. It was observed that, for digit eight, it took more iterations of training the network before a recognizable pattern started to emerge.</li>
+<li>Note that a network for generating all 10 handwritten digits at the same time can be more complex and is likely to require many more iterations.</li>
+<li>Similarly, if we have color images that have significantly larger dimensions than 28 x 28, which is what we used for this chapter, we will need more computational resources and the task will be even more challenging.</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Summary</h1>
+                </header>
+            
+            <article>
+                
+<p class="mce-root">In this chapter, we used a generative adversarial network to illustrate how to generate images of a single handwritten digit. Generative adversarial networks make use of two networks: generator and discriminator networks. Generator networks create fake images from data containing random noise, while discriminator networks are trained to differentiate between fake images and real images. These two networks compete against each other so that realistic-looking fake images can be created. Although in this chapter we provided an example of using a generative adversarial network to generate new images, these networks are also known to have applications in generating new text or new music, as well as in anomaly detection.</p>
+<p>In this section, we went over various deep learning networks that are useful for dealing with image data. In the next section, we will go over deep learning networks for natural language processing.</p>
+
+
+            </article>
+
+            
+        </section>
+    </body></html>

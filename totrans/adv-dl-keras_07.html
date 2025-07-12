@@ -1,0 +1,515 @@
+<html><head></head><body><div class="chapter" title="Chapter&#xA0;7.&#xA0;Cross-Domain GANs"><div class="titlepage"><div><div><h1 class="title"><a id="ch07"/>Chapter 7. Cross-Domain GANs</h1></div></div></div><p>In computer vision, computer graphics, and image processing a number of tasks involve translating an image from one form to another. As an example, colorization of grayscale images, converting satellite images to maps, changing the artwork style of one artist to another, making night-time images into daytime, and summer photos to winter, are just a few examples. These tasks are referred to as <span class="strong"><strong>cross-domain transfer and will be the focus of this chapter</strong></span>. An image<a id="id289" class="indexterm"/> in the source domain is transferred to a target domain resulting in a new translated image.</p><p>A cross-domain transfer has a number of practical applications in the real world. As an example, in autonomous driving research, collecting road scene driving data is both time-consuming and expensive. In order to cover as many scene variations as possible in that example, the roads would be traversed during different weather conditions, seasons, and times giving us a large and varied amount of data. With the use of a cross-domain transfer, it's possible to generate new synthetic scenes that look real by translating existing images. For example, we may just need to collect road scenes in the summer from one area and gather road scenes in the winter from another place. Then, we can transform the summer images to winter and the winter images to summer. In this case, it reduces the number of tasks having to be done by half.</p><p>Generation of<a id="id290" class="indexterm"/> realistic synthesized images is an area that GANs excel at. Therefore, cross-domain translation is one of the applications of GANs. In this chapter, we're going to focus on a popular cross-domain GAN<a id="id291" class="indexterm"/> algorithm called <span class="strong"><strong>CycleGAN</strong></span> [2]. Unlike other cross-domain transfer<a id="id292" class="indexterm"/> algorithms, such as a <span class="strong"><strong>pix2pix</strong></span> [3], CycleGAN doesn't require aligned training images to work. In aligned images, the training data should be a pair of images made up of the source image and its corresponding target image. For example, a satellite image and the corresponding map derived from this image. CycleGAN only requires the satellite data images and maps. The maps may be from another satellite data and are not necessarily previously generated from the training data.</p><p>In this chapter, we will explore the following:</p><div class="itemizedlist"><ul class="itemizedlist"><li class="listitem" style="list-style-type: disc">The principles of CycleGAN, including its implementation in Keras</li><li class="listitem" style="list-style-type: disc">Example applications of CycleGAN, including the colorization of grayscale images using the CIFAR10 dataset<a id="id293" class="indexterm"/> and style transfer as applied on MNIST digits and <span class="strong"><strong>Street View House Numbers</strong></span> (<span class="strong"><strong>SVHN</strong></span>) [1] datasets</li></ul></div><div class="section" title="Principles of CycleGAN"><div class="titlepage"><div><div><h1 class="title"><a id="ch07lvl2sec23"/>Principles of CycleGAN</h1></div></div></div><div class="mediaobject"><img src="graphics/B08956_07_01.jpg" alt="Principles of CycleGAN"/><div class="caption"><p>Figure 7.1.1: Example of aligned image pair: left, original image and right, transformed image using a Canny edge detector. Original photos were taken by the author.</p></div></div><p>Translating an image from one domain to another is a common task in computer vision, computer graphics, and image processing. The preceding figure shows edge detection which is a common image<a id="id294" class="indexterm"/> translation task. In this example, we can consider the real photo (left) as an image in the source domain and the edge detected photo (right) as a sample in the target domain. There are many other cross-domain translation procedures that have practical applications such as:</p><div class="itemizedlist"><ul class="itemizedlist"><li class="listitem" style="list-style-type: disc">Satellite image to map</li><li class="listitem" style="list-style-type: disc">Face image to emoji, caricature or anime</li><li class="listitem" style="list-style-type: disc">Body image to the avatar</li><li class="listitem" style="list-style-type: disc">Colorization of grayscale photos</li><li class="listitem" style="list-style-type: disc">Medical scan to a real photo</li><li class="listitem" style="list-style-type: disc">Real photo to an artist's painting</li></ul></div><p>There are many more examples of this in different fields. In computer vision and image processing, for example, we can perform the translation by inventing an algorithm that extracts features from the source<a id="id295" class="indexterm"/> image to translate it into the target image. Canny edge operator is an example of such an algorithm. However, in many cases, the translation is very complex to hand-engineer that it is almost impossible to find a suitable algorithm. Both the source and target domain distributions are high-dimensional and complex:</p><div class="mediaobject"><img src="graphics/B08956_07_02.jpg" alt="Principles of CycleGAN"/><div class="caption"><p>Figure 7.1.2: Example of not aligned image pair: left, a photo of real sunflowers along University Avenue, University of the Philippines and right, Sunflowers by Vincent Van Gogh at the National Gallery, London, UK. Original photos were taken by the author.</p></div></div><p>A workaround on the image translation problem is to use deep learning techniques. If we have a sufficiently large dataset from both the source and target domains, we can train a neural network to model the translation. Since the images in the target domain must be automatically generated given a source image, they must look like real samples from the target domain. GANs are a suitable network for such cross-domain tasks. The pix2pix [3] algorithm is an example of a cross-domain algorithm.</p><p>The pix2pix<a id="id296" class="indexterm"/> bears a resemblance to <span class="strong"><strong>Conditional GAN</strong></span> (<span class="strong"><strong>CGAN</strong></span>) [4] that we discussed in <a class="link" href="ch04.html" title="Chapter 4. Generative Adversarial Networks (GANs)">Chapter 4</a>, <span class="emphasis"><em>Generative Adversarial Networks (GANs)</em></span>. We can recall, that in conditional GANs, on top of the noise input, <span class="emphasis"><em>z</em></span>, a condition such as in the form of a one-hot<a id="id297" class="indexterm"/> vector constrains the generator's output. For example, in the MNIST digit, if we want the generator to output the digit 8, the condition is the one-hot vector [0, 0, 0, 0, 0, 0, 0, 0, 1, 0]. In pix2pix, the condition is the image to be translated. The generator's output is the translated image. The pix2pix is trained by optimizing the conditional GAN loss. To minimize blurring in the generated images, the <span class="emphasis"><em>L1</em></span> loss is also included.</p><p>The main disadvantage of neural networks similar to pix2pix is the training input, and output images must be aligned. <span class="emphasis"><em>Figure 7.1.1</em></span> is an example of an aligned image pair. The sample target image is generated from the source. In most occasions, aligned image pairs are not available or expensive to generate from the source images, or we have no idea on how to generate the target image from the given source image. What we have are sample data from the source and target domains. <span class="emphasis"><em>Figure 7.1.2</em></span> is an example of data from the source domain (real photo) and the target domain (Van Gogh's art style) on the same sunflower subject. The source and target images are not necessarily aligned.</p><p>Unlike pix2pix, CycleGAN learns image translation as long as there are a sufficient amount and variation of source and target data. No alignment is needed. CycleGAN learns the source and target distributions and how to translate from source to target distribution from given sample data. No supervision is needed. In the context of <span class="emphasis"><em>Figure 7.1.2</em></span>, we just need thousands of photos of real sunflowers and thousands of photos of Van Gogh's paintings of sunflowers. After training the CycleGAN, we're able to translate a photo of sunflowers to a Van Gogh's painting:</p><div class="mediaobject"><img src="graphics/B08956_07_03.jpg" alt="Principles of CycleGAN"/><div class="caption"><p>Figure 7.1.3: The CycleGAN model is made of four networks: Generator G, Generator F, Discriminator D<sub>y</sub>, and Discriminator D<sub>x</sub></p></div></div></div></div>
+<div class="section" title="The CycleGAN Model"><div class="titlepage"><div><div><h1 class="title"><a id="ch07lvl2sec24"/>The CycleGAN Model</h1></div></div></div><p>
+<span class="emphasis"><em>Figure 7.1.3</em></span> shows the<a id="id298" class="indexterm"/> network model of the CycleGAN. The objective of the CycleGAN is to learn the function:</p><p>
+<span class="emphasis"><em>y'</em></span> = <span class="emphasis"><em>G</em></span>(<span class="emphasis"><em>x</em></span>)          (Equation 7.1.1)</p><p>That generates fake images, <span class="emphasis"><em>y</em></span>
+<span class="emphasis"><em>'</em></span>, in the target domain as a function of the real source image, <span class="emphasis"><em>x</em></span>. Learning is unsupervised by capitalizing only on the available real images, <span class="emphasis"><em>x</em></span>, in the source domain and real images, <span class="emphasis"><em>y</em></span>, in the target domain.</p><p>Unlike regular GANs, CycleGAN imposes the cycle-consistency constraint. The forward cycle-consistency<a id="id299" class="indexterm"/> network ensures that the real source data can be reconstructed from the fake target data:</p><p>
+<span class="emphasis"><em>x'</em></span> = <span class="emphasis"><em>F</em></span>(<span class="emphasis"><em>G</em></span>(<span class="emphasis"><em>x</em></span>))          (Equation 7.1.2)</p><p>This is done by minimizing the forward cycle-consistency <span class="emphasis"><em>L1</em></span> loss:</p><div class="mediaobject"><img src="graphics/B08956_07_001.jpg" alt="The CycleGAN Model"/></div><p>          (Equation 7.1.3)</p><p>The network is symmetric. The backward cycle-consistency network also attempts to reconstruct the real target data from the fake source data:</p><p>
+<span class="emphasis"><em>y</em></span>
+<span class="emphasis"><em>'</em></span> = <span class="emphasis"><em>G</em></span>(<span class="emphasis"><em>F</em></span>(<span class="emphasis"><em>y</em></span>))          (Equation 7.1.4)</p><p>This is done by minimizing the backward cycle-consistency <span class="emphasis"><em>L1</em></span> loss:</p><div class="mediaobject"><img src="graphics/B08956_07_002.jpg" alt="The CycleGAN Model"/></div><p>          (Equation 7.1.5)</p><p>The sum of these two losses is known as cycle-consistency loss:</p><div class="mediaobject"><img src="graphics/B08956_07_003.jpg" alt="The CycleGAN Model"/></div><div class="mediaobject"><img src="graphics/B08956_07_004.jpg" alt="The CycleGAN Model"/></div><p>          (Equation 7.1.6)</p><p>The cycle-consistency loss<a id="id300" class="indexterm"/> uses <span class="emphasis"><em>L1</em></span> or <span class="strong"><strong>Mean Absolute Error</strong></span> (<span class="strong"><strong>MAE</strong></span>) since it generally results in less blurry image reconstruction compared to <span class="emphasis"><em>L2</em></span> or <span class="strong"><strong>Mean Square Error</strong></span> (<span class="strong"><strong>MSE</strong></span>).</p><p>Similar to<a id="id301" class="indexterm"/> other GANs, the ultimate objective of CycleGAN is for the generator <span class="emphasis"><em>G</em></span> to learn how to synthesize fake target data, <span class="emphasis"><em>y</em></span>
+<span class="emphasis"><em>'</em></span>, that can fool the discriminator, <span class="emphasis"><em>D</em></span><sub>y</sub>, in the forward cycle. Since the network is symmetric, CycleGAN also wants the generator <span class="emphasis"><em>F</em></span> to learn how to synthesize fake source data, <span class="emphasis"><em>x</em></span>
+<span class="emphasis"><em>'</em></span>, that can fool the discriminator, <span class="emphasis"><em>D</em></span><sub>x</sub>, in the backward cycle. Inspired by the better perceptual quality of <span class="strong"><strong>Least Squares GAN</strong></span> (<span class="strong"><strong>LSGAN</strong></span>) [5], as described in <a class="link" href="ch05.html" title="Chapter 5. Improved GANs">Chapter 5</a>, <span class="emphasis"><em>Improved GANs</em></span>, CycleGAN also uses MSE for the discriminator and generator losses. Recall that the difference of LSGAN from the original GAN is that the use of the MSE loss instead<a id="id302" class="indexterm"/> of a binary cross-entropy loss. CycleGAN expresses the generator-discriminator<a id="id303" class="indexterm"/> loss functions as:</p><div class="mediaobject"><img src="graphics/B08956_07_005.jpg" alt="The CycleGAN Model"/></div><p>          (Equation 7.1.7)</p><div class="mediaobject"><img src="graphics/B08956_07_006.jpg" alt="The CycleGAN Model"/></div><p>          (Equation 7.1.8)</p><div class="mediaobject"><img src="graphics/B08956_07_007.jpg" alt="The CycleGAN Model"/></div><p>          (Equation 7.1.9)</p><div class="mediaobject"><img src="graphics/B08956_07_008.jpg" alt="The CycleGAN Model"/></div><p>          (Equation 7.1.10)</p><div class="mediaobject"><img src="graphics/B08956_07_009.jpg" alt="The CycleGAN Model"/></div><p>          (Equation 7.1.11)</p><div class="mediaobject"><img src="graphics/B08956_07_010.jpg" alt="The CycleGAN Model"/></div><p>          (Equation 7.1.12)</p><p>The total loss of CycleGAN is shown as:</p><div class="mediaobject"><img src="graphics/B08956_07_011.jpg" alt="The CycleGAN Model"/></div><p>          (Equation 7.1.13)</p><p>CycleGAN recommends the following weight values: </p><div class="mediaobject"><img src="graphics/B08956_07_012.jpg" alt="The CycleGAN Model"/></div><p> and </p><div class="mediaobject"><img src="graphics/B08956_07_013.jpg" alt="The CycleGAN Model"/></div><p> to give more importance to the cyclic consistency check.</p><p>The training strategy<a id="id304" class="indexterm"/> is similar to the vanilla GAN. <span class="emphasis"><em>Algorithm</em></span> <span class="emphasis"><em>7.1.1</em></span> summarizes the CycleGAN training procedure.</p><p>Repeat for <span class="emphasis"><em>n</em></span> training steps:</p><div class="orderedlist"><ol class="orderedlist arabic"><li class="listitem">Minimize <div class="mediaobject"><img src="graphics/B08956_07_014.jpg" alt="The CycleGAN Model"/></div><p> by training the forward-cycle discriminator using real source and target data. A minibatch of real target data, <span class="emphasis"><em>y</em></span>, is labeled 1.0. A minibatch of fake target data, <span class="emphasis"><em>y</em></span>
+<span class="emphasis"><em>'</em></span> = <span class="emphasis"><em>G</em></span>(<span class="emphasis"><em>x</em></span>), is labelled 0.0.</p></li><li class="listitem">Minimize <div class="mediaobject"><img src="graphics/B08956_07_015.jpg" alt="The CycleGAN Model"/></div><p> by training the backward-cycle discriminator using real source and target data. A minibatch of real source data, <span class="emphasis"><em>x</em></span>, is labeled 1.0. A minibatch of fake source data, <span class="emphasis"><em>x</em></span>
+<span class="emphasis"><em>'</em></span> = <span class="emphasis"><em>F</em></span>(<span class="emphasis"><em>y</em></span>), is labeled 0.0.</p></li><li class="listitem">Minimize <div class="mediaobject"><img src="graphics/B08956_07_016.jpg" alt="The CycleGAN Model"/></div><p> and </p><div class="mediaobject"><img src="graphics/B08956_07_017.jpg" alt="The CycleGAN Model"/></div><p> by training the forward-cycle and backward-cycle generators in the adversarial networks. A minibatch of fake target data, <span class="emphasis"><em>y</em></span>
+<span class="emphasis"><em>'</em></span> = <span class="emphasis"><em>G</em></span>(<span class="emphasis"><em>x</em></span>), is labeled 1.0. A minibatch of fake source data, <span class="emphasis"><em>x</em></span>
+<span class="emphasis"><em>'</em></span> = <span class="emphasis"><em>F</em></span>(<span class="emphasis"><em>y</em></span>), is labeled 1.0. The weights of discriminators are frozen.</p></li></ol></div><div class="mediaobject"><img src="graphics/B08956_07_04.jpg" alt="The CycleGAN Model"/><div class="caption"><p>Figure 7.1.4: During style transfer, the color composition may not be transferred successfully. To address this issue, the identity loss is added to the total loss function.</p></div></div><div class="mediaobject"><img src="graphics/B08956_07_05.jpg" alt="The CycleGAN Model"/><div class="caption"><p>Figure 7.1.5: The CycleGAN model with identity loss as shown on the left side of the image</p></div></div><p>In neural style transfer problems, the color composition may not be successfully transferred from<a id="id305" class="indexterm"/> source image to the fake target image. This problem is shown in <span class="emphasis"><em>Figure 7.1.4</em></span>. To address this problem, CycleGAN proposes to include the forward and backward-cycle identity loss function:</p><div class="mediaobject"><img src="graphics/B08956_07_018.jpg" alt="The CycleGAN Model"/></div><p>          (Equation 7.1.14)</p><p>The total loss<a id="id306" class="indexterm"/> of CycleGAN becomes:</p><div class="mediaobject"><img src="graphics/B08956_07_019.jpg" alt="The CycleGAN Model"/></div><p>          (Equation 7.1.15)</p><p>with </p><div class="mediaobject"><img src="graphics/B08956_07_020.jpg" alt="The CycleGAN Model"/></div><p>. The identity loss is also optimized during adversarial training. <span class="emphasis"><em>Figure 7.1.5</em></span> shows CycleGAN with identity loss.</p></div>
+<div class="section" title="Implementing CycleGAN using Keras"><div class="titlepage"><div><div><h1 class="title"><a id="ch07lvl2sec25"/>Implementing CycleGAN using Keras</h1></div></div></div><p>Let us tackle a simple problem that CycleGAN can address. In <a class="link" href="ch03.html" title="Chapter 3. Autoencoders">Chapter 3</a>, <span class="emphasis"><em>Autoencoders</em></span>, we used an<a id="id307" class="indexterm"/> autoencoder to colorize grayscale images<a id="id308" class="indexterm"/> from the CIFAR10 dataset. We can recall that the CIFAR10 dataset is made of 50,000 trained data and 10,000 test data samples of 32 × 32 RGB images belonging to ten categories. We can convert all color images into grayscale using <code class="literal">rgb2gray(RGB)</code> as discussed in <a class="link" href="ch03.html" title="Chapter 3. Autoencoders">Chapter 3</a>, <span class="emphasis"><em>Autoencoders</em></span>.</p><p>Following on from that, we can use the grayscale train images as source domain images and the original color images as the target domain images. It's worth noting that although the dataset is aligned, the input to our CycleGAN is a random sample of color images and a random sample of grayscale images. Thus, our CycleGAN will not see the train data as aligned. After training, we'll use the test grayscale images to observe the performance of the CycleGAN:</p><div class="mediaobject"><img src="graphics/B08956_07_06.jpg" alt="Implementing CycleGAN using Keras"/><div class="caption"><p>Figure 7.1.6: The forward cycle generator G, implementation in Keras. The generator is a U-Network made of encoder and decoder.</p></div></div><p>As discussed in the previous section, to implement the CycleGAN, we need to build two generators and<a id="id309" class="indexterm"/> two discriminators. The generator<a id="id310" class="indexterm"/> of CycleGAN learns the latent representation of the source input distribution and translates this representation into target output distribution. This is exactly what autoencoders do. However, typical autoencoders similar to the ones discussed in <a class="link" href="ch03.html" title="Chapter 3. Autoencoders">Chapter 3</a>, <span class="emphasis"><em>Autoencoders</em></span>, use an encoder that downsamples the input until the bottleneck layer at which point the process is reversed in the decoder. This structure is not suitable in some image translation problems since many low-level features are shared between the encoder and decoder layers. For example, in colorization problems, the form, structure, and edges of the grayscale image are the same<a id="id311" class="indexterm"/> as in the color image. To circumvent this problem, the CycleGAN generators use a <span class="strong"><strong>U-Net</strong></span> [7] structure as shown in <span class="emphasis"><em>Figure 7.1.6</em></span>.</p><p>In a U-Net structure, the output of the encoder layer <span class="emphasis"><em>e</em></span>
+<span class="emphasis"><em>n-i</em></span> is concatenated with the output of the decoder layer <span class="emphasis"><em>d</em></span>
+<span class="emphasis"><em>i</em></span>, where <span class="emphasis"><em>n</em></span> = 4 is the number of encoder/decoder layers and <span class="emphasis"><em>i</em></span> = 1, 2 and 3 are layer numbers<a id="id312" class="indexterm"/> that share information.</p><p>We should note that although the example uses <span class="emphasis"><em>n</em></span> = 4, problems with a higher input/output<a id="id313" class="indexterm"/> dimensions may require deeper encoder/decoder. The U-Net structure enables a free flow of feature-level information between encoder and decoder. An encoder layer is made of <code class="literal">Instance Normalization(IN)-LeakyReLU-Conv2D</code> while the decoder layer is made of <code class="literal">IN-ReLU-Conv2D</code>. The encoder/decoder layer implementation is shown in <span class="emphasis"><em>Listing</em></span> <span class="emphasis"><em>7.1.1</em></span> while the generator implementation is shown in <span class="emphasis"><em>Listing</em></span> <span class="emphasis"><em>7.1.2</em></span>.</p><div class="note" title="Note" style=""><div class="inner"><h3 class="title"><a id="note07"/>Note</h3><p>The complete code is available on GitHub:</p><p>
+<a class="ulink" href="https://github.com/PacktPublishing/Advanced-Deep-Learning-with-Keras">https://github.com/PacktPublishing/Advanced-Deep-Learning-with-Keras</a>
+</p></div></div><p>
+<span class="strong"><strong>Instance Normalization</strong></span> (<span class="strong"><strong>IN</strong></span>) is <span class="strong"><strong>Batch Normalization</strong></span> (<span class="strong"><strong>BN</strong></span>) per sample of data (that is, IN is BN per image or per feature). In style transfer, it's important to normalize the contrast per<a id="id314" class="indexterm"/> sample not per batch. Instance normalization is<a id="id315" class="indexterm"/> equivalent to contrast normalization. Meanwhile, Batch normalization breaks contrast normalization.</p><div class="note" title="Note" style=""><div class="inner"><h3 class="title"><a id="note08"/>Note</h3><p>Remember to install <code class="literal">keras-contrib</code> before using instance normalization:</p><div class="informalexample"><pre class="programlisting">
+<span class="strong"><strong>$ sudo pip3 install git+https://www.github.com/keras-team/keras-contrib.git</strong></span>
+</pre></div></div></div><p>Listing 7.1.1, <code class="literal">cyclegan-7.1.1.py</code> shows us the encoder and decoder layers implementation in Keras:</p><div class="informalexample"><pre class="programlisting">def encoder_layer(inputs,
+                  filters=16,
+                  kernel_size=3,
+                  strides=2,
+                  activation='relu',
+                  instance_norm=True):
+    """Builds a generic encoder layer made of Conv2D-IN-LeakyReLU
+    IN is optional, LeakyReLU may be replaced by ReLU
+
+    """
+
+    conv = Conv2D(filters=filters,
+                  kernel_size=kernel_size,
+                  strides=strides,
+                  padding='same')
+
+    x = inputs
+    if instance_norm:
+        x = InstanceNormalization()(x)
+    if activation == 'relu':
+        x = Activation('relu')(x)
+    else:
+        x = LeakyReLU(alpha=0.2)(x)
+    x = conv(x)
+    return x
+
+
+def decoder_layer(inputs,
+                  paired_inputs,
+                  filters=16,
+                  kernel_size=3,
+                  strides=2,
+                  activation='relu',
+                  instance_norm=True):
+    """Builds a generic decoder layer made of Conv2D-IN-LeakyReLU
+    IN is optional, LeakyReLU may be replaced by ReLU
+    Arguments: (partial)
+    inputs (tensor): the decoder layer input
+    paired_inputs (tensor): the encoder layer output 
+          provided by U-Net skip connection &amp;
+          concatenated to inputs.
+    """
+
+    conv = Conv2DTranspose(filters=filters,
+                           kernel_size=kernel_size,
+                           strides=strides,
+                           padding='same')
+
+    x = inputs
+    if instance_norm:
+        x = InstanceNormalization()(x)
+    if activation == 'relu':
+        x = Activation('relu')(x)
+    else:
+        x = LeakyReLU(alpha=0.2)(x)
+    x = conv(x)
+    x = concatenate([x, paired_inputs])
+    return x</pre></div><p>Listing 7.1.2, <code class="literal">cyclegan-7.1.1.py</code>. Generator implementation in Keras:</p><div class="informalexample"><pre class="programlisting">def build_generator(input_shape,
+                    output_shape=None,
+                    kernel_size=3,
+                    name=None):
+    """The generator is a U-Network made of a 4-layer encoder
+    and a 4-layer decoder. Layer n-i is connected to layer i.
+
+    Arguments:
+    input_shape (tuple): input shape
+    output_shape (tuple): output shape
+    kernel_size (int): kernel size of encoder &amp; decoder layers
+    name (string): name assigned to generator model
+
+    Returns:
+    generator (Model):
+
+    """
+
+    inputs = Input(shape=input_shape)
+    channels = int(output_shape[-1])
+    e1 = encoder_layer(inputs,
+                       32,
+                       kernel_size=kernel_size,
+                       activation='leaky_relu',
+                       strides=1)
+    e2 = encoder_layer(e1,
+                       64,
+                       activation='leaky_relu',
+                       kernel_size=kernel_size)
+    e3 = encoder_layer(e2,
+                       128,
+                       activation='leaky_relu',
+                       kernel_size=kernel_size)
+    e4 = encoder_layer(e3,
+                       256,
+                       activation='leaky_relu',
+                       kernel_size=kernel_size)
+
+    d1 = decoder_layer(e4,
+                       e3,
+                       128,
+                       kernel_size=kernel_size)
+    d2 = decoder_layer(d1,
+                       e2,
+                       64,
+                       kernel_size=kernel_size)
+    d3 = decoder_layer(d2,
+                       e1,
+                       32,
+                       kernel_size=kernel_size)
+    outputs = Conv2DTranspose(channels,
+                              kernel_size=kernel_size,
+                              strides=1,
+                              activation='sigmoid',
+                              padding='same')(d3)
+
+    generator = Model(inputs, outputs, name=name)
+
+    return generator</pre></div><p>The discriminator of CycleGAN is similar to vanilla GAN discriminator. The input image is downsampled<a id="id316" class="indexterm"/> several times (in this example, three times). The final layer is a <code class="literal">Dense(1)</code> layer which predicts the probability that the<a id="id317" class="indexterm"/> input is real. Each layer is similar to the encoder layer of the generator except that no IN is used. However, in large images, computing the image as real or fake with a single number turns out to be parameter inefficient and results in poor image quality for the generator.</p><p>The solution is to use PatchGAN [6] which divides the image into a grid of patches and use a grid of scalar values to predict the probability that the patches are real. The comparison between the vanilla GAN discriminator and a 2 × 2 PatchGAN discriminator is shown in <span class="emphasis"><em>Figure 7.1.7</em></span>. In this example, the patches do not overlap and meet at their boundaries. However, in general, patches may overlap.</p><p>We should note that PatchGAN is not introducing a new type of GAN in CycleGAN. To improve the generated image quality, instead of having one output to discriminate, we have four outputs to discriminate if we used a 2 × 2 PatchGAN. There are no changes in the loss functions. Intuitively, this makes sense since the whole image will look more real if every patch or section of the image looks real:</p><div class="mediaobject"><img src="graphics/B08956_07_07.jpg" alt="Implementing CycleGAN using Keras"/><div class="caption"><p>Figure 7.1.7: A comparison between GAN and PatchGAN discriminators</p></div></div><p>Following figure shows the discriminator network as implemented in Keras. The illustration shows the discriminator<a id="id318" class="indexterm"/> determining how<a id="id319" class="indexterm"/> likely the input image or a patch is a color CIFAR10 image. Since the output image is small at only 32 × 32 RGB, a single scalar representing that the image is real is sufficient. However, we also evaluate the results when PatchGAN is used. <span class="emphasis"><em>Listing</em></span> <span class="emphasis"><em>7.1.3</em></span> shows the function builder for the discriminator:</p><div class="mediaobject"><img src="graphics/B08956_07_08.jpg" alt="Implementing CycleGAN using Keras"/><div class="caption"><p>Figure 7.1.8: The target discriminator, <span class="emphasis"><em>D</em></span><sub>y</sub>, implementation in Keras. The PatchGAN discriminator is shown on the right.</p></div></div><p>Listing 7.1.3, <code class="literal">cyclegan-7.1.1.py</code> shows discriminator implementation in Keras:</p><div class="informalexample"><pre class="programlisting">def build_discriminator(input_shape,
+                        kernel_size=3,
+                        patchgan=True,
+                        name=None):
+    """The discriminator is a 4-layer encoder that outputs either
+    a 1-dim or a n x n-dim patch of probability that input is real 
+
+    Arguments:
+    input_shape (tuple): input shape
+    kernel_size (int): kernel size of decoder layers
+    patchgan (bool): whether the output is a patch or just a 1-dim
+    name (string): name assigned to discriminator model
+
+    Returns:
+    discriminator (Model):
+
+    """
+
+    inputs = Input(shape=input_shape)
+    x = encoder_layer(inputs,
+                      32,
+                      kernel_size=kernel_size,
+                      activation='leaky_relu',
+                      instance_norm=False)
+    x = encoder_layer(x,
+                      64,
+                      kernel_size=kernel_size,
+                      activation='leaky_relu',
+                      instance_norm=False)
+    x = encoder_layer(x,
+                      128,
+                      kernel_size=kernel_size,
+                      activation='leaky_relu',
+                      instance_norm=False)
+    x = encoder_layer(x,
+                      256,
+                      kernel_size=kernel_size,
+                      strides=1,
+                      activation='leaky_relu',
+                      instance_norm=False)
+
+    # if patchgan=True use nxn-dim output of probability
+    # else use 1-dim output of probability
+    if patchgan:
+        x = LeakyReLU(alpha=0.2)(x)
+        outputs = Conv2D(1,
+                         kernel_size=kernel_size,
+                         strides=1,
+                         padding='same')(x)
+    else:
+        x = Flatten()(x)
+        x = Dense(1)(x)
+        outputs = Activation('linear')(x)
+
+
+    discriminator = Model(inputs, outputs, name=name)
+
+    return discriminator</pre></div><p>Using the generator<a id="id320" class="indexterm"/> and discriminator builders, we are now able to build the CycleGAN. <span class="emphasis"><em>Listing</em></span> <span class="emphasis"><em>7.1.4</em></span> shows the builder function. In line with<a id="id321" class="indexterm"/> our discussion in the previous section, two generators, <code class="literal">g_source</code> = <span class="emphasis"><em>F</em></span> and <code class="literal">g_target</code> = <span class="emphasis"><em>G</em></span>, and two discriminators, <code class="literal">d_source</code> = <span class="emphasis"><em>D</em></span><sub>x</sub> and <code class="literal">d_target</code> = <span class="emphasis"><em>D</em></span><sub>y</sub> are instantiated. The forward cycle is <span class="emphasis"><em>x</em></span>
+<span class="emphasis"><em>'</em></span> = <span class="emphasis"><em>F</em></span>(<span class="emphasis"><em>G</em></span>(<span class="emphasis"><em>x</em></span>)) = <code class="literal">reco_source = g_source(g_target(source_input))</code>. The backward cycle is <span class="emphasis"><em>y</em></span>
+<span class="emphasis"><em>'</em></span> = <span class="emphasis"><em>G</em></span>(<span class="emphasis"><em>F</em></span>(<span class="emphasis"><em>y</em></span>)) = <code class="literal">reco_target = g_target(g_source(target_input))</code>.</p><p>The inputs to the adversarial model are the source and target data while the outputs are the outputs of <span class="emphasis"><em>D</em></span><sub>x</sub> and <span class="emphasis"><em>D</em></span><sub>y</sub> and the reconstructed inputs, <span class="emphasis"><em>x'</em></span> and <span class="emphasis"><em>y.'</em></span> The identity network is not used in this example due to the difference between the number of channels of the grayscale image and color image. We use the recommended loss weights of </p><div class="mediaobject"><img src="graphics/B08956_07_021.jpg" alt="Implementing CycleGAN using Keras"/></div><p> and </p><div class="mediaobject"><img src="graphics/B08956_07_022.jpg" alt="Implementing CycleGAN using Keras"/></div><p> for the GAN and cyclic consistency losses respectively. Similar to GANs in the previous chapters, we use RMSprop with a learning rate of 2e-4 and decay rate of 6e-8 for the optimizer of the discriminators. The learning and decay rate for the adversarial is half of the discriminator's.</p><p>Listing 7.1.4, <code class="literal">cyclegan-7.1.1.py</code> shows us the CycleGAN builder in Keras:</p><div class="informalexample"><pre class="programlisting">def build_cyclegan(shapes,
+                   source_name='source',
+                   target_name='target',
+                   kernel_size=3,
+                   patchgan=False,
+                   identity=False
+                   ):
+    """Build the CycleGAN
+
+    1) Build target and source discriminators
+    2) Build target and source generators
+    3) Build the adversarial network
+
+    Arguments:
+    shapes (tuple): source and target shapes
+    source_name (string): string to be appended on dis/gen models
+    target_name (string): string to be appended on dis/gen models
+    kernel_size (int): kernel size for the encoder/decoder or dis/gen
+                       models
+    patchgan (bool): whether to use patchgan on discriminator
+    identity (bool): whether to use identity loss
+
+    Returns:
+    (list): 2 generator, 2 discriminator, and 1 adversarial models 
+
+    """
+
+    source_shape, target_shape = shapes
+    lr = 2e-4
+    decay = 6e-8
+    gt_name = "gen_" + target_name
+    gs_name = "gen_" + source_name
+    dt_name = "dis_" + target_name
+    ds_name = "dis_" + source_name
+
+    # build target and source generators
+    g_target = build_generator(source_shape,
+                               target_shape,
+                               kernel_size=kernel_size,
+                               name=gt_name)
+    g_source = build_generator(target_shape,
+                               source_shape,
+                               kernel_size=kernel_size,
+                               name=gs_name)
+    print('---- TARGET GENERATOR ----')
+    g_target.summary()
+    print('---- SOURCE GENERATOR ----')
+    g_source.summary()
+
+
+    # build target and source discriminators
+    d_target = build_discriminator(target_shape,
+                                   patchgan=patchgan,
+                                   kernel_size=kernel_size,
+                                   name=dt_name)
+    d_source = build_discriminator(source_shape,
+                                   patchgan=patchgan,
+                                   kernel_size=kernel_size,
+                                   name=ds_name)
+    print('---- TARGET DISCRIMINATOR ----')
+    d_target.summary()
+    print('---- SOURCE DISCRIMINATOR ----')
+    d_source.summary()
+
+    optimizer = RMSprop(lr=lr, decay=decay)
+    d_target.compile(loss='mse',
+                     optimizer=optimizer,
+                     metrics=['accuracy'])
+    d_source.compile(loss='mse',
+                     optimizer=optimizer,
+                     metrics=['accuracy'])
+    # freeze the discriminator weights in the adversarial model
+    d_target.trainable = False
+    d_source.trainable = False
+
+    # build the computational graph for the adversarial model
+    # forward cycle network and target discriminator
+    source_input = Input(shape=source_shape)
+    fake_target = g_target(source_input)
+    preal_target = d_target(fake_target)
+    reco_source = g_source(fake_target)
+
+    # backward cycle network and source discriminator
+    target_input = Input(shape=target_shape)
+    fake_source = g_source(target_input)
+    preal_source = d_source(fake_source)
+    reco_target = g_target(fake_source)
+
+    # if we use identity loss, add 2 extra loss terms
+    # and outputs
+    if identity:
+        iden_source = g_source(source_input)
+        iden_target = g_target(target_input)
+        loss = ['mse', 'mse', 'mae', 'mae', 'mae', 'mae']
+        loss_weights = [1., 1., 10., 10., 0.5, 0.5]
+        inputs = [source_input, target_input]
+        outputs = [preal_source,
+                   preal_target,
+                   reco_source,
+                   reco_target,
+                   iden_source,
+                   iden_target]
+    else:
+        loss = ['mse', 'mse', 'mae', 'mae']
+        loss_weights = [1., 1., 10., 10.]
+        inputs = [source_input, target_input]
+        outputs = [preal_source,
+                   preal_target,
+                   reco_source,
+                   reco_target]
+
+    # build adversarial model
+    adv = Model(inputs, outputs, name='adversarial')
+    optimizer = RMSprop(lr=lr*0.5, decay=decay*0.5)
+    adv.compile(loss=loss,
+                loss_weights=loss_weights,
+                optimizer=optimizer,
+                metrics=['accuracy'])
+    print('---- ADVERSARIAL NETWORK ----')
+    adv.summary()
+
+    return g_source, g_target, d_source, d_target, adv</pre></div><p>We follow the training procedure in <span class="emphasis"><em>Algorithm</em></span> <span class="emphasis"><em>7.1.1</em></span> from the previous section. Following listing shows the CycleGAN training. The minor difference between this training from the vanilla GAN is there<a id="id322" class="indexterm"/> are two discriminators to<a id="id323" class="indexterm"/> be optimized. However, there is only one adversarial model to optimize. For every 2000 steps, the generators save the predicted source and target images. We'll use a batch size of 32. We also tried a batch size of one, but the output quality is almost the same and takes a longer amount of time to train (43 ms/image for a batch size of one vs. 3.6 ms/image for a batch size of 32 on an NVIDIA GTX 1060).</p><p>Listing 7.1.5, <code class="literal">cyclegan-7.1.1.py</code> shows us the CycleGAN training routine in Keras:</p><div class="informalexample"><pre class="programlisting">def train_cyclegan(models, data, params, test_params, test_generator):
+    """ Trains the CycleGAN. 
+    
+    1) Train the target discriminator
+    2) Train the source discriminator
+    3) Train the forward and backward cyles of adversarial networks
+
+    Arguments:
+    models (Models): Source/Target Discriminator/Generator,
+                     Adversarial Model
+    data (tuple): source and target training data
+    params (tuple): network parameters
+    test_params (tuple): test parameters
+    test_generator (function): used for generating predicted target
+                    and source images
+    """
+
+    # the models
+    g_source, g_target, d_source, d_target, adv = models
+    # network parameters
+    batch_size, train_steps, patch, model_name = params
+    # train dataset
+    source_data, target_data, test_source_data, test_target_data = data
+
+    titles, dirs = test_params
+
+    # the generator image is saved every 2000 steps
+    save_interval = 2000
+    target_size = target_data.shape[0]
+    source_size = source_data.shape[0]
+
+    # whether to use patchgan or not
+    if patch &gt; 1:
+        d_patch = (patch, patch, 1)
+        valid = np.ones((batch_size,) + d_patch)
+        fake = np.zeros((batch_size,) + d_patch)
+    else:
+        valid = np.ones([batch_size, 1])
+        fake = np.zeros([batch_size, 1])
+
+    valid_fake = np.concatenate((valid, fake))
+    start_time = datetime.datetime.now()
+
+    for step in range(train_steps):
+        # sample a batch of real target data
+        rand_indexes = np.random.randint(0, target_size, size=batch_size)
+        real_target = target_data[rand_indexes]
+
+        # sample a batch of real source data
+        rand_indexes = np.random.randint(0, source_size, size=batch_size)
+        real_source = source_data[rand_indexes]
+        # generate a batch of fake target data fr real source data
+        fake_target = g_target.predict(real_source)
+
+        # combine real and fake into one batch
+        x = np.concatenate((real_target, fake_target))
+        # train the target discriminator using fake/real data
+        metrics = d_target.train_on_batch(x, valid_fake)
+        log = "%d: [d_target loss: %f]" % (step, metrics[0])
+
+        # generate a batch of fake source data fr real target data
+        fake_source = g_source.predict(real_target)
+        x = np.concatenate((real_source, fake_source))
+        # train the source discriminator using fake/real data
+        metrics = d_source.train_on_batch(x, valid_fake)
+        log = "%s [d_source loss: %f]" % (log, metrics[0])
+
+        # train the adversarial network using forward and backward
+        # cycles. the generated fake source and target data attempts
+        # to trick the discriminators
+        x = [real_source, real_target]
+        y = [valid, valid, real_source, real_target]
+        metrics = adv.train_on_batch(x, y)
+        elapsed_time = datetime.datetime.now() - start_time
+        fmt = "%s [adv loss: %f] [time: %s]"
+        log = fmt % (log, metrics[0], elapsed_time)
+        print(log)
+        if (step + 1) % save_interval == 0:
+            if (step + 1) == train_steps:
+                show = True
+            else:
+                show = False
+
+            test_generator((g_source, g_target),
+                           (test_source_data, test_target_data),
+                           step=step+1,
+                           titles=titles,
+                           dirs=dirs,
+                           show=show)
+
+    # save the models after training the generators
+    g_source.save(model_name + "-g_source.h5")
+    g_target.save(model_name + "-g_target.h5")</pre></div><p>Finally, before we can use the CycleGAN to build and train functions, we have to perform some data preparation. The modules <code class="literal">cifar10_utils.py</code> and <code class="literal">other_utils.py</code> load the CIFAR10 train and<a id="id324" class="indexterm"/> test data. Please refer to the source<a id="id325" class="indexterm"/> code for details of these two files. After loading, the train and test images are converted to grayscale to generate the source data and test source data.</p><p>Following listing shows how the CycleGAN is used to build and train a generator network (<code class="literal">g_target</code>) for colorization of grayscale images. Since CycleGAN is symmetric, we also build and train a<a id="id326" class="indexterm"/> second generator network (<code class="literal">g_source</code>) that<a id="id327" class="indexterm"/> converts from color to grayscale. Two CycleGAN colorization networks were trained. The first use discriminators with a scalar output similar to vanilla GAN. The second uses a 2 × 2 PatchGAN.</p><p>Listing 7.1.6, <code class="literal">cyclegan-7.1.1.py</code> shows us the CycleGAN for colorization problem:</p><div class="informalexample"><pre class="programlisting">def graycifar10_cross_colorcifar10(g_models=None):
+    """Build and train a CycleGAN that can do grayscale &lt;--&gt; color
+       cifar10 images
+    """
+
+    model_name = 'cyclegan_cifar10'
+    batch_size = 32
+    train_steps = 100000
+    patchgan = True
+    kernel_size = 3
+    postfix = ('%dp' % kernel_size) if patchgan else ('%d' % kernel_size)
+
+    data, shapes = cifar10_utils.load_data()
+    source_data, _, test_source_data, test_target_data = data
+    titles = ('CIFAR10 predicted source images.',
+              'CIFAR10 predicted target images.',
+              'CIFAR10 reconstructed source images.',
+              'CIFAR10 reconstructed target images.')
+    dirs = ('cifar10_source-%s' % postfix, 'cifar10_target-%s' % postfix)
+
+   # generate predicted target(color) and source(gray) images
+    if g_models is not None:
+        g_source, g_target = g_models
+        other_utils.test_generator((g_source, g_target),
+                                   (test_source_data, test_target_data),
+                                   step=0,
+                                   titles=titles,
+                                   dirs=dirs,
+                                   show=True)
+        return
+
+    # build the cyclegan for cifar10 colorization
+    models = build_cyclegan(shapes,
+                            "gray-%s" % postfix,
+                            "color-%s" % postfix,
+                            kernel_size=kernel_size,
+                            patchgan=patchgan)
+    # patch size is divided by 2^n since we downscaled the input
+    # in the discriminator by 2^n (ie. we use strides=2 n times)
+    patch = int(source_data.shape[1] / 2**4) if patchgan else 1
+    params = (batch_size, train_steps, patch, model_name)
+    test_params = (titles, dirs)
+    # train the cyclegan
+    train_cyclegan(models,
+                   data,
+                   params,
+                   test_params,
+                   other_utils.test_generator)</pre></div></div>
+<div class="section" title="Generator outputs of CycleGAN"><div class="titlepage"><div><div><h1 class="title"><a id="ch07lvl1sec44"/>Generator outputs of CycleGAN</h1></div></div></div><p>
+<span class="emphasis"><em>Figure 7.1.9</em></span> shows the colorization results of CycleGAN. The source images are from the test dataset. For comparison, we show the ground truth and the colorization results using a plain<a id="id328" class="indexterm"/> autoencoder described in <a class="link" href="ch03.html" title="Chapter 3. Autoencoders">Chapter 3</a>, <span class="emphasis"><em>Autoencoders</em></span>. Generally, all colorized images are perceptually acceptable. Overall, it seems<a id="id329" class="indexterm"/> that each colorization technique has both its own pros and cons. All colorization methods are not consistent with the right color of the sky and vehicle.</p><p>For example, the sky in the background of the plane (3<sup>rd</sup> row, 2<sup>nd </sup>column) is white. The autoencoder got it right, but the CycleGAN thinks it is light brown or blue. For the 6<sup>th</sup> row, 6<sup>th</sup> column, the boat on the dark sea had an overcast sky but was colorized with blue sky and blue sea by autoencoder and blue sea and white sky by CycleGAN without PatchGAN. Both predictions make sense in the real world. Meanwhile, the prediction of CycleGAN with PatchGAN is similar to the ground truth. On 2<sup>nd</sup> to the last row and 2<sup>nd</sup> column, no method was able to predict the red color of the car. On animals, both flavors of CycleGAN have closer colors to the ground truth.</p><p>Since CycleGAN is symmetric, it also predicts the grayscale image given a color image. <span class="emphasis"><em>Figure 7.1.10</em></span> shows the color to grayscale conversion performed by the two CycleGAN variations. The target images are from the test dataset. Except for minor differences in the grayscale shades of some images, the predictions are generally accurate:</p><div class="mediaobject"><img src="graphics/B08956_07_09.jpg" alt="Generator outputs of CycleGAN"/><div class="caption"><p>Figure 7.1.9: Colorization using different techniques. Shown are the ground truth, colorization using autoencoder (Chapter 3, Autoencoders,), colorization using CycleGAN with a vanilla GAN discriminator, and colorization using CycleGAN with PatchGAN discriminator. Best viewed in color. Original color photo can be found on the book GitHub repository, https://github.com/PacktPublishing/Advanced-Deep-Learning-with-Keras/blob/master/chapter7-cross-domain-gan/README.md.</p></div></div><div class="mediaobject"><img src="graphics/B08956_07_10.jpg" alt="Generator outputs of CycleGAN"/><div class="caption"><p>Figure 7.1.10: Color (from Figure 7.1.9) to the grayscale conversion of CycleGAN</p></div></div><p>The reader can<a id="id330" class="indexterm"/> run the image translation by<a id="id331" class="indexterm"/> using the pretrained models for CycleGAN with PatchGAN:</p><div class="informalexample"><pre class="programlisting">
+<span class="strong"><strong>python3 cyclegan-7.1.1.py --cifar10_g_source=cyclegan_cifar10-g_source.h5 --cifar10_g_target=cyclegan_cifar10-g_target.h5</strong></span>
+</pre></div><div class="section" title="CycleGAN on MNIST and SVHN datasets"><div class="titlepage"><div><div><h2 class="title"><a id="ch07lvl2sec26"/>CycleGAN on MNIST and SVHN datasets</h2></div></div></div><p>We're now going to tackle a more challenging problem. Suppose we use MNIST digits in grayscale as our source data, and we<a id="id332" class="indexterm"/> want to borrow style from SVHN [1] which is<a id="id333" class="indexterm"/> our target data. The sample data in each domain are shown in <span class="emphasis"><em>Figure 7.1.11</em></span>. We can reuse all the build and train functions for CycleGAN that were discussed in the previous section to perform style transfer. The only difference is we have to add routines for loading MNIST and SVHN data.</p><p>We introduce module <code class="literal">mnist_svhn_utils.py</code> to help us with this task. <span class="emphasis"><em>Listing</em></span> <span class="emphasis"><em>7.1.7</em></span> shows the initialization and training of the CycleGAN for cross-domain transfer. The CycleGAN structure is same as in the previous section except that we use a kernel size of 5 since the two domains are drastically different:</p><div class="mediaobject"><img src="graphics/B08956_07_11.jpg" alt="CycleGAN on MNIST and SVHN datasets"/><div class="caption"><p>Figure 7.1.11: Two different domains with data that are not aligned. Original color photo can be found on the book GitHub repository, https://github.com/PacktPublishing/Advanced-Deep-Learning-with-Keras/blob/master/chapter7-cross-domain-gan/README.md.</p></div></div><div class="note" title="Note" style=""><div class="inner"><h3 class="title"><a id="note09"/>Note</h3><p>Remember to install <code class="literal">keras-contrib</code> before using instance normalization:</p><div class="informalexample"><pre class="programlisting">
+<span class="strong"><strong>$ sudo pip3 install git+https://www.github.com/keras-team/keras-contrib.git</strong></span>
+</pre></div></div></div><p>Listing 7.1.7, <code class="literal">cyclegan-7.1.1.py</code> shows us the CycleGAN for cross-domain style transfer between MNIST and SVHN:</p><div class="informalexample"><pre class="programlisting">def mnist_cross_svhn(g_models=None):
+    """Build and train a CycleGAN that can do mnist &lt;--&gt; svhn
+    """
+
+    model_name = 'cyclegan_mnist_svhn'
+    batch_size = 32
+    train_steps = 100000
+    patchgan = True
+    kernel_size = 5
+    postfix = ('%dp' % kernel_size) if patchgan else ('%d' % kernel_size)
+
+    data, shapes = mnist_svhn_utils.load_data()
+    source_data, _, test_source_data, test_target_data = data
+    titles = ('MNIST predicted source images.',
+              'SVHN predicted target images.',
+              'MNIST reconstructed source images.',
+              'SVHN reconstructed target images.')
+    dirs = ('mnist_source-%s' % postfix, 'svhn_target-%s' % postfix)
+
+    # genrate predicted target(svhn) and source(mnist) images
+    if g_models is not None:
+        g_source, g_target = g_models
+        other_utils.test_generator((g_source, g_target),
+                                   (test_source_data, test_target_data),
+                                   step=0,
+                                   titles=titles,
+                                   dirs=dirs,
+                                   show=True)
+        return
+
+    # build the cyclegan for mnist cross svhn
+    models = build_cyclegan(shapes,
+                            "mnist-%s" % postfix,
+                            "svhn-%s" % postfix,
+                            kernel_size=kernel_size,
+                            patchgan=patchgan)
+    # patch size is divided by 2^n since we downscaled the input
+    # in the discriminator by 2^n (ie. we use strides=2 n times)
+    patch = int(source_data.shape[1] / 2**4) if patchgan else 1
+    params = (batch_size, train_steps, patch, model_name)
+    test_params = (titles, dirs)
+    # train the cyclegan
+    train_cyclegan(models,
+                   data,
+                   params,
+                   test_params,
+                   other_utils.test_generator)</pre></div><p>The results for transferring the MNIST from the test dataset to SVHN are shown in <span class="emphasis"><em>Figure 7.1.12</em></span>. The generated images have the style of SVHN, but the digits are not completely transferred. For example, on the 4<sup>th</sup> row, digits 3, 1, and 3 are stylized by CycleGAN. However, on the 3<sup>rd</sup> row, digits 9, 6, and 6 are stylized as 0, 6, 01, 0, 65, and 68 for the CycleGAN without and with PatchGAN respectively.</p><p>The results of the backward cycle are shown in <span class="emphasis"><em>Figure 7.1.13</em></span>. In this case, the target images are from<a id="id334" class="indexterm"/> the SVHN test dataset. The generated images<a id="id335" class="indexterm"/> have the style of MNIST, but the digits are not correctly translated. For example, on the 1<sup>st</sup> row, the digits 5, 2, and 210 are stylized as 7, 7, 8, 3, 3, and 1 for the CycleGAN without and with PatchGAN respectively.</p><p>In the case of PatchGAN, the output 1 is understandable given the predicted MNIST digit is constrained to one digit. There are somehow correct predictions like in 2<sup>nd</sup> row last 3 columns of the SVHN digits, 6, 3, and 4 are converted to 6, 3, and 6 by CycleGAN without PatchGAN. However, the outputs on both flavors of CycleGAN are consistently single digit and recognizable.</p><p>The problem exhibited in the conversion from MNIST to SVHN where a digit in the source domain is translated to another digit in the target<a id="id336" class="indexterm"/> domain is called <span class="strong"><strong>label flipping</strong></span> [8]. Although the predictions of CycleGAN are cycle-consistent, they are not necessarily semantic consistent. The meaning of digits is lost during translation. To address this problem, Hoffman [8] introduced an improved CycleGAN called <span class="strong"><strong>CyCADA</strong></span> (<span class="strong"><strong>Cycle-Consistent Adversarial Domain Adaptation</strong></span>). The difference is the<a id="id337" class="indexterm"/> additional semantic loss term ensures that the prediction is not only cycle-consistent but also sematic-consistent:</p><div class="mediaobject"><img src="graphics/B08956_07_12.jpg" alt="CycleGAN on MNIST and SVHN datasets"/><div class="caption"><p>Figure 7.1.12: Style transfer of test data from the MNIST domain to SVHN. Original color photo can be found on the book GitHub repository, https://github.com/PacktPublishing/Advanced-Deep-Learning-with-Keras/blob/master/chapter7-cross-domain-gan/README.md.</p></div></div><div class="mediaobject"><img src="graphics/B08956_07_13.jpg" alt="CycleGAN on MNIST and SVHN datasets"/><div class="caption"><p>Figure 7.1.13: Style transfer of test data from SVHN domain to MNIST. Original color photo can be found on the book GitHub repository, https://github.com/PacktPublishing/Advanced-Deep-Learning-with-Keras/blob/master/chapter7-cross-domain-gan/README.md.</p></div></div><div class="mediaobject"><img src="graphics/B08956_07_14.jpg" alt="CycleGAN on MNIST and SVHN datasets"/><div class="caption"><p>Figure 7.1.14: Forward cycle of CycleGAN with PatchGAN on MNIST (source) to SVHN (target). The reconstructed source is similar to the original source. Original color photo can be found on the book GitHub repository, https://github.com/PacktPublishing/Advanced-Deep-Learning-with-Keras/blob/master/chapter7-cross-domain-gan/README.md.</p></div></div><div class="mediaobject"><img src="graphics/B08956_07_15.jpg" alt="CycleGAN on MNIST and SVHN datasets"/><div class="caption"><p>Figure 7.1.15: The backward cycle of CycleGAN with PatchGAN on MNIST (source) to SVHN (target). The reconstructed target is not entirely similar to the original target. Original color photo can be found on the book GitHub repository, https://github.com/PacktPublishing/Advanced-Deep-Learning-with-Keras/blob/master/chapter7-cross-domain-gan/README.md.</p></div></div><p>In <span class="emphasis"><em>Figure 7.1.3</em></span>, CycleGAN is described to be cycle consistent. In other words, given source <span class="emphasis"><em>x</em></span>, CycleGAN reconstructs<a id="id338" class="indexterm"/> the source in the<a id="id339" class="indexterm"/> forward cycle as <span class="emphasis"><em>x</em></span>
+<span class="emphasis"><em>'</em></span>. In addition, given target <span class="emphasis"><em>y</em></span>, CycleGAN reconstructs the target in the backward cycle as <span class="emphasis"><em>y</em></span>
+<span class="emphasis"><em>'</em></span>.</p><p>
+<span class="emphasis"><em>Figure 7.1.14</em></span> shows CycleGAN reconstructing MNIST digits in the forward cycle. The reconstructed MNIST digits are almost identical with the source MNIST digits. <span class="emphasis"><em>Figure 7.1.15</em></span> shows the CycleGAN reconstructing SVHN digits in the backward cycle. Many target images are reconstructed. Some digits<a id="id340" class="indexterm"/> are clearly the same such as the 2<sup>nd</sup> row<a id="id341" class="indexterm"/> last 2 columns (3 and 4). While some are the same but blurred like 1st row first 2 columns (5 and 2). Some digits are transformed to another digit although the style remains like 2<sup>nd</sup> row first two columns (from 33 and 6 to 1 and an unrecognizable digit).</p><p>On a personal note, I encourage you to run the image translation by using the pretrained models of CycleGAN with PatchGAN:</p><div class="informalexample"><pre class="programlisting">
+<span class="strong"><strong>python3 cyclegan-7.1.1.py --mnist_svhn_g_source=cyclegan_mnist_svhn-g_source.h5 --mnist_svhn_g_target=cyclegan_mnist_svhn-g_target.h5</strong></span>
+</pre></div></div></div>
+<div class="section" title="Conclusion"><div class="titlepage"><div><div><h1 class="title"><a id="ch07lvl1sec45"/>Conclusion</h1></div></div></div><p>In this chapter, we've discussed CycleGAN as an algorithm that can be used for image translation. In CycleGAN, the source and target data are not necessarily aligned. We demonstrated two examples, <span class="emphasis"><em>grayscale</em></span> ↔ <span class="emphasis"><em>color,</em></span> and <span class="emphasis"><em>MNIST</em></span> ↔ <span class="emphasis"><em>SVHN</em></span>. Though there are many other possible<a id="id342" class="indexterm"/> image translations that CycleGAN can perform.</p><p>In the next chapter, we'll embark on another type of generative model, <span class="strong"><strong>Variational AutoEncoders</strong></span> (<span class="strong"><strong>VAEs</strong></span>). VAEs have a similar objective of learning how to generate new images (data). They focus on learning the latent vector modeled as a Gaussian distribution. We'll demonstrate other similarities in the problem being addressed by GANs in the form of conditional VAEs and the disentangling of latent representations in VAEs.</p></div>
+<div class="section" title="References"><div class="titlepage"><div><div><h1 class="title"><a id="ch07lvl1sec46"/>References</h1></div></div></div><div class="orderedlist"><ol class="orderedlist arabic"><li class="listitem">Yuval Netzer and others. <span class="emphasis"><em>Reading Digits in Natural Images with Unsupervised Feature Learning</em></span>. NIPS workshop on deep learning and unsupervised feature learning. Vol. 2011. No. 2. 2011(<a class="ulink" href="https://www-cs.stanford.edu/~twangcat/papers/nips2011_housenumbers.pdf">https://www-cs.stanford.edu/~twangcat/papers/nips2011_housenumbers.pdf</a>).</li><li class="listitem">Zhu, Jun-Yan and others. <span class="emphasis"><em>Unpaired Image-to-Image Translation Using Cycle-Consistent Adversarial Networks</em></span>. 2017 IEEE International Conference on Computer Vision (ICCV). IEEE, 2017 (<a class="ulink" href="http://openaccess.thecvf.com/content_ICCV_2017/papers/Zhu_Unpaired_Image-To-Image_Translation_ICCV_2017_paper.pdf">http://openaccess.thecvf.com/content_ICCV_2017/papers/Zhu_Unpaired_Image-To-Image_Translation_ICCV_2017_paper.pdf</a>).</li><li class="listitem">Phillip Isola and others. <span class="emphasis"><em>Image-to-Image Translation with Conditional Adversarial Networks</em></span>. 2017 IEEE Conference on Computer Vision and Pattern Recognition (CVPR). IEEE, 2017 (<a class="ulink" href="http://openaccess.thecvf.com/content_cvpr_2017/papers/Isola_Image-To-Image_Translation_With_CVPR_2017_paper.pdf">http://openaccess.thecvf.com/content_cvpr_2017/papers/Isola_Image-To-Image_Translation_With_CVPR_2017_paper.pdf</a>).</li><li class="listitem">Mehdi Mirza and Simon Osindero. <span class="emphasis"><em>Conditional Generative Adversarial Nets</em></span>. arXiv preprint arXiv:1411.1784, 2014(<a class="ulink" href="https://arxiv.org/pdf/1411.1784.pdf">https://arxiv.org/pdf/1411.1784.pdf</a>).</li><li class="listitem">Xudong Mao and others. <span class="emphasis"><em>Least Squares Generative Adversarial Networks</em></span>. 2017 IEEE International Conference on Computer Vision (ICCV). IEEE, 2017(<a class="ulink" href="http://openaccess.thecvf.com/content_ICCV_2017/papers/Mao_Least_Squares_Generative_ICCV_2017_paper.pdf">http://openaccess.thecvf.com/content_ICCV_2017/papers/Mao_Least_Squares_Generative_ICCV_2017_paper.pdf</a>).</li><li class="listitem">Chuan Li and Michael Wand. <span class="emphasis"><em>Precomputed Real-Time Texture Synthesis with Markovian Generative Adversarial Networks</em></span>. European Conference on Computer Vision. Springer, Cham, 2016(<a class="ulink" href="https://arxiv.org/pdf/1604.04382.pdf">https://arxiv.org/pdf/1604.04382.pdf</a>).</li><li class="listitem">Olaf Ronneberger, Philipp Fischer, and Thomas Brox. <span class="emphasis"><em>U-Net: Convolutional Networks for Biomedical Image Segmentation</em></span>. International Conference on Medical image computing and computer-assisted intervention. Springer, Cham, 2015(<a class="ulink" href="https://arxiv.org/pdf/1505.04597.pdf">https://arxiv.org/pdf/1505.04597.pdf</a>).</li><li class="listitem">Judy Hoffman and others. <span class="emphasis"><em>CyCADA: Cycle-Consistent Adversarial Domain Adaptation</em></span>. arXiv preprint arXiv:1711.03213, 2017(<a class="ulink" href="https://arxiv.org/pdf/1711.03213.pdf">https://arxiv.org/pdf/1711.03213.pdf</a>).</li></ol></div></div></body></html>

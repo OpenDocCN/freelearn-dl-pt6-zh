@@ -1,0 +1,677 @@
+<html><head></head><body>
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Applying Autoencoder Neural Networks Using Keras</h1>
+                </header>
+            
+            <article>
+                
+<p>Autoencoder networks belong to the unsupervised learning category of methods, where labeled target values are not available. However, since autoencoders often use targets that are some form of input data, they can also be called self-supervised learning methods. In this chapter, we will learn how to apply autoencoder neural networks using Keras. We will cover three applications of autoencoders: dimension reduction, image denoising, and image correction. The examples in this chapter will use images of fashion items, images of numbers, and pictures containing people.</p>
+<p>More specifically, in this chapter, we will cover the following topics:</p>
+<ul>
+<li>Types of autoencoders</li>
+<li>Dimension reduction autoencoders</li>
+<li>Denoising autoencoders</li>
+<li>Image correction autoencoders</li>
+</ul>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Types of autoencoders</h1>
+                </header>
+            
+            <article>
+                
+<p>Autoencoder neural networks consist of two main parts:</p>
+<ul>
+<li>The first part is called the encoder, which reduces the dimensions of the input data. Generally, this is an image. When data from an input image is passed through a network that leads to a lower dimension, the network is forced to extract only the most important features of the input data.</li>
+<li>The second part of the autoencoder is called the decoder and it tries to reconstruct the original data from whatever is available from the output of the encoder. The autoencoder network is trained by specifying what output this network should try to match.</li>
+</ul>
+<p>Let's consider some examples where we will use image data. If the output that's specified is the same image that was given as input, then after training, the autoencoder network is expected to provide an image with a lower resolution that retains the key features of the input image but misses some finer details that were part of the original input image. This type of autoencoder can be used for dimension reduction applications. Since autoencoders are based on neural networks that are able to capture non-linearity in data, they have superior performance compared to methods that only use linear functions. The following diagram shows the <span>encoder and decoder parts of autoencoder networks:</span></p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/0b47cb56-2078-4095-8607-d50b35bbfe3c.png"/></p>
+<p class="mce-root">If we train autoencoders so that the input image contains some noise or non-clarity and the output as the same image but without any noise, then we can create denoising autoencoders. Similarly, if we train autoencoders with such input/output images where we have images with and without glasses, or with and without a mustache, and so on, we can create networks that help with image correction/modification.</p>
+<p class="mce-root">Next, we will look at three separate examples of how to use an autoencoder: using dimension reduction, image denoising, and image correction. We will start by using autoencoders for dimension reduction.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Dimension reduction autoencoders</h1>
+                </header>
+            
+            <article>
+                
+<p>In this section, we will use fashion-MNIST data, specify the autoencoder model architecture, compile the model, fit the model, and then reconstruct the images. Note that fashion-MNIST is part of the Keras library.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">MNIST fashion data</h1>
+                </header>
+            
+            <article>
+                
+<p>We will continue to use the Keras and EBImage libraries. The code for reading the fashion-MNIST data is as follows:</p>
+<pre class="r"><span class="hljs-keyword"># Libraries<br/>library</span>(keras)
+<span class="hljs-keyword">library</span>(EBImage)<br/><br/># Fashion-MNIST data<br/>mnist &lt;- dataset_fashion_mnist() <br/>str(mnist)<br/>List of 2<br/> $ train:List of 2<br/>  ..$ x: int [1:60000, 1:28, 1:28] 0 0 0 0 0 0 0 0 0 0 ...<br/>  ..$ y: int [1:60000(1d)] 9 0 0 3 0 2 7 2 5 5 ...<br/> $ test :List of 2<br/>  ..$ x: int [1:10000, 1:28, 1:28] 0 0 0 0 0 0 0 0 0 0 ...<br/>  ..$ y: int [1:10000(1d)] 9 2 1 1 6 1 4 6 5 7 ...</pre>
+<p>Here, the training data has 60,000 images and the test data has 10,000 images of fashion items. Since we will be using an unsupervised learning approach for this example, we will not use the labels that are available for the train and test data.</p>
+<p>We store the training image data in <kbd>trainx</kbd> and test image data in <kbd>testx</kbd>, as shown in the following code:</p>
+<pre class="r"># Train and test data<br/>trainx &lt;- mnist$train$x
+testx &lt;- mnist$test$x<br/><br/># Plot of 64 images
+par(mfrow = c(<span class="hljs-number">8</span>,<span class="hljs-number">8</span>), mar = rep(<span class="hljs-number">0</span>, <span class="hljs-number">4</span>))
+<span class="hljs-keyword">for</span> (i <span class="hljs-keyword">in</span> <span class="hljs-number">1</span>:<span class="hljs-number">64</span>) plot(as.raster(trainx[i,,], max = <span class="hljs-number">255</span>))</pre>
+<p><span>The first 64 images of fashion items can be seen in the following image:</span></p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/7a0f5048-5008-4987-95a7-7adc47b687b6.png"/></p>
+<p>Next, we will reshape the image data into a suitable format, as shown in the following code:</p>
+<pre class="r"># Reshape images<br/>trainx &lt;- array_reshape(trainx, c(nrow(trainx), <span class="hljs-number">28</span>, <span class="hljs-number">28</span>, <span class="hljs-number">1</span>))
+testx &lt;- array_reshape(testx, c(nrow(testx), <span class="hljs-number">28</span>, <span class="hljs-number">28</span>, <span class="hljs-number">1</span>))
+trainx &lt;- trainx / <span class="hljs-number">255</span>
+testx &lt;- testx / <span class="hljs-number">255</span></pre>
+<p>Here, we have also divided <kbd>trainx</kbd> and <kbd>testx</kbd> by 255 to change the range of values that are between 0-255 to a range between 0 and 1.</p>
+<p class="mce-root"/>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Encoder model</h1>
+                </header>
+            
+            <article>
+                
+<p>To specify the encoder model architecture, we will use the following code:</p>
+<pre class="r"># Encoder<br/>input_layer &lt;- <br/>         layer_input(shape = c(28,28,1)) <br/>encoder &lt;-  input_layer %&gt;% <br/>         layer_conv_2d(filters = 8, <br/>                       kernel_size = c(3,3), <br/>                       activation = 'relu', <br/>                       padding = 'same') %&gt;%   <br/>         layer_max_pooling_2d(pool_size = c(2,2),<br/>                              padding = 'same') %&gt;% <br/>         layer_conv_2d(filters = 4, <br/>                       kernel_size = c(3,3), <br/>                       activation = 'relu', <br/>                       padding = 'same') %&gt;%  <br/>         layer_max_pooling_2d(pool_size = c(2,2), <br/>                              padding = 'same')  
+summary(encoder)<br/>Output<br/>Tensor("max_pooling2d_10/MaxPool:0", shape=(?, 7, 7, 4), dtype=float32)</pre>
+<p>Here, for the input to the encoder, we specify the input layer so that it's 28 x 28 x 1 in size. Two convolutional layers, one with 8 filters and another with 4 filters, are used. Activation functions for both of these layers use <strong>rectified linear units</strong> (<strong>relus</strong>). The convolutional layer includes <kbd>padding = 'same'</kbd>, which retains the height and width of the input at the time of the output. For example, after the first convolution layer, the output has 28 x 28 as its height and width. Each convolution layer is followed by pooling layers. After the first pooling layer, the height and width change to 14 x 14, and, after the second pooling layer, it changes to 7 x 7. The output of the encoder network in this example is 7 x 7 x 4.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Decoder model</h1>
+                </header>
+            
+            <article>
+                
+<p>To specify the decoder model architecture, we will use the following code:</p>
+<pre class="r"># Decoder<br/>decoder &lt;- encoder %&gt;% <br/>         layer_conv_2d(filters = 4, <br/>                       kernel_size = c(3,3), <br/>                       activation = 'relu',<br/>                       padding = 'same') %&gt;%   <br/>         layer_upsampling_2d(c(2,2)) %&gt;% <br/>         layer_conv_2d(filters = 8, <br/>                       kernel_size = c(3,3), <br/>                       activation = 'relu',<br/>                       padding = 'same') %&gt;%  <br/>         layer_upsampling_2d(c(2,2)) %&gt;% <br/>         layer_conv_2d(filters = 1, <br/>                       kernel_size = c(3,3), <br/>                       activation = 'sigmoid',<br/>                       padding = 'same')
+summary(decoder)<br/>Output<br/>Tensor("conv2d_25/Sigmoid:0", shape=(?, 28, 28, 1), dtype=float32)</pre>
+<p>Here, the encoder model has become the input for the decoder model. For the decoder network, we use a similar structure, with the first convolutional layer having 4 filters and the second convolutional layer having 8 filters. In addition, instead of pooling layers, we now use up-sampling layers. The first upsampling layer changes the height and width to 14 x 14 and the second upsampling layer restores it to the original height and width of 28 x 28. In the last layer, we make use of the sigmoid activation function, which ensures that the output values remain between 0 and 1.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Autoencoder model</h1>
+                </header>
+            
+            <article>
+                
+<p>The autoencoder model and the summary of the model showing the output shape and the number of parameters for each layer is as follows:</p>
+<pre class="r"># Autoencoder<br/>ae_model &lt;- keras_model(inputs = input_layer, outputs = decoder)
+summary(ae_model)<br/><strong>__________________________________________________________________________
+Layer (type)                      Output Shape               Param #       
+==========================================================================
+input_5 (InputLayer)              (None, 28, 28, 1)            0             
+__________________________________________________________________________
+conv2d_21 (Conv2D)                (None, 28, 28, 8)            80            
+__________________________________________________________________________
+max_pooling2d_9 (MaxPooling2D)    (None, 14, 14, 8)             0             
+__________________________________________________________________________
+conv2d_22 (Conv2D)                (None, 14, 14, 4)            292           
+__________________________________________________________________________
+max_pooling2d_10 (MaxPooling2D)   (None, 7, 7, 4)               0             
+__________________________________________________________________________
+conv2d_23 (Conv2D)                (None, 7, 7, 4)              148           
+___________________________________________________________________________
+up_sampling2d_9 (UpSampling2D)    (None, 14, 14, 4)             0             
+___________________________________________________________________________
+conv2d_24 (Conv2D)                (None, 14, 14, 8)            296           
+___________________________________________________________________________
+up_sampling2d_10 (UpSampling2D)   (None, 28, 28, 8)             0             
+___________________________________________________________________________
+conv2d_25 (Conv2D)                (None, 28, 28, 1)             73           
+===========================================================================
+Total params: 889
+Trainable params: 889
+Non-trainable params: 0
+____________________________________________________________________________________</strong></pre>
+<p>Here, the autoencoder model has five convolutional layers, two maximum pooling layers, and two upsampling layers, apart from the input layer. Here, the total number of parameters in this autoencoder model is 889.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Compiling and fitting the model</h1>
+                </header>
+            
+            <article>
+                
+<p>Next, we will compile and fit the model using the following code:</p>
+<pre class="r"># Compile model<br/>ae_model %&gt;% compile( loss=<span class="hljs-string">'mean_squared_error'</span>,
+         optimizer=<span class="hljs-string">'adam'</span>)<br/><br/># Fit model<br/>model_one &lt;- ae_model %&gt;% fit(trainx, 
+                         trainx, 
+                         epochs = <span class="hljs-number">20</span>, 
+                         shuffle=<span class="hljs-literal">TRUE</span>,
+                         batch_size = <span class="hljs-number">32</span>, 
+                         validation_data = list(testx,testx))</pre>
+<p><span>Here, we compile the model using mean squared error as the loss function and specify <kbd>adam</kbd> as the optimizer. For training the model, we will make use of <kbd>trainx </kbd>as the input and output. We'll use <kbd>textx</kbd> for validation. We fit the model with a batch size of 32 and use 20 epochs.</span></p>
+<p><span>The following output shows the plot of the loss values for the train and validation data:</span></p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/76f4d73c-4630-49ef-b704-94b3edda787c.png"/></p>
+<p><span>The preceding plot shows good convergence and doesn't show any signs of overfitting.</span></p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Reconstructed images</h1>
+                </header>
+            
+            <article>
+                
+<p>To obtain reconstructed images, we use <kbd>predict_on_batch</kbd> to predict the output using the autoencoder model. We do this with the following code:</p>
+<pre class="r"># Reconstruct and plot images - train data<br/>rc &lt;-   ae_model %&gt;%    keras::predict_on_batch(x = trainx)
+par(mfrow = c(<span class="hljs-number">2</span>,<span class="hljs-number">5</span>), mar = rep(<span class="hljs-number">0</span>, <span class="hljs-number">4</span>))
+<span class="hljs-keyword">for</span> (i <span class="hljs-keyword">in</span> <span class="hljs-number">1</span>:<span class="hljs-number">5</span>) plot(as.raster(trainx[i,,,]))
+<span class="hljs-keyword">for</span> (i <span class="hljs-keyword">in</span> <span class="hljs-number">1</span>:<span class="hljs-number">5</span>) plot(as.raster(rc[i,,,]))</pre>
+<p><span>The first five fashion images from the training data (first row) and the corresponding reconstructed images (second row) are as follows:</span></p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/c8c31f06-520c-4258-a0b7-9bdb92d08ee3.png"/></p>
+<p><span>Here, as expected, the reconstructed images are seen to capture key features of the training images. However, it ignores certain finer details. For example, the logos that are more clearly visible in the original training images are blurred in the reconstructed images.</span></p>
+<p>We can also take a look at the plot of the original and reconstructed images using images from the test data. For this, we can use the following code:</p>
+<pre class="r"># Reconstruct and plot images - train data<br/>rc &lt;- ae_model %&gt;% keras::predict_on_batch(x = testx) <br/>par(mfrow = c(<span class="hljs-number">2</span>,<span class="hljs-number">5</span>), mar = rep(<span class="hljs-number">0</span>, <span class="hljs-number">4</span>)) <br/><span class="hljs-keyword">for</span> (i <span class="hljs-keyword">in</span> <span class="hljs-number">1</span>:<span class="hljs-number">5</span>) plot(as.raster(testx[i,,,])) <br/><span class="hljs-keyword">for</span> (i <span class="hljs-keyword">in</span> <span class="hljs-number">1</span>:<span class="hljs-number">5</span>) plot(as.raster(rc[i,,,]))</pre>
+<p><span>The following image shows the original images (first row) and reconstructed images (second row) using the test data:</span></p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/a2fc374d-bcf1-4380-b27f-c35a2ded9a8c.png"/></p>
+<p>Here, the reconstructed images behave as they did previously for the training data.</p>
+<p>In this example, we have used MNIST fashion data to build an autoencoder network that helps reduce the dimensions of the images by keeping the main features and removing the features that involve finer details. Next, we will look at another variant of the autoencoder model that helps remove noise from images.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Denoising autoencoders</h1>
+                </header>
+            
+            <article>
+                
+<p>In situations where input images contain unwanted noise, autoencoder networks can be trained to remove such noise. This is achieved by providing images with noise as input and providing a clean version of the same image as output. The autoencoder network is trained so that the output of the autoencoder is as close to the output image as possible.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">MNIST data</h1>
+                </header>
+            
+            <article>
+                
+<p>We will make use of MNIST data that's available in the Keras package to illustrate the steps that are involved in creating a denoising autoencoder network. MNIST data can be read using the following code:</p>
+<pre class="r"># MNIST data<br/>mnist &lt;- dataset_mnist()
+str(mnist)<br/>List of 2
+ $ train:List of 2
+  ..$ x: int [1:60000, 1:28, 1:28] 0 0 0 0 0 0 0 0 0 0 ...
+  ..$ y: int [1:60000(1d)] 5 0 4 1 9 2 1 3 1 4 ...
+ $ test :List of 2
+  ..$ x: int [1:10000, 1:28, 1:28] 0 0 0 0 0 0 0 0 0 0 ...
+  ..$ y: int [1:10000(1d)] 7 2 1 0 4 1 4 9 5 9 ...</pre>
+<p>The structure of the MNIST data indicates that it contains train and test data, along with the respective labels. The training data has 60,000 images of digits from 0 to 9. Similarly, the test data has 10,000 images of digits from 0 to 9. Although each image has a corresponding label identifying the image, in this example, the data for labels isn't required and so we will ignore this information.</p>
+<p>We will be storing training images in <kbd>trainx</kbd> and the test images in <kbd>testx</kbd>. To do this, we will use the following code:</p>
+<pre class="r"># Train and test data<br/>trainx &lt;- mnist$train$x
+testx &lt;- mnist$test$x<br/><br/># Plot<br/>par(mfrow = c(<span class="hljs-number">8</span>,<span class="hljs-number">8</span>), mar = rep(<span class="hljs-number">0</span>, <span class="hljs-number">4</span>))
+<span class="hljs-keyword">for</span> (i <span class="hljs-keyword">in</span> <span class="hljs-number">1</span>:<span class="hljs-number">64</span>) plot(as.raster(trainx[i,,], max = <span class="hljs-number">255</span>))</pre>
+<p>The following image shows a plot of 64 images in 8 rows and 8 columns based on <span>images of digits between 0 and 9 from MNIST</span>:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/a795fbe1-fb3c-48ff-8367-9667b7b0a8fb.png" style="width:23.67em;height:14.58em;"/></p>
+<p>The preceding plot shows handwritten digits in various writing styles. We will reshape this image data in the required format and add random noise to it.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Data preparation</h1>
+                </header>
+            
+            <article>
+                
+<p>Next, we will reshape images in the required format using the following code:</p>
+<pre class="r"># Reshape<br/>trainx &lt;- array_reshape(trainx, c(nrow(trainx),<span class="hljs-number">28</span>,<span class="hljs-number">28</span>,<span class="hljs-number">1</span>))
+testx &lt;- array_reshape(testx, c(nrow(testx),<span class="hljs-number">28</span>,<span class="hljs-number">28</span>,<span class="hljs-number">1</span>))
+trainx &lt;- trainx / <span class="hljs-number">255</span>
+testx &lt;- testx / <span class="hljs-number">255</span></pre>
+<p>Here, we've reshaped the training data so that it's 60,000 x 28 x 28 x 1 in size and reshaped the test data so that it's 10,000 x 28 x 28 x 1 in size. We also divided the pixel values that are between 0 and 255 by 255 to obtain a new range that is between 0 and 1.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Adding noise</h1>
+                </header>
+            
+            <article>
+                
+<p>To add noise to the training images, we need to obtain 60,000 <span>× </span>28 <span>× </span>28 random numbers between 0 and 1 using uniform distribution using the following code:</p>
+<pre class="r"># Random numbers from uniform distribution<br/>n &lt;- runif(<span class="hljs-number">60000</span>*<span class="hljs-number">28</span>*<span class="hljs-number">28</span>,<span class="hljs-number">0</span>,<span class="hljs-number">1</span>)
+n &lt;- array_reshape(n, c(<span class="hljs-number">60000</span>,<span class="hljs-number">28</span>,<span class="hljs-number">28</span>,<span class="hljs-number">1</span>))<br/><br/># Plot
+par(mfrow = c(<span class="hljs-number">8</span>,<span class="hljs-number">8</span>), mar = rep(<span class="hljs-number">0</span>, <span class="hljs-number">4</span>))
+<span class="hljs-keyword">for</span> (i <span class="hljs-keyword">in</span> <span class="hljs-number">1</span>:<span class="hljs-number">64</span>) plot(as.raster(n[i,,,]))</pre>
+<p><span>Here, we're reshaping the random numbers that were generated using uniform distribution to match the dimensions of the matrix that we have for the training images. The results are plotted in the form of images that show resulting images containing noise.</span></p>
+<p><span>The following image shows the images containing noise:</span></p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/c4569d41-9dba-4c13-a702-617696522fcc.png" style="width:24.17em;height:14.83em;"/></p>
+<p>The images depicting noise are added to the images that are stored in <kbd>trainx</kbd>. We need to divide this by 2 to keep the resulting <kbd>trainn</kbd> values between 0 and 1. We can use the following code to do this:</p>
+<pre class="r"># Adding noise to handwritten images - train data<br/>trainn &lt;- (trainx + n)/<span class="hljs-number">2</span>
+par(mfrow = c(<span class="hljs-number">8</span>,<span class="hljs-number">8</span>), mar = rep(<span class="hljs-number">0</span>, <span class="hljs-number">4</span>))
+<span class="hljs-keyword">for</span> (i <span class="hljs-keyword">in</span> <span class="hljs-number">1</span>:<span class="hljs-number">64</span>) plot(as.raster(trainn[i,,,]))</pre>
+<p><span>The first 64 training images, along with their noise, are shown in the following image:</span></p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/385dc121-daff-4c4f-82b2-230468ef3b50.png" style="width:24.17em;height:14.92em;"/></p>
+<p>Although noise is added to the original handwritten digits, the digits are still readable. The main objective of using a denoising autoencoder is to train a network that retains the handwritten digits and removes noise from the images.</p>
+<p>We will repeat the same steps for the test data using the following code:</p>
+<pre class="r"># Adding noise to handwritten images - test data<br/>n1 &lt;- runif(<span class="hljs-number">10000</span>*<span class="hljs-number">28</span>*<span class="hljs-number">28</span>,<span class="hljs-number">0</span>,<span class="hljs-number">1</span>) <br/>n1 &lt;- array_reshape(n1, c(<span class="hljs-number">10000</span>,<span class="hljs-number">28</span>,<span class="hljs-number">28</span>,<span class="hljs-number">1</span>)) <br/>testn &lt;- (testx +n1)/<span class="hljs-number">2</span></pre>
+<p>Here, we have added noise to test images and stored them in <kbd>testn</kbd>. Now, we can specify the encoder architecture.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Encoder model</h1>
+                </header>
+            
+            <article>
+                
+<p>The code that's used for the encoder network is as follows:</p>
+<pre class="r"># Encoder<br/>input_layer &lt;- <br/>         layer_input(shape = c(28,28,1)) <br/>encoder &lt;-  input_layer %&gt;% <br/>         layer_conv_2d(filters = 32, <br/>                       kernel_size = c(3,3), <br/>                       activation = 'relu', <br/>                       padding = 'same') %&gt;%   <br/>         layer_max_pooling_2d(pool_size = c(2,2),<br/>                              padding = 'same') %&gt;% <br/>         layer_conv_2d(filters = 32, <br/>                       kernel_size = c(3,3), <br/>                       activation = 'relu', <br/>                       padding = 'same') %&gt;%  <br/>         layer_max_pooling_2d(pool_size = c(2,2), <br/>                              padding = 'same') 
+summary(encoder)<br/>OutputTensor("max_pooling2d_6/MaxPool:0", shape=(?, 7, 7, 32), dtype=float32)</pre>
+<p>Here, the input layer is specified to be 28 x 28 x 1 in size. We use two convolution layers with 32 filters each and a rectifier linear unit as the activation function. Each convolution layer is followed by pooling layers. After the first pooling layer, the height and width change to 14 x 14, and after the second pooling layer, this changes to 7 x 7. The output of the encoder network in this example has 7 x 7 x 32 dimensions.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Decoder model</h1>
+                </header>
+            
+            <article>
+                
+<p>For the decoder network, we keep the same structure, except that, instead of pooling layers, we use upsampling layers. We can use the following code to do this:</p>
+<pre class="r"># Decoder<br/>decoder &lt;- encoder %&gt;% <br/>         layer_conv_2d(filters = 32, <br/>                       kernel_size = c(3,3), <br/>                       activation = 'relu',<br/>                       padding = 'same') %&gt;%   <br/>         layer_upsampling_2d(c(2,2)) %&gt;% <br/>         layer_conv_2d(filters = 32, <br/>                       kernel_size = c(3,3), <br/>                       activation = 'relu',<br/>                       padding = 'same') %&gt;%  <br/>         layer_upsampling_2d(c(2,2)) %&gt;% <br/>         layer_conv_2d(filters = 1, <br/>                       kernel_size = c(3,3), <br/>                       activation = 'sigmoid',<br/>                       padding = 'same')
+summary(decoder)<br/>Output<br/>Tensor("conv2d_15/Sigmoid:0", shape=(?, 28, 28, 1), dtype=float32)</pre>
+<p>In the preceding code, the first upsampling layer changes the height and width to 14 x 14 and the second upsampling layer restores it to the original height and width of 28 x 28. In the last layer, we use a sigmoid activation function, which ensures that the output values remain between 0 and 1.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Autoencoder model</h1>
+                </header>
+            
+            <article>
+                
+<p>Now, we can specify the autoencoder network. The autoencoder's model and summary is as follows:</p>
+<pre class="r"># Autoencoder<br/>ae_model &lt;- keras_model(inputs = input_layer, outputs = decoder)
+summary(ae_model)<br/><br/><strong>______________________________________________________________________
+Layer (type)                    Output Shape             Param #       
+======================================================================
+input_3 (InputLayer)           (None, 28, 28, 1)           0             
+______________________________________________________________________
+conv2d_11 (Conv2D)             (None, 28, 28, 32)         320           
+______________________________________________________________________
+max_pooling2d_5 (MaxPooling2D) (None, 14, 14, 32)          0             
+_______________________________________________________________________
+conv2d_12 (Conv2D)             (None, 14, 14, 32)         9248          
+_______________________________________________________________________
+max_pooling2d_6 (MaxPooling2D) (None, 7, 7, 32)            0             
+_______________________________________________________________________
+conv2d_13 (Conv2D)             (None, 7, 7, 32)           9248          
+_______________________________________________________________________
+up_sampling2d_5 (UpSampling2D) (None, 14, 14, 32)          0             
+_______________________________________________________________________
+conv2d_14 (Conv2D)             (None, 14, 14, 32)         9248          
+_______________________________________________________________________
+up_sampling2d_6 (UpSampling2D) (None, 28, 28, 32)          0             
+________________________________________________________________________
+conv2d_15 (Conv2D)             (None, 28, 28, 1)           289           
+========================================================================
+Total params: 28,353
+Trainable params: 28,353
+Non-trainable params: 0
+________________________________________________________________________</strong></pre>
+<p>From the preceding summary of the autoencoder network, we can see that there are 28,353 parameters in total. Next, we will compile this model using the following code:</p>
+<pre class="r"># Compile model<br/>ae_model %&gt;% compile( loss=<span class="hljs-string">'binary_crossentropy'</span>, optimizer=<span class="hljs-string">'adam'</span>)</pre>
+<div class="packt_tip">For denoising autoencoders, the<kbd>bianary_crossentropy </kbd>loss function performs better than other options.</div>
+<p>When compiling the autoencoder model, we will use <kbd>binary_crossentropy</kbd> for the loss function since the input values are between 0 and 1. For the optimizer, we will use <kbd>adam</kbd>. After compiling the model, we are ready to fit it.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Fitting the model</h1>
+                </header>
+            
+            <article>
+                
+<p>To train the model, we use images with noise stored in <kbd>trainn</kbd> as input and images without noise stored in <kbd>trainx</kbd> as output. The code that's used to fit the model is as follows:</p>
+<pre># Fit model<br/>model_two &lt;- ae_model %&gt;% fit(trainn, <br/>                         trainx, <br/>                         epochs = 100, <br/>                         shuffle = TRUE,<br/>                         batch_size = 128,  <br/>                        validation_data = list(testn,testx))</pre>
+<p>Here, we also use <kbd>testn</kbd> and <kbd>testx</kbd> to monitor validation errors. We will run 100 epochs with a batch size of 128. After network training is completed, we obtain the loss values for the train and test data using the following code:</p>
+<pre># Loss for train data<br/>ae_model %&gt;% evaluate(trainn, trainx)<br/>      loss <br/>0.07431865<br/><br/># Loss for test data<br/>ae_model %&gt;% evaluate(testn, testx)<br/>      loss <br/>0.07391542</pre>
+<p>The loss for the training and test data is 0.0743 and 0.0739, respectively. The closeness of the two numbers indicates the lack of an overfitting problem.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Image reconstruction</h1>
+                </header>
+            
+            <article>
+                
+<p>After fitting the model, we can reconstruct images using the following code:</p>
+<pre class="r"># Reconstructing images - train data<br/>rc &lt;- ae_model %&gt;%   keras::predict_on_batch(x = trainn)<br/><br/># Plot
+par(mfrow = c(<span class="hljs-number">8</span>,<span class="hljs-number">8</span>), mar = rep(<span class="hljs-number">0</span>, <span class="hljs-number">4</span>))
+<span class="hljs-keyword">for</span> (i <span class="hljs-keyword">in</span> <span class="hljs-number">1</span>:<span class="hljs-number">64</span>) plot(as.raster(rc[i,,,]))</pre>
+<p>In the preceding code, we have used <kbd>ae_model</kbd> to reconstruct the images by providing images with noise contained in <kbd>trainn</kbd>. As shown in the following image, w<span>e have plotted the first 64 reconstructed images to see if the noisy images become clearer:</span></p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/639dcb99-aa19-45ac-b4c9-0c984f5ae639.png" style="width:25.33em;height:15.58em;"/></p>
+<p>From the preceding plot, we can observe that the autoencoder network has successfully removed noise. We can also reconstruct the images for the test data with the help of <kbd>ae_model</kbd> using the following code:</p>
+<pre class="r"># Reconstructing images - test data<br/>rc &lt;- ae_model %&gt;% keras::predict_on_batch(x = testn) <br/>par(mfrow = c(<span class="hljs-number">8</span>,<span class="hljs-number">8</span>), mar = rep(<span class="hljs-number">0</span>, <span class="hljs-number">4</span>)) <br/><span class="hljs-keyword">for</span> (i <span class="hljs-keyword">in</span> <span class="hljs-number">1</span>:<span class="hljs-number">64</span>) plot(as.raster(rc[i,,,]))</pre>
+<p><span>The resulting images for the first 64 handwritten digits in the test data are as follows:</span></p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/cdb8d104-dd40-4bbf-90f1-f12906fd341a.png" style="width:25.42em;height:15.67em;"/></p>
+<p>Here, we can observe that the denoising autoencoder does a decent job of removing noise from the images of 0 to 9 digits. To look more closely at the model's performance, we can plot the first image in the test data, the corresponding image with noise, and the reconstructed image after noise removal, like so:</p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/8631120a-b2aa-4b7e-bf32-bc466e01fb34.png" style="width:26.67em;height:8.67em;"/></p>
+<p>In the preceding screenshot, the first image is the original image, while the second image is the one that's obtained after adding noise. The autoencoder was provided the second image as input and the results that were obtained from the model (third image) were made to match the first image. Here, we can see that the denoising autoencoder network helps remove noise. Note that the third image is unable to retain some of the finer details of the original image that we can see in the first image. For example, in the original image, seven appears to be slightly thicker at the beginning and toward the lower part compared to the third image. However, it does successfully extract the overall pattern of seven from the image containing digit seven with noise.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Image correction</h1>
+                </header>
+            
+            <article>
+                
+<p>In this third application, we will go over an example where we'll develop an autoencoder model to remove certain artificially created marks on various pictures. We will use 25 images containing a black line across the picture. The code for reading the image files and carrying out the related processing is as follows:</p>
+<pre># Reading images and image processing<br/>setwd("~/Desktop/peoplex")<br/>temp = list.files(pattern="*.jpeg")<br/>mypic &lt;- list()<br/>for (i in 1:length(temp)) {mypic[[i]] &lt;- readImage(temp[i])}<br/>for (i in 1:length(temp)) {mypic[[i]] &lt;- resize(mypic[[i]], 128, 128)}<br/>for (i in 1:length(temp)) {dim(mypic[[i]]) &lt;- c(128, 128,3)}</pre>
+<p>In the preceding code, we read images with <kbd>.jpeg</kbd> extensions from the <kbd>peoplex</kbd> folder and resize these images so that they have a height and width of 128 x 128. We also update the dimensions to 128 x 128 x 3 since all the images are color images.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Images that need correction</h1>
+                </header>
+            
+            <article>
+                
+<p>We will use the following code to combine the 25 images and then plot them:</p>
+<pre class="r"># Combine and plot images<br/>trainx &lt;- combine(mypic)<br/>str(trainx)<br/>Formal class 'Image' [package "EBImage"] with 2 slots
+  ..@ .Data    : num [1:128, 1:128, 1:3, 1:16] 0.04435 0 0.00357 0.05779 0.05815 ...
+  ..@ colormode: int 2<br/>trainx &lt;- aperm(trainx, c(<span class="hljs-number">4</span>,<span class="hljs-number">1</span>,<span class="hljs-number">2</span>,<span class="hljs-number">3</span>)<br/>par(mfrow = c(<span class="hljs-number">4</span>,<span class="hljs-number">4</span>), mar = rep(<span class="hljs-number">0</span>, <span class="hljs-number">4</span>))
+<span class="hljs-keyword">for</span> (i <span class="hljs-keyword">in</span> <span class="hljs-number">1</span>:<span class="hljs-number">16</span>) plot(as.raster(trainx[i,,,]))</pre>
+<p><span>Here, we save the data involving all 25 images after combining them into <kbd>trainx</kbd>. Looking at the structure of <kbd>tranix</kbd>, we can see that, after combining the image data, the dimensions now become 128 x 128 x 3 x 16. In order to change this to the required format of 16 x 128 x 128 x 3, we use the <kbd>aperm</kbd> function. Then, we plot all 25 images. Note that if the images are plotted with rotation, they can be adjusted to the correct orientation very easily on any computer. The following are the 25 pictures, with a black line across all the images:</span></p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/89a138f3-655a-4d24-8728-7160f9b4e5d4.png" style="width:28.33em;height:28.33em;"/></p>
+<p>The autoencoder model in this application will use these images with a black line as input and will be trained so that the black lines are removed.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Clean images</h1>
+                </header>
+            
+            <article>
+                
+<p>We will also read the same 25 images <span>without the black line and save them in</span> <kbd>trainy</kbd><span>, as shown in the following code:</span></p>
+<pre># Read image files without black line<br/>setwd("~/Desktop/people")<br/>temp = list.files(pattern="*.jpg")<br/>mypic &lt;- list()<br/>for (i in 1:length(temp)) {mypic[[i]] &lt;- readImage(temp[i])}<br/>for (i in 1:length(temp)) {mypic[[i]] &lt;- resize(mypic[[i]], 128, 128)}<br/>for (i in 1:length(temp)) {dim(mypic[[i]]) &lt;- c(128, 128,3)}<br/>trainy &lt;- combine(mypic)<br/>trainy &lt;- aperm(trainy, c(4,1,2,3))<br/>par(mfrow = c(4,4), mar = rep(0, 4))<br/>for (i in 1:16) plot(as.raster(trainy[i,,,]))<br/>par(mfrow = c(1,1))</pre>
+<p><span>Here, after resizing and changing dimensions, we are combining the images, just like we did previously. We also need to make some adjustments to the dimensions to obtain the required format. Next, we will plot all 25 clean images, as follows:</span></p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/50fd289c-9b2f-4f3c-92d4-3571b323aa59.png" style="width:24.17em;height:24.17em;"/></p>
+<p>At the time of training the autoencoder network, we will use these clean images as output. Next, we will specify the encoder model architecture.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Encoder model</h1>
+                </header>
+            
+            <article>
+                
+<p>For the encoder model, we will use three convolutional layers with 512, 512, and 256 filters, as shown in the following code:</p>
+<pre># Encoder network<br/>input_layer &lt;- layer_input(shape = c(128,128,3)) <br/>encoder &lt;-  input_layer %&gt;% <br/>         layer_conv_2d(filters = 512, kernel_size = c(3,3), activation = 'relu', padding = 'same') %&gt;%   <br/>         layer_max_pooling_2d(pool_size = c(2,2),padding = 'same') %&gt;% <br/>         layer_conv_2d(filters = 512, kernel_size = c(3,3), activation = 'relu', padding = 'same') %&gt;%   <br/>         layer_max_pooling_2d(pool_size = c(2,2),padding = 'same') %&gt;% <br/>         layer_conv_2d(filters = 256, kernel_size = c(3,3), activation = 'relu', padding = 'same') %&gt;%  <br/>         layer_max_pooling_2d(pool_size = c(2,2), padding = 'same')  <br/>summary(encoder)<br/>Output<br/><span>Tensor("max_pooling2d_22/MaxPool:0", shape=(?, 16, 16, 256), dtype=float32)</span></pre>
+<p>Here, the encoder network is 16 x 16 x 256 in size. We will keep the other features similar to the encoder models that we used in the previous two examples. Now, we will specify the decoder architecture of the autoencoder network.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Decoder model</h1>
+                </header>
+            
+            <article>
+                
+<p>For the decoder model, the first three convolutional layers have 256, 512, and 512, filters, as shown in the following code:</p>
+<pre># Decoder network<br/>decoder &lt;- encoder %&gt;% <br/>         layer_conv_2d(filters = 256, kernel_size = c(3,3), activation = 'relu',padding = 'same') %&gt;%   <br/>         layer_upsampling_2d(c(2,2)) %&gt;% <br/>         layer_conv_2d(filters = 512, kernel_size = c(3,3), activation = 'relu',padding = 'same') %&gt;%   <br/>         layer_upsampling_2d(c(2,2)) %&gt;% <br/>         layer_conv_2d(filters = 512, kernel_size = c(3,3), activation = 'relu',padding = 'same') %&gt;%  <br/>         layer_upsampling_2d(c(2,2)) %&gt;% <br/>         layer_conv_2d(filters = 3, kernel_size = c(3,3), activation = 'sigmoid',padding = 'same')<br/>summary(decoder)<br/>Output<br/><span>Tensor("conv2d_46/Sigmoid:0", shape=(?, 128, 128, 3), dtype=float32)</span></pre>
+<p>Here, we used upsampling layers. In the last convolutional layer, we made use of a sigmoid activation function. In the last convolutional layer, we used three filters since we are making use of color images. Finally, the output of the decoder model has 128 x 128 x 3 dimensions.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Compiling and fitting the model</h1>
+                </header>
+            
+            <article>
+                
+<p>Now, we can compile and fit the model using the following code:</p>
+<pre># Compile and fit model<br/>ae_model &lt;- keras_model(inputs = input_layer, outputs = decoder)<br/>ae_model %&gt;% compile( loss='mse',<br/>         optimizer='adam')<br/>model_three &lt;- ae_model %&gt;% fit(trainx, <br/>                         trainy, <br/>                         epochs = 100, <br/>                         batch_size = 128, <br/>                         validation_split = 0.2)<br/>plot(model_three)</pre>
+<p><span>In the preceding code, we compile the autoencoder model using mean squared error as the loss function and specify <kbd>adam</kbd> as the optimizer. We use <kbd>trainx</kbd>, which contains images with a black line across them, as input to the model and <kbd>trainy</kbd>, which contains clean images, as output that the model tries to match. We specify the number of epochs as 100 and use a batch size of 128. Using a validation split of 0.2 or 20%, we will use 20 images out of 25 for training and 5 images out of 25 for computing validation errors. <br/></span></p>
+<p><span>The following graph shows the mean square error for 100 epochs for the training and validation images for <kbd>model_three</kbd>:</span></p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/82f0b487-14ef-4626-bac6-cde615926fd0.png"/></p>
+<p>The plot for the mean square error shows that there is an improvement in model performance based on the training and validation data as the model training proceeds. We can also see <span>that, between about 80 and 100 epochs, the model's performance becomes approximately flat. In addition to this, it's suggested that increasing the number of epochs isn't likely to improve model performance any further.</span></p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Reconstructing images from training data</h1>
+                </header>
+            
+            <article>
+                
+<p>Now, we can reconstruct images from the training data using the model that we have obtained. To do this, we can use the following code:</p>
+<pre># Reconstructing images - training<br/>rc &lt;- ae_model %&gt;%  keras::predict_on_batch(x = trainx)<br/>par(mfrow = c(5,5), mar = rep(0, 4))<br/>for (i in 1:25) plot(as.raster(rc[i,,,]))</pre>
+<p><span>In the preceding code, we're using <kbd>predict_on_batch</kbd> to reconstruct the images after feeding <kbd>trainx</kbd>, which contains images with black lines across them. All 25 reconstructed images can be seen here:</span></p>
+<p class="CDPAlignCenter CDPAlign"><img class="details-image" src="assets/05fe2408-d189-4377-a1be-5debedec0717.png" style="width:29.75em;height:29.75em;"/></p>
+<p>From the preceding plot, <span>it can be seen that the autoencoder model has learned to remove the black lines from the input images. The pictures are somewhat blurred since the autoencoder model tries to output only the main features from the images and misses certain details.</span></p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Reconstructing images from new data</h1>
+                </header>
+            
+            <article>
+                
+<p>To test the autoencoder model with new and unseen data, we will make use of 25 new images that have black lines across them. To do this, we will use the following code:</p>
+<pre># 25 new images<br/>setwd("~/Desktop/newx")<br/>temp = list.files(pattern="*.jpg")<br/>mypic &lt;- list()<br/>for (i in 1:length(temp)) {mypic[[i]] &lt;- readImage(temp[i])}<br/>for (i in 1:length(temp)) {mypic[[i]] &lt;- resize(mypic[[i]], 128, 128)}<br/>for (i in 1:length(temp)) {dim(mypic[[i]]) &lt;- c(128, 128,3)}<br/>newx &lt;- combine(mypic)<br/>newx &lt;- aperm(newx, c(4,1,2,3))<br/>par(mfrow = c(4,4), mar = rep(0, 4))<br/>for (i in 1:16) plot(as.raster(newx[i,,,]))</pre>
+<p><span>As shown in the preceding code, we read the new image data and then formatted all images, like we did previously. All 25</span> <span>new pictures with a black line across them are shown in the following plot:</span></p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/498d8de0-0595-43d8-b0df-f46cd3507b1f.png" style="width:30.58em;height:30.58em;"/></p>
+<p>Here, all 25 images have a black line across them. We will use the data from these new images and reconstruct the images using the autoencoder model that we've developed to remove the black lines. The code that's used for reconstructing and plotting the images is as follows:</p>
+<pre># Reconstructing images - new images<br/>rc &lt;- ae_model %&gt;% keras::predict_on_batch(x = newx)<br/>par(mfrow = c(5,5), mar = rep(0, 4))<br/>for (i in 1:25) plot(as.raster(rc[i,,,]))</pre>
+<p><span>The following screenshot shows the reconstructed images after using the autoencoder model based on the 25 new images that had a black line across them:</span></p>
+<p class="CDPAlignCenter CDPAlign"><img src="assets/4986e67b-57f0-4576-a6fe-3322e07f6c0b.png" style="width:32.17em;height:32.17em;"/></p>
+<p>The preceding screenshot once again shows that the autoencoder model successfully removes the black lines from all the images. However, as we observed earlier, the image quality is low. This example provides promising results. If the results that were obtained also had a higher quality output for the images, then we could use this in several different situations. For example, we could reconstruct an image with glasses as an image without glasses or vice versa, or we may be able to reconstruct an image of a person without a smile to an image of them with a smile. There are several variants of such approaches that have the potential to have significant business value.</p>
+
+
+            </article>
+
+            
+        </section>
+    
+
+        <section>
+
+                            <header>
+                    <h1 class="header-title">Summary</h1>
+                </header>
+            
+            <article>
+                
+<p>In this chapter, we went over three application examples of autoencoder networks. The first type of autoencoder involved a dimension reduction application. Here, we used an autoencoder network architecture that only allowed us to learn about the key features of the input image. The second type of autoencoder was illustrated using MNIST data containing images of numbers. We artificially added noise to the images of numbers and trained the network in such a way that it learned to remove noise from the input image. The third type of autoencoder network involved image correction application. The autoencoder network in this application was trained to remove a black line from input images.</p>
+<p>In the next chapter, we will go over another class of deep networks, called <strong>transfer learning</strong>, and use them for image classification.</p>
+
+
+            </article>
+
+            
+        </section>
+    </body></html>

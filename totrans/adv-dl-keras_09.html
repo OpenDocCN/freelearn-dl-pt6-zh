@@ -1,0 +1,639 @@
+<html><head></head><body><div class="chapter" title="Chapter&#xA0;9.&#xA0;Deep Reinforcement Learning"><div class="titlepage"><div><div><h1 class="title"><a id="ch09"/>Chapter 9. Deep Reinforcement Learning</h1></div></div></div><p>
+<span class="strong"><strong>Reinforcement Learning</strong></span> (<span class="strong"><strong>RL</strong></span>) is a framework that is used by an agent for decision-making. The agent is not<a id="id376" class="indexterm"/> necessarily a software entity such as in<a id="id377" class="indexterm"/> video games. Instead, it could be embodied in hardware such as a robot or an autonomous car. An embodied agent is probably the best way to fully appreciate and utilize reinforcement learning since a physical entity interacts with the real-world and receives responses.</p><p>The agent is situated within an <span class="strong"><strong>environment</strong></span>. The environment has a <span class="strong"><strong>state</strong></span> that can be partially or fully<a id="id378" class="indexterm"/> observable. The agent has a set of <span class="strong"><strong>actions</strong></span> that it can use to interact<a id="id379" class="indexterm"/> with its environment. The result of an action transitions<a id="id380" class="indexterm"/> the environment to a new state. A corresponding scalar <span class="strong"><strong>reward</strong></span> is received<a id="id381" class="indexterm"/> after executing an action. The goal of the agent is to maximize the accumulated future reward by<a id="id382" class="indexterm"/> learning a <span class="strong"><strong>policy</strong></span> that will decide which action to take given a state.</p><p>Reinforcement learning has a strong similarity to human psychology. Humans learn by experiencing the world. Wrong actions result in a certain form of penalty and should be avoided in the future, whilst actions which are right are rewarded and should be encouraged. This strong similarity to human psychology has convinced many researchers to believe that reinforcement learning<a id="id383" class="indexterm"/> can lead us towards <span class="strong"><strong>Artificial Intelligence</strong></span> (<span class="strong"><strong>AI</strong></span>).</p><p>Reinforcement learning<a id="id384" class="indexterm"/> has been around for decades. However, beyond simple world models, RL has struggled to scale. This is where <span class="strong"><strong>Deep Learning</strong></span> (<span class="strong"><strong>DL</strong></span>), came into play. It solved this scalability problem which opened up the era of <span class="strong"><strong>Deep Reinforcement Learning</strong></span> (<span class="strong"><strong>DRL</strong></span>), which is what we are going to focus on in this chapter. One of the notable examples in DRL is the work of DeepMind on agents that were<a id="id385" class="indexterm"/> able to surpass the best human performance on different video games. In this chapter, we discuss both RL and DRL.</p><p>In summary, the goal of this chapter is to present:</p><div class="itemizedlist"><ul class="itemizedlist"><li class="listitem" style="list-style-type: disc">The principles of RL</li><li class="listitem" style="list-style-type: disc">The Reinforcement Learning technique, Q-Learning</li><li class="listitem" style="list-style-type: disc">Advanced topics including <span class="strong"><strong>Deep Q-Network</strong></span> (<span class="strong"><strong>DQN</strong></span>), and <span class="strong"><strong>Double Q-Learning</strong></span> (<span class="strong"><strong>DDQN</strong></span>)</li><li class="listitem" style="list-style-type: disc">Instructions on how to implement RL on Python and DRL within Keras</li></ul></div><div class="section" title="Principles of reinforcement learning (RL)"><div class="titlepage"><div><div><h1 class="title"><a id="ch09lvl2sec35"/>Principles of reinforcement learning (RL)</h1></div></div></div><p>
+<span class="emphasis"><em>Figure 9.1.1</em></span> shows the perception-action-learning loop that is used to describe RL. The environment is<a id="id386" class="indexterm"/> a soda can sitting on the floor. The agent is a mobile robot whose goal is to pick up the soda can. It observes the environment around it and tracks the location of the soda can through an onboard camera. The observation is summarized in a form of state which the robot will use to decide which action to take. The actions it takes may pertain to low-level control such as the rotation angle/speed of each wheel, rotation angle/speed of each joint of the arm, and whether the gripper is open or close.</p><p>Alternatively, the actions may be high-level control moves such as moving the robot forward/backward, steering with a certain angle, and grab/release. Any action that moves the gripper away from the soda receives a negative reward. Any action that closes the gap between the gripper location and the soda receives a positive reward. When the robot arm successfully picks up the soda can, it receives a big positive reward. The goal of RL is to learn the optimal policy that helps the robot to decide which action to take given a state to maximize the accumulated discounted reward:</p><div class="mediaobject"><img src="graphics/B08956_09_01.jpg" alt="Principles of reinforcement learning (RL)"/><div class="caption"><p>Figure 9.1.1: The perception-action-learning loop in reinforcement learning</p></div></div><p>Formally, the RL problem can be described as a <span class="strong"><strong>Markov Decision Process</strong></span> (<span class="strong"><strong>MDP</strong></span>). For simplicity, we'll assume a <span class="emphasis"><em>deterministic</em></span> environment where a certain action in a given state will consistently<a id="id387" class="indexterm"/> result in a known next state and reward. In a<a id="id388" class="indexterm"/> later section of this chapter, we'll look at how to consider stochasticity. At timestep <span class="emphasis"><em>t</em></span>:</p><div class="itemizedlist"><ul class="itemizedlist"><li class="listitem" style="list-style-type: disc">
+The environment is in a state <span class="emphasis"><em>s</em></span><sub>t</sub> from the state space <span class="inlinemediaobject"><img src="graphics/B08956_09_001.jpg" alt="Principles of reinforcement learning (RL)"/></span> which may be discrete or continuous. The starting state is <span class="emphasis"><em>s</em></span><sub>0</sub> while the terminal state is <span class="emphasis"><em>s</em></span><sub>t</sub>.
+</li><li class="listitem" style="list-style-type: disc">
+The agent takes action <span class="emphasis"><em>a</em></span><sub>t</sub> from the action space <span class="inlinemediaobject"><img src="graphics/B08956_09_002.jpg" alt="Principles of reinforcement learning (RL)"/></span> by obeying the policy, <span class="inlinemediaobject"><img src="graphics/B08956_09_003.jpg" alt="Principles of reinforcement learning (RL)"/></span>. <span class="inlinemediaobject"><img src="graphics/B08956_09_004.jpg" alt="Principles of reinforcement learning (RL)"/></span> may be discrete or continuous.
+</li><li class="listitem" style="list-style-type: disc">
+The environment transitions to a new state <span class="emphasis"><em>s</em></span><sub>t+1</sub> using the state transition dynamics <span class="inlinemediaobject"><img src="graphics/B08956_09_005.jpg" alt="Principles of reinforcement learning (RL)"/></span>. The next state is only dependent on the current state and action. <span class="inlinemediaobject"><img src="graphics/B08956_09_006.jpg" alt="Principles of reinforcement learning (RL)"/></span> is not known to the agent.
+</li><li class="listitem" style="list-style-type: disc">
+The agent receives a scalar reward using a reward function, r<span class="emphasis"><em><sub>t+1</sub></em></span> = <span class="emphasis"><em>R</em></span>(<span class="emphasis"><em>s</em></span><sub>t</sub>,<span class="emphasis"><em>a</em></span><sub>t</sub>) with <span class="inlinemediaobject"><img src="graphics/B08956_09_007.jpg" alt="Principles of reinforcement learning (RL)"/></span>. The reward is only dependent on the current state and action. <span class="emphasis"><em>R</em></span> is not known to the agent.
+</li><li class="listitem" style="list-style-type: disc">
+Future rewards are discounted by <span class="inlinemediaobject"><img src="graphics/B08956_09_008.jpg" alt="Principles of reinforcement learning (RL)"/></span> where <span class="inlinemediaobject"><img src="graphics/B08956_09_009.jpg" alt="Principles of reinforcement learning (RL)"/></span> and <span class="emphasis"><em>k</em></span> is the future timestep.
+</li><li class="listitem" style="list-style-type: disc"><span class="emphasis"><em>Horizon</em></span>, <span class="emphasis"><em>H</em></span>, is the number of timesteps, <span class="emphasis"><em>T</em></span>, needed to complete one episode from <span class="emphasis"><em>s</em></span><sub>0</sub> to <span class="emphasis"><em>s</em></span><sub>t</sub>.</li></ul></div><p>The environment<a id="id389" class="indexterm"/> may be fully or partially observable. The latter is also known as a <span class="strong"><strong>partially observable MDP</strong></span> or <span class="strong"><strong>POMDP</strong></span>. Most of the time, it's unrealistic to fully observe the environment. To improve the observability, past observations are also taken into consideration<a id="id390" class="indexterm"/> with the current observation. The state comprises the sufficient observations about the environment for the policy to decide on which action to take. In <span class="emphasis"><em>Figure 9.1.1</em></span>, this could be the 3D position of the soda<a id="id391" class="indexterm"/> can with respect to the robot gripper as estimated by the robot camera.</p><p>Every time the environment transitions to a new state, the agent receives a scalar reward, r<span class="emphasis"><em><sub>t+1</sub></em></span>. In <span class="emphasis"><em>Figure 9.1.1</em></span>, the reward could be +1 whenever the robot gets closer to the soda can, -1 whenever it gets farther, and +100 when it closes the gripper and successfully picks up the soda can. The goal of the agent is to learn an optimal policy <span class="inlinemediaobject"><img src="graphics/B08956_09_010.jpg" alt="Principles of reinforcement learning (RL)"/></span> that maximizes the <span class="emphasis"><em>return</em></span> from all states:</p><p><span class="inlinemediaobject"><img src="graphics/B08956_09_011.jpg" alt="Principles of reinforcement learning (RL)"/></span>           (Equation 9.1.1)</p><p>The return is defined as the discounted cumulative reward, <span class="inlinemediaobject"><img src="graphics/B08956_09_012.jpg" alt="Principles of reinforcement learning (RL)"/></span>. It can be observed from <span class="emphasis"><em>Equation 9.1.1</em></span> that future rewards have lower weights when compared to  the immediate rewards since generally <span class="inlinemediaobject"><img src="graphics/B08956_09_013.jpg" alt="Principles of reinforcement learning (RL)"/></span> where <span class="inlinemediaobject"><img src="graphics/B08956_09_014.jpg" alt="Principles of reinforcement learning (RL)"/></span>. At the extremes, when <span class="inlinemediaobject"><img src="graphics/B08956_09_015.jpg" alt="Principles of reinforcement learning (RL)"/></span>, only the immediate reward matters. When <span class="inlinemediaobject"><img src="graphics/B08956_09_016.jpg" alt="Principles of reinforcement learning (RL)"/></span> future rewards have the same weight as the immediate reward.</p><p>Return can be interpreted as a measure of the <span class="emphasis"><em>value</em></span> of a given state by following an arbitrary policy, <span class="inlinemediaobject"><img src="graphics/B08956_09_017.jpg" alt="Principles of reinforcement learning (RL)"/></span>:</p><p><span class="inlinemediaobject"><img src="graphics/B08956_09_018.jpg" alt="Principles of reinforcement learning (RL)"/></span>          (Equation 9.1.2)</p><p>To put the RL problem in another way, the goal of the agent is to learn the optimal policy that maximizes <span class="inlinemediaobject"><img src="graphics/B08956_09_019.jpg" alt="Principles of reinforcement learning (RL)"/></span> for all states <span class="emphasis"><em>s</em></span>:</p><p><span class="inlinemediaobject"><img src="graphics/B08956_09_020.jpg" alt="Principles of reinforcement learning (RL)"/></span>         (Equation 9.1.3)</p><p>The value function of the optimal policy is simply <span class="emphasis"><em>V</em></span>*. In <span class="emphasis"><em>Figure 9.1.1</em></span>, the optimal policy is the one that<a id="id392" class="indexterm"/> generates the shortest sequence of actions that brings the robot closer and closer to the soda can until it has been fetched. The closer the state is to the goal state, the higher its value.</p><p>The sequence of events leading to the goal (or terminal state) can be modeled as the <span class="emphasis"><em>trajectory</em></span> or <span class="emphasis"><em>rollout</em></span> of the policy:</p><p>
+<span class="emphasis"><em>Trajectory</em></span> = (s0a0r1s1,s1a1r2s2,...,s<span class="emphasis"><em>T</em></span>-1a<span class="emphasis"><em>T</em></span>-1<span class="emphasis"><em>r</em></span>
+<span class="emphasis"><em>T</em></span>
+<span class="emphasis"><em>s</em></span><sub>t</sub>)          (Equation 9.1.4)</p><p>If the MDP is <span class="emphasis"><em>episodic</em></span> when the agent reaches the terminal state, <span class="emphasis"><em>s</em></span><sub>T'</sub>, the state is reset to <span class="emphasis"><em>s</em></span><sub>0</sub>. If <span class="emphasis"><em>T</em></span> is finite, we have a finite <span class="emphasis"><em>horizon</em></span>. Otherwise, the horizon is infinite. In <span class="emphasis"><em>Figure 9.1.1</em></span>, if the MDP is episodic, after collecting the soda can, the robot may look for another soda can to pick up and the RL problem repeats.</p></div></div>
+<div class="section" title="The Q value"><div class="titlepage"><div><div><h1 class="title"><a id="ch09lvl2sec36"/>The Q value</h1></div></div></div><p>An important question is that if the RL problem is to find <span class="inlinemediaobject"><img src="graphics/B08956_09_022.jpg" alt="The Q value"/></span>, how does the agent learn by interacting with the environment? <span class="emphasis"><em>Equation </em></span>
+<span class="emphasis"><em>9.1.3</em></span> does not explicitly indicate the action to try and the succeeding state to<a id="id393" class="indexterm"/> compute the return. In RL, we find that it's easier to learn <span class="inlinemediaobject"><img src="graphics/B08956_09_023.jpg" alt="The Q value"/></span> by using the <span class="emphasis"><em>Q</em></span> value:</p><p><span class="inlinemediaobject"><img src="graphics/B08956_09_024.jpg" alt="The Q value"/></span>          (Equation 9.2.1)</p><p>Where:</p><p><span class="inlinemediaobject"><img src="graphics/B08956_09_025.jpg" alt="The Q value"/></span>          (Equation 9.2.2)</p><p>In other words, instead of finding the policy that maximizes the value for all states, <span class="emphasis"><em>Equation 9.2.1</em></span> looks for<a id="id394" class="indexterm"/> the action that maximizes the quality (<span class="emphasis"><em>Q</em></span>) value for all states. After finding the <span class="emphasis"><em>Q</em></span> value function, <span class="emphasis"><em>V</em></span>* and hence <span class="inlinemediaobject"><img src="graphics/B08956_09_026.jpg" alt="The Q value"/></span> are determined by <span class="emphasis"><em>Equation 9.2.2</em></span> and <span class="emphasis"><em>9.1.3</em></span> respectively.</p><p>If for every action, the reward and the next state can be observed, we can formulate the following iterative or trial and error algorithm to learn the <span class="emphasis"><em>Q</em></span> value:</p><p><span class="inlinemediaobject"><img src="graphics/B08956_09_027.jpg" alt="The Q value"/></span>          (Equation 9.2.3)</p><p>For notational simplicity, both <span class="emphasis"><em>s</em></span>
+<span class="emphasis"><em>'</em></span> and <span class="emphasis"><em>a</em></span>
+<span class="emphasis"><em>'</em></span> are the next state and action respectively. <span class="emphasis"><em>Equation 9.2.3</em></span> is known as the <span class="strong"><strong>Bellman Equation</strong></span> which is the core of the Q-Learning algorithm. Q-Learning attempts to<a id="id395" class="indexterm"/> approximate the first-order expansion of return or value (<span class="emphasis"><em>Equation 9.1.2</em></span>) as a function of both current state and action.</p><p>From zero knowledge of the dynamics of the environment, the agent tries an action <span class="emphasis"><em>a</em></span>, observes what happens in the form of reward, <span class="emphasis"><em>r</em></span>, and next state, <span class="emphasis"><em>s</em></span>
+<span class="emphasis"><em>'</em></span>. <span class="inlinemediaobject"><img src="graphics/B08956_09_028.jpg" alt="The Q value"/></span> chooses the next logical action that will give the maximum <span class="emphasis"><em>Q</em></span> value for the next state. With all terms in <span class="emphasis"><em>Equation</em></span> <span class="emphasis"><em>9.2.3</em></span> known, the <span class="emphasis"><em>Q</em></span> value for that current state-action pair is updated. Doing the update iteratively will eventually learn the <span class="emphasis"><em>Q</em></span> value function.</p><p>Q-Learning is an <span class="emphasis"><em>off-policy</em></span> RL algorithm. It learns to improve the policy by not directly sampling experiences from that policy. In other words, the <span class="emphasis"><em>Q</em></span> values are learned independently of the underlying policy being used by the agent. When the <span class="emphasis"><em>Q</em></span> value function has converged, only then is the optimal policy determined using <span class="emphasis"><em>Equation</em></span> <span class="emphasis"><em>9.2.1</em></span>.</p><p>Before giving an example on how to use Q-Learning, we should note that the agent must continually explore its environment while gradually taking advantage of what it has learned so far. This is one of the issues in RL – finding the right balance between <span class="emphasis"><em>Exploration</em></span> and <span class="emphasis"><em>Exploitation</em></span>. Generally, during the start of learning, the action is random (exploration). As the learning progresses, the agent takes advantage of the <span class="emphasis"><em>Q</em></span> value (exploitation). For example, at the start, 90% of the action is random and 10% from <span class="emphasis"><em>Q</em></span> value function, and by the end of each episode, this is gradually decreased. Eventually, the action is 10% random and 90% from <span class="emphasis"><em>Q</em></span> value function.</p></div>
+<div class="section" title="Q-Learning example"><div class="titlepage"><div><div><h1 class="title"><a id="ch09lvl2sec37"/>Q-Learning example</h1></div></div></div><p>To illustrate the Q-Learning algorithm, we need to consider a simple deterministic environment, as shown in the following figure. The environment has six states. The rewards for allowed transitions are shown. The reward is non-zero in two cases. Transition to the <span class="strong"><strong>Goal</strong></span> (<span class="strong"><strong>G</strong></span>) state has +100 reward<a id="id396" class="indexterm"/> while moving into <span class="strong"><strong>Hole</strong></span> (<span class="strong"><strong>H</strong></span>) state has -100 reward. These two states are terminal states and constitute the end of one episode from the <span class="strong"><strong>Start</strong></span> state:</p><div class="mediaobject"><img src="graphics/B08956_09_02.jpg" alt="Q-Learning example"/><div class="caption"><p>Figure 9.3.1: Rewards in a simple deterministic world</p></div></div><p>To formalize the identity of each state, we need to use a (<span class="emphasis"><em>row</em></span>, <span class="emphasis"><em>column</em></span>) identifier as shown in the following figure. Since the agent has not learned anything yet about its environment, the Q-Table also shown in the following figure has zero initial values. In this example, the discount factor, <span class="inlinemediaobject"><img src="graphics/B08956_09_029.jpg" alt="Q-Learning example"/></span>. Recall that in the estimate of current <span class="emphasis"><em>Q</em></span> value, the discount factor determines the weight of future <span class="emphasis"><em>Q</em></span> values as a function of the number of steps, <span class="inlinemediaobject"><img src="graphics/B08956_09_030.jpg" alt="Q-Learning example"/></span>. In <span class="emphasis"><em>Equation</em></span> <span class="emphasis"><em>9.2.3</em></span>, we only consider the immediate future <span class="emphasis"><em>Q</em></span> value, <span class="emphasis"><em>k</em></span> = 1:</p><div class="mediaobject"><img src="graphics/B08956_09_03.jpg" alt="Q-Learning example"/><div class="caption"><p>Figure 9.3.2: States in the simple deterministic environment and the agent's initial Q-Table</p></div></div><p>Initially, the agent assumes a policy that selects a random action 90% of the time and exploits the Q-Table 10% of the time. Suppose the first action is randomly chosen and indicates a move in the right direction. <span class="emphasis"><em>Figure 9.3.3</em></span> illustrates the computation of the new <span class="emphasis"><em>Q</em></span> value of state (0, 0) for a move to the right action. The next state is (0, 1). The reward is 0, and the<a id="id397" class="indexterm"/> maximum of all the next state's <span class="emphasis"><em>Q</em></span> values is zero. Therefore, the <span class="emphasis"><em>Q</em></span> value of state (0, 0) for a move to the right action remains 0.</p><p>To easily track the initial state and next state, we use different shades of gray on both the environment and the Q-Table–lighter gray for initial state and darker gray for the next state. In choosing the next action for the next state, the candidate actions are in the thicker border:</p><div class="mediaobject"><img src="graphics/B08956_09_04.jpg" alt="Q-Learning example"/><div class="caption"><p>Figure 9.3.3: Assuming the action taken by the agent is a move to the right, the update on Q value of state (0, 0) is shown</p></div></div><div class="mediaobject"><img src="graphics/B08956_09_05.jpg" alt="Q-Learning example"/><div class="caption"><p>Figure 9.3.4: Assuming the action chosen by the agent is move down, the update on Q value of state (0, 1) is shown</p></div></div><div class="mediaobject"><img src="graphics/B08956_09_06.jpg" alt="Q-Learning example"/><div class="caption"><p>Figure 9.3.5: Assuming the action chosen by the agent is a move to the right, the update on Q value of state (1, 1) is shown</p></div></div><p>Let's suppose that the next randomly chosen action is move down. <span class="emphasis"><em>Figure 9.3.4</em></span> shows no change in the <span class="emphasis"><em>Q</em></span> value of state (0, 1) for the move down action. In <span class="emphasis"><em>Figure 9.3.5</em></span>, the agent's third random action is a<a id="id398" class="indexterm"/> move to the right. It encountered the <span class="strong"><strong>H</strong></span> and received a -100 reward. This time, the update is non-zero. The new <span class="emphasis"><em>Q</em></span> value for the state (1, 1) is -100 for the move to the right direction. One episode has just finished, and the agent returns to the <span class="strong"><strong>Start</strong></span> state.</p><div class="mediaobject"><img src="graphics/B08956_09_07.jpg" alt="Q-Learning example"/><div class="caption"><p>Figure 9.3.6: Assuming the actions chosen by the agent are two successive moves to the right, the update on Q value of state (0, 1) is shown</p></div></div><p>Let's suppose the agent is still in the exploration mode as shown in <span class="emphasis"><em>Figure 9.3.6</em></span>. The first step it took for the second episode is a move to the right. As expected, the update is 0. However, the second random action it chose is also move to the right. The agent reached the <span class="strong"><strong>G</strong></span> state and received a big +100 reward. The <span class="emphasis"><em>Q</em></span> value for the state (0, 1) move to the right becomes 100. The second episode is done, and the agent goes back to the <span class="strong"><strong>Start</strong></span> state.</p><div class="mediaobject"><img src="graphics/B08956_09_08.jpg" alt="Q-Learning example"/><div class="caption"><p>Figure 9.3.7: Assuming the action chosen by the agent is a move to the right, the update on Q value of state (0, 0) is shown</p></div></div><div class="mediaobject"><img src="graphics/B08956_09_09.jpg" alt="Q-Learning example"/><div class="caption"><p>Figure 9.3.8: In this instance, the agent's policy decided to exploit the Q-Table to determine the action at states (0, 0) and (0, 1). The Q-Table suggests to move to the right for both states.</p></div></div><p>At the beginning of the third episode, the random action taken by the agent is a move to the right. The <span class="emphasis"><em>Q</em></span> value of state (0, 0) is now updated with a non-zero value because the next state's possible<a id="id399" class="indexterm"/> actions have 100 as the maximum <span class="emphasis"><em>Q</em></span> value. <span class="emphasis"><em>Figure 9.3.7</em></span> shows the computation involved. The <span class="emphasis"><em>Q</em></span> value of the next state (0, 1) ripples back to the earlier state (0, 0). It is like giving credit to the earlier states that helped in finding the <span class="strong"><strong>G</strong></span> state.</p><p>The progress in Q-Table has been substantial. In fact, in the next episode, if for some reason the policy decided to exploit the Q-Table instead of randomly exploring the environment, the first action is to move to the right according to the computation in <span class="emphasis"><em>Figure 9.3.8</em></span>. In the first row of the Q-Table, the action that results in maximum <span class="emphasis"><em>Q</em></span> value is a move to the right. For the next state (0, 1), the second row of Q-Table suggests that the next action is still to move to the right. The agent has successfully reached the goal. The policy guided the agent on the right set of actions to achieve its goal.</p><p>If the Q-Learning algorithm continues to run indefinitely, the Q-Table will converge. The assumptions for convergence are the RL problem must be deterministic MDP with bounded rewards and all states are visited infinitely often.</p></div>
+<div class="section" title="Q-Learning in Python"><div class="titlepage"><div><div><h1 class="title"><a id="ch09lvl2sec38"/>Q-Learning in Python</h1></div></div></div><p>The environment and the Q-Learning discussed in the previous section can be implemented in Python. Since the policy is just a simple table, there is, at this point in time no need for Keras. <span class="emphasis"><em>Listing</em></span> <span class="emphasis"><em>9.3.1</em></span> shows <code class="literal">q-learning-9.3.1.py</code>, the implementation of the simple<a id="id400" class="indexterm"/> deterministic world (environment, agent, action, and Q-Table algorithms) using the <code class="literal">QWorld</code> class. For conciseness, the functions<a id="id401" class="indexterm"/> dealing with the user interface are not shown.</p><p>In this example, the environment dynamics is represented by <code class="literal">self.transition_table</code>. At every action, <code class="literal">self.transition_table</code> determines the next state. The reward for executing an action is stored in <code class="literal">self.reward_table</code>. The two tables are consulted every time an action is executed by the <code class="literal">step()</code> function. The Q-Learning algorithm is implemented by <code class="literal">update_q_table()</code> function. Every time the agent needs to decide which action to take, it calls the <code class="literal">act()</code> function. The action may be randomly drawn or decided by the policy using the Q-Table. The percent chance that the action chosen is random is stored in the <code class="literal">self.epsilon</code> variable which is updated by <code class="literal">update_epsilon()</code> function using a fixed <code class="literal">epsilon_decay</code>.</p><p>Before executing the code in <span class="emphasis"><em>Listing</em></span> <span class="emphasis"><em>9.3.1</em></span>, we need to run:</p><div class="informalexample"><pre class="programlisting">
+<span class="strong"><strong>$ sudo pip3 install termcolor</strong></span>
+</pre></div><p>To install <code class="literal">termcolor</code> package. This package helps in visualizing text outputs on the Terminal.</p><div class="note" title="Note" style=""><div class="inner"><h3 class="title"><a id="note12"/>Note</h3><p>The complete code can be found on GitHub at: <a class="ulink" href="https://github.com/PacktPublishing/Advanced-Deep-Learning-with-Keras">https://github.com/PacktPublishing/Advanced-Deep-Learning-with-Keras</a>.</p></div></div><p>Listing 9.3.1, <code class="literal">q-learning-9.3.1.py</code>. A simple deterministic MDP with six states:</p><div class="informalexample"><pre class="programlisting">from collections import deque
+import numpy as np
+import argparse
+import os
+import time
+from termcolor import colored
+
+
+class QWorld():
+    def __init__(self):
+        # 4 actions
+        # 0 - Left, 1 - Down, 2 - Right, 3 - Up
+        self.col = 4
+
+        # 6 states
+        self.row = 6
+
+        # setup the environment
+        self.q_table = np.zeros([self.row, self.col])
+        self.init_transition_table()
+        self.init_reward_table()
+
+        # discount factor
+        self.gamma = 0.9
+
+        # 90% exploration, 10% exploitation
+        self.epsilon = 0.9
+        # exploration decays by this factor every episode
+        self.epsilon_decay = 0.9
+        # in the long run, 10% exploration, 90% exploitation
+        self.epsilon_min = 0.1
+
+        # reset the environment
+        self.reset()
+        self.is_explore = True
+
+
+    # start of episode
+    def reset(self):
+        self.state = 0
+        return self.state
+
+    # agent wins when the goal is reached
+    def is_in_win_state(self):
+        return self.state == 2
+
+
+    def init_reward_table(self):
+        """
+        0 - Left, 1 - Down, 2 - Right, 3 - Up
+        ----------------
+        | 0 | 0 | 100  |
+        ----------------
+        | 0 | 0 | -100 |
+        ----------------
+        """
+        self.reward_table = np.zeros([self.row, self.col])
+        self.reward_table[1, 2] = 100.
+        self.reward_table[4, 2] = -100.
+
+
+    def init_transition_table(self):
+        """
+        0 - Left, 1 - Down, 2 - Right, 3 - Up
+        -------------
+        | 0 | 1 | 2 |
+        -------------
+        | 3 | 4 | 5 |
+        -------------
+        """
+        self.transition_table = np.zeros([self.row, self.col], dtype=int)
+
+        self.transition_table[0, 0] = 0
+        self.transition_table[0, 1] = 3
+        self.transition_table[0, 2] = 1
+        self.transition_table[0, 3] = 0
+
+        self.transition_table[1, 0] = 0
+        self.transition_table[1, 1] = 4
+        self.transition_table[1, 2] = 2
+        self.transition_table[1, 3] = 1
+
+        # terminal Goal state
+        self.transition_table[2, 0] = 2
+        self.transition_table[2, 1] = 2
+        self.transition_table[2, 2] = 2
+        self.transition_table[2, 3] = 2
+
+        self.transition_table[3, 0] = 3
+        self.transition_table[3, 1] = 3
+        self.transition_table[3, 2] = 4
+        self.transition_table[3, 3] = 0
+
+        self.transition_table[4, 0] = 3
+        self.transition_table[4, 1] = 4
+        self.transition_table[4, 2] = 5
+        self.transition_table[4, 3] = 1
+
+        # terminal Hole state
+        self.transition_table[5, 0] = 5
+        self.transition_table[5, 1] = 5
+        self.transition_table[5, 2] = 5
+        self.transition_table[5, 3] = 5
+
+
+    # execute the action on the environment
+    def step(self, action):
+        # determine the next_state given state and action
+        next_state = self.transition_table[self.state, action]
+        # done is True if next_state is Goal or Hole
+        done = next_state == 2 or next_state == 5
+        # reward given the state and action
+        reward = self.reward_table[self.state, action]
+        # the enviroment is now in new state
+        self.state = next_state
+        return next_state, reward, done
+
+
+    # determine the next action
+    def act(self):
+        # 0 - Left, 1 - Down, 2 - Right, 3 - Up
+        # action is from exploration
+        if np.random.rand() &lt;= self.epsilon:
+            # explore - do random action
+            self.is_explore = True
+            return np.random.choice(4,1)[0]
+
+        # or action is from exploitation
+        # exploit - choose action with max Q-value
+        self.is_explore = False
+        return np.argmax(self.q_table[self.state])
+
+
+    # Q-Learning - update the Q Table using Q(s, a)
+    def update_q_table(self, state, action, reward, next_state):
+        # Q(s, a) = reward + gamma * max_a' Q(s', a')
+        q_value = self.gamma * np.amax(self.q_table[next_state])
+        q_value += reward
+        self.q_table[state, action] = q_value
+
+    # UI to dump Q Table contents
+    def print_q_table(self):
+        print("Q-Table (Epsilon: %0.2f)" % self.epsilon)
+        print(self.q_table)
+
+
+    # update Exploration-Exploitation mix
+    def update_epsilon(self):
+        if self.epsilon &gt; self.epsilon_min:
+            self.epsilon *= self.epsilon_decay</pre></div><p>Listing 9.3.2, <code class="literal">q-learning-9.3.1.py</code>. The main Q-Learning loop. The agent's Q-Table is updated every state, action, reward, and next state iteration:</p><div class="informalexample"><pre class="programlisting"># state, action, reward, next state iteration
+for episode in range(episode_count):
+    state = q_world.reset()
+    done = False
+    print_episode(episode, delay=delay)
+    while not done:
+        action = q_world.act()
+        next_state, reward, done = q_world.step(action)
+        q_world.update_q_table(state, action, reward, next_state)
+        print_status(q_world, done, step, delay=delay)
+        state = next_state
+        # if episode is done, perform housekeeping
+        if done:
+            if q_world.is_in_win_state():
+                wins += 1
+                scores.append(step)
+                if wins &gt; maxwins:
+                    print(scores)
+                    exit(0)
+            # Exploration-Exploitation is updated every episode
+            q_world.update_epsilon()
+            step = 1 
+        else:
+            step += 1
+
+print(scores)
+q_world.print_q_table()</pre></div><p>The perception-action-learning loop is illustrated in <span class="emphasis"><em>Listing</em></span> <span class="emphasis"><em>9.3.2</em></span>. At every episode, the environment resets to the <span class="emphasis"><em>Start</em></span> state. The action to execute is chosen and applied to the environment. The reward and next state are observed and used to update the Q-Table. The episode is<a id="id402" class="indexterm"/> completed (<code class="literal">done = True</code>) upon reaching the <span class="emphasis"><em>Goal</em></span> or <span class="emphasis"><em>Hole</em></span> state. For this example, the Q-Learning runs for 100 episodes or 10 wins, whichever<a id="id403" class="indexterm"/> comes first. Due to the decrease in the value of the <code class="literal">self.epsilon</code> variable at every episode, the agent starts to favor exploitation of Q-Table to determine the action to perform given a state. To see the Q-Learning simulation we simply need to run:</p><div class="informalexample"><pre class="programlisting">
+<span class="strong"><strong>$ python3 q-learning-9.3.1.py</strong></span>
+</pre></div><div class="mediaobject"><img src="graphics/B08956_09_10.jpg" alt="Q-Learning in Python"/><div class="caption"><p>Figure 9.3.9: A screenshot showing the Q-Table after 2000 wins of the agent</p></div></div><p>The preceding figure shows the screenshot if <code class="literal">maxwins = 2000</code> (2000<span class="emphasis"><em>x</em></span> <span class="emphasis"><em>Goal</em></span> state is reached) and <code class="literal">delay = 0</code> (to see the final Q-Table only) by running:</p><div class="informalexample"><pre class="programlisting">
+<span class="strong"><strong>$ python3 q-learning-9.3.1.py --train</strong></span>
+</pre></div><p>The Q-Table has converged and shows the logical action that the agent can take given a state. For example, in the first row or state (0, 0), the policy advises move to the right. The same for<a id="id404" class="indexterm"/> the state (0, 1) on the second row. The second<a id="id405" class="indexterm"/> action reaches the <span class="emphasis"><em>Goal</em></span> state. The <code class="literal">scores</code> variable dump shows that the minimum number of steps taken decreases as the agent gets correct actions from the policy.</p><p>From <span class="emphasis"><em>Figure 9.3.9</em></span>, we can<a id="id406" class="indexterm"/> compute the value of each state from <span class="emphasis"><em>Equation 9.2.2</em></span>, <span class="inlinemediaobject"><img src="graphics/B08956_09_031.jpg" alt="Q-Learning in Python"/></span>. For example, for state (0, 0), <span class="emphasis"><em>V</em></span>*(<span class="emphasis"><em>s</em></span>) = max(81.0,72.9,90.0,81.0) = 90.0. Following figure shows the value for each state:</p><div class="mediaobject"><img src="graphics/B08956_09_11.jpg" alt="Q-Learning in Python"/><div class="caption"><p>Figure 9.3.10: The value for each state from Figure 9.3.9 and Equation<span class="emphasis"><em> </em></span>9.2.2</p></div></div></div>
+<div class="section" title="Nondeterministic environment"><div class="titlepage"><div><div><h1 class="title"><a id="ch00lvl2sec01_a"/>Nondeterministic environment</h1></div></div></div><p>In the event that the environment is nondeterministic, both the reward and action are probabilistic. The new system is a stochastic MDP. To reflect the nondeterministic reward the new value function is:</p><p><span class="inlinemediaobject"><img src="graphics/B08956_09_032.jpg" alt="Nondeterministic environment"/></span>     (Equation 9.4.1)</p><p>The Bellman equation is modified as:</p><p><span class="inlinemediaobject"><img src="graphics/B08956_09_033.jpg" alt="Nondeterministic environment"/></span>     (Equation 9.4.2)</p></div>
+<div class="section" title="Temporal-difference learning"><div class="titlepage"><div><div><h1 class="title"><a id="ch00lvl2sec02_b"/>Temporal-difference learning</h1></div></div></div><p>Q-Learning is a special case of a more generalized <span class="strong"><strong>Temporal-Difference Learning</strong></span> or <span class="strong"><strong>TD-Learning</strong></span> <span class="inlinemediaobject"><img src="graphics/B08956_09_034.jpg" alt="Temporal-difference learning"/></span>. More specifically, it's a special case of one-step TD-Learning <span class="emphasis"><em>TD</em></span>(0):</p><p><span class="inlinemediaobject"><img src="graphics/B08956_09_035.jpg" alt="Temporal-difference learning"/></span>     (Equation 9.5.1)</p><p>In the equation <span class="inlinemediaobject"><img src="graphics/B08956_09_036.jpg" alt="Temporal-difference learning"/></span> is<a id="id011" class="indexterm"/> the learning rate. We should note that when <span class="inlinemediaobject"><img src="graphics/B08956_09_037.jpg" alt="Temporal-difference learning"/></span>, <span class="emphasis"><em>Equation</em></span> <span class="emphasis"><em>9.5.1</em></span> is similar to the Bellman equation. For simplicity, we'll refer to <span class="emphasis"><em>Equation</em></span> <span class="emphasis"><em>9.5.1</em></span> as Q-Learning or generalized Q-Learning.</p><p>Previously, we referred to Q-Learning as an off-policy RL algorithm since it learns the Q value function without directly using the policy that it is trying to optimize. An example of an <span class="emphasis"><em>on-policy</em></span> one-step TD-learning algorithm is SARSA which similar to <span class="emphasis"><em>Equation</em></span> <span class="emphasis"><em>9.5.1</em></span>:</p><p><span class="inlinemediaobject"><img src="graphics/B08956_09_038.jpg" alt="Temporal-difference learning"/></span>          (Equation 9.5.2)</p><p>The main difference is the use of the policy that is being optimized to determine <span class="emphasis"><em>a</em></span><span class="emphasis"><em>'</em></span>. The terms <span class="emphasis"><em>s</em></span>, <span class="emphasis"><em>a</em></span>, <span class="emphasis"><em>r</em></span>, <span class="emphasis"><em>s</em></span><span class="emphasis"><em>'</em></span> and <span class="emphasis"><em>a</em></span><span class="emphasis"><em>'</em></span> (thus the name SARSA) must be known to update the <span class="emphasis"><em>Q</em></span> value function at every iteration. Both Q-Learning and SARSA use existing estimates in the <span class="emphasis"><em>Q</em></span> value iteration, a process known as <span class="strong"><strong>bootstrapping</strong></span>. In bootstrapping, we update the current <span class="emphasis"><em>Q</em></span> value estimate<a id="id407" class="indexterm"/> from the reward and the subsequent <span class="emphasis"><em>Q</em></span> value estimate(s).</p></div>
+<div class="section" title="Q-Learning on OpenAI gym"><div class="titlepage"><div><div><h1 class="title"><a id="ch09lvl2sec39"/>Q-Learning on OpenAI gym</h1></div></div></div><p>Before presenting another<a id="id408" class="indexterm"/> example, there appears to be a need for a suitable RL simulation environment. Otherwise, we can only run RL simulations on very<a id="id409" class="indexterm"/> simple problems like in the previous example. Fortunately, OpenAI created <span class="strong"><strong>Gym</strong></span>, <a class="ulink" href="https://gym.openai.com">https://gym.openai.com</a>.</p><p>The gym is a toolkit for developing and comparing RL algorithms. It works with most deep learning libraries, including Keras. The gym can be installed by running the<a id="id410" class="indexterm"/> following command:</p><div class="informalexample"><pre class="programlisting">
+<span class="strong"><strong>$ sudo pip3 install gym</strong></span>
+</pre></div><p>The gym has several environments where an RL algorithm can be tested against such as toy text, classic control, algorithmic, Atari, and 2D/3D robots. For example, <code class="literal">FrozenLake-v0</code> (<span class="emphasis"><em>Figure 9.5.1</em></span>) is a toy text environment similar to the simple deterministic world used in the Q-Learning in Python example. <code class="literal">FrozenLake-v0</code> has 12 states. The state marked <span class="strong"><strong>S</strong></span> is the starting state, <span class="strong"><strong>F</strong></span> is the frozen part of the lake which is safe, <span class="strong"><strong>H</strong></span> is the Hole state that should be avoided, and <span class="strong"><strong>G</strong></span> is the Goal state where the frisbee is. The reward is +1 for transitioning to the Goal state. For all other states, the reward is zero.</p><p>In <code class="literal">FrozenLake-v0</code>, there are also four available actions (Left, Down, Right, Up) known as action space. However, unlike the simple deterministic world earlier, the actual movement direction is only partially dependent on the chosen action. There are two variations of the <code class="literal">FrozenLake-v0</code> environment, slippery and non-slippery. As expected, the slippery mode is more challenging:</p><div class="mediaobject"><img src="graphics/B08956_09_12.jpg" alt="Q-Learning on OpenAI gym"/><div class="caption"><p>Figure 9.5.1: Frozen lake environment in OpenAI Gym</p></div></div><p>An action applied on <code class="literal">FrozenLake-v0</code> returns the observation (equivalent to the next state), reward, done (whether the episode is finished), and a dictionary of debugging information. The observable attributes of the environment, known as observation space, are captured by the returned observation object.</p><p>The generalized Q-Learning can be applied to the <code class="literal">FrozenLake-v0</code> environment. <span class="emphasis"><em>Table 9.5.1</em></span> shows the improvement in performance of both slippery and non-slippery environments. A method of measuring the performance of the policy is the percent of episodes executed that resulted in reaching the Goal state. The higher is the percentage, the better. From the<a id="id411" class="indexterm"/> baseline of pure exploration (random action) of about 1.5%, the policy can achieve ~76% Goal state for non-slippery and ~71% for the slippery environment. As expected, it is harder to control the slippery environment.</p><p>The code can still be implemented in Python and NumPy since it only requires a Q-Table. <span class="emphasis"><em>Listing</em></span> <span class="emphasis"><em>9.5.1</em></span> shows the implementation of the <code class="literal">QAgent</code> class while listing <span class="emphasis"><em>9.5.2</em></span> demonstrates the agent's perception-action-learning loop. Apart from using <code class="literal">FrozenLake-v0</code> environment from OpenAI Gym, the most important change is the implementation of the generalized Q-Learning as defined by <span class="emphasis"><em>Equation</em></span> <span class="emphasis"><em>9.5.1</em></span> in the <code class="literal">update_q_table()</code> function.</p><p>The <code class="literal">qagent</code> object can operate in either slippery or non-slippery mode. The agent is trained for 40,000 iterations. After training, the agent can exploit the Q-Table to choose the action to execute given any policy as shown in the test mode of <span class="emphasis"><em>Table 9.5.1</em></span>. There is a huge performance boost in using the learned policy as demonstrated in <span class="emphasis"><em>Table 9.5.1</em></span>. With the use of the gym, a lot of the code in constructing the environment is gone.</p><p>This will help us to focus on building a working RL algorithm. To run the code in slow motion or delay of 1 sec per action:</p><div class="informalexample"><pre class="programlisting">
+<span class="strong"><strong>$ python3 q-frozenlake-9.5.1.py -d -t=1</strong></span>
+</pre></div><div class="informaltable"><table border="1"><colgroup><col style="text-align: left"/><col style="text-align: left"/><col style="text-align: left"/></colgroup><thead><tr><th style="text-align: left" valign="bottom">
+<p>Mode</p>
+</th><th style="text-align: left" valign="bottom">
+<p>Run</p>
+</th><th style="text-align: left" valign="bottom">
+<p>Approx % Goal</p>
+</th></tr></thead><tbody><tr><td style="text-align: left" valign="top">
+<p>Train non-slippery</p>
+</td><td style="text-align: left" valign="top">
+<p>
+</p><div class="informalexample"><pre class="programlisting">
+<span class="strong"><strong>python3 q-frozenlake-9.5.1.py</strong></span>
+</pre></div><p>
+</p>
+</td><td style="text-align: left" valign="top">
+<p>26.0</p>
+</td></tr><tr><td style="text-align: left" valign="top">
+<p>Test non-slippery</p>
+</td><td style="text-align: left" valign="top">
+<p>
+</p><div class="informalexample"><pre class="programlisting">
+<span class="strong"><strong>python3 q-frozenlake-9.5.1.py -d</strong></span>
+</pre></div><p>
+</p>
+</td><td style="text-align: left" valign="top">
+<p>76.0</p>
+</td></tr><tr><td style="text-align: left" valign="top">
+<p>Pure random action non-slippery</p>
+</td><td style="text-align: left" valign="top">
+<p>
+</p><div class="informalexample"><pre class="programlisting">
+<span class="strong"><strong>python3 q-frozenlake-9.5.1.py -e</strong></span>
+</pre></div><p>
+</p>
+</td><td style="text-align: left" valign="top">
+<p>1.5</p>
+</td></tr><tr><td style="text-align: left" valign="top">
+<p>Train slippery</p>
+</td><td style="text-align: left" valign="top">
+<p>
+</p><div class="informalexample"><pre class="programlisting">
+<span class="strong"><strong>python3 q-frozenlake-9.5.1.py -s</strong></span>
+</pre></div><p>
+</p>
+</td><td style="text-align: left" valign="top">
+<p>26</p>
+</td></tr><tr><td style="text-align: left" valign="top">
+<p>Test slippery</p>
+</td><td style="text-align: left" valign="top">
+<p>
+</p><div class="informalexample"><pre class="programlisting">
+<span class="strong"><strong>python3 q-frozenlake-9.5.1.py -s -d</strong></span>
+</pre></div><p>
+</p>
+</td><td style="text-align: left" valign="top">
+<p>71.0</p>
+</td></tr><tr><td style="text-align: left" valign="top">
+<p>Pure random slippery</p>
+</td><td style="text-align: left" valign="top">
+<p>
+</p><div class="informalexample"><pre class="programlisting">
+<span class="strong"><strong>python3 q-frozenlake-9.5.1.py -s -e</strong></span>
+</pre></div><p>
+</p>
+</td><td style="text-align: left" valign="top">
+<p>1.5</p>
+</td></tr></tbody></table></div><div class="blockquote"><blockquote class="blockquote"><p>Table 9.5.1: Baseline and performance of generalized Q-Learning on the FrozenLake-v0 environment with learning rate = 0.5</p></blockquote></div><p>Listing 9.5.1, <code class="literal">q-frozenlake-9.5.1.py</code> shows the implementation of Q-Learning on <code class="literal">FrozenLake-v0</code> environment:</p><div class="informalexample"><pre class="programlisting">from collections import deque
+import numpy as np
+import argparse
+import os
+import time
+import gym
+from gym import wrappers, logger
+
+class QAgent():
+    def __init__(self,
+                 observation_space,
+                 action_space,
+                 demo=False,
+                 slippery=False,
+                 decay=0.99):
+
+        self.action_space = action_space
+        # number of columns is equal to number of actions
+        col = action_space.n
+        # number of rows is equal to number of states
+        row = observation_space.n
+        # build Q Table with row x col dims
+        self.q_table = np.zeros([row, col])
+
+        # discount factor
+        self.gamma = 0.9
+
+        # initially 90% exploration, 10% exploitation
+        self.epsilon = 0.9
+        # iteratively applying decay til 10% exploration/90% exploitation
+        self.epsilon_decay = decay
+        self.epsilon_min = 0.1
+
+        # learning rate of Q-Learning
+        self.learning_rate = 0.1
+
+        # file where Q Table is saved on/restored fr
+        if slippery:
+            self.filename = 'q-frozenlake-slippery.npy'
+        else:
+            self.filename = 'q-frozenlake.npy'
+
+        # demo or train mode 
+        self.demo = demo
+        # if demo mode, no exploration
+        if demo:
+            self.epsilon = 0
+
+    # determine the next action
+    # if random, choose from random action space
+    # else use the Q Table
+    def act(self, state, is_explore=False):
+        # 0 - left, 1 - Down, 2 - Right, 3 - Up
+        if is_explore or np.random.rand() &lt; self.epsilon:
+            # explore - do random action
+            return self.action_space.sample()
+
+        # exploit - choose action with max Q-value
+        return np.argmax(self.q_table[state])
+
+    # TD(0) learning (generalized Q-Learning) with learning rate
+    def update_q_table(self, state, action, reward, next_state):
+        # Q(s, a) += alpha * (reward + gamma * max_a' Q(s', a') - Q(s, a))
+        q_value = self.gamma * np.amax(self.q_table[next_state])
+        q_value += reward
+        q_value -= self.q_table[state, action]
+        q_value *= self.learning_rate
+        q_value += self.q_table[state, action]
+        self.q_table[state, action] = q_value
+
+
+    # dump Q Table
+    def print_q_table(self):
+        print(self.q_table)
+        print("Epsilon : ", self.epsilon)
+
+
+    # save trained Q Table
+    def save_q_table(self):
+        np.save(self.filename, self.q_table)
+
+
+    # load trained Q Table
+    def load_q_table(self):
+        self.q_table = np.load(self.filename)
+
+
+    # adjust epsilon
+    def update_epsilon(self):
+        if self.epsilon &gt; self.epsilon_min:
+            self.epsilon *= self.epsilon_decay</pre></div><p>Listing 9.5.2, <code class="literal">q-frozenlake-9.5.1.py</code>. The main Q-Learning loop for the <code class="literal">FrozenLake-v0</code> environment:</p><div class="informalexample"><pre class="programlisting"># loop for the specified number of episode
+for episode in range(episodes):
+    state = env.reset()
+    done = False
+    while not done:
+        # determine the agent's action given state
+        action = agent.act(state, is_explore=args.explore)
+        # get observable data
+        next_state, reward, done, _ = env.step(action)
+        # clear the screen before rendering the environment
+        os.system('clear')
+        # render the environment for human debugging
+        env.render()
+        # training of Q Table
+        if done:
+            # update exploration-exploitation ratio
+            # reward &gt; 0 only when Goal is reached
+            # otherwise, it is a Hole
+            if reward &gt; 0:
+                wins += 1
+
+        if not args.demo:
+            agent.update_q_table(state, action, reward, next_state)
+            agent.update_epsilon()
+
+        state = next_state
+        percent_wins = 100.0 * wins / (episode + 1)
+        print("-------%0.2f%% Goals in %d Episodes---------"
+              % (percent_wins, episode))
+        if done:
+            time.sleep(5 * delay)
+        else:
+            time.sleep(delay)</pre></div></div>
+<div class="section" title="Deep Q-Network (DQN)"><div class="titlepage"><div><div><h1 class="title"><a id="ch09lvl2sec40"/>Deep Q-Network (DQN) </h1></div></div></div><p>Using the Q-Table to implement Q-Learning is fine in small discrete environments. However, when the<a id="id412" class="indexterm"/> environment has numerous states or continuous as in most cases, a Q-Table is not feasible or practical. For example, if we are observing a state made of four continuous variables, the size of the table is infinite. Even if we attempt to discretize the four variables into 1000 values each, the total number of rows in the table is a staggering 1000<sup>4</sup> = 1<span class="emphasis"><em>e</em></span><sup>12</sup>. Even after training, the table is sparse - most of the cells in this table are zero.</p><p>A solution to this problem is called DQN [2] which uses a deep neural network to approximate the Q-Table. As shown in <span class="emphasis"><em>Figure 9.6.1</em></span>. There are two approaches to build the Q-network: </p><div class="orderedlist"><ol class="orderedlist arabic"><li class="listitem">The input is the state-action pair, and the prediction is the <span class="emphasis"><em>Q</em></span> value</li><li class="listitem">The input is the state, and the prediction is the <span class="emphasis"><em>Q</em></span> value for each action</li></ol></div><p>The first option is not optimal since the network will be called a number of times equal to the number of actions. The second is the preferred method. The Q-Network is called only once.</p><p>The most desirable action is simply the action with the biggest <span class="emphasis"><em>Q</em></span> value:</p><div class="mediaobject"><img src="graphics/B08956_09_13.jpg" alt="Deep Q-Network (DQN)"/><div class="caption"><p>Figure 9.6.1: A Deep Q-Network</p></div></div><p>The data required to train the Q-Network come from the agent's experiences: <span class="inlinemediaobject"><img src="graphics/B08956_09_039.jpg" alt="Deep Q-Network (DQN)"/></span>. Each training sample is a unit of experience <span class="inlinemediaobject"><img src="graphics/B08956_09_040.jpg" alt="Deep Q-Network (DQN)"/></span>. At a given state at timestep <span class="emphasis"><em>t</em></span>, <span class="emphasis"><em>s</em></span> = <span class="emphasis"><em>s</em></span><sub>t</sub>, the action, <span class="emphasis"><em>a</em></span> = a<sub>t</sub>, is determined using the Q-Learning algorithm similar to the previous section:</p><p><span class="inlinemediaobject"><img src="graphics/B08956_09_041.jpg" alt="Deep Q-Network (DQN)"/></span>          (Equation 9.6.1)</p><p>For notational simplicity, we omit the subscript and the use of the bold letter. We need to note that <span class="emphasis"><em>Q</em></span>(<span class="emphasis"><em>s</em></span>,<span class="emphasis"><em>a</em></span>) is the Q-Network. Strictly speaking, it is <span class="emphasis"><em>Q</em></span>(<span class="emphasis"><em>a</em></span>|<span class="emphasis"><em>s</em></span>) since the action is moved to the prediction as<a id="id413" class="indexterm"/> shown on the right of <span class="emphasis"><em>Figure 9.6.1</em></span>. The action with the highest <span class="emphasis"><em>Q</em></span> value is the action that is applied on the environment to get the reward, <span class="emphasis"><em>r</em></span> = <span class="emphasis"><em>r</em></span>
+<sub>t+1</sub>, the next state, <span class="emphasis"><em>s</em></span>
+<span class="emphasis"><em>'</em></span> = <span class="emphasis"><em>s</em></span><sub>t+1</sub> and a Boolean <code class="literal">done</code> indicating if the next state is terminal. From <span class="emphasis"><em>Equation </em></span>
+<span class="emphasis"><em>9.5.1</em></span> on generalized Q-Learning, an MSE loss function can be determined by applying the chosen action:</p><p><span class="inlinemediaobject"><img src="graphics/B08956_09_042.jpg" alt="Deep Q-Network (DQN)"/></span>          (Equation 9.6.2)</p><p>Where all terms are familiar from the previous discussion on Q-Learning and <span class="emphasis"><em>Q</em></span>(<span class="emphasis"><em>a</em></span>|<span class="emphasis"><em>s</em></span>) → <span class="emphasis"><em>Q</em></span>(<span class="emphasis"><em>s</em></span>,<span class="emphasis"><em>a</em></span>). The term <span class="inlinemediaobject"><img src="graphics/B08956_09_043.jpg" alt="Deep Q-Network (DQN)"/></span>. In other words, using the Q-Network, predict the <span class="emphasis"><em>Q</em></span> value of each action given next state and get the maximum among them. Note that at the terminal state <span class="emphasis"><em>s'</em></span>, <span class="inlinemediaobject"><img src="graphics/B08956_09_044.jpg" alt="Deep Q-Network (DQN)"/></span>.</p><p>
+<span class="strong"><strong>Algorithm 9.6.1, DQN algorithm:</strong></span>
+</p><p>
+<span class="emphasis"><em>Require</em></span>: Initialize replay memory <span class="emphasis"><em>D</em></span> to capacity <span class="emphasis"><em>N</em></span> </p><p>
+<span class="emphasis"><em>Require</em></span>: Initialize<a id="id000" class="indexterm"/> action-value function <span class="emphasis"><em>Q</em></span> with random weights <span class="inlinemediaobject"><img src="graphics/B08956_09_045.jpg" alt="Deep Q-Network (DQN)"/></span>
+</p><p>
+<span class="emphasis"><em>Require</em></span>: Initialize target action-value function <span class="emphasis"><em>Q</em></span><sub><span class="emphasis"><em>target</em></span></sub> with weights <span class="inlinemediaobject"><img src="graphics/B08956_09_046.jpg" alt="Deep Q-Network (DQN)"/></span>
+</p><p>
+<span class="emphasis"><em>Require</em></span>: Exploration rate, <span class="inlinemediaobject"><img src="graphics/B08956_09_047.jpg" alt="Deep Q-Network (DQN)"/></span>  and discount factor, <span class="inlinemediaobject"><img src="graphics/B08956_09_048.jpg" alt="Deep Q-Network (DQN)"/></span>
+</p><div class="orderedlist"><ol class="orderedlist arabic"><li class="listitem"><code class="literal">for</code> <span class="emphasis"><em>episode</em></span> = 1, …,<span class="emphasis"><em>M</em></span> <code class="literal">do:</code></li><li class="listitem">    Given initial state <span class="emphasis"><em>s</em></span></li><li class="listitem">    <code class="literal">for</code> <span class="emphasis"><em>step </em></span>= 1,…, <span class="emphasis"><em>T</em></span> <code class="literal">do</code>:</li><li class="listitem">
+ Choose action <span class="inlinemediaobject"><img src="graphics/B08956_09_049.jpg" alt="Deep Q-Network (DQN)"/></span></li><li class="listitem">        Execute action <span class="emphasis"><em>a</em></span>, observe reward <span class="emphasis"><em>r</em></span> and next state <span class="emphasis"><em>s'</em></span></li><li class="listitem">        Store transition (<span class="emphasis"><em>s</em></span>, <span class="emphasis"><em>a</em></span>, <span class="emphasis"><em>r</em></span>, <span class="emphasis"><em>s</em></span><span class="emphasis"><em>'</em></span>) in <span class="emphasis"><em>D</em></span></li><li class="listitem">        Update the state, <span class="emphasis"><em>s</em></span> = <span class="emphasis"><em>s</em></span><span class="emphasis"><em>'</em></span></li><li class="listitem">        //experience replay</li><li class="listitem">        Sample a mini batch of episode experiences (<span class="emphasis"><em>s</em></span><sub><span class="emphasis"><em>j</em></span></sub>, <span class="emphasis"><em>a</em></span><sub><span class="emphasis"><em>j</em></span></sub>, <span class="emphasis"><em>r</em></span><sub><span class="emphasis"><em>j+1</em></span></sub>, <span class="emphasis"><em>s</em></span><sub><span class="emphasis"><em>j+1</em></span></sub>) from <span class="emphasis"><em>D</em></span></li><li class="listitem"><span class="inlinemediaobject"><img src="graphics/B08956_09_050.jpg" alt="Deep Q-Network (DQN)"/></span></li><li class="listitem">
+      Perform gradient descent step on <span class="inlinemediaobject"><img src="graphics/B08956_09_051.jpg" alt="Deep Q-Network (DQN)"/></span>with respect to parameters <span class="inlinemediaobject"><img src="graphics/B08956_09_052.jpg" alt="Deep Q-Network (DQN)"/></span></li><li class="listitem">        // periodic update of the target network</li><li class="listitem">
+ Every <span class="emphasis"><em>C</em></span> steps <span class="emphasis"><em>Q</em></span><sub><span class="emphasis"><em>target</em></span></sub> = <span class="emphasis"><em>Q</em></span>, that is set <span class="inlinemediaobject"><img src="graphics/B08956_09_053.jpg" alt="Deep Q-Network (DQN)"/></span></li><li class="listitem">       End</li></ol></div><p>However, it turns out that training the Q-Network is unstable. There are two problems causing the instability:</p><div class="orderedlist"><ol class="orderedlist arabic"><li class="listitem">A high correlation between samples</li><li class="listitem">A non-stationary target</li></ol></div><p>A high correlation<a id="id414" class="indexterm"/> is due to the sequential nature of sampling experiences. DQN addressed this issue by creating a buffer of experiences. The training data are randomly sampled from this buffer. This process is known as <span class="strong"><strong>experience replay</strong></span>.</p><p>The issue of<a id="id415" class="indexterm"/> the non-stationary target is due to the target network <span class="emphasis"><em>Q</em></span>(<span class="emphasis"><em>s</em></span>
+<span class="emphasis"><em>'</em></span>,<span class="emphasis"><em>a</em></span>
+<span class="emphasis"><em>'</em></span>) that is modified after every mini batch of training. A small change in the target network can create a significant change in the policy, the data distribution, and the correlation between the current <span class="emphasis"><em>Q</em></span> value and target <span class="emphasis"><em>Q</em></span> value. This is resolved by freezing the weights of the target network for <span class="emphasis"><em>C</em></span> training steps. In other words, two identical Q-Networks are created. The target Q-Network parameters are copied from the Q-Network under training every <span class="emphasis"><em>C</em></span> training steps.</p><p>The DQN algorithm is summarized in <span class="emphasis"><em>Algorithm</em></span> <span class="emphasis"><em>9.6.1</em></span>.</p></div>
+<div class="section" title="DQN on Keras"><div class="titlepage"><div><div><h1 class="title"><a id="ch09lvl2sec41"/>DQN on Keras</h1></div></div></div><p>To illustrate DQN, the <code class="literal">CartPole-v0</code> environment of the OpenAI Gym is used. <code class="literal">CartPole-v0</code> is a pole<a id="id416" class="indexterm"/> balancing problem. The goal is to keep the pole<a id="id417" class="indexterm"/> from falling over. The environment is 2D. The action space is made of two discrete actions (left and right movements). However, the state space is continuous and is made of four variables:</p><div class="orderedlist"><ol class="orderedlist arabic"><li class="listitem">Linear position</li><li class="listitem">Linear velocity</li><li class="listitem">Angle of rotation</li><li class="listitem">Angular velocity</li></ol></div><p>The <code class="literal">CartPole-v0</code> is shown in <span class="emphasis"><em>Figure 9.6.1</em></span>.</p><p>Initially, the pole is upright. A reward of +1 is provided for every timestep that the pole remains upright. The episode ends when the pole exceeds 15 degrees from the vertical or 2.4 units from<a id="id418" class="indexterm"/> the center. The <code class="literal">CartPole-v0</code> problem is<a id="id419" class="indexterm"/> considered solved if the average reward is 195.0 in 100 consecutive trials:</p><div class="mediaobject"><img src="graphics/B08956_09_14.jpg" alt="DQN on Keras"/><div class="caption"><p>Figure 9.6.1: The CartPole-v0 environment</p></div></div><p>
+<span class="emphasis"><em>Listing</em></span> <span class="emphasis"><em>9.6.1</em></span> shows us the DQN implementation for <code class="literal">CartPole-v0</code>. The <code class="literal">DQNAgent</code> class represents the agent using DQN. Two Q-Networks are created:</p><div class="orderedlist"><ol class="orderedlist arabic"><li class="listitem">Q-Network or <span class="emphasis"><em>Q</em></span> in <span class="emphasis"><em>Algorithm</em></span> <span class="emphasis"><em>9.6.1</em></span></li><li class="listitem">Target Q-Network or <span class="emphasis"><em>Q</em></span><sub>target</sub> in <span class="emphasis"><em>Algorithm</em></span> <span class="emphasis"><em>9.6.1</em></span></li></ol></div><p>Both networks are MLP with three hidden layers of 256 units each. The Q-Network is trained during experience replay, <code class="literal">replay()</code>. At a regular interval of <span class="emphasis"><em>C</em></span> = 10 training steps, the Q-Network parameters are copied to the Target Q-Network by <code class="literal">update_weights()</code>. This implements line <span class="emphasis"><em>13</em></span>, <span class="emphasis"><em>Q</em></span><sub>target</sub> = <span class="emphasis"><em>Q</em></span>, in algorithm <span class="emphasis"><em>9.6.1</em></span>. After every episode, the ratio of exploration-exploitation is decreased by <code class="literal">update_epsilon()</code> to take advantage of the learned policy.</p><p>To implement line <span class="emphasis"><em>10</em></span> in <span class="emphasis"><em>Algorithm</em></span> <span class="emphasis"><em>9.6.1</em></span> during experience replay, <code class="literal">replay()</code>, for each experience unit, (<span class="emphasis"><em>s</em></span><sub>j</sub>, <span class="emphasis"><em>a</em></span><sub>j</sub>, <span class="emphasis"><em>r</em></span><sub>j+1</sub>, <span class="emphasis"><em>s</em></span><sub>j+1</sub>), the <span class="emphasis"><em>Q</em></span> value for the action <span class="emphasis"><em>a</em></span><sub>j</sub> is set to <span class="emphasis"><em>Q</em></span><sub><span class="emphasis"><em>max</em></span></sub>. All other actions have their <span class="emphasis"><em>Q</em></span> values unchanged.</p><p>This is implemented by the following lines:</p><div class="informalexample"><pre class="programlisting"># policy prediction for a given state
+q_values = self.q_model.predict(state)
+
+# get Q_max
+q_value = self.get_target_q_value(next_state)
+
+# correction on the Q value for the action used
+q_values[0][action] = reward if done else q_value</pre></div><p>Only the action <span class="emphasis"><em>a</em></span><sub>j</sub> has a non-zero loss equal to <span class="inlinemediaobject"><img src="graphics/B08956_09_054.jpg" alt="DQN on Keras"/></span> as shown by line <span class="emphasis"><em>11</em></span> of <span class="emphasis"><em>Algorithm 9.6.1</em></span>. Note that the experience replay is called by the perception-action-learning loop in <span class="emphasis"><em>Listing</em></span> <span class="emphasis"><em>9.6.2</em></span> after the end of each episode assuming that there is sufficient data<a id="id420" class="indexterm"/> in the buffer (that is, buffer size, is greater or equal to batch size). During the experience replay, one batch of experience units is<a id="id421" class="indexterm"/> randomly sampled and used to train the Q-Network.</p><p>Similar to the Q-Table, <code class="literal">act()</code> implements the <span class="inlinemediaobject"><img src="graphics/B08956_09_055.jpg" alt="DQN on Keras"/></span>-greedy policy, <span class="emphasis"><em>Equation</em></span> <span class="emphasis"><em>9.6.1</em></span>. Experiences are stored by <code class="literal">remember()</code> in the replay buffer. The computation of <span class="emphasis"><em>Q</em></span> is done by the <code class="literal">get_target_q_value()</code> function. On the average of 10 runs, <code class="literal">CartPole-v0</code> is solved by DQN within 822 episodes. We need to take note that the results may vary every time the training runs.</p><p>Listing 9.6.1, <code class="literal">dqn-cartpole-9.6.1.py</code> shows us the DQN implementation within Keras:</p><div class="informalexample"><pre class="programlisting">from keras.layers import Dense, Input
+from keras.models import Model
+from keras.optimizers import Adam
+from collections import deque
+import numpy as np
+import random
+import argparse
+import gym
+from gym import wrappers, logger
+
+class DQNAgent():
+    def __init__(self, state_space, action_space, args, episodes=1000):
+
+        self.action_space = action_space
+
+        # experience buffer
+        self.memory = []
+
+        # discount rate
+        self.gamma = 0.9
+
+        # initially 90% exploration, 10% exploitation
+        self.epsilon = 0.9
+        # iteratively applying decay til 10% exploration/90% exploitation
+        self.epsilon_min = 0.1
+        self.epsilon_decay = self.epsilon_min / self.epsilon
+        self.epsilon_decay = self.epsilon_decay ** (1. / float(episodes))
+
+        # Q Network weights filename
+        self.weights_file = 'dqn_cartpole.h5'
+        # Q Network for training
+        n_inputs = state_space.shape[0]
+        n_outputs = action_space.n
+        self.q_model = self.build_model(n_inputs, n_outputs)
+        self.q_model.compile(loss='mse', optimizer=Adam())
+        # target Q Network
+        self.target_q_model = self.build_model(n_inputs, n_outputs)
+        # copy Q Network params to target Q Network
+        self.update_weights()
+
+        self.replay_counter = 0
+        self.ddqn = True if args.ddqn else False
+        if self.ddqn:
+            print("----------Double DQN--------")
+        else:
+            print("-------------DQN------------")
+
+
+    # Q Network is 256-256-256 MLP
+    def build_model(self, n_inputs, n_outputs):
+        inputs = Input(shape=(n_inputs, ), name='state')
+        x = Dense(256, activation='relu')(inputs)
+        x = Dense(256, activation='relu')(x)
+	   x = Dense(256, activation='relu')(x)
+        x = Dense(n_outputs, activation='linear', name='action')(x)
+        q_model = Model(inputs, x)
+        q_model.summary()
+        return q_model
+
+
+    # save Q Network params to a file
+    def save_weights(self):
+        self.q_model.save_weights(self.weights_file)
+
+
+    def update_weights(self):
+        self.target_q_model.set_weights(self.q_model.get_weights())
+
+
+    # eps-greedy policy
+    def act(self, state):
+        if np.random.rand() &lt; self.epsilon:
+            # explore - do random action
+            return self.action_space.sample()
+
+        # exploit
+        q_values = self.q_model.predict(state)
+        # select the action with max Q-value
+        return np.argmax(q_values[0])
+
+
+    # store experiences in the replay buffer
+    def remember(self, state, action, reward, next_state, done):
+        item = (state, action, reward, next_state, done)
+        self.memory.append(item)
+
+
+    # compute Q_max
+    # use of target Q Network solves the non-stationarity problem
+    def get_target_q_value(self, next_state):
+        # max Q value among next state's actions
+        if self.ddqn:
+            # DDQN
+            # current Q Network selects the action
+            # a'_max = argmax_a' Q(s', a')
+            action = np.argmax(self.q_model.predict(next_state)[0])
+            # target Q Network evaluates the action
+            # Q_max = Q_target(s', a'_max)
+            q_value = self.target_q_model.predict(next_state)[0][action]
+        else:
+            # DQN chooses the max Q value among next actions
+            # selection and evaluation of action is on the 
+		  # target Q Network
+            # Q_max = max_a' Q_target(s', a')
+            q_value = np.amax(self.target_q_model.predict(next_state)[0])
+
+        # Q_max = reward + gamma * Q_max
+        q_value *= self.gamma
+        q_value += reward
+        return q_value
+
+
+    # experience replay addresses the correlation issue between samples
+    def replay(self, batch_size):
+        # sars = state, action, reward, state' (next_state)
+        sars_batch = random.sample(self.memory, batch_size)
+        state_batch, q_values_batch = [], []
+
+        # fixme: for speedup, this could be done on the tensor level
+        # but easier to understand using a loop
+        for state, action, reward, next_state, done in sars_batch:
+            # policy prediction for a given state
+            q_values = self.q_model.predict(state)
+
+            # get Q_max
+            q_value = self.get_target_q_value(next_state)
+
+            # correction on the Q value for the action used
+            q_values[0][action] = reward if done else q_value
+
+            # collect batch state-q_value mapping
+            state_batch.append(state[0])
+            q_values_batch.append(q_values[0])
+
+        # train the Q-network
+        self.q_model.fit(np.array(state_batch),
+                         np.array(q_values_batch),
+                         batch_size=batch_size,
+                         epochs=1,
+                         verbose=0)
+
+        # update exploration-exploitation probability
+        self.update_epsilon()
+        # copy new params on old target after every 10 training updates
+        if self.replay_counter % 10 == 0:
+            self.update_weights()
+
+        self.replay_counter += 1
+
+
+    # decrease the exploration, increase exploitation
+    def update_epsilon(self):
+        if self.epsilon &gt; self.epsilon_min:
+            self.epsilon *= self.epsilon_decay</pre></div><p>Listing 9.6.2, <code class="literal">dqn-cartpole-9.6.1.py</code>. Training loop of DQN implementation in Keras:</p><div class="informalexample"><pre class="programlisting"># Q-Learning sampling and fitting
+for episode in range(episode_count):
+    state = env.reset()
+    state = np.reshape(state, [1, state_size])
+    done = False
+    total_reward = 0 
+    while not done:
+        # in CartPole-v0, action=0 is left and action=1 is right
+        action = agent.act(state)
+        next_state, reward, done, _ = env.step(action)
+        # in CartPole-v0:
+        # state = [pos, vel, theta, angular speed]
+        next_state = np.reshape(next_state, [1, state_size])
+        # store every experience unit in replay buffer
+        agent.remember(state, action, reward, next_state, done)
+        state = next_state
+        total_reward += reward
+
+    # call experience relay
+    if len(agent.memory) &gt;= batch_size:
+        agent.replay(batch_size)
+
+    scores.append(total_reward)
+    mean_score = np.mean(scores)
+    if mean_score &gt;= win_reward[args.env_id] and episode &gt;= win_trials:
+        print("Solved in episode %d: Mean survival = %0.2lf in %d episodes"
+              % (episode, mean_score, win_trials))
+        print("Epsilon: ", agent.epsilon)
+        agent.save_weights()
+        break
+    if episode % win_trials == 0:
+        print("Episode %d: Mean survival = %0.2lf in %d episodes" %
+              (episode, mean_score, win_trials))</pre></div></div>
+<div class="section" title="Double Q-Learning (DDQN)"><div class="titlepage"><div><div><h1 class="title"><a id="ch09lvl2sec42"/>Double Q-Learning (DDQN)</h1></div></div></div><p>In DQN, the target Q-Network selects and evaluates every action resulting in an overestimation of <span class="emphasis"><em>Q</em></span> value. To resolve this issue, DDQN [3] proposes to<a id="id422" class="indexterm"/> use the Q-Network to choose the action and use the target Q-Network to evaluate the action.</p><p>In DQN as summarized by <span class="emphasis"><em>Algorithm 9.6.1</em></span>, the estimate of the <span class="emphasis"><em>Q</em></span> value in line <span class="emphasis"><em>10</em></span> is:</p><div class="mediaobject"><img src="graphics/B08956_09_056.jpg" alt="Double Q-Learning (DDQN)"/></div><p>
+<span class="emphasis"><em>Q</em></span><sub>target</sub> chooses and evaluates the action <span class="emphasis"><em>a</em></span>
+<sub>j+1</sub>.</p><p>DDQN proposes to change line <span class="emphasis"><em>10</em></span> to:</p><div class="mediaobject"><img src="graphics/B08956_09_057.jpg" alt="Double Q-Learning (DDQN)"/></div><p>The term <span class="inlinemediaobject"><img src="graphics/B08956_09_058.jpg" alt="Double Q-Learning (DDQN)"/></span> lets <span class="emphasis"><em>Q</em></span> to choose the action. Then this action is evaluated by <span class="emphasis"><em>Q</em></span><sub>target</sub>.</p><p>In Listing 9.6.1, both DQN and DDQN are implemented. Specifically, for DDQN, the modification on the <span class="emphasis"><em>Q</em></span> value computation performed by <code class="literal">get_target_q_value()</code> function is highlighted:</p><div class="informalexample"><pre class="programlisting"># compute Q_max
+# use of target Q Network solves the non-stationarity problem
+def get_target_q_value(self, next_state):
+    # max Q value among next state's actions
+<span class="strong"><strong>    if self.ddqn:</strong></span>
+<span class="strong"><strong>        # DDQN</strong></span>
+<span class="strong"><strong>        # current Q Network selects the action</strong></span>
+<span class="strong"><strong>        # a'_max = argmax_a' Q(s', a')</strong></span>
+<span class="strong"><strong>        action = np.argmax(self.q_model.predict(next_state)[0])</strong></span>
+<span class="strong"><strong>        # target Q Network evaluates the action</strong></span>
+<span class="strong"><strong>        # Q_max = Q_target(s', a'_max)</strong></span>
+<span class="strong"><strong>        q_value = self.target_q_model.predict(next_state)[0][action]</strong></span>
+    else:
+        # DQN chooses the max Q value among next actions
+        # selection and evaluation of action is on the target Q Network
+        # Q_max = max_a' Q_target(s', a')
+        q_value = np.amax(self.target_q_model.predict(next_state)[0])
+
+    # Q_max = reward + gamma * Q_max
+    q_value *= self.gamma
+    q_value += reward
+    return q_value</pre></div><p>For comparison, on the average of 10 runs, the <code class="literal">CartPole-v0</code> is solved by DDQN within 971 episodes. To use DDQN, run:</p><div class="informalexample"><pre class="programlisting">
+<span class="strong"><strong>$ python3 dqn-cartpole-9.6.1.py -d</strong></span>
+</pre></div></div>
+<div class="section" title="Conclusion"><div class="titlepage"><div><div><h1 class="title"><a id="ch09lvl1sec53"/>Conclusion</h1></div></div></div><p>In this chapter, we've been introduced to DRL. A powerful technique believed by many researchers as the most promising lead towards artificial intelligence. Together, we've gone over the principles of RL. RL is able to solve many toy problems, but the Q-Table is unable to scale to more complex real-world problems. The solution is to learn the Q-Table using a deep neural network. However, training deep neural networks on RL is highly unstable due to sample correlation and non-stationarity of the target Q-Network.</p><p>DQN proposed a solution to these problems using experience replay and separating the target network from the Q-Network under training. DDQN suggested further improvement of the algorithm by separating the action selection from action evaluation to minimize the overestimation of <span class="emphasis"><em>Q</em></span> value. There are other improvements proposed for the DQN. Prioritized experience replay [6] argues that that experience buffer should not be sampled uniformly. Instead, experiences that are more important based on TD errors should be sampled more frequently to accomplish more efficient training. [7] proposes a dueling network architecture to estimate the state value function and the advantage function. Both functions are used to estimate the <span class="emphasis"><em>Q</em></span> value for faster learning.</p><p>The approach presented in this chapter is value iteration/fitting. The policy is learned indirectly by finding an optimal value function. In the next chapter, the approach will be to learn the optimal policy directly by using a family of algorithms called policy gradient methods. Learning the policy has many advantages. In particular, policy gradient methods can deal with both discrete and continuous action spaces.</p></div>
+<div class="section" title="References"><div class="titlepage"><div><div><h1 class="title"><a id="ch09lvl1sec54"/>References</h1></div></div></div><div class="orderedlist"><ol class="orderedlist arabic"><li class="listitem">Sutton and Barto. <span class="emphasis"><em>Reinforcement Learning: An Introduction</em></span>, 2017 (<a class="ulink" href="http://incompleteideas.net/book/bookdraft2017nov5.pdf">http://incompleteideas.net/book/bookdraft2017nov5.pdf</a>).</li><li class="listitem">Volodymyr Mnih and others, <span class="emphasis"><em>Human-level control through deep reinforcement learning</em></span>. Nature 518.7540, 2015: 529 (<a class="ulink" href="http://www.davidqiu.com:8888/research/nature14236.pdf">http://www.davidqiu.com:8888/research/nature14236.pdf</a>)</li><li class="listitem">Hado Van Hasselt, Arthur Guez, and David Silver <span class="emphasis"><em>Deep Reinforcement Learning with Double Q-Learning</em></span>. AAAI. Vol. 16, 2016 (<a class="ulink" href="http://www.aaai.org/ocs/index.php/AAAI/AAAI16/paper/download/12389/11847">http://www.aaai.org/ocs/index.php/AAAI/AAAI16/paper/download/12389/11847</a>).</li><li class="listitem">Kai Arulkumaran and others <span class="emphasis"><em>A Brief Survey of Deep Reinforcement Learning</em></span>. arXiv preprint arXiv:1708.05866, 2017 (<a class="ulink" href="https://arxiv.org/pdf/1708.05866.pdf">https://arxiv.org/pdf/1708.05866.pdf</a>).</li><li class="listitem">David Silver <span class="emphasis"><em>Lecture Notes on Reinforcement Learning</em></span>, (<a class="ulink" href="http://www0.cs.ucl.ac.uk/staff/d.silver/web/Teaching.html">http://www0.cs.ucl.ac.uk/staff/d.silver/web/Teaching.html</a>).</li><li class="listitem">Tom Schaul and others. <span class="emphasis"><em>Prioritized experience replay</em></span>. arXiv preprint arXiv:1511.05952, 2015 (<a class="ulink" href="https://arxiv.org/pdf/1511.05952.pdf">https://arxiv.org/pdf/1511.05952.pdf</a>).</li><li class="listitem">Ziyu Wang and others. <span class="emphasis"><em>Dueling Network Architectures for Deep Reinforcement Learning</em></span>. arXiv preprint arXiv:1511.06581, 2015 (<a class="ulink" href="https://arxiv.org/pdf/1511.06581.pdf">https://arxiv.org/pdf/1511.06581.pdf</a>).</li></ol></div></div></body></html>

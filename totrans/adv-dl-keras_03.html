@@ -1,0 +1,513 @@
+<html><head></head><body><div class="chapter" title="Chapter&#xA0;3.&#xA0;Autoencoders"><div class="titlepage"><div><div><h1 class="title"><a id="ch03"/>Chapter 3. Autoencoders</h1></div></div></div><p>In the previous chapter, <a class="link" href="ch02.html" title="Chapter 2. Deep Neural Networks">Chapter 2</a>, <span class="emphasis"><em>Deep Neural Networks</em></span>, you were introduced to the concepts of deep neural networks. We're now going to move on to look at autoencoders, which are a neural network architecture that attempts to find a compressed representation of the given input data.</p><p>Similar to the previous chapters, the input data may be in multiple forms including, speech, text, image, or video. An autoencoder will attempt to find a representation or code in order to perform useful transformations on the input data. As an example, in denoising autoencoders, a neural network will attempt to find a code that can be used to transform noisy data into clean ones. Noisy data could be in the form of an audio recording with static noise which is then converted into clear sound. Autoencoders will learn the code automatically from the data alone without human labeling. As such, autoencoders can<a id="id126" class="indexterm"/> be classified under <span class="strong"><strong>unsupervised</strong></span> learning <a id="id127" class="indexterm"/>algorithms.</p><p>In later chapters of this book, we will look at <span class="strong"><strong>Generative Adversarial Networks</strong></span> (<span class="strong"><strong>GANs</strong></span>) and <span class="strong"><strong>Variational Autoencoders</strong></span> (<span class="strong"><strong>VAEs</strong></span>) which are also representative forms of unsupervised learning algorithms. This is in contrast to<a id="id128" class="indexterm"/> the supervised learning algorithms we discussed in the previous chapters where human annotations were required.</p><p>In its simplest form, an autoencoder will learn the representation or code by trying to copy the input to output. However, using an autoencoder is not as simple as copying the input to output. Otherwise, the neural network would not be able to uncover the hidden structure in the input distribution.</p><p>An autoencoder will encode the input distribution into a low-dimensional tensor, which usually takes the form of a vector. This will approximate the hidden structure that is commonly referred to as the latent representation, code, or vector. This process constitutes the encoding part. The latent vector will then be decoded by the decoder part to recover the original input.</p><p>As a result of the latent vector being a low-dimensional compressed representation of the input distribution, it should be expected that the output recovered by the decoder can only approximate the input. The dissimilarity between the input and the output can be measured by a loss function.</p><p>But why would we use autoencoders? Simply put, autoencoders have practical applications both in their original form or as part of more complex neural networks. They're a key tool in understanding the advanced topics of deep learning as they give you a low-dimensional latent vector. Furthermore, it can be efficiently processed to perform structural operations on the input data. Common operations include denoising, colorization, feature-level arithmetic, detection, tracking, and segmentation, to name just a few.</p><p>In summary, the goal of this chapter is to present:</p><div class="itemizedlist"><ul class="itemizedlist"><li class="listitem" style="list-style-type: disc">The principles of autoencoders</li><li class="listitem" style="list-style-type: disc">How to implement autoencoders into the Keras neural network library</li><li class="listitem" style="list-style-type: disc">The main features of denoising and colorization autoencoders</li></ul></div><div class="section" title="Principles of autoencoders"><div class="titlepage"><div><div><h1 class="title"><a id="ch03lvl1sec17"/>Principles of autoencoders</h1></div></div></div><p>In this section, we're going to go over the principles of autoencoders. In this section, we're going to be looking at autoencoders with the MNIST dataset, which we were first introduced to in the previous chapters.</p><p>Firstly, we need to be made aware that an autoencoder has two operators, these are:</p><div class="itemizedlist"><ul class="itemizedlist"><li class="listitem" style="list-style-type: disc"><span class="strong"><strong>Encoder</strong></span>: This transforms the<a id="id129" class="indexterm"/> input, <span class="emphasis"><em>x</em></span>, into a low-dimensional latent vector, <span class="emphasis"><em>z = f(x)</em></span>. Since the latent vector is of low dimension, the encoder is forced to learn only the most<a id="id130" class="indexterm"/> important features of the input data. For example, in the case of MNIST digits, the important features to learn may include writing style, tilt angle, roundness of stroke, thickness, and so on. Essentially, these are the<a id="id131" class="indexterm"/> most important information needed to represent digits zero to nine.</li><li class="listitem" style="list-style-type: disc"><span class="strong"><strong>Decoder</strong></span>: This tries to recover the input from the latent vector, <div class="mediaobject"><img src="graphics/B08956_03_001.jpg" alt="Principles of autoencoders"/></div><p>. Although the latent vector has a low dimension, it has a sufficient size to allow the decoder to recover the input data.</p></li></ul></div><p>The goal of the <a id="id132" class="indexterm"/>decoder is to make </p><div class="mediaobject"><img src="graphics/B08956_03_002.jpg" alt="Principles of autoencoders"/></div><p> as close as possible to <span class="emphasis"><em>x</em></span>. Generally, both the encoder and decoder are non-linear functions. The dimension of <span class="emphasis"><em>z</em></span> is a measure of the number of salient features it can represent. The dimension is usually much smaller than the input dimensions for efficiency and in order to constrain the latent code to learn only the most salient properties of the input distribution[1].</p><p>The autoencoder has the tendency to memorize the input when the dimension of the latent code is significantly bigger than <span class="emphasis"><em>x</em></span>.</p><p>A suitable loss function, </p><div class="mediaobject"><img src="graphics/B08956_03_003.jpg" alt="Principles of autoencoders"/></div><p>, is a measure of how <a id="id133" class="indexterm"/>dissimilar the input, <span class="emphasis"><em>x</em></span>, from the output which is the recovered input, </p><div class="mediaobject"><img src="graphics/B08956_03_004.jpg" alt="Principles of autoencoders"/></div><p>. As shown in the following equation, the <span class="strong"><strong>Mean Squared Error</strong></span> (<span class="strong"><strong>MSE</strong></span>) is an example of such a loss function:</p><div class="mediaobject"><img src="graphics/B08956_03_005.jpg" alt="Principles of autoencoders"/></div><p>          (Equation 3.1.1)</p><p>In this example, <span class="emphasis"><em>m</em></span> is the output dimensions (For example, in MNIST <span class="emphasis"><em>m = width × height × channels = 28 × 28 × 1 = 784</em></span>). </p><div class="mediaobject"><img src="graphics/B08956_03_006.jpg" alt="Principles of autoencoders"/></div><p> and </p><div class="mediaobject"><img src="graphics/B08956_03_007.jpg" alt="Principles of autoencoders"/></div><p> are the elements of <span class="emphasis"><em>x</em></span> and </p><div class="mediaobject"><img src="graphics/B08956_03_008.jpg" alt="Principles of autoencoders"/></div><p> respectively. Since the loss function is a measure of dissimilarity between the input and output, we're able to use alternative reconstruction loss functions such as the binary cross<a id="id134" class="indexterm"/> entropy or <span class="strong"><strong>structural similarity index</strong></span> (<span class="strong"><strong>SSIM</strong></span>).</p><div class="mediaobject"><img src="graphics/B08956_03_01.jpg" alt="Principles of autoencoders"/><div class="caption"><p>Figure 3.1.1: Block diagram of an autoencoder</p></div></div><div class="mediaobject"><img src="graphics/B08956_03_02.jpg" alt="Principles of autoencoders"/><div class="caption"><p> Figure 3.1.2: An autoencoder with MNIST digit input and output. The latent vector is 16-dim.</p></div></div><p>To put the autoencoder in context, <span class="emphasis"><em>x</em></span> can be an MNIST digit which has a dimension of 28 × 28 × 1 = 784. The encoder transforms<a id="id135" class="indexterm"/> the input into a low-dimensional <span class="emphasis"><em>z</em></span> that can be a 16-dimension latent vector. The decoder will attempt to recover the input in the form of </p><div class="mediaobject"><img src="graphics/B08956_03_010.jpg" alt="Principles of autoencoders"/></div><p> from <span class="emphasis"><em>z</em></span>. Visually, every MNIST digit <span class="emphasis"><em>x</em></span> will appear similar to </p><div class="mediaobject"><img src="graphics/B08956_03_011.jpg" alt="Principles of autoencoders"/></div><p>. <span class="emphasis"><em>Figure 3.1.2</em></span> demonstrates this autoencoding process to us. We can observe that the decoded digit 7, while not exactly the same remains close enough.</p><p>Since both encoder and decoder are non-linear functions, we can use neural networks to implement both. For example, in the MNIST dataset, the autoencoder can be implemented by MLP or CNN. The autoencoder can be trained by minimizing the loss function through backpropagation. Similar to other neural networks, the only requirement is that the loss function must be differentiable.</p><p>If we treat the input as a distribution, we can interpret the encoder as an encoder of distribution, </p><div class="mediaobject"><img src="graphics/B08956_03_012.jpg" alt="Principles of autoencoders"/></div><p> and the decoder, as the decoder of distribution, </p><div class="mediaobject"><img src="graphics/B08956_03_013.jpg" alt="Principles of autoencoders"/></div><p>. The loss function of the autoencoder is expressed as follows:</p><div class="mediaobject"><img src="graphics/B08956_03_014.jpg" alt="Principles of autoencoders"/></div><p>          (Equation 3.1.2)</p><p>The loss function simply means that we would like to maximize the chances of recovering the input distribution given the latent vector distribution. If the decoder output distribution is assumed to be Gaussian, then the loss function boils down to MSE since:</p><div class="mediaobject"><img src="graphics/B08956_03_015.jpg" alt="Principles of autoencoders"/></div><p>     (Equation 3.1.3)</p><p>In this example, </p><div class="mediaobject"><img src="graphics/B08956_03_016.jpg" alt="Principles of autoencoders"/></div><p> represents a Gaussian <a id="id136" class="indexterm"/>distribution with a mean of </p><div class="mediaobject"><img src="graphics/B08956_03_017.jpg" alt="Principles of autoencoders"/></div><p> and variance of </p><div class="mediaobject"><img src="graphics/B08956_03_018.jpg" alt="Principles of autoencoders"/></div><p>. A constant variance is assumed. The decoder output </p><div class="mediaobject"><img src="graphics/B08956_03_019.jpg" alt="Principles of autoencoders"/></div><p> is assumed to be independent. While <span class="emphasis"><em>m</em></span> is the output dimension.</p></div></div>
+<div class="section" title="Building autoencoders using Keras"><div class="titlepage"><div><div><h1 class="title"><a id="ch03lvl1sec18"/>Building autoencoders using Keras</h1></div></div></div><p>We're now going to move onto something really exciting, building an autoencoder using Keras library. For<a id="id137" class="indexterm"/> simplicity, we'll be using the MNIST dataset for the first <a id="id138" class="indexterm"/>set of examples. The autoencoder will then generate a latent vector from the input data and recover the input using the decoder. The latent vector in this first example is 16-dim.</p><p>Firstly, we're going to implement the autoencoder by building the encoder. <span class="emphasis"><em>Listing</em></span> <span class="emphasis"><em>3.2.1</em></span> shows the encoder that compresses the MNIST digit into a 16-dim latent vector. The encoder is a stack of two <code class="literal">Conv2D</code>. The final stage is a <code class="literal">Dense</code> layer with 16 units to generate the latent vector. <span class="emphasis"><em>Figure 3.2.1</em></span> shows the architecture model diagram generated by <code class="literal">plot_model()</code> which is the same as the text version produced by <code class="literal">encoder.summary()</code>. The shape of the output of the last <code class="literal">Conv2D</code> is saved to compute the dimensions of the decoder input layer for easy reconstruction of the MNIST image.</p><p>The following Listing 3.2.1, shows <code class="literal">autoencoder-mnist-3.2.1.py</code>. This is an autoencoder implementation using Keras. The latent vector is 16-dim:</p><div class="informalexample"><pre class="programlisting">from keras.layers import Dense, Input
+from keras.layers import Conv2D, Flatten
+from keras.layers import Reshape, Conv2DTranspose
+from keras.models import Model
+from keras.datasets import mnist
+from keras.utils import plot_model
+from keras import backend as K
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+# load MNIST dataset
+(x_train, _), (x_test, _) = mnist.load_data()
+
+# reshape to (28, 28, 1) and normalize input images
+image_size = x_train.shape[1]
+x_train = np.reshape(x_train, [-1, image_size, image_size, 1])
+x_test = np.reshape(x_test, [-1, image_size, image_size, 1])
+x_train = x_train.astype('float32') / 255
+x_test = x_test.astype('float32') / 255
+
+# network parameters
+input_shape = (image_size, image_size, 1)
+batch_size = 32
+kernel_size = 3
+latent_dim = 16
+# encoder/decoder number of filters per CNN layer
+layer_filters = [32, 64]
+
+# build the autoencoder model
+# first build the encoder model
+inputs = Input(shape=input_shape, name='encoder_input')
+x = inputs
+# stack of Conv2D(32)-Conv2D(64)
+for filters in layer_filters:
+    x = Conv2D(filters=filters,
+               kernel_size=kernel_size,
+               activation='relu',
+               strides=2,
+               padding='same')(x)
+
+# shape info needed to build decoder model 
+# so we don't do hand computation
+# the input to the decoder's first Conv2DTranspose 
+# will have this shape
+# shape is (7, 7, 64) which is processed by 
+# the decoder back to (28, 28, 1)
+shape = K.int_shape(x)
+
+# generate latent vector
+x = Flatten()(x)
+latent = Dense(latent_dim, name='latent_vector')(x)
+
+# instantiate encoder model
+encoder = Model(inputs, latent, name='encoder')
+encoder.summary()
+plot_model(encoder, to_file='encoder.png', show_shapes=True)
+
+# build the decoder model
+latent_inputs = Input(shape=(latent_dim,), name='decoder_input')
+# use the shape (7, 7, 64) that was earlier saved
+x = Dense(shape[1] * shape[2] * shape[3])(latent_inputs)
+# from vector to suitable shape for transposed conv
+x = Reshape((shape[1], shape[2], shape[3]))(x)
+
+# stack of Conv2DTranspose(64)-Conv2DTranspose(32)
+for filters in layer_filters[::-1]:
+    x = Conv2DTranspose(filters=filters,
+                        kernel_size=kernel_size,
+                        activation='relu',
+                        strides=2,
+                        padding='same')(x)
+
+# reconstruct the input
+outputs = Conv2DTranspose(filters=1,
+                          kernel_size=kernel_size,
+                          activation='sigmoid',
+                          padding='same',
+                          name='decoder_output')(x)
+
+# instantiate decoder model
+decoder = Model(latent_inputs, outputs, name='decoder')
+decoder.summary()
+plot_model(decoder, to_file='decoder.png', show_shapes=True)
+
+# autoencoder = encoder + decoder
+# instantiate autoencoder model
+   autoencoder = Model(inputs,
+                       decoder(encoder(inputs)),
+                       name='autoencoder')
+   autoencoder.summary()
+   plot_model(autoencoder,
+              to_file='autoencoder.png',
+           show_shapes=True)
+
+# Mean Square Error (MSE) loss funtion, Adam optimizer
+autoencoder.compile(loss='mse', optimizer='adam')
+
+# train the autoencoder
+autoencoder.fit(x_train,
+                x_train,
+                validation_data=(x_test, x_test),
+                epochs=1,
+                batch_size=batch_size)
+
+# predict the autoencoder output from test data
+x_decoded = autoencoder.predict(x_test)
+
+# display the 1st 8 test input and decoded images
+imgs = np.concatenate([x_test[:8], x_decoded[:8]])
+imgs = imgs.reshape((4, 4, image_size, image_size))
+imgs = np.vstack([np.hstack(i) for i in imgs])
+plt.figure()
+plt.axis('off')
+plt.title('Input: 1st 2 rows, Decoded: last 2 rows')
+plt.imshow(imgs, interpolation='none', cmap='gray')
+plt.savefig('input_and_decoded.png')
+plt.show()</pre></div><div class="mediaobject"><img src="graphics/B08956_03_03.jpg" alt="Building autoencoders using Keras"/><div class="caption"><p>Figure 3.2.1: The encoder model is a made up of Conv2D(32)-Conv2D(64)-Dense(16) in order to generate the low dimensional latent vector</p></div></div><p>The decoder in <span class="emphasis"><em>Listing</em></span> <span class="emphasis"><em>3.2.1</em></span> decompresses <a id="id139" class="indexterm"/>the latent vector in order to recover the MNIST digit. The decoder input stage is a <code class="literal">Dense</code> layer that will accept the latent vector. The number of <a id="id140" class="indexterm"/>units is equal to the product of the saved <code class="literal">Conv2D</code> output dimensions from the encoder. This is done so we can easily resize the output of the <code class="literal">Dense</code> layer for <code class="literal">Conv2DTranspose</code> to finally recover the original MNIST image dimensions.</p><p>The decoder is made of a stack of three <code class="literal">Conv2DTranspose</code>. In our case, we're going to use a <span class="strong"><strong>Transposed CNN</strong></span> (sometimes called deconvolution), which is more commonly used<a id="id141" class="indexterm"/> in decoders. We can imagine transposed CNN (<code class="literal">Conv2DTranspose</code>) as the reversed process of CNN. In a simple example, if the CNN converts an image to feature maps, the transposed CNN will produce an image given feature maps. <span class="emphasis"><em>Figure 3.2.2</em></span> shows the decoder model.</p><div class="mediaobject"><img src="graphics/B08956_03_04.jpg" alt="Building autoencoders using Keras"/><div class="caption"><p>Figure 3.2.2: The decoder model is made of a Dense(16)-Conv2DTranspose(64) -Conv2DTranspose(32)-Conv2DTranspose(1). The input is the latent vector decoded to recover the original input.</p></div></div><p>By joining the encoder and decoder together, we're able to build the autoencoder. <span class="emphasis"><em>Figure 3.2.3</em></span> illustrates the model diagram of the autoencoder. The tensor output of the encoder is also the input to a decoder which generates<a id="id142" class="indexterm"/> the output of the autoencoder. In this example, we'll be using the MSE loss function and Adam optimizer. During training, the input is the same as the output, <code class="literal">x_train</code>. We should note that in our example, there are only a few layers which are sufficient enough to drive the validation loss to 0.01 in one epoch. For more complex datasets, you may need a deeper encoder, decoder as well as more epochs of training.</p><div class="mediaobject"><img src="graphics/B08956_03_05.jpg" alt="Building autoencoders using Keras"/><div class="caption"><p>Figure 3.2.3: The autoencoder model is built by joining an encoder model and a decoder model together. There are 178k parameters for this autoencoder.</p></div></div><p>After training the autoencoder for one epoch with a validation loss of 0.01, we're able to verify if it can<a id="id143" class="indexterm"/> encode and decode the MNIST data that it has not seen before. <span class="emphasis"><em>Figure 3.2.4</em></span> shows us eight samples from the test data and the corresponding decoded images. Except for minor blurring in the images, we're able to easily recognize that the autoencoder is able to recover the input with good quality. The results will improve as we train for a larger number of epochs.</p><div class="mediaobject"><img src="graphics/B08956_03_06.jpg" alt="Building autoencoders using Keras"/><div class="caption"><p>Figure 3.2.4: Prediction of the autoencoder from the test data. The first 2 rows are the original input test data. The last 2 rows are the predicted data.</p></div></div><p>At this point, we may be wondering how we can visualize the latent vector in space. A simple method for visualization is to force the autoencoder to learn the MNIST digits features using a 2-dim latent vector. From there, we're able to project this latent vector on a 2D space in order to see how the MNIST codes are distributed. By setting the <code class="literal">latent_dim = 2</code> in <code class="literal">autoencoder-mnist-3.2.1.py</code> code and by using the <code class="literal">plot_results()</code> to plot the MNIST digit as a function of the 2-dim latent vector, <span class="emphasis"><em>Figure 3.2.5</em></span> and <span class="emphasis"><em>Figure 3.2.6</em></span> shows the distribution of MNIST digits as a function of latent codes. These figures were <a id="id144" class="indexterm"/>generated after 20 epochs of training. For convenience, the program is saved as <code class="literal">autoencoder-2dim-mnist-3.2.2.py</code> with the partial code shown<a id="id145" class="indexterm"/> in <span class="emphasis"><em>Listing 3.2.2</em></span>.</p><p>Following is Listing 3.2.2, <code class="literal">autoencoder-2dim-mnist-3.2.2.py</code>, which shows the function for<a id="id146" class="indexterm"/> visualization of the MNIST digits distribution over 2-dim latent codes. The rest of the code is practically similar to <span class="emphasis"><em>Listing 3.2.1</em></span> and no longer shown here.</p><div class="informalexample"><pre class="programlisting">def plot_results(models,
+                 data,
+                 batch_size=32,
+                 model_name="autoencoder_2dim"):
+    """Plots 2-dim latent values as color gradient
+        then, plot MNIST digits as function of 2-dim latent vector
+
+    Arguments:
+        models (list): encoder and decoder models
+        data (list): test data and label
+        batch_size (int): prediction batch size
+        model_name (string): which model is using this function
+    """
+
+    encoder, decoder = models
+    x_test, y_test = data
+    os.makedirs(model_name, exist_ok=True)
+
+    filename = os.path.join(model_name, "latent_2dim.png")
+    # display a 2D plot of the digit classes in the latent space
+    z = encoder.predict(x_test,
+                        batch_size=batch_size)
+    plt.figure(figsize=(12, 10))
+    plt.scatter(z[:, 0], z[:, 1], c=y_test)
+    plt.colorbar()
+    plt.xlabel("z[0]")
+    plt.ylabel("z[1]")
+    plt.savefig(filename)
+    plt.show()
+
+    filename = os.path.join(model_name, "digits_over_latent.png")
+    # display a 30x30 2D manifold of the digits
+    n = 30
+    digit_size = 28
+    figure = np.zeros((digit_size * n, digit_size * n))
+    # linearly spaced coordinates corresponding to the 2D plot
+    # of digit classes in the latent space
+    grid_x = np.linspace(-4, 4, n)
+    grid_y = np.linspace(-4, 4, n)[::-1]
+
+    for i, yi in enumerate(grid_y):
+        for j, xi in enumerate(grid_x):
+            z = np.array([[xi, yi]])
+            x_decoded = decoder.predict(z)
+            digit = x_decoded[0].reshape(digit_size, digit_size)
+            figure[i * digit_size: (i + 1) * digit_size,
+                   j * digit_size: (j + 1) * digit_size] = digit
+
+    plt.figure(figsize=(10, 10))
+    start_range = digit_size // 2
+    end_range = n * digit_size + start_range + 1
+    pixel_range = np.arange(start_range, end_range, digit_size)
+    sample_range_x = np.round(grid_x, 1)
+    sample_range_y = np.round(grid_y, 1)
+    plt.xticks(pixel_range, sample_range_x)
+    plt.yticks(pixel_range, sample_range_y)
+    plt.xlabel("z[0]")
+    plt.ylabel("z[1]")
+    plt.imshow(figure, cmap='Greys_r')
+    plt.savefig(filename)
+    plt.show()</pre></div><div class="mediaobject"><img src="graphics/B08956_03_07.jpg" alt="Building autoencoders using Keras"/><div class="caption"><p>Figure 3.2.5: A MNIST digit distribution as a function of latent code dimensions, <span class="emphasis"><em>z</em></span>[0] and <span class="emphasis"><em>z</em></span>[1]. Original color photo can be found on the book GitHub repository, https://github.com/PacktPublishing/Advanced-Deep-Learning-with-Keras/blob/master/chapter3-autoencoders/README.md.</p></div></div><div class="mediaobject"><img src="graphics/B08956_03_08.jpg" alt="Building autoencoders using Keras"/><div class="caption"><p>Figure 3.2.6: Digits generated as the 2-dim latent vector space is navigated</p></div></div><p>In <span class="emphasis"><em>Figure 3.2.5</em></span>, we'll be able to see that the latent codes for a specific digit are clustering on a region in space. For example, digit 0<a id="id147" class="indexterm"/> is on the lower left quadrant, while digit 1 is on the upper right quadrant. Such clustering is mirrored in <span class="emphasis"><em>Figure 3.2.6</em></span>. In fact, the same figure shows the result of navigating or generating new digits from the latent space as shown in the <span class="emphasis"><em>Figure 3.2.5</em></span>.</p><p>For example, starting from the center and varying the <a id="id148" class="indexterm"/>value of a 2-dim latent vector towards the lower left quadrant, shows us that the digit changes from 2 to 0. This is expected since from <span class="emphasis"><em>Figure 3.2.5</em></span>, we're able to see that the codes for the digit 2 clusters are near the center, and as discussed digit 0 codes<a id="id149" class="indexterm"/> cluster in the lower left quadrant. For <span class="emphasis"><em>Figure 3.2.6</em></span>, we've only explored the regions between -4.0 and +4.0 for each latent dimension.</p><p>As can be seen in <span class="emphasis"><em>Figure 3.2.5</em></span>, the latent code distribution is not continuous and ranges beyond </p><div class="mediaobject"><img src="graphics/B08956_03_020.jpg" alt="Building autoencoders using Keras"/></div><p>. Ideally, it should look like a circle where there are valid values everywhere. Because of this discontinuity, there are regions where if we decode the latent vector, hardly recognizable digits will be produced.</p></div>
+<div class="section" title="Denoising autoencoder (DAE)"><div class="titlepage"><div><div><h1 class="title"><a id="ch03lvl1sec19"/>Denoising autoencoder (DAE)</h1></div></div></div><p>We're now going to build an autoencoder with a practical<a id="id150" class="indexterm"/> application. Firstly, let's paint a picture and imagine that the MNIST digits images were corrupted by noise, thus making it harder for humans to read. We're able to build a <span class="strong"><strong>Denoising Autoencoder</strong></span> (<span class="strong"><strong>DAE</strong></span>) to remove the noise from these images. <span class="emphasis"><em>Figure 3.3.1</em></span> shows us three sets of MNIST digits. The top rows of each set (for example, MNIST digits 7, 2, 1, 9, 0, 6, 3, 4, 9) are the original images. The middle rows show the inputs to DAE, which are the original images corrupted by noise. The last rows show the outputs of DAE:</p><div class="mediaobject"><img src="graphics/B08956_03_09.jpg" alt="Denoising autoencoder (DAE)"/><div class="caption"><p>Figure 3.3.1: Original MNIST digits (top rows), corrupted original images (middle rows) and denoised images (last rows)</p></div></div><div class="mediaobject"><img src="graphics/B08956_03_10.jpg" alt="Denoising autoencoder (DAE)"/><div class="caption"><p>Figure 3.3.2: The input to the denoising autoencoder is the corrupted image. The output is the clean or denoised image. The latent vector is assumed to be 16-dim.</p></div></div><p>As shown in <span class="emphasis"><em>Figure 3.3.2</em></span>, the denoising<a id="id151" class="indexterm"/> autoencoder has practically the same structure as the autoencoder for MNIST that we presented in the previous section. The input is defined as:</p><div class="mediaobject"><img src="graphics/B08956_03_021.jpg" alt="Denoising autoencoder (DAE)"/></div><p>          (Equation 3.3.1)</p><p>In this formula, </p><div class="mediaobject"><img src="graphics/B08956_03_022.jpg" alt="Denoising autoencoder (DAE)"/></div><p> represents the original MNIST image corrupted by <span class="emphasis"><em>noise</em></span>.</p><p>The objective of the encoder is to discover how to produce the latent vector, <span class="emphasis"><em>z</em></span>, that will enable the decoder to recover </p><div class="mediaobject"><img src="graphics/B08956_03_023.jpg" alt="Denoising autoencoder (DAE)"/></div><p> by minimizing the dissimilarity loss function such as MSE, as shown here:</p><div class="mediaobject"><img src="graphics/B08956_03_024.jpg" alt="Denoising autoencoder (DAE)"/></div><p>          (Equation 3.3.2)</p><p>In this example, <span class="emphasis"><em>m</em></span> is the output dimensions (for example, in MNIST <span class="emphasis"><em>m = width × height × channels = 28 × 28 × 1 = 784</em></span>). </p><div class="mediaobject"><img src="graphics/B08956_03_025.jpg" alt="Denoising autoencoder (DAE)"/></div><p> and </p><div class="mediaobject"><img src="graphics/B08956_03_026.jpg" alt="Denoising autoencoder (DAE)"/></div><p> are the elements of </p><div class="mediaobject"><img src="graphics/B08956_03_027.jpg" alt="Denoising autoencoder (DAE)"/></div><p> and </p><div class="mediaobject"><img src="graphics/B08956_03_028.jpg" alt="Denoising autoencoder (DAE)"/></div><p>, respectively.</p><p>To implement DAE, we're going to need to make a few changes on the autoencoder presented in the previous section. Firstly, the training input data<a id="id152" class="indexterm"/> should be corrupted MNIST digits. The training output data is the same original clean MNIST digits. This is like telling the autoencoder what the corrected images should be or asking it to figure out how to remove noise given a corrupted image. Lastly, we must validate the autoencoder on the corrupted MNIST test data.</p><p>The MNIST digit 7 shown on the left of <span class="emphasis"><em>Figure 3.3.2</em></span> is an actual corrupted image input. The one on the right is the clean image output of a trained denoising autoencoder.</p><p>
+<span class="emphasis"><em>Listing 3.3.1</em></span> shows the denoising autoencoder which has been contributed to the Keras GitHub repository. Using the same MNIST dataset, we're able to simulate corrupted images by adding random noise. The noise added is a Gaussian distribution with a mean, </p><div class="mediaobject"><img src="graphics/B08956_03_029.jpg" alt="Denoising autoencoder (DAE)"/></div><p> and standard deviation of </p><div class="mediaobject"><img src="graphics/B08956_03_030.jpg" alt="Denoising autoencoder (DAE)"/></div><p>. Since adding random noise may push the pixel data into invalid values of less than 0 or greater than 1, the pixel values are clipped to [0.1, 1.0] range.</p><p>Everything else will remain practically the same as the autoencoder from the previous section. We'll use the same MSE loss function and Adam optimizer as the autoencoder. However, the number of epoch for training has increased to 10. This is to allow sufficient parameter optimization.</p><p>
+<span class="emphasis"><em>Figure 3.3.1</em></span> shows actual <a id="id153" class="indexterm"/>validation data with both the corrupted and denoised test MNIST digits. We're even able to see that humans will find it difficult to read the corrupted MNIST digits. <span class="emphasis"><em>Figure 3.3.3</em></span> shows a certain level of robustness of DAE as the level of noise is increased from </p><div class="mediaobject"><img src="graphics/B08956_03_031.jpg" alt="Denoising autoencoder (DAE)"/></div><p> to </p><div class="mediaobject"><img src="graphics/B08956_03_032.jpg" alt="Denoising autoencoder (DAE)"/></div><p> and </p><div class="mediaobject"><img src="graphics/B08956_03_033.jpg" alt="Denoising autoencoder (DAE)"/></div><p>. At </p><div class="mediaobject"><img src="graphics/B08956_03_034.jpg" alt="Denoising autoencoder (DAE)"/></div><p>, DAE is still able to recover the original images. However, at </p><div class="mediaobject"><img src="graphics/B08956_03_035.jpg" alt="Denoising autoencoder (DAE)"/></div><p>, a few digits such as 4 and 5 in the second and third sets can no longer be recovered correctly.</p><div class="mediaobject"><img src="graphics/B08956_03_11.jpg" alt="Denoising autoencoder (DAE)"/><div class="caption"><p>Figure 3.3.3: Performance of denoising autoencoder as the noise level is increased</p></div></div><p>As seen in Listing 3.3.1, <code class="literal">denoising-autoencoder-mnist-3.3.1.py</code> shows us a Denoising autoencoder:</p><div class="informalexample"><pre class="programlisting">from keras.layers import Dense, Input
+from keras.layers import Conv2D, Flatten
+from keras.layers import Reshape, Conv2DTranspose
+from keras.models import Model
+from keras import backend as K
+from keras.datasets import mnist
+import numpy as np
+import matplotlib.pyplot as plt
+from PIL import Image
+
+np.random.seed(1337)
+
+# load MNIST dataset
+(x_train, _), (x_test, _) = mnist.load_data()
+
+# reshape to (28, 28, 1) and normalize input images
+image_size = x_train.shape[1]
+x_train = np.reshape(x_train, [-1, image_size, image_size, 1])
+x_test = np.reshape(x_test, [-1, image_size, image_size, 1])
+x_train = x_train.astype('float32') / 255
+x_test = x_test.astype('float32') / 255
+
+# generate corrupted MNIST images by adding noise with normal dist
+# centered at 0.5 and std=0.5
+noise = np.random.normal(loc=0.5, scale=0.5, size=x_train.shape)
+x_train_noisy = x_train + noise
+noise = np.random.normal(loc=0.5, scale=0.5, size=x_test.shape)
+x_test_noisy = x_test + noise
+
+# adding noise may exceed normalized pixel values&gt;1.0 or &lt;0.0
+# clip pixel values &gt;1.0 to 1.0 and &lt;0.0 to 0.0
+x_train_noisy = np.clip(x_train_noisy, 0., 1.)
+x_test_noisy = np.clip(x_test_noisy, 0., 1.)
+
+# network parameters
+input_shape = (image_size, image_size, 1)
+batch_size = 32
+kernel_size = 3
+latent_dim = 16
+# encoder/decoder number of CNN layers and filters per layer
+layer_filters = [32, 64]
+
+# build the autoencoder model
+# first build the encoder model
+inputs = Input(shape=input_shape, name='encoder_input')
+x = inputs
+
+# stack of Conv2D(32)-Conv2D(64)
+for filters in layer_filters:
+    x = Conv2D(filters=filters,
+               kernel_size=kernel_size,
+               strides=2,
+               activation='relu',
+               padding='same')(x)
+
+# shape info needed to build decoder model 
+# so we don't do hand computation
+# the input to the decoder's first Conv2DTranspose 
+# will have this shape
+# shape is (7, 7, 64) which can be processed by 
+# the decoder back to (28, 28, 1)
+shape = K.int_shape(x)
+
+# generate the latent vector
+x = Flatten()(x)
+latent = Dense(latent_dim, name='latent_vector')(x)
+
+# instantiate encoder model
+encoder = Model(inputs, latent, name='encoder')
+encoder.summary()
+
+
+# build the decoder model
+latent_inputs = Input(shape=(latent_dim,), name='decoder_input')
+# use the shape (7, 7, 64) that was earlier saved
+x = Dense(shape[1] * shape[2] * shape[3])(latent_inputs)
+# from vector to suitable shape for transposed conv
+x = Reshape((shape[1], shape[2], shape[3]))(x)
+
+# stack of Conv2DTranspose(64)-Conv2DTranspose(32)
+for filters in layer_filters[::-1]:
+    x = Conv2DTranspose(filters=filters,
+                        kernel_size=kernel_size,
+                        strides=2,
+                        activation='relu',
+                        padding='same')(x)
+
+# reconstruct the denoised input
+outputs = Conv2DTranspose(filters=1,
+                          kernel_size=kernel_size,
+                          padding='same',
+                          activation='sigmoid',
+                          name='decoder_output')(x)
+
+# instantiate decoder model
+decoder = Model(latent_inputs, outputs, name='decoder')
+decoder.summary()
+
+# autoencoder = encoder + decoder
+# instantiate autoencoder model
+autoencoder = Model(inputs, decoder(encoder(inputs)), name='autoencoder')
+autoencoder.summary()
+
+# Mean Square Error (MSE) loss function, Adam optimizer
+autoencoder.compile(loss='mse', optimizer='adam')
+
+# train the autoencoder
+autoencoder.fit(x_train_noisy,
+                x_train,
+                validation_data=(x_test_noisy, x_test),
+                epochs=10,
+                batch_size=batch_size)
+
+# predict the autoencoder output from corrupted test images
+x_decoded = autoencoder.predict(x_test_noisy)
+
+# 3 sets of images with 9 MNIST digits
+# 1st rows - original images
+# 2<sup>nd</sup> rows - images corrupted by noise
+# 3rd rows - denoised images
+rows, cols = 3, 9
+num = rows * cols
+imgs = np.concatenate([x_test[:num], x_test_noisy[:num], x_decoded[:num]])
+imgs = imgs.reshape((rows * 3, cols, image_size, image_size))
+imgs = np.vstack(np.split(imgs, rows, axis=1))
+imgs = imgs.reshape((rows * 3, -1, image_size, image_size))
+imgs = np.vstack([np.hstack(i) for i in imgs])
+imgs = (imgs * 255).astype(np.uint8)
+plt.figure()
+plt.axis('off')
+plt.title('Original images: top rows, '
+          'Corrupted Input: middle rows, '
+          'Denoised Input:  third rows')
+plt.imshow(imgs, interpolation='none', cmap='gray')
+Image.fromarray(imgs).save('corrupted_and_denoised.png')
+plt.show()</pre></div></div>
+<div class="section" title="Automatic colorization autoencoder"><div class="titlepage"><div><div><h1 class="title"><a id="ch03lvl1sec20"/>Automatic colorization autoencoder</h1></div></div></div><p>We're now<a id="id154" class="indexterm"/> going to work on another practical application of autoencoders. In this case, we're going to imagine that we have a grayscale photo and that we want to build a tool that will automatically add color to them. We would like to replicate the human abilities in identifying that the sea and sky are blue, the grass field and trees are green, while clouds are white, and so on.</p><p>As shown in <span class="emphasis"><em>Figure 3.4.1</em></span>, if we are given a grayscale photo of a rice field on the foreground, a volcano in the background and sky on top, we're able to add the appropriate colors.</p><div class="mediaobject"><img src="graphics/B08956_03_12.jpg" alt="Automatic colorization autoencoder"/><div class="caption"><p>Figure 3.4.1: Adding color to a grayscale photo of the Mayon Volcano. A colorization network should replicate human abilities by adding color to a grayscale photo. Left photo is grayscale. The right photo is color. Original color photo can be found on the book GitHub repository, https://github.com/PacktPublishing/Advanced-Deep-Learning-with-Keras/blob/master/chapter3-autoencoders/README.md.</p></div></div><p>A simple automatic colorization algorithm seems like a suitable problem for autoencoders. If we<a id="id155" class="indexterm"/> can train the autoencoder with a sufficient number of grayscale photos as input and the corresponding colored photos as output, it could possibly discover the hidden structure on properly applying colors. Roughly, it is the reverse process of denoising. The question is, can an autoencoder add color (good noise) to the original grayscale image?</p><p>
+<span class="emphasis"><em>Listing</em></span> <span class="emphasis"><em>3.4.1</em></span> shows the colorization autoencoder network. The colorization autoencoder network is a modified version of denoising autoencoder that we used for the MNIST dataset. Firstly, we need a dataset of grayscale to colored photos. The CIFAR10 database, which we have used before, has 50,000 training and 10,000 testing 32 × 32 RGB photos that can be converted to grayscale. As shown in the following listing, we're able to use the <code class="literal">rgb2gray()</code> function to apply weights on R, G, and B components to convert from color to grayscale.</p><p>Listing 3.4.1, <code class="literal">colorization-autoencoder-cifar10-3.4.1.py</code>, shows us a colorization autoencoder using the CIFAR10 dataset:</p><div class="informalexample"><pre class="programlisting">from keras.layers import Dense, Input
+from keras.layers import Conv2D, Flatten
+from keras.layers import Reshape, Conv2DTranspose
+from keras.models import Model
+from keras.callbacks import ReduceLROnPlateau, ModelCheckpoint
+from keras.datasets import cifar10
+from keras.utils import plot_model
+from keras import backend as K
+
+import numpy as np
+import matplotlib.pyplot as plt
+import os
+
+
+# convert from color image (RGB) to grayscale
+# source: opencv.org
+# grayscale = 0.299*red + 0.587*green + 0.114*blue
+def rgb2gray(rgb):
+    return np.dot(rgb[...,:3], [0.299, 0.587, 0.114])
+
+
+# load the CIFAR10 data
+(x_train, _), (x_test, _) = cifar10.load_data()
+
+# input image dimensions
+# we assume data format "channels_last"
+img_rows = x_train.shape[1]
+img_cols = x_train.shape[2]
+channels = x_train.shape[3]
+
+# create saved_images folder
+imgs_dir = 'saved_images'
+save_dir = os.path.join(os.getcwd(), imgs_dir)
+if not os.path.isdir(save_dir):
+        os.makedirs(save_dir)
+
+# display the 1st 100 input images (color and gray)
+imgs = x_test[:100]
+imgs = imgs.reshape((10, 10, img_rows, img_cols, channels))
+imgs = np.vstack([np.hstack(i) for i in imgs])
+plt.figure()
+plt.axis('off')
+plt.title('Test color images (Ground Truth)')
+plt.imshow(imgs, interpolation='none')
+plt.savefig('%s/test_color.png' % imgs_dir)
+plt.show()
+
+# convert color train and test images to gray
+x_train_gray = rgb2gray(x_train)
+x_test_gray = rgb2gray(x_test)
+
+# display grayscale version of test images
+imgs = x_test_gray[:100]
+imgs = imgs.reshape((10, 10, img_rows, img_cols))
+imgs = np.vstack([np.hstack(i) for i in imgs])
+plt.figure()
+plt.axis('off')
+plt.title('Test gray images (Input)')
+plt.imshow(imgs, interpolation='none', cmap='gray')
+plt.savefig('%s/test_gray.png' % imgs_dir)
+plt.show()
+
+
+# normalize output train and test color images
+x_train = x_train.astype('float32') / 255
+x_test = x_test.astype('float32') / 255
+
+# normalize input train and test grayscale images
+x_train_gray = x_train_gray.astype('float32') / 255
+x_test_gray = x_test_gray.astype('float32') / 255
+
+# reshape images to row x col x channel for CNN output/validation
+x_train = x_train.reshape(x_train.shape[0], img_rows, img_cols, channels)
+x_test = x_test.reshape(x_test.shape[0], img_rows, img_cols, channels)
+
+# reshape images to row x col x channel for CNN input
+x_train_gray = x_train_gray.reshape(x_train_gray.shape[0], img_rows, img_cols, 1)
+x_test_gray = x_test_gray.reshape(x_test_gray.shape[0], img_rows, img_cols, 1)
+
+# network parameters
+input_shape = (img_rows, img_cols, 1)
+batch_size = 32
+kernel_size = 3
+latent_dim = 256
+# encoder/decoder number of CNN layers and filters per layer
+layer_filters = [64, 128, 256]
+
+# build the autoencoder model
+# first build the encoder model
+inputs = Input(shape=input_shape, name='encoder_input')
+x = inputs
+# stack of Conv2D(64)-Conv2D(128)-Conv2D(256)
+for filters in layer_filters:
+    x = Conv2D(filters=filters,
+               kernel_size=kernel_size,
+               strides=2,
+               activation='relu',
+               padding='same')(x)
+
+# shape info needed to build decoder model 
+# so we don't do hand computation
+# the input to the decoder's first Conv2DTranspose 
+# will have this shape
+# shape is (4, 4, 256) which is processed 
+# by the decoder to (32, 32, 3)
+shape = K.int_shape(x)
+
+# generate a latent vector
+x = Flatten()(x)
+latent = Dense(latent_dim, name='latent_vector')(x)
+
+# instantiate encoder model
+encoder = Model(inputs, latent, name='encoder')
+encoder.summary()
+
+# build the decoder model
+latent_inputs = Input(shape=(latent_dim,), name='decoder_input')
+x = Dense(shape[1]*shape[2]*shape[3])(latent_inputs)
+x = Reshape((shape[1], shape[2], shape[3]))(x)
+
+# stack of Conv2DTranspose(256)-Conv2DTranspose(128)-
+# Conv2DTranspose(64)
+for filters in layer_filters[::-1]:
+    x = Conv2DTranspose(filters=filters,
+                        kernel_size=kernel_size,
+                        strides=2,
+                        activation='relu',
+                        padding='same')(x)
+
+outputs = Conv2DTranspose(filters=channels,
+                          kernel_size=kernel_size,
+                          activation='sigmoid',
+                          padding='same',
+                          name='decoder_output')(x)
+
+# instantiate decoder model
+decoder = Model(latent_inputs, outputs, name='decoder')
+decoder.summary()
+
+# autoencoder = encoder + decoder
+# instantiate autoencoder model
+autoencoder = Model(inputs, decoder(encoder(inputs)), name='autoencoder')
+autoencoder.summary()
+
+# prepare model saving directory.
+save_dir = os.path.join(os.getcwd(), 'saved_models')
+model_name = 'colorized_ae_model.{epoch:03d}.h5'
+if not os.path.isdir(save_dir):
+        os.makedirs(save_dir)
+filepath = os.path.join(save_dir, model_name)
+
+# reduce learning rate by sqrt(0.1) if the loss does not improve in 5 epochs
+lr_reducer = ReduceLROnPlateau(factor=np.sqrt(0.1),
+                               cooldown=0,
+                               patience=5,
+                               verbose=1,
+                               min_lr=0.5e-6)
+
+# save weights for future use 
+# (e.g. reload parameters w/o training)
+checkpoint = ModelCheckpoint(filepath=filepath,
+                             monitor='val_loss',
+                             verbose=1,
+                             save_best_only=True)
+
+# Mean Square Error (MSE) loss function, Adam optimizer
+autoencoder.compile(loss='mse', optimizer='adam')
+
+# called every epoch
+callbacks = clr_reducer, checkpoint]
+
+# train the autoencoder
+autoencoder.fit(x_train_gray,
+                x_train,
+                validation_data=(x_test_gray, x_test),
+                epochs=30,
+                batch_size=batch_size,
+                callbacks=callbacks)
+
+# predict the autoencoder output from test data
+x_decoded = autoencoder.predict(x_test_gray)
+
+# display the 1st 100 colorized images
+imgs = x_decoded[:100]
+imgs = imgs.reshape((10, 10, img_rows, img_cols, channels))
+imgs = np.vstack([np.hstack(i) for i in imgs])
+plt.figure()
+plt.axis('off')
+plt.title('Colorized test images (Predicted)')
+plt.imshow(imgs, interpolation='none')
+plt.savefig('%s/colorized.png' % imgs_dir)
+plt.show()</pre></div><p>We've increased the capacity of the autoencoder by adding one more block of convolution and<a id="id156" class="indexterm"/> transposed convolution. We've also doubled the number of filters at each CNN block. The latent vector is now 256-dim in order to increase the number of salient properties it can represent as discussed in the autoencoder section. Finally, the output filter size has increased to three, or equal to the number of channels in RGB of the expected colored output.</p><p>The colorization autoencoder is now trained with the grayscale as inputs and original RGB images as outputs. The training will take more epochs and uses the learning rate reducer to scale down the learning rate when the validation loss is not improving. This can be easily done by telling the <code class="literal">callbacks</code> argument in the Keras <code class="literal">fit()</code> function to call the <code class="literal">lr_reducer()</code> function.</p><p>
+<span class="emphasis"><em>Figure 3.4.2</em></span> demonstrates colorization of grayscale images from the test dataset of CIFAR10. <span class="emphasis"><em>Figure 3.4.3</em></span> compares the ground truth with the colorization autoencoder prediction. The autoencoder performs an acceptable colorization job. The sea or sky is predicted to be blue, animals have varying brown shades, the cloud is white, and so on.</p><p>There are some noticeable wrong predictions like red vehicles have become blue or blue vehicles become red, and the occasional green field has been mistaken as blue skies, and dark or golden skies are converted to blue skies.</p><div class="mediaobject"><img src="graphics/B08956_03_13.jpg" alt="Automatic colorization autoencoder"/><div class="caption"><p>Figure 3.4.2: Automatic grayscale to color image conversion using the autoencoder. CIFAR10 test grayscale input images (left) and predicted color images (right). Original color photo can be found on the book GitHub repository, https://github.com/PacktPublishing/Advanced-Deep-Learning-with-Keras/blob/master/chapter3-autoencoders/README.md.</p></div></div><div class="mediaobject"><img src="graphics/B08956_03_14.jpg" alt="Automatic colorization autoencoder"/><div class="caption"><p>Figure 3.4.3: Side by side comparison of ground truth color images and predicted colorized images. Original color photos can be found on the book GitHub repository, https://github.com/PacktPublishing/Advanced-Deep-Learning-with-Keras/blob/master/chapter3-autoencoders/README.md.</p></div></div></div>
+<div class="section" title="Conclusion"><div class="titlepage"><div><div><h1 class="title"><a id="ch03lvl1sec21"/>Conclusion</h1></div></div></div><p>In this chapter, we've been introduced to autoencoders, which are neural networks that compress input data into low-dimensional codes in order to efficiently perform structural transformations such as denoising and colorization. We've laid the foundations to the more advanced topics of GANs and VAEs, that we will introduce in later chapters, while still exploring how autoencoders can utilize Keras. We've demonstrated how to implement an autoencoder from two building block models, both encoder and decoder. We've also learned how the extraction of a hidden structure of input distribution is one of the common tasks in AI.</p><p>Once the latent code has been uncovered, there are many structural operations that can be performed on the original input distribution. In order to gain a better understanding of the input distribution, the hidden structure in the form of the latent vector can be visualized using low-level embedding similar to what we did in this chapter or through more sophisticated dimensionality reduction techniques such t-SNE or PCA.</p><p>Apart from denoising and colorization, autoencoders are used in converting input distribution to low-dimensional latent codes that can be further processed for other tasks such as segmentation, detection, tracking, reconstruction, visual understanding, and so on. In <a class="link" href="ch08.html" title="Chapter 8. Variational Autoencoders (VAEs)">Chapter 8</a>, <span class="emphasis"><em>Variational Autoencoders (VAEs)</em></span>, we will discuss VAEs which are structurally the same as autoencoder but differ by having an interpretable latent code that can produce a continuous latent codes projection. In the next chapter, we will embark on one of the most important recent breakthroughs in AI, the introduction of GANs where we will learn of the core strengths of GANs and their ability to synthesize data or signals that look real.</p></div>
+<div class="section" title="References"><div class="titlepage"><div><div><h1 class="title"><a id="ch03lvl1sec22"/>References</h1></div></div></div><div class="orderedlist"><ol class="orderedlist arabic"><li class="listitem">Ian Goodfellow and<a id="id157" class="indexterm"/> others. <span class="emphasis"><em>Deep learning</em></span>. Vol. 1. Cambridge: MIT press, 2016 (<a class="ulink" href="http://www.deeplearningbook.org/">http://www.deeplearningbook.org/</a>).</li></ol></div></div></body></html>
