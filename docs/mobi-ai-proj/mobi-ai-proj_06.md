@@ -1,4 +1,4 @@
-# PyTorch 在 NLP 和 RNN 上的实验
+# 第六章：PyTorch 在 NLP 和 RNN 上的实验
 
 在本章中，我们将深入研究 PyTorch 库在 **自然语言处理**（**NLP**）和其他实验中的应用。然后，我们将把开发的模型转换为可以在 Android 或 iOS 应用中使用的格式，使用 TensorFlow 和 CoreML。
 

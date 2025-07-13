@@ -1,4 +1,4 @@
-# 使用 YOLO、JavaCV 和 DL4J 进行实时物体检测
+# 第六章：使用 YOLO、JavaCV 和 DL4J 进行实时物体检测
 
 ```py
 Deep Convolutional Neural Networks (DCNN) have been used in computer vision—for example, image classification, image feature extraction, object detection, and semantic segmentation. Despite such successes of state-of-the-art approaches for object detection from still images, detecting objects in a video is not an easy job.

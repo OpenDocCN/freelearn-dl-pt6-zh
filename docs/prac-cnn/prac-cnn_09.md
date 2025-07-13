@@ -1,4 +1,4 @@
-# CNN 和视觉模型中的注意力机制
+# 第九章：CNN 和视觉模型中的注意力机制
 
 并非图像或文本中的每一部分——或者一般来说，任何数据——从我们需要获得的洞察角度来看都是同等相关的。例如，考虑一个任务，我们需要预测一个冗长陈述序列中的下一个单词，如 *Alice and Alya are friends. Alice lives in France and works in Paris. Alya is British and works in London. Alice prefers to buy books written in French, whereas Alya prefers books in _____.*  
 

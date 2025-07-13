@@ -1,4 +1,4 @@
-# 使用 WaveNet 模型进行语音转文本的 TensorFlow 移动端实现
+# 第七章：使用 WaveNet 模型进行语音转文本的 TensorFlow 移动端实现
 
 在本章中，我们将学习如何使用 WaveNet 模型将音频转换为文本。然后，我们将构建一个模型，使用 Android 应用程序将音频转换为文本。
 

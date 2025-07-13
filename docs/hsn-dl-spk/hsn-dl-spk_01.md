@@ -1,4 +1,4 @@
-# Apache Spark 生态系统
+# 第一章：Apache Spark 生态系统
 
 Apache Spark ([`spark.apache.org/`](http://spark.apache.org/)) 是一个开源的快速集群计算平台。最初由加利福尼亚大学伯克利分校的 AMPLab 创建，后来其源代码被捐赠给了 Apache 软件基金会 ([`www.apache.org/`](https://www.apache.org/))。Spark 因其计算速度非常快而广受欢迎，因为数据被加载到分布式内存（RAM）中，分布在集群中的各台机器上。数据不仅可以快速转换，还可以根据需要进行缓存，适用于多种用例。与 Hadoop MapReduce 相比，当数据能够放入内存时，Spark 的程序运行速度快达 100 倍，或者在磁盘上快 10 倍。Spark 支持四种编程语言：Java、Scala、Python 和 R。本书仅涵盖 Scala ([`www.scala-lang.org/`](https://www.scala-lang.org/)) 和 Python ([`www.python.org/`](https://www.python.org/)) 的 Spark API（以及深度学习框架）。
 

@@ -1,4 +1,4 @@
-# 卷积神经网络简介
+# 第二章：卷积神经网络简介
 
 **卷积神经网络**（**CNNs**）无处不在。在过去五年中，由于引入了深度架构用于特征学习和分类，视觉识别系统的性能得到了显著提升。CNN 在多个领域取得了良好的表现，如自动语音理解、计算机视觉、语言翻译、自动驾驶汽车以及类似 Alpha Go 的游戏。因此，CNN 的应用几乎是无限的。DeepMind（来自谷歌）最近发布了 WaveNet，这是一种利用 CNN 生成模仿任何人类声音的语音的技术（[`deepmind.com/blog/wavenet-generative-model-raw-audio/`](https://deepmind.com/blog/wavenet-generative-model-raw-audio/)）。
 
