@@ -1,0 +1,1018 @@
+- en: Annotating Images with Object Detection API
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Computer vision has made great leaps forward in recent years because of deep
+    learning, thus granting computers a higher grade in understanding visual scenes.
+    The potentialities of deep learning in vision tasks are great: allowing a computer
+    to visually perceive and understand its surroundings is a capability that opens
+    the door to new artificial intelligence applications in both mobility (for instance,
+    self-driving cars can detect if an appearing obstacle is a pedestrian, an animal
+    or another vehicle from the camera mounted on the car and decide the correct course
+    of action) and human-machine interaction in everyday-life contexts (for instance,
+    allowing a robot to perceive surrounding objects and successfully interact with
+    them).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: After presenting ConvNets and how they operate in the first chapter, we now
+    intend to create a quick, easy project that will help you to use a computer to
+    understand images taken from cameras and mobile phones, using images collected
+    from the Internet or directly from your computer's webcam. The goal of the project
+    is to find the exact location and the type of the objects in an image.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In order to achieve such classification and localization, we will leverage the
+    new TensorFlow object detection API, a Google project that is part of the larger
+    TensorFlow models project which makes a series of pre-trained neural networks
+    available off-the-shelf for you to wrap up in your own custom applications.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this chapter, we are going to illustrate the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The advantages of using the right data for your project
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: A brief presentation of the TensorFlow object detection API
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: How to annotate stored images for further use
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: How to visually annotate a video using `moviepy`
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: How to go real-time by annotating images from a webcam
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The Microsoft common objects in context
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Advances in application of deep learning  in computer vision are often highly
+    focalized on the kind of classification problems that can be summarized by challenges
+    such as ImageNet (but also, for instance, PASCAL VOC - [http://host.robots.ox.ac.uk/pascal/VOC/voc2012/](http://host.robots.ox.ac.uk/pascal/VOC/voc2012/))
+    and the ConvNets suitable to crack it (Xception, VGG16, VGG19, ResNet50, InceptionV3,
+    and MobileNet, just to quote the ones available in the well-known package `Keras`: [https://keras.io/applications/](https://keras.io/applications/)).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Though deep learning networks based on ImageNet data are the actual state of
+    the art,  such networks can experience difficulties when faced with real-world
+    applications. In fact, in practical applications, we have to process images that
+    are quite different from the examples provided by ImageNet. In ImageNet the elements
+    to be classified are clearly the only clear element present in the image, ideally
+    set in an unobstructed way near the center of a neatly composed photo. In the
+    reality of images taken from the field, objects are randomly scattered around,
+    in often large number.  All these objects are also quite different from each other,
+    creating sometimes confusing settings. In addition, often objects of interest
+    cannot be clearly and directly perceived because they are visually obstructed
+    by other potentially interesting objects.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Please refer to the figure from the following mentioned reference:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Figure 1: A sample of images from ImageNet: they are arranged in a hierarchical
+    structure, allowing working with both general or more specific classes.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'SOURCE: DENG, Jia, et al. Imagenet: A large-scale hierarchical image database.
+    In: Computer Vision and Pattern Recognition, 2009\. CVPR 2009\. IEEE Conference
+    on. IEEE, 2009\. p. 248-255.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Realistic images contain multiple objects that sometimes can hardly be distinguished
+    from a noisy background. Often you really cannot create interesting projects just
+    by labeling an image with a tag simply telling you the object was recognized with
+    the highest confidence.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In a real-world application, you really need to be able to do the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Object classification of single and multiple instances when recognizing various
+    objects, often of the same class
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Image localization, that is understanding where the objects are in the image
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Image segmentation,  by marking each pixel in the images with a label: the
+    type of object or background in order to be able to cut off interesting parts
+    from the background.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'The necessity to train a ConvNet to be able to achieve some or all of the preceding
+    mentioned objectives led to the creation of the **Microsoft common objects in
+    context** (**MS COCO**) dataset, as described in the paper: LIN, Tsung-Yi, et
+    al. Microsoft coco: common objects in context. In: *European conference on computer
+    vision*. Springer, Cham, 2014\. p. 740-755. (You can read the original paper at
+    the following link: [https://arxiv.org/abs/1405.0312](https://arxiv.org/abs/1405.0312).)
+    This dataset is made up of 91 common object categories, hierarchically ordered,
+    with 82 of them having more than 5,000 labeled instances. The dataset totals 2,500,000
+    labeled objects distributed in 328,000 images.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Here are the classes that can be recognized in the MS COCO dataset:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Though the `ImageNet` dataset can present 1,000 object classes (as described
+    at [https://gist.github.com/yrevar/942d3a0ac09ec9e5eb3a](https://gist.github.com/yrevar/942d3a0ac09ec9e5eb3a))
+    distributed in 14,197,122 images,  MS COCO offers the peculiar feature of multiple
+    objects distributed in a minor number of images (the dataset has been gathered
+    using Amazon Mechanical Turk, a somehow more costly approach but shared by ImageNet,
+    too). Given such premises, the MS COCO images can be considered very good examples
+    of *contextual relationships and non-iconic object views*, since objects are arranged
+    in realistic positions and settings. This can be verified from this comparative
+    example taken from the MS COCO paper previously mentioned:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/e385e147-49ee-4177-a540-cd7715d1a81d.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Figure 2: Examples of iconic and non-iconic images. SOURCE: <q>LIN, Tsung-Yi,
+    et al. Microsoft coco: common objects in context. In: European conference on computer
+    vision. Springer, Cham, 2014\. p. 740-755.</q>'
+  prefs: []
+  type: TYPE_NORMAL
+- en: In addition, the image annotation of MS COCO is particularly rich, offering
+    the coordinates of the contours of the objects present in the images. The contours
+    can be easily translated into bounding boxes, boxes that delimit the part of the
+    image where the object is located. This is a rougher way to locate objects than
+    the original one used for training MS COCO itself, based on pixel segmentation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the following figure, a crowded row has been carefully segmented by defining
+    notable areas in an image and creating a textual description of those areas. In
+    machine learning terms, this translates to assigning a label to every pixel in
+    the image and trying to predict the segmentation class (corresponding to the textual
+    description). Historically this has been done with image processing until ImageNet
+    2012 when deep learning proved a much more efficient solution.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '2012 marked a milestone in computer vision because for the first time a deep
+    learning solution provided many superior results than any technique used before:
+    <q>KRIZHEVSKY, Alex; SUTSKEVER, Ilya; HINTON, Geoffrey E. Imagenet classification
+    with deep convolutional neural networks. In: Advances in neural information processing
+    systems. 2012\. p. 1097-1105</q> ( [https://papers.nips.cc/paper/4824-imagenet-classification-with-deep-convolutional-neural-networks.pdf](https://papers.nips.cc/paper/4824-imagenet-classification-with-deep-convolutional-neural-networks.pdf)).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Image segmentation is particularly useful for various tasks, such as:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Highlighting the important objects in an image, for instance in medical applications
+    detecting areas with illness
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Locating objects in an image so that a robot can pick them up or manipulate
+    them
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Helping with road scene understanding for self-driving cars or drones to navigate
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Editing images by automatically extracting portions of an image or removing
+    a background
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'This kind of annotation is very expensive (hence the reduced number of examples
+    in MS COCO) because it has to be done completely by hand and it requires attention
+    and precision. There are some tools to help with annotating by segmenting an image.
+    You can find a comprehensive list at [https://stackoverflow.com/questions/8317787/image-labelling-and-annotation-tool](https://stackoverflow.com/questions/8317787/image-labelling-and-annotation-tool).
+    However, we can suggest the following two tools, if you want to annotate by segmentation
+    images by yourself:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: LabelImg [https://github.com/tzutalin/labelImg](https://github.com/tzutalin/labelImg)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: FastAnnotationTool [https://github.com/christopher5106/FastAnnotationTool](https://github.com/christopher5106/FastAnnotationTool)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'All these tools can also be used for the much simpler annotation by bounding
+    boxes, and they really can come in handy if you want to retrain a model from MS
+    COCO using a class of your own. (We will mention this again at the end of the
+    chapter):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/c1fdcbaf-6a54-4ee1-8097-2ceb57ac2a70.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: A pixel segmentation of an image used in MS COCO training phase
+  prefs: []
+  type: TYPE_NORMAL
+- en: The TensorFlow object detection API
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: As a way of boosting the capabilities of the research community, Google research
+    scientists and software engineers often develop state-of-the-art models and make
+    them available to the public instead of keeping them proprietary. As described
+    in the Google research blog post, [https://research.googleblog.com/2017/06/supercharge-your-computer-vision-models.html](https://research.googleblog.com/2017/06/supercharge-your-computer-vision-models.html)
+    , on October 2016, Google's in-house object detection system placed first in the
+    COCO detection challenge, which is focused on finding objects in images (estimating
+    the chance that an object is in this position) and their bounding boxes (you can
+    read the technical details of their solution at [https://arxiv.org/abs/1611.10012](https://arxiv.org/abs/1611.10012)).
+  prefs: []
+  type: TYPE_NORMAL
+- en: The Google solution has not only contributed to quite a few papers and been
+    put to work in some Google products (Nest Cam - [https://nest.com/cameras/nest-aware/](https://nest.com/cameras/nest-aware/),
+    Image Search - [https://www.blog.google/products/search/now-image-search-can-jump-start-your-search-style/](https://www.blog.google/products/search/now-image-search-can-jump-start-your-search-style/),
+    and Street View - [https://research.googleblog.com/2017/05/updating-google-maps-with-deep-learning.html](https://research.googleblog.com/2017/05/updating-google-maps-with-deep-learning.html)),
+    but has also been released to the larger public as an open source framework built
+    on top of TensorFlow.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The framework offers some useful functions and  these five pre-trained different
+    models (constituting the so-called pre-trained Model Zoo):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Single Shot Multibox Detector (SSD) with MobileNets
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: SSD with Inception V2
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Region-Based Fully Convolutional Networks (R-FCN) with Resnet 101
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Faster R-CNN with Resnet 101
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Faster R-CNN with Inception Resnet v2
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'The models are in growing order of precision in detection and slower speed
+    of execution of the detection process. MobileNets, Inception and Resnet refer
+    to different types of CNN network architectures (MobileNets, as the name suggests,
+    it is the architecture optimized for mobile phones, smaller in size and faster
+    in execution). We have discussed CNN architecture in the previous chapter, so
+    you can refer there for more insight on such architectures. If you need a refresher,
+    this blog post by Joice Xu can help you revise the topic in an easy way: [https://towardsdatascience.com/an-intuitive-guide-to-deep-network-architectures-65fdc477db41](https://towardsdatascience.com/an-intuitive-guide-to-deep-network-architectures-65fdc477db41).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Single Shot Multibox Detector** (**SSD**),  **Region-Based Fully convolutional
+    networks** (**R-FCN**)  and **Faster Region-based convolutional neural networks**
+    (**Faster R-CNN**) are instead the different models to detect multiple objects
+    in images. In the next paragraph, we are going to explain something about how
+    they effectively work.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Depending on your application, you can decide on the most suitable model for
+    you (you have to experiment a bit), or aggregate results from multiple models
+    in order to get better results (as done by the researchers at Google in order
+    to win the COCO competition).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Grasping the basics of R-CNN, R-FCN and  SSD models
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Even if you have clear in mind how a  CNN can manage to classify an image, it
+    could be less obvious for you how a neural network can localize multiple objects
+    into an image by defining its bounding box (a rectangular perimeter bounding the
+    object itself). The first and easiest solution that you may imagine could be to
+    have a sliding window and apply the CNN on each window, but that could be really
+    computationally expensive for most real-world applications (if you are powering
+    the vision of a self-driving car, you do want it to recognize the obstacle and
+    stop before hitting it).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You can find more about the sliding windows approach for object detection in
+    this blog post by Adrian Rosebrock: [https://www.pyimagesearch.com/2015/03/23/sliding-windows-for-object-detection-with-python-and-opencv/](https://www.pyimagesearch.com/2015/03/23/sliding-windows-for-object-detection-with-python-and-opencv/)
+    that makes an effective example by pairing it with image pyramid.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Though reasonably intuitive, because of its complexity and being computationally
+    cumbersome (exhaustive and working at different image scales), the sliding window
+    has quite a few limits, and an alternative preferred solution has immediately
+    been found in the *region proposal* algorithms. Such algorithms use image segmentation
+    (segmenting, that is dividing the image into areas based on the main color differences
+    between areas themselves) in order to create a tentative enumeration of possible
+    bounding boxes in an image. You can find a detailed explanation of how the algorithm
+    works in this post by Satya Mallik: [https://www.learnopencv.com/selective-search-for-object-detection-cpp-python/](https://www.learnopencv.com/selective-search-for-object-detection-cpp-python/).
+    The point is that region proposal algorithms suggest a limited number of boxes
+    to be evaluated, a much smaller one than the one proposed by an exhaustive sliding
+    windows algorithm. That allowed them to be applied in the first R-CNN, Region-based
+    convolutional neural networks, which worked by:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: finding a few hundreds or thousands of regions of interest in the image, thanks
+    to a region proposal algorithm
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Process by a CNN each region of interest, in order to create features of each
+    area
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Use the features to classify the region by a support vector machine and a linear
+    regression to compute bounding boxes that are more precise.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'The immediate evolution of R-CNN was Fast R-CNN which made things even speedier
+    because:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: it processed all the image at once with CNN, transformed it and applied the
+    region proposal on the transformation. This cut down the CNN processing from a
+    few thousand calls to a single one.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Instead of using an SVM for classification, it used a soft-max layer and a linear
+    classifier, thus simply extending the CNN instead of passing the data to a different
+    model.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: In essence, by using a Fast R-CNN we had again a single classification network
+    characterized by a special filtering and selecting layer, the region proposal
+    layer, based on a non-neural network algorithm. Faster R-CNN even changed that
+    layer, by replacing it with a region proposal neural network. That made the model
+    even more complicated but most effective and faster than any previous method.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'R-FCN, anyway, are even faster than Faster R-CNN, because they are fully convolutional
+    networks, that don’t use any fully connected layer after their convolutional layers.
+    They are end-to-end networks: from input by convolutions to output. That simply
+    makes them even faster (they have a much lesser number of weights than CNN with
+    a fully connect layer at their end). But their speed comes at a price, they have
+    not been characterized anymore by image invariance (CNN can figure out the class
+    of an object, no matter how the object is rotated). Faster R-CNN supplements this
+    weakness by a position-sensitive score map, that is a way to check if parts of
+    the original image processed by the FCN correspond to parts of the class to be
+    classified. In easy words, they don’t compare to classes, but to part of classes.
+    For instance, they don’t classify a dog, but a dog-upper-left part, a dog-lower-right-part
+    and so on. This approach allows to figure out if there is a dog in a part of the
+    image, no matter how it is orientated. Clearly, this speedier approach comes at
+    the cost of less precision, because position-sensitive score maps cannot supplement
+    all the original CNN characteristics.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Finally, we have SSD (Single Shot Detector). Here the speed is even greater
+    because the network simultaneously predicts the bounding box location and its
+    class as it processes the image. SSD computes a large number of bounding boxes,
+    by simply skipping the region proposal phase. It just reduces highly-overlapping
+    boxes, but still, it processes the largest number of bounding boxes compared to
+    all the model we mentioned up-so-far. Its speed is because as it delimits each
+    bounding box it also classifies it: by doing everything in one shot, it has the
+    fastest speed, though performs in a quite comparable way.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Another short article by Joice Xu can provide you with more details on the
+    detection models we discussed up so far: [https://towardsdatascience.com/deep-learning-for-object-detection-a-comprehensive-review-73930816d8d9](https://towardsdatascience.com/deep-learning-for-object-detection-a-comprehensive-review-73930816d8d9)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Summing up all the discussion, in order to choose the network you have to consider
+    that you are combining different CNN architectures in classification power and
+    network complexity and different detection models. It is their combined effect
+    to determinate the capability of the network to spot objects, to correctly classify
+    them, and to do all that in a timely fashion.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'If you desire to have more reference in regard to the speed and precision of
+    the models we have briefly explained, you can consult: *Speed/accuracy trade-offs
+    for modern convolutional object detectors*. Huang J, Rathod V, Sun C, Zhu M, Korattikara
+    A, Fathi A, Fischer I, Wojna Z, Song Y, Guadarrama S, Murphy K, CVPR 2017: [http://openaccess.thecvf.com/content_cvpr_2017/papers/Huang_SpeedAccuracy_Trade-Offs_for_CVPR_2017_paper.pdf](http://openaccess.thecvf.com/content_cvpr_2017/papers/Huang_SpeedAccuracy_Trade-Offs_for_CVPR_2017_paper.pdf) Yet,
+    we cannot but advise to just test them in practice for your application, evaluating
+    is they are good enough for the task and if they execute in a reasonable time.
+    Then it is just a matter of a trade-off you have to best decide for your application.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Presenting our project plan
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Given such a powerful tool made available by TensorFlow, our plan is to leverage
+    its API by creating a class you can use for annotating images both visually and
+    in an external file. By annotating, we mean the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Pointing out the objects in an image (as recognized by a model trained on MS
+    COCO)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Reporting the level of confidence in the object recognition (we will consider
+    only objects above a minimum probability threshold, which is set to 0.25, based
+    on the *speed/accuracy trade-offs for modern convolutional object detector*s discussed
+    in the paper previously mentioned)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Outputting the coordinates of two opposite vertices of the bounding box for
+    each image
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Saving all such information in a text file in JSON format
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Visually representing the bounding box on the original image, if required
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'In order to achieve such objectives, we need to:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Download one of the pre-trained models (available in `.pb` format - [protobuf](https://developers.google.com/protocol-buffers/))
+    and make it available in-memory as a TensorFlow session.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Reformulate the helper code provided by TensorFlow in order to make it easier
+    to load labels, categories, and visualization tools by a class that can be easily
+    imported into your scripts.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Prepare a simple script to demonstrate its usage with single images, videos,
+    and videos captured from a webcam.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: We start by setting up an environment suitable for the project.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Setting up an environment suitable for the project
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'You don''t need any specialized environment in order to run the project, though
+    we warmly suggest installing Anaconda `conda` and creating a separated environment
+    for the project. The instructions to run if `conda` is available on your system
+    are as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'After activating the environment, you can install some other packages that
+    require a `pip install` command or a `conda install` command pointing to another
+    repository (`menpo`, `conda-forge`):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: In case you prefer another way of running this project, just consider that you
+    need `numpy`, `pillow`, `TensorFlow`, `opencv`, `imageio`, `tqdm`, and `moviepy`
+    in order to run it successfully.
+  prefs: []
+  type: TYPE_NORMAL
+- en: For everything to run smoothly, you also need to create a directory for your
+    project and to save in it the `object_detection` directory of the TensorFlow object
+    detection API project ([https://github.com/tensorflow/models/tree/master/research/object_detection](https://github.com/tensorflow/models/tree/master/research/object_detection)).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You can simply obtain that by using the `git` command on the entire TensorFlow
+    models'' project and selectively pulling only that directory. This is possible
+    if your Git version is 1.7.0 (February 2012) or above:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'These commands will fetch all the objects in the TensorFlow models project,
+    but it won''t check them out. By following those previous commands by:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: You will now have only the `object_detection` directory and its contents as
+    *checked out* on your filesystem and no other directories or files present.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Just keep in mind that the project will need to access the `object_detection`
+    directory, thus you will have to keep the project script in the very same directory
+    of `object_detection` directory. In order to use the script outside of its directory,
+    you will need to access it using a full path.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Protobuf compilation
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The TensorFlow object detection API uses *protobufs*, protocol buffers -- Google's
+    data interchange format ([https://github.com/google/protobuf](https://github.com/google/protobuf)),
+    to configure the models and their training parameters. Before the framework can
+    be used, the protobuf libraries must be compiled, and that requires different
+    steps if you are in a Unix (Linux or Mac) or Windows OS environment.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Windows installation
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: First, unpack the [protoc-3.2.0-win32.zip](https://github.com/google/protobuf/releases/download/v3.2.0/protoc-3.2.0-win32.zip)
+    that can be found at [https://github.com/google/protobuf/releases](https://github.com/google/protobuf/releases)
+    into the project folder. Now you should have a new `protoc-3.4.0-win32` directory,
+    containing a `readme.txt` and two directories, `bin`, and `include`. The folders
+    contain a precompiled binary version of the protocol buffer compiler (*protoc*).
+    All you have to do is add the `protoc-3.4.0-win32` directory to the system path.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'After adding it to the system path, you can execute the following command:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: That should be enough to allow the TensorFlow object detection API to work on
+    your computer.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Unix installation
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: For Unix environments, the installation procedure can be done using shell commands,
+    just follow the instructions available at [https://github.com/tensorflow/models/blob/master/research/object_detection/g3doc/installation.md](https://github.com/tensorflow/models/blob/master/research/object_detection/g3doc/installation.md).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Provisioning of the project code
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'We start scripting our project in the file `tensorflow_detection.py` by loading
+    the necessary packages:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: In order to be able to process videos, apart from OpenCV 3, we also need the
+    `moviepy` package. The package `moviepy` is a project that can be found at [http://zulko.github.io/moviepy/](http://zulko.github.io/moviepy/)
+    and freely used since it is distributed with an MIT license. As described on its
+    home page, `moviepy` is a tool for video editing (that is cuts, concatenations,
+    title insertions), video compositing (non-linear editing), video processing, or
+    to create advanced effects.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The package operates with the most common video formats, including the GIF
+    format. It needs the `FFmpeg` converter ([https://www.ffmpeg.org/](https://www.ffmpeg.org/))
+    in order to properly operate, therefore at its first usage it will fail to start
+    and will download `FFmpeg` as a plugin using `imageio`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Finally, we require two useful functions available in the `object_detection`
+    directory from the TensorFlow API project:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We define the `DetectionObj` class and its `init` procedure. The initialization
+    expects only a parameter and the model name (which is initially set to the less
+    well performing, but faster and more lightweight model, the SSD MobileNet), but
+    a few internal parameters can be changed to suit your use of the class:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`self.TARGET_PATH` pointing out the directory where you want the processed
+    annotations to be saved.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`self.THRESHOLD` fixing the probability threshold to be noticed by the annotation
+    process. In fact, any model of the suit will output many low probability detections
+    in every image. Objects with too low probabilities are usually false alarms, for
+    such reasons you fix a threshold and ignore such highly unlikely detection. As
+    a rule of thumb, 0.25 is a good threshold in order to spot uncertain objects due
+    to almost total occlusion or visual clutter.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: As a convenient variable to have access to, you have the `self.LABELS` containing
+    a dictionary relating a class numerical code to its textual representation. Moreover,
+    the `init` procedure will have the `TensorFlow` session loaded, open, and ready
+    to be used at `self.TF_SESSION`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The functions `load_frozen_model` and `download_frozen_model` will help the
+    `init` procedure to load the chosen frozen model from disk and, if not available,
+    will help to download it as a TAR file from the internet and unzip it in the proper
+    directory (which is `object_detection`):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The function `download_frozen_model` leverages the `tqdm` package in order
+    to visualize its progress as it downloads the new models from the internet. Some
+    models are quite large (over 600 MB) and it may take a long time. Providing visual
+    feedback on the progress and estimated time of completion will allow the user
+    to be more confident about the progression of the operations:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The following two functions, `load_image_from_disk` and `load_image_into_numpy_array`,
+    are necessary in order to pick an image from disk and transform it into a Numpy
+    array suitable for being processed by any of the TensorFlow models available in
+    this project:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: The `detect` function, instead, is the core of the classification functionality
+    of the class. The function just expects lists of images to be processed. A Boolean
+    flag, `annotate_on_image`, just tells the script to visualize the bounding box
+    and the annotation directly on the provided images.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Such a function is able to process images of different sizes, one after the
+    other, but it necessitates processing each one singularly. Therefore, it takes
+    each image and expands the dimension of the array, adding a further dimension. This
+    is necessary because the model expects an array of size: number of images * height
+    * width * depth.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note, we could pack all the batch images to be predicted into a single matrix.
+    That would work fine, and it would be faster if all the images were of the same
+    height and width, which is an assumption that our project does not make, hence
+    the single image processing.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We then take a few tensors in the model by name (`detection_boxes`, `detection_scores`,
+    `detection_classes`, `num_detections`), which are exactly the outputs we expect
+    from the model, and we feed everything to the input tensor, `image_tensor`, which
+    will normalize the image in a suitable form for the layers of the model to process.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The results are gathered into a list and the images are processed with the
+    detection boxes and represented if required:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: The function `detection_on_image` just processes the results from the `detect`
+    function and returns a new image enriched by bounding boxes which will be represented
+    on screen by the function `visualize_image` (You can adjust the latency parameter,
+    which corresponds to the seconds the image will stay on screen before the script
+    passes to process another image).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The function `visualize_image` offers a few parameters that could be modified
+    in order to suit your needs in this project. First of all, `image_size` provides
+    the desired size of the image to be represented on screen. Larger or shorter images
+    are therefore modified in order to partially resemble this prescribed size. The
+    `latency` parameter, instead, will define the time in seconds that each image
+    will be represented on the screen, thus locking the object detection procedure,
+    before moving to the next one. Finally, the `bluish_correction` is just a correction
+    to be applied when images are offered in the **BGR** format (in this format the
+    color channels are arranged in the order: **blue-green-red** and it is the standard
+    for the OpenCV library: [https://stackoverflow.com/questions/14556545/why-opencv-using-bgr-colour-space-instead-of-rgb](https://stackoverflow.com/questions/14556545/why-opencv-using-bgr-colour-space-instead-of-rgb))
+    , instead of the **RGB** (**red-green-blue**), which is the image format the model
+    is expecting:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Annotations are prepared and written to disk by the `serialize_annotations`
+    function, which will create single JSON files containing, for each image, the
+    data regarding the detected classes, the vertices of the bounding boxes, and the
+    detection confidence. For instance, this is the result from a detection on a dog''s
+    photo:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The JSON points out the detected class, a single dog, the level of confidence
+    (about 0.91 confidence), and the vertices of the bounding box, and expresses as
+    percentages the height and width of the image (they are therefore relative, not
+    absolute pixel points):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The function `get_time` conveniently transforms the actual time into a string
+    that can be used in a filename:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Finally, we prepare three detection pipelines, for images, videos, and webcam.
+    The pipeline for images loads each image into a list. The pipeline for videos
+    lets the `VideoFileClip` module from `moviepy` do all the heavy lifting after
+    simply passing the `detect` function appropriately wrapped in the `annotate_photogram`
+    function. Finally, the pipeline for webcam capture relies on a simple `capture_webcam`
+    function that, based on OpenCV''s VideoCapture, records a number of snapshots
+    from the webcam returning just the last (the operation takes into account the
+    time necessary for the webcam before adjusting to the light levels of the environment):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The `capture_webcam` function will acquire an image from your webcam using
+    the `cv2.VideoCapture` functionality ([http://docs.opencv.org/3.0-beta/modules/videoio/doc/reading_and_writing_video.html](http://docs.opencv.org/3.0-beta/modules/videoio/doc/reading_and_writing_video.html))
+    . As webcams have first to adjusts to the light conditions present in the environment
+    where the picture is taken, the procedure discards a number of initial shots,
+    before taking the shot that will be used in the object detection procedure. In
+    this way, the webcam has all the time to adjust its light settings, :'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The `file_pipeline` comprises all the steps necessary to load images from storage
+    and visualize/annotate them:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Loading images from disk.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Applying object detection on the loaded images.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Writing the annotations for each image in a JSON file.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'If required by the Boolean parameter `visualize`, represent the images with
+    its bounding boxes on the computer''s screen:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The `video_pipeline` simply arranges all the steps necessary to annotate a
+    video with bounding boxes and, after completing the operation, saves it to disk:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The `webcam_pipeline` is the function that arranges all the steps when you
+    want to annotate an image acquired from your webcam:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Captures an image from the webcam.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Saves the captured image to disk (using `cv2.imwrite` which has the advantage
+    of writing different image formats based on the target filename, see at: [http://docs.opencv.org/3.0-beta/modules/imgcodecs/doc/reading_and_writing_images.html](http://docs.opencv.org/3.0-beta/modules/imgcodecs/doc/reading_and_writing_images.html)'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Applies object detection on the image.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Saves the annotation JSON file.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Represents visually the image with bounding boxes:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs: []
+  type: TYPE_PRE
+- en: Some simple applications
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'As a concluding paragraph of the code provisioning, we demonstrate just three
+    simple scripts leveraging the three different sources used by our project: files,
+    videos, webcam.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Our first testing script aims at annotating and visualizing three images after
+    importing the class `DetectionObj` from the local directory (In cases where you
+    operate from another directory, the import won't work unless you add the project
+    directory to the Python path).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In order to add a directory to the Python path in your script, you just have
+    to put `sys.path.insert` command before the part of the script that needs access
+    to that directory:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`import sys`'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`sys.path.insert(0,''/path/to/directory'')`'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Then we activate the class, declaring it using the SSD MobileNet v1 model.
+    After that, we have to put the path to every single image into a list and feed
+    it to the method `file_pipeline`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The output that we receive after our detection class has been placed on the
+    intersection image and will return us another image enriched with bounding boxes
+    around objects recognized with enough confidence:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/1ec56e41-57e4-43c2-b6ac-b96c25af2b86.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Object detection by SSD MobileNet v1 on a photo of an intersection
+  prefs: []
+  type: TYPE_NORMAL
+- en: After running the script, all three images will be represented with their annotations
+    on the screen (each one for three seconds) and a new JSON file will be written
+    on disk (in the target directory, which corresponds to the local directory if
+    you have not otherwise stated it by modifying the class variable `TARGET_CLASS`).
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the visualization, you will see all the bounding boxes relative to objects
+    whose prediction confidence is above 0.5\. Anyway, you will notice that, in this
+    case of an annotated image of an intersection (depicted in the preceding figure),
+    not all cars and pedestrians have been spotted by the model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: By looking at the JSON file, you will discover that many other cars and pedestrians
+    have been located by the model, though with lesser confidence. In the file, you
+    will find all the objects detected with at least 0.25 confidence, a threshold
+    which represents a common standard in many studies on object detection (but you
+    can change it by modifying the class variable `THRESHOLD`).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Here you can see the scores generated in the JSON file. Only eight detected
+    objects are above the visualization threshold of 0.5, whereas 16 other objects
+    have lesser scores:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE25]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'And here you can find the relative class of the detected objects. Many cars
+    have been spotted with lesser confidence. They actually may be cars in the image
+    or errors. In accordance with your application of the Detection API, you may want
+    to adjust your threshold or use another model and estimate an object only if it
+    has been repeatedly detected by different models above a threshold:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE26]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Applying detection to videos uses the same scripting approach. This time you
+    just point to the appropriate method, `video_pipeline`, the path to the video,
+    and set whether the resulting video should have audio or not (by default audio
+    will be filtered out). The script will do everything by itself, saving, on the
+    same directory path as the original video, a modified and annotated video (you
+    can spot it because it has the same filename but with the addition of `annotated_`
+    before it):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE27]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Finally, you can also leverage the exact same approach for images acquired
+    by a webcam. This time you will be using the method `webcam_pipeline`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE28]'
+  prefs: []
+  type: TYPE_PRE
+- en: The script will activate the webcam, adjust the light, pick a snapshot, save
+    the resulting snapshot and its annotation JSON file in the current directory,
+    and finally represent the snapshot on your screen with bounding boxes on detected
+    objects.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Real-time webcam detection
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The previous `webcam_pipeline` is not a real-time detection system because it
+    just takes snapshots and applies detection to the single taken image. This is
+    a necessary limitation because dealing with webcam streaming requires intensive
+    I/O data exchange. In particular, the problem is the queue of images arriving
+    from the webcam to the Python interpreter that locks down Python until the transfer
+    is completed. Adrian Rosebrock on his website pyimagesearch proposes a simple
+    solution based on threads that you can read about at this Web address: [http://www.pyimagesearch.com/2015/12/21/increasing-webcam-fps-with-python-and-opencv/](http://www.pyimagesearch.com/2015/12/21/increasing-webcam-fps-with-python-and-opencv/).
+  prefs: []
+  type: TYPE_NORMAL
+- en: The idea is very simple. In Python,  because of the **global interpreter lock**
+    (**GIL**), only one thread can execute at a time. If there is some I/O operation
+    that blocks the thread (such as downloading a file or getting an image from the
+    webcam), all the remaining commands are just delayed for it to complete causing
+    a very slow execution of the program itself. It is then a good solution to move
+    the blocking I/O operation to another thread. Since threads share the same memory,
+    the program thread can proceed with its instructions and inquiry from time to
+    time the I/O thread in order to check if it has completed its operations.  Therefore,
+    if moving images from the webcam to the memory of the program is a blocking operation,
+    letting another thread dealing with I/O could be the solution. The main program
+    will just inquiry the I/O thread, pick the image from a buffer containing only
+    the latest received image and plot it on the screen.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE29]'
+  prefs: []
+  type: TYPE_PRE
+- en: The above code implements this solution using a `webcamStream` class that instantiates
+    a thread for the webcam I/O, allowing the main Python program to always have at
+    hand the latest received image, processed by the TensorFlow API (using `ssd_mobilenet_v1_coco_11_06_2017`).
+    The processed image is fluidly plotted on the screen using an `OpenCV` function,
+    listening to the space bar keystroke in order to terminate the program.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Acknowledgements
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Everything related to this project started from the following paper: *Speed/accuracy
+    trade-offs for modern convolutional object detectors(*[https://arxiv.org/abs/1611.10012](https://arxiv.org/abs/1611.10012)*)*
+    by Huang J, Rathod V, Sun C, Zhu M, Korattikara A, Fathi A, Fischer I, Wojna Z,
+    Song Y, Guadarrama S, Murphy K, CVPR 2017\. Concluding this chapter, we have to
+    thank all the contributors of the TensorFlow object detection API for their great
+    job programming the API and making it open-source and thus free and accessible
+    to anyone: Jonathan Huang, Vivek Rathod, Derek Chow, Chen Sun, Menglong Zhu, Matthew
+    Tang, Anoop Korattikara, Alireza Fathi, Ian Fischer, Zbigniew Wojna, Yang Song,
+    Sergio Guadarrama, Jasper Uijlings, Viacheslav Kovalevskyi, Kevin Murphy. We also
+    cannot forget to thank Dat Tran for his inspirational posts on medium of two MIT
+    licensed projects on how to use the TensorFlow object detection API for real-time recognition
+    even on custom ([https://towardsdatascience.com/building-a-real-time-object-recognition-app-with-tensorflow-and-opencv-b7a2b4ebdc32](https://towardsdatascience.com/building-a-real-time-object-recognition-app-with-tensorflow-and-opencv-b7a2b4ebdc32)
+    and [https://towardsdatascience.com/how-to-train-your-own-object-detector-with-tensorflows-object-detector-api-bec72ecfe1d9](https://towardsdatascience.com/how-to-train-your-own-object-detector-with-tensorflows-object-detector-api-bec72ecfe1d9))'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: This project has helped you to start immediately classifying objects in images
+    with confidence without much hassle.  It helps you to see what a ConvNet could
+    do for your problem, focusing more on the wrap up (possibly a larger application)
+    you have in mind,and annotating many images for training more ConvNets with fresh
+    images of a selected class.
+  prefs: []
+  type: TYPE_NORMAL
+- en: During the project, you have learned quite a few useful technicalities you can
+    reuse in many projects dealing with images. First of all, you now know how to
+    process different kinds of visual inputs from images, videos, and webcam captures.
+    You also know how to load a frozen model and put it to work, and also how to use
+    a class to access a TensorFlow model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'On the other hand, clearly, the project has some limitations that you may encounter
+    sooner or later, and that may spark the idea to try to integrate your code and
+    make it shine even more. First of all, the models we have discussed will soon
+    be surpassed by newer and more efficient ones (you can check here for newly available
+    models: [https://github.com/tensorflow/models/blob/master/object_detection/g3doc/detection_model_zoo.md](https://github.com/tensorflow/models/blob/master/object_detection/g3doc/detection_model_zoo.md)),
+    and you will need to incorporate new ones or create your own architecture ([https://github.com/tensorflow/models/blob/master/object_detection/g3doc/defining_your_own_model.md](https://github.com/tensorflow/models/blob/master/object_detection/g3doc/defining_your_own_model.md)).
+    Then you may need to combine the model to reach the accuracy you need in your
+    project (the paper *Speed/accuracy trade-offs for modern convolutional object
+    detectors* reveals how researchers at Google have done it). Finally,  you may
+    need to tune a ConvNet to recognize a new class (you can read how to do that here,
+    but beware, it is a long process and a project by itself: [https://github.com/tensorflow/models/blob/master/object_detection/g3doc/using_your_own_dataset.md](https://github.com/tensorflow/models/blob/master/object_detection/g3doc/using_your_own_dataset.md)).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the next chapter, we will look at state-of-the-art object detection in images,
+    devising a project that will lead you to produce complete discursive captions
+    describing submitted images, not just simple labels and bounding boxes.
+  prefs: []
+  type: TYPE_NORMAL

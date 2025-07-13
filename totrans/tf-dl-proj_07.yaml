@@ -1,0 +1,518 @@
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Train and Set up a Chatbot, Able to Discuss Like a Human
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'This chapter will show you how to train an automatic chatbot that will be able
+    to answer simple and generic questions, and how to create an endpoint over HTTP
+    for providing the answers via an API. More specifically, we will show:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: What's the corpus and how to preprocess the corpus
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: How to train a chatbot and how to test it
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: How to create an HTTP endpoint to expose the API
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Introduction to the project
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Chatbots are becoming increasingly used as a way to provide assistance to users.
+    Many companies, including banks, mobile/landline companies and large e-sellers
+    now use chatbots for customer assistance and for helping users in pre-sales. The
+    Q&A page is not enough anymore: each customer is nowadays expecting an answer
+    to his very own question which maybe is not covered or only partially covered
+    in the Q&A. Also, chatbots are a great tool for companies which don''t need to
+    provide additional customer service capacity for trivial questions: they really
+    look like a win-win situation!'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Chatbots have become very popular tools ever since deep learning became popular.
+    Thanks to deep learning, we're now able to train the bot to provide better and
+    personalized questions, and, in the last implementation, to retain a per-user
+    context.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Cutting it short, there are mainly two types of chatbot: the first is a simple
+    one, which tries to understand the topic, always providing the same answer for
+    all questions about the same topic. For example, on a train website, the questions
+    *Where can I find the timetable of the City_A to City_B service?* and *What''s
+    the next train departing from City_A?* will likely get the same answer, that could
+    read *Hi! The timetable on our network is available on this page: <link>*. Basically,
+    behind the scene, this types of chatbots use classification algorithms to understand
+    the topic (in the example, both questions are about the timetable topic). Given
+    the topic, they always provide the same answer. Usually, they have a list of N
+    topics and N answers; also, if the probability of the classified topic is low
+    (the question is too vague, or it''s on a topic not included in the list), they
+    usually ask the user to be more specific and repeat the question, eventually pointing
+    out other ways to do the question (send an email or call the customer service
+    number, for example).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The second type of chatbots is more advanced, smarter, but also more complex.
+    For those, the answers are built using an RNN, in the same way that machine translation
+    is performed (see the previous chapter). Those chatbots are able to provide more
+    personalized answers, and they may provide a more specific reply. In fact, they
+    don''t just guess the topic, but with an RNN engine they''re able to understand
+    more about the user''s questions and provide the best possible answer: in fact,
+    it''s very unlikely you''ll get the same answers with two different questions
+    using these types if chatbots.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this chapter, we will try to build a chatbot of the second type using an
+    RNN similarly to what we've done in the previous chapter with the machine translation
+    system. Also, we will show how to put the chatbot behind an HTTP endpoint, in
+    order to use the chatbot as a service from your website, or, more simply, from
+    your command line.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The input corpus
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Unfortunately, we haven't found any consumer-oriented dataset that is open source
+    and freely available on the Internet. Therefore, we will train the chatbot with
+    a more generic dataset, not really focused on customer service. Specifically,
+    we will use the Cornell Movie Dialogs Corpus, from the Cornell University. The
+    corpus contains the collection of conversations extracted from raw movie scripts,
+    therefore the chatbot will be able to give answer more to fictional questions
+    than real ones. The Cornell corpus contains more than 200,000 conversational exchanges
+    between 10+ thousands of movie characters, extracted from 617 movies.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The dataset is available here: [https://www.cs.cornell.edu/~cristian/Cornell_Movie-Dialogs_Corpus.html](https://www.cs.cornell.edu/~cristian/Cornell_Movie-Dialogs_Corpus.html).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We would like to thank the authors for having released the corpus: that makes
+    experimentation, reproducibility and knowledge sharing easier.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The dataset comes as a `.zip` archive file. After decompressing it, you''ll
+    find several files in it:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`README.txt` contains the description of the dataset, the format of the corpora
+    files, the details on the collection procedure and the author''s contact.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`Chameleons.pdf` is the original paper for which the corpus has been released.
+    Although the goal of the paper is strictly not around chatbots, it studies the
+    language used in dialogues, and it''s a good source of information to understanding
+    more'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`movie_conversations.txt` contains all the dialogues structure. For each conversation,
+    it includes the ID of the two characters involved in the discussion, the ID of
+    the movie and the list of sentences IDs (or utterances, to be more precise) in
+    chronological order. For example, the first line of the file is:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*u0 +++$+++ u2 +++$+++ m0 +++$+++ [''L194'', ''L195'', ''L196'', ''L197'']*'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'That means that user `u0` had a conversation with user `u2` in the movie `m0` and
+    the conversation had 4 utterances: `''L194''`, `''L195''`, `''L196''` and `''L197''`'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`movie_lines.txt` contains the actual text of each utterance ID and the person
+    who produced it. For example, the utterance `L195` is listed here as:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*L195 +++$+++ u2 +++$+++ m0 +++$+++ CAMERON +++$+++ Well, I thought we''d start
+    with pronunciation, if that''s okay with you.*'
+  prefs: []
+  type: TYPE_NORMAL
+- en: So, the text of the utterance `L195` is *Well, I thought we'd start with pronunciation,
+    if that's okay with you.* And it was pronounced by the character `u2` whose name
+    is `CAMERON` in the movie `m0`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`movie_titles_metadata.txt` contains information about the movies, including
+    the title, year, IMDB rating, the number of votes in IMDB and the genres. For
+    example, the movie `m0` here is described as:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*m0 +++$+++ 10 things i hate about you +++$+++ 1999 +++$+++ 6.90 +++$+++ 62847
+    +++$+++ [''comedy'', ''romance'']*'
+  prefs: []
+  type: TYPE_NORMAL
+- en: So, the title of the movie whose ID is `m0` is *10 things i hate about you*,
+    it's from 1999, it's a comedy with romance and it received almost 63 thousand
+    votes on IMDB with an average score of 6.9 (over 10.0)
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`movie_characters_metadata.txt` contains information about the movie characters,
+    including the name the title of the movie where he/she appears, the gender (if
+    known) and the position in the credits (if known). For example, the character
+    “u2” appears in this file with this description:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*u2 +++$+++ CAMERON +++$+++ m0 +++$+++ 10 things i hate about you +++$+++ m
+    +++$+++ 3*'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The character `u2` is named *CAMERON*, it appears in the movie `m0` whose title
+    is *10 things i hate about you*, his gender is male and he's the third person
+    appearing in the credits.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`raw_script_urls.txt` contains the source URL where the dialogues of each movie
+    can be retrieved. For example, for the movie `m0` that''s it:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*m0 +++$+++ 10 things i hate about you +++$+++ http://www.dailyscript.com/scripts/10Things.html*'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'As you will have noticed, most files use the token  *+++$+++*  to separate
+    the fields. Beyond that, the format looks pretty straightforward to parse. Please
+    take particular care while parsing the files: their format is not UTF-8 but *ISO-8859-1*.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Creating the training dataset
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Let''s now create the training set for the chatbot. We''d need all the conversations
+    between the characters in the correct order: fortunately, the corpora contains
+    more than what we actually need. For creating the dataset, we will start by downloading
+    the zip archive, if it''s not already on disk. We''ll then decompress the archive
+    in a temporary folder (if you''re using Windows, that should be `C:\Temp`), and
+    we will read just the `movie_lines.txt` and the `movie_conversations.txt` files,
+    the ones we really need to create a dataset of consecutive utterances.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let's now go step by step, creating multiple functions, one for each step, in
+    the file `corpora_downloader.py`. The first function we need is to retrieve the
+    file from the Internet, if not available on disk.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This function does exactly that: it checks whether the “`README.txt`” file
+    is available locally; if not, it downloads the file (thanks for the urlretrieve
+    function in the urllib.request module) and it decompresses the zip (using the
+    zipfile module).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The next step is read the conversation file and extract the list of utterance
+    IDS. As a reminder, its format is: *u0 +++$+++ u2 +++$+++ m0 +++$+++ [''L194'',
+    ''L195'', ''L196'', ''L197'']*, therefore what we''re looking for is the fourth
+    element of the list after we split it on the token  *+++$+++* . Also, we''d need
+    to clean up the square brackets and the apostrophes to have a clean list of IDs.
+    For doing that, we shall import the re module, and the function will look like
+    this.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'As previously said, remember to read the file with the right encoding, otherwise,
+    you''ll get an error. The output of this function is a list of lists, each of
+    them containing the sequence of utterance IDS in a conversation between characters.
+    Next step is to read and parse the `movie_lines.txt` file, to extract the actual
+    utterances texts. As a reminder, the file looks like this line:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*L195 +++$+++ u2 +++$+++ m0 +++$+++ CAMERON +++$+++ Well, I thought we''d start
+    with pronunciation, if that''s okay with you.*'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Here, what we're looking for are the first and the last chunks.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The very last bit is about tokenization and alignment. We''d like to have a
+    set whose observations have two sequential utterances. In this way, we will train
+    the chatbot, given the first utterance, to provide the next one. Hopefully, this
+    will lead to a smart chatbot, able to reply to multiple questions. Here''s the
+    function:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: Its output is a generator containing a tuple of the two utterances (the one
+    on the right follows temporally the one on the left). Also, utterances are tokenized
+    on the space character.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Finally, we can wrap up everything into a function, which downloads the file
+    and unzip it (if not cached), parse the conversations and the lines, and format
+    the dataset as a generator. As a default, we will store the files in the `/tmp` directory:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: At this point, our training set looks very similar to the training set used
+    in the translation project, in the previous chapter. Actually, it's not just similar,
+    it's the same format with the same goal. We can, therefore, use some pieces of
+    code we've developed in the previous chapter. For example, the `corpora_tools.py`
+    file can be used here without any change (also, it requires the `data_utils.py`).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Given that file, we can dig more into the corpora, with a script to check the
+    chatbot input.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To inspect the corpora, we can use the `corpora_tools.py` we made in the previous
+    chapter, and the file we''ve previously created. Let''s retrieve the Cornell Movie
+    Dialog Corpus, format the corpora and print an example and its length:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This code prints an example of two tokenized consecutive utterances, and the
+    number of examples in the dataset, that is more than 220,000:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Let''s now clean the punctuation in the sentences, lowercase them and limits
+    their size to 20 words maximum (that is examples where at least one of the sentences
+    is longer than 20 words are discarded). This is needed to standardize the tokens:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This leads us to almost 140,000 examples:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Then, let''s create the dictionaries for the two sets of sentences. Practically,
+    they should look the same (since the same sentence appears once on the left side,
+    and once in the right side) except there might be some changes introduced by the
+    first and last sentences of a conversation (they appear only once). To make the
+    best out of our corpora, let''s build two dictionaries of words and then encode
+    all the words in the corpora with their dictionary indexes:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'That prints the following output. We also notice that a dictionary of 15 thousand
+    entries doesn''t contain all the words and more than 16 thousand (less popular)
+    of them don''t fit into it:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'As the final step, let''s add paddings and markings to the sentences:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'And that, as expected, prints:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: Training the chatbot
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'After we''re done with the corpora, it''s now time to work on the model. This
+    project requires again a sequence to sequence model, therefore we can use an RNN.
+    Even more, we can reuse part of the code from the previous project: we''d just
+    need to change how the dataset is built, and the parameters of the model. We can
+    then copy the training script built in the previous chapter, and modify the `build_dataset`
+    function, to use the Cornell dataset.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Mind that the dataset used in this chapter is bigger than the one used in the
+    previous, therefore you may need to limit the corpora to a few dozen thousand
+    lines. On a 4 years old laptop with 8GB RAM, we had to select only the first 30
+    thousand lines, otherwise, the program ran out of memory and kept swapping. As
+    a side effect of having fewer examples, even the dictionaries are smaller, resulting
+    in less than 10 thousands words each.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: By inserting this function into the `train_translator.py` file (from the previous
+    chapter) and rename the file as `train_chatbot.py`, we can run the training of
+    the chatbot.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'After a few iterations, you can stop the program and you''ll see something
+    similar to this output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: Again, if you change the settings, you may end up with a different perplexity.
+    To obtain these results, we set the RNN size to 256 and 2 layers, the batch size
+    of 128 samples, and the learning rate to 1.0.
+  prefs: []
+  type: TYPE_NORMAL
+- en: At this point, the chatbot is ready to be tested. Although you can test the
+    chatbot with the same code as in the `test_translator.py` of the previous chapter,
+    here we would like to do a more elaborate solution, which allows exposing the
+    chatbot as a service with APIs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Chatbox API
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: First of all, we need a web framework to expose the API. In this project, we've
+    chosen Bottle, a lightweight simple framework very easy to use.
+  prefs: []
+  type: TYPE_NORMAL
+- en: To install the package, run `pip install bottle` from the command line. To gather
+    further information and dig into the code, take a look at the project webpage,
+    [https://bottlepy.org](https://bottlepy.org).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s now create a function to parse an arbitrary sentence provided by the
+    user as an argument. All the following code should live in the `test_chatbot_aas.py`
+    file. Let''s start with some imports and the function to clean, tokenize and prepare
+    the sentence using the dictionary:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The function `prepare_sentence` does the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tokenizes the input sentence
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Cleans it (lowercase and punctuation cleanup)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Converts tokens to dictionary IDs
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Add markers and paddings to reach the default length
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Next, we will need a function to convert the predicted sequence of numbers
+    to an actual sentence composed of words. This is done by the function `decode`,
+    which runs the prediction given the input sentence and with softmax predicts the
+    most likely output. Finally, it returns the sentence without paddings and markers
+    (a more exhaustive description of the function is provided in the previous chapter):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Finally, the main function, that is, the function to run in the script:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: Initially, it loads the dictionary and prepares the inverse dictionary. Then,
+    it uses the Bottle API to create an HTTP GET endpoint (under the /api URL). The
+    route decorator sets and enriches the function to run when the endpoint is contacted
+    via HTTP GET. In this case, the `api()` function is run, which first reads the
+    sentence passed as HTTP parameter, then calls the `prepare_sentence` function,
+    described above, and finally runs the decoding step. What's returned is a dictionary
+    containing both the input sentence provided by the user and the reply of the chatbot.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Finally, the webserver is turned on, on the localhost at port 8080\. Isn't very
+    easy to have a chatbot as a service with Bottle?
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'It''s now time to run it and check the outputs. To run it, run from the command
+    line:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: Then, let's start querying the chatbot with some generic questions, to do so
+    we can use CURL, a simple command line; also all the browsers are ok, just remember
+    that the URL should be encoded, for example, the space character should be replaced
+    with its encoding, that is, `%20`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Curl makes things easier, having a simple way to encode the URL request. Here
+    are a couple of examples:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'If the system doesn''t work with your browser, try encoding the URL, for example:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`$> curl -X GET http://127.0.0.1:8080/api?sentence=how%20are%20you?` `{"data":
+    [{"out": "that '' s okay .", "in": "how are you?"}]}`.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Replies are quite funny; always remember that we trained the chatbox on movies,
+    therefore the type of replies follow that style.
+  prefs: []
+  type: TYPE_NORMAL
+- en: To turn off the webserver, use *Ctrl* + *C*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Home assignments
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Following are the home assignments:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Can you create a simple webpage which queries the chatbot via JS?
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Many other training sets are available on the Internet; try to see the differences
+    of answers between the models. Which one is the best for a customer service bot?
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Can you modify the model, to be trained as a service, that is, by passing the
+    sentences via HTTP GET/POST?
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'In this chapter, we''ve implemented a chatbot, able to respond to questions
+    through an HTTP endpoint and a GET API. It''s another great example of what we
+    can do with RNN. In the next chapter, we''re moving to a different topic: how
+    to create a recommender system using Tensorflow.'
+  prefs: []
+  type: TYPE_NORMAL

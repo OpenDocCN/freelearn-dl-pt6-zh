@@ -1,0 +1,1681 @@
+- en: Building a TensorFlow Recommender System
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: A recommender system is an algorithm that makes personalized suggestions to
+    users based on their past interactions with the software. The most famous example
+    is the "customers who bought X also bought Y" type of recommendation on Amazon
+    and other e-commerce websites.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In the past few years, recommender systems have gained a lot of importance:
+    it has become clear for the online businesses that the better the recommendations
+    they give on their websites, the more money they make. This is why today almost
+    every website has a block with personalized recommendations.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this chapter, we will see how we can use TensorFlow to build our own recommender
+    system.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In particular, we will cover the following topics:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Basics of recommender systems
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Matrix Factorization for recommender systems
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Bayesian Personalized Ranking
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Advanced recommender systems based on Recurrent Neural Nets
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: By the end of this chapter, you will know how to prepare data for training a
+    recommender system, how to build your own models with TensorFlow, and how to perform
+    a simple evaluation of the quality of these models.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Recommender systems
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The task of a **recommender system** is to take a list of all possible items
+    and rank them according to preferences of particular users. This ranked list is
+    referred to as a personalized ranking, or, more often, as a **recommendation**.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For example, a shopping website may have a section with recommendations where
+    users can see items that they may find relevant and could decide to buy. Websites
+    selling tickets to concerts may recommend interesting shows, and an online music
+    player may suggest songs that the user is likely to enjoy. Or a website with online
+    courses, such as [Coursera.org](http://Coursera.org), may recommend a course similar
+    to ones the user has already finished:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/02fa716f-a5ef-4dc2-850d-b3d5c2f17f61.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Course recommendation on website
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The recommendations are typically based on historical data: the past transaction
+    history, visits, and clicks that the users have made. So, a recommender system
+    is a system that takes this historical data and uses machine learning to extract
+    patterns in the behavior of the users and based on that comes up with the best
+    recommendations.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Companies are quite interested in making the recommendations as good as possible:
+    this usually makes users engaged by improving their experience. Hence, it brings
+    the revenue up. When we recommend an item that the user otherwise would not notice,
+    and the user buys it, not only do we make the user satisfied, but we also sell
+    an item that we would not otherwise have sold.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: This chapter project is about implementing multiple recommender system algorithms
+    using TensorFlow. We will start with classical time-proven algorithms and then
+    go deeper and try a more complex model based on RNN and LSTM.  For each model
+    in this chapter, we will first give a short introduction and then we implement
+    this model in TensorFlow.
+  prefs: []
+  type: TYPE_NORMAL
+- en: To illustrate these ideas, we use the Online Retail Dataset from the UCI Machine
+    Learning repository. This dataset can be downloaded from [http://archive.ics.uci.edu/ml/datasets/online+retail](http://archive.ics.uci.edu/ml/datasets/online+retail).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The dataset itself is an Excel file with the following features:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`InvoiceNo`: The invoice number, which is used to uniquely identify each transaction'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`StockCode`: The code of the purchased item'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`Description`: The name of the product'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`Quantity`: The number of times the item is purchased in the transaction'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`UnitPrice`: Price per item'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`CustomerID`: The ID of the customer'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`Country`: The name of the customer''s country of the customer'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: It consists of 25,900 transactions, with each transaction containing around
+    20 items. This makes approximately 540,000 items in total. The recorded transactions
+    were made by 4,300 users starting from December 2010 up until December 2011.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To download the dataset, we can either use the browser and save the file or
+    use `wget`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'For this project, we will use the following Python packages:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`pandas` for reading the data'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`numpy` and `scipy` for numerical data manipulations'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`tensorflow` for creating the models'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`implicit` for the baseline solution'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '[optional] `tqdm` for monitoring the progress'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '[optional] `numba` for speeding up the computations'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'If you use Anaconda, then you should already have `numba` installed, but if
+    not, a simple `pip install numba` will get this package for you. To install `implicit`,
+    we again use `pip`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: Once the dataset is downloaded and the packages are installed, we are ready
+    to start. In the next section, we will review the Matrix Factorization techniques,
+    then prepare the dataset, and finally implement some of them in TensorFlow.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Matrix factorization for recommender systems
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this section, we will go over traditional techniques for recommending systems.
+    As we will see, these techniques are really easy to implement in TensorFlow, and
+    the resulting code is very flexible and easily allows modifications and improvements.
+  prefs: []
+  type: TYPE_NORMAL
+- en: For this section, we will use the Online Retail Dataset. We first define the
+    problem we want to solve and establish a few baselines. Then we implement the
+    classical Matrix factorization algorithm as well as its modification based on
+    Bayesian Personalized Ranking.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Dataset preparation and baseline
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Now we are ready to start building a recommender system.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'First, declare the imports:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Let us read the dataset:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Reading `xlsx` files may take a while. To save time when we next want to read
+    the file, we can save the loaded copy into a `pickle` file:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This file is a lot faster to read, so for loading, we should use the pickled
+    version:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Once the data is loaded, we can have a look at the data. We can do this by
+    invoking the `head` function:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We then see the following table:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/52e3542d-e4a4-4604-9dc4-0a0ea1fdae2f.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'If we take a closer look at the data, we can notice the following problems:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The column names are in capital letters. This is a bit unusual, so we may lowercase
+    them.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Some of the transactions are returns: they are not of interest to us, so we
+    should filter them out.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Finally, some of the transactions belong to unknown users. We can assign some
+    common ID for these users, for example, `-1`. Also, unknown users are encoded
+    as `NaN`s, this is why the `CustomerID` column is encoded as float—so we need
+    to convert it to an integer.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'These problems can be fixed with the following code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Next, we should encode all item IDs (`stockcode`) with integers. One of the
+    ways to do it is to build a mapping from each code to some unique index number:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now after we have encoded the items, we can split the dataset into train, validation,
+    and test parts. Since we have e-commerce transactions data, the most sensible
+    way to do the split is based on time. So we will use:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Training set**: before 2011.10.09 (around 10 months of data, approximately
+    378,500 rows)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Validation set**: between 2011.10.09 and 2011.11.09 (one month of data, approximately
+    64,500 rows)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Test set**: after 2011.11.09 (also one month, approximately 89,000 rows)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'For that we just filter the dataframes:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In this section, we will consider the following (very simplified) recommendation
+    scenario:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The user enters the website.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: We present five recommendations.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: The user assesses the lists, maybe buys some things from there, and then continues
+    shopping as usual.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: So we need to build a model for the second step. To do so, we use the training
+    data and then simulate the second and third steps using the validation set. To
+    evaluate whether our recommendation was good or not, we count the number of recommended
+    items that the user has actually bought.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Our evaluation measure is then the number of successful recommendations (the
+    items the user has actually bought) divided by the number of total recommendations
+    we made. This is called **precision—**a common measure of evaluating the performance
+    of machine learning models.
+  prefs: []
+  type: TYPE_NORMAL
+- en: For this project we use precision. Of course, it is a rather simplistic way
+    of evaluating the performance, and there are different ways of doing this. Other
+    metrics you may want to use include **MAP** (**Mean Average Precision**), **NDCG**
+    (**Normalized Discounted Cumulative Gain**), and so on. For simplicity, however,
+    we do not use them in this chapter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Before we jump into using machine learning algorithm for this task, let us first
+    establish a basic baseline. For example, we can calculate how many times each
+    item was bought, then take the most frequent five items, and recommend these items
+    to all the users.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'With pandas it is easy to do:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This gives us an array of integers—`stockcode` codes:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: Now we use this array to recommend it to all the users. So we repeat the `top`
+    array as many times as there are transactions in the validation dataset, and then
+    we use this as the recommendations and calculate the precision metric to evaluate
+    the quality.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For repeating we use the `tile` function from numpy:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The `tile` function takes in an array and repeats it `num_group` times. After
+    reshaping, it gives us the following array:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: Now we are ready to calculate the precision of this recommendation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'However, there is a complication: the way the items are stored makes it difficult
+    to calculate the number of correctly classified elements per group. Using `groupby`
+    from pandas is one way of solving the problem:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Group by `invoiceno` (this is our transaction ID)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: For each transaction make a recommendation
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Record the number of correct predictions per each group
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Calculate the overall precision
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: However, this way is often very slow and inefficient. It may work fine for this
+    particular project, but for slightly larger datasets it becomes a problem.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The reason it is slow is the way `groupby` is implemented in pandas: it internally
+    performs sorting, which we do not need. However, we can improve the speed by exploiting
+    the way the data is stored: we know that the elements of our dataframe are always
+    ordered. That is, if a transaction starts at a certain row number `i`, then it
+    ends at the number `i + k`, where `k` is the number of items in this transaction.
+    In other words, all the rows between `i` and `i + k` belong to the same `invoiceid`.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: So we need to know where each transaction starts and where it ends. For this
+    purpose, we keep a special array of length `n + 1`, where `n` is the number of
+    groups (transactions) we have in our dataset.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let us call this array `indptr`. For each transaction `t`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`indptr[t]` returns the number of the row in the dataframe where the transaction
+    starts'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`indptr[t + 1]` returns the row where it ends'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'This way of representing the groups of various length is inspired by the CSR
+    algorithm—Compressed Row Storage (sometimes Compressed Sparse Row). It is used
+    to represent sparse matrices in memory. You can read about it more in the Netlib
+    documentation—[http://netlib.org/linalg/html_templates/node91.html](http://netlib.org/linalg/html_templates/node91.html).
+    You may also recognize this name from scipy—it is one of the possible ways of
+    representing matrices in the `scipy.sparse` package: [https://docs.scipy.org/doc/scipy-0.14.0/reference/generated/scipy.sparse.csr_matrix.html](https://docs.scipy.org/doc/scipy-0.14.0/reference/generated/scipy.sparse.csr_matrix.html).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Creating such arrays is not difficult in Python: we just need to see where
+    the current transaction finishes and the next one starts. So at each row index,
+    we can compare the current index with the previous one, and if it is different,
+    record the index. This can be done efficiently using the `shift` method from pandas:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This way we get the pointers array for the validation set:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now we can use it for the `precision` function:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Here the logic is straightforward: for each transaction we check how many items
+    we predicted correctly. The total amount of correctly predicted items is stored
+    in `tp`. At the end we divide `tp` by the total number of predictions, which is
+    the size of the prediction matrix, that is, number of transactions times five
+    in our case.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note the `@njit` decorator from numba. This decorator tells numba that the code
+    should be optimized. When we invoke this function for the first time, numba analyzes
+    the code and uses the **just-in-time** (**JIT**) compiler to translate the function
+    to native code. When the function is compiled, it runs multiple orders of magnitude
+    faster—comparable to native code written in C.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Numba's `@jit` and `@njit` decorators give a very easy way to improve the speed
+    of the code. Often it is enough just to put the `@jit` decorator on a function
+    to see a significant speed-up. If a function takes time to compute, numba is a
+    good way to improve the performance.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now we can check what is the precision of this baseline:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: Executing this code should produce 0.064\. That is, in 6.4% of the cases we
+    made the correct recommendation. This means that the user ended up buying the
+    recommended item only in 6.4% cases.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now when we take a first look at the data and establish a simple baseline, we
+    can proceed to more complex techniques such as matrix factorization.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Matrix factorization
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In 2006 Netflix, a DVD rental company, organized the famous Netflix competition.
+    The goal of this competition was to improve their recommender system. For this
+    purpose, the company released a large dataset of movie ratings. This competition
+    was notable in a few ways. First, the prize pool was one million dollars, and
+    that was one of the main reasons it became famous. Second, because of the prize,
+    and because of the dataset itself, many researchers invested their time into this
+    problem and that significantly advanced the state of the art in recommender systems.
+  prefs: []
+  type: TYPE_NORMAL
+- en: It was the Netflix competition that showed that recommenders based on matrix
+    factorization are very powerful, can scale to a large number of training examples,
+    and yet are not very difficult to implement and deploy.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The paper Matrix factorization techniques for recommender systems by Koren and
+    others (2009) nicely summarizes the key findings, which we will also present in
+    this chapter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Imagine we have the rating ![](img/98fd5f39-d35d-49b0-ad2c-aa30ed07d363.png)
+    of a movie ![](img/66daca4b-c73b-447d-9ceb-bc300cb3586b.png) rated by user ![](img/8b07ace5-618f-41d5-91a5-e0506f1a457f.png).
+    We can model this rating by:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/7e8ade47-11e9-4810-84eb-fec7ff9d39d8.png).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Here we decompose the rating into four factors:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/81c7ae03-43ea-4206-93ed-0b04b5824b18.png) is the global bias'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '![](img/9c6b6df6-205c-463c-9810-66c0dee4c15a.png) is the bias of the item ![](img/c9dd36a1-3eda-4010-83a0-1d46d6994654.png) 
+    (in case of Netflix—movie)'
+  prefs:
+  - PREF_UL
+  type: TYPE_IMG
+- en: '![](img/bc21c33d-09f1-4cef-9c53-b4e2defe35b5.png) is the bias of the user ![](img/885e8c87-0cac-43e4-9a28-b18d8be8041d.png)'
+  prefs:
+  - PREF_UL
+  type: TYPE_IMG
+- en: '![](img/01c64fa6-c21c-4639-9d3e-0c2c329254e0.png) is the inner product between
+    the user vector ![](img/4591a13d-fbfb-49ea-9011-b9e6bddaa573.png)and the item
+    vector ![](img/71d94c57-a930-4e78-98d9-6e650a9621ee.png)'
+  prefs:
+  - PREF_UL
+  type: TYPE_IMG
+- en: The last factor—the inner product between the user and the item vectors—is the
+    reason this technique is called **Matrix Factorization**.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let us take all the user vectors ![](img/5a5207bd-929a-4867-b5ea-5392fa16a78b.png),
+    and put them into a matrix ![](img/0f196557-27ab-41c1-a800-ca0c164e82c9.png) as
+    rows. We then will have an ![](img/a41ee6c4-0b66-4a39-8ae6-1d2c237311ac.png) matrix,
+    where ![](img/571408bb-509f-49dd-8140-f48cca5813fa.png) is the number of users
+    and ![](img/71640dff-fda0-4eec-9f3c-9be795501ceb.png) is the dimensionality of
+    the vectors. Likewise, we can take the item vectors ![](img/79215541-8a5b-47d8-802b-eab5f5b9ea32.png)
+    and put them into a matrix ![](img/1ad3a204-4a48-46d0-bb4a-fb25b210cf06.png) as
+    rows. This matrix has the size ![](img/61057add-7c74-414c-ab15-6b95d56a7c36.png),
+    where ![](img/1add554b-907f-4a93-8619-30e75057a150.png) is the number of items,
+    and ![](img/8803cc3c-1035-450b-bebe-0b58c7efdbf2.png) is again the dimensionality
+    of the vectors. The dimensionality ![](img/71640dff-fda0-4eec-9f3c-9be795501ceb.png)
+    is a parameter of the model, which allows us to control how much we want to compress
+    the information. The smaller ![](img/71640dff-fda0-4eec-9f3c-9be795501ceb.png)
+    is, the less information is preserved from the original rating matrix.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Lastly, we take all the known ratings and put them into a matrix ![](img/d1a8b96c-66df-4286-9ba2-e75a4f37bbb2.png)—this
+    matrix is of ![](img/9874a860-bb0a-4b89-b635-3832b2bab47e.png) size. Then this
+    matrix can be factorized as
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/61a9bcd5-0cad-408b-98cb-329f37342bf4.png).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Without the biases part, this is exactly what we have when we compute ![](img/fbcab995-4049-4711-92e5-238f3137cf46.png)
+    in the preceding formula.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To make the predicted rating ![](img/fbcab995-4049-4711-92e5-238f3137cf46.png)
+    as close as possible to the observed rating rating ![](img/c9449ff1-83d3-4909-9747-53b0c8842a35.png),
+    we minimize the squared error between them. That is, our training objective is
+    the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/6bed0f23-a85e-4821-a255-f3fe5260c9fc.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: This way of factorizing the rating matrix is sometimes called **SVD** because
+    it is inspired by the classical Singular Value Decomposition method—it also optimizes
+    the sum of squared errors. However, the classical SVD often tends to overfit to
+    the training data, which is why here we include the regularization term in the
+    objective.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'After defining the optimization problem, the paper then talks about two ways
+    of solving it:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Stochastic Gradient Descent** (**SGD**)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**Alternating Least Squares** (**ALS**)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Later in this chapter, we will use TensorFlow to implement the SGD method ourselves
+    and compare it to the results of the ALS method from the `implicit` library.
+  prefs: []
+  type: TYPE_NORMAL
+- en: However, the dataset we use for this project is different from the Netflix competition
+    dataset in a very important way—we do not know what the users do not like. We
+    only observe what they like. That is why next we will talk about ways to handle
+    such cases.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Implicit feedback datasets
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In case of the Netflix competition, the data there relies on the explicit feedback
+    given by the users. The users went to the website and explicitly told them how
+    much they like the movie by giving it a rating from 1 to 5.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Typically it is quite difficult to make users do that. However, just by visiting
+    the website and interacting with it, the users already generated a lot of useful
+    information, which can be used to infer their interests. All the clicks, page
+    visits, and past purchases tell us about the preferences of the user. This kind
+    of data is called **implicit** - the users do not explicitly tell us what they
+    like, but instead, they indirectly convey this information to us by using the
+    system. By collecting this interaction information we get implicit feedback datasets.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The Online Retail Dataset we use for this project is exactly that. It tells
+    us what the users previously bought, but does not tell us what the users do not
+    like. We do not know if the users did not buy an item because they did not like
+    it, or just because they did not know the item existed.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Luckily for us, with minor modification, we still can apply the Matrix Factorization
+    techniques to implicit datasets. Instead of the explicit ratings, the matrix takes
+    values of 1 and 0—depending on whether there was an interaction with the item
+    or not. Additionally, it is possible to express the confidence that the value
+    1 or 0 is indeed correct, and this is typically done by counting how many times
+    the users have interacted with the item. The more times they interact with it,
+    the larger our confidence becomes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: So, in our case all values that the user has bought get the value 1 in the matrix,
+    and all the rest are 0's. Thus we can see this is a binary classification problem
+    and implement an SGD-based model in TensorFlow for learning the user and item
+    matrices.
+  prefs: []
+  type: TYPE_NORMAL
+- en: But before we do that, we will establish another baseline have stronger than
+    the previous one. We will use the `implicit` library, which uses ALS.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*Collaborative Filtering for Implicit Feedback Datasets* by Hu et al (2008)
+    gives a good introduction to the ALS method for implicit feedback datasets. We
+    do not focus on ALS in this chapter, but if you want to learn how ALS is implemented
+    in libraries such as `implicit`, this paper is definitely a great source. At the
+    time of writing, the paper was accessible via [http://yifanhu.net/PUB/cf.pdf](http://yifanhu.net/PUB/cf.pdf).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: First, we need to prepare the data in the format `implicit` expects—and for
+    that we need to construct the user-item matrix *X*. For that we need to translate
+    both users and items to IDs, so we can map each user to a row of *X*, and each
+    item—to the column of *X*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We have already converted items (the column `stockcode`) to integers. How we
+    need to perform the same on the user IDs (the column `customerid`):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Note that in the first line we perform the filtering and keep only known users
+    there—these are the users we will use for training the model afterward. Then we
+    apply the same procedure to the users in the validation set:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Next we use these integer codes to construct the matrix *X*:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: The `sp.csr_matrix` is a function from the `scipy.sparse` package. It takes
+    in the rows and column indicies plus the corresponding value for each index pair,
+    and constructs a matrix in the Compressed Storage Row format.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using sparse matrices is a great way to reduce the space consumption of data
+    matrices. In recommender systems there are many users and many items. When we
+    construct a matrix, we put zeros for all the items the user has not interacted
+    with. Keeping all these zeros is wasteful, so sparse matrices give a way to store
+    only non-zero entries. You can read more about them in the `scipy.sparse` package
+    documentation at [https://docs.scipy.org/doc/scipy/reference/sparse.html](https://docs.scipy.org/doc/scipy/reference/sparse.html).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now let us use `implicit` to factorize the matrix *X* and learn the user and
+    item vectors:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'To use ALS we use the `AlternatingLeastSquares` class. It takes two parameters:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`factors`: this is the dimensionality of the user and item vectors, which we
+    called previously k'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`regularization`: the L2 regularization parameter to avoid overfitting'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Then we invoke the `fit` function to learn the vectors. Once the training is
+    done, these vectors are easy to get:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs: []
+  type: TYPE_PRE
+- en: After getting the *U* and *I* matrices, we can use them to make recommendations
+    to the user, and for that, we simply calculate the inner product between the rows
+    of each matrix. We will see soon how to do it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Matrix factorization methods have a problem: they cannot deal with new users.
+    To overcome this problem, we can simply combine it with the baseline method: use
+    the baseline to make a recommendation to new and unknown users, but apply Matrix
+    Factorization to known users.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'So, first we select the IDs of known users in the validation set:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We will make recommendations only to these users. Then we copy the baseline
+    solution, and replace the prediction for the known users by values from ALS:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs: []
+  type: TYPE_PRE
+- en: Here we get the vectors for each user ID in the validation set and multiply
+    them with all the item vectors. Next, for each user we select top five items according
+    to the score.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This outputs 13.9%. This is a lot stronger baseline than our previous baseline
+    of 6%. This should be a lot more difficult to outperform, but next, we nonetheless
+    try to do it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: SGD-based matrix factorization
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Now we are finally ready to implement the matrix factorization model in TensorFlow.
+    Let us do this and see if we can improve the baseline by `implicit`. Implementing
+    ALS in TensorFlow is not an easy task: it is better suited for gradient-based
+    methods such as SGD. This is why we will do exactly that, and leave ALS to specialized
+    implementations.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Here we implement the formula from the previous sections:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/19735a8b-b706-4cc3-8af0-0126f8ec73fc.png).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Recall that the objective there was the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/88241b76-b696-4d88-920e-581017e5050a.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Note that in this objective we still have the squared error, which is no longer
+    the case for us since we model this as a binary classification problem. With TensorFlow
+    it does not really matter, and the optimization loss can easily be changed.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In our model we will use the log loss instead—it is better suited for binary
+    classification problems than squared error.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The *p* and *q* vectors make up the *U* and *I* matrices, respectively. What
+    we need to do is to learn these *U* and *I* matrices. We can store the full matrices
+    *U* and *I* as a TensorFlow `Variable`'s and then use the embedding layer to look
+    up the appropriate *p* and *q* vectors.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let us define a helper function for declaring embedding layers:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE25]'
+  prefs: []
+  type: TYPE_PRE
+- en: This function creates a matrix of the specified dimension, initializes it with
+    random values, and finally uses the lookup layer to convert user or item indexes
+    into vectors.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We use this function as a part of the model graph:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE26]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The model gets three inputs:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`place_user`: The user IDs'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`place_item`: The item IDs'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`place_y`: The labels of each (user, item) pair'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Then we define:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`user_factors`: The user matrix ![](img/54af3d80-6cd8-4d76-850c-8e967bce940d.png)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`user_bias`: The bias of each user ![](img/a861c52e-2c8f-41ad-a15d-4550abcd98ef.png)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`item_factors`: The item matrix ![](img/21db3c48-dad6-4ec3-9ed3-98098a095cd0.png)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`item_bias`: The bias of each item ![](img/e60773db-edab-42e6-ab33-ef2ac6cdf229.png)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`global_bias`: The global bias ![](img/4a98f9f9-4a5b-4c22-b932-01ec62b04826.png)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Then, we put together all the biases and take the dot product between the user
+    and item factors. This is our prediction, which we then pass through the sigmoid
+    function to get probabilities.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Finally, we define our objective function as a sum of the data loss and regularization
+    loss and use Adam for minimizing this objective.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The model has the following parameters:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`num_users` and `num_items`: The number of users (items). They specify the
+    number of rows in *U* and *I* matrices, respectively.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`num_factors`: The number of latent features for users and items. This specifies
+    the number of columns in both *U* and *I*.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`lambda_user` and `lambda_item`: The regularization parameters.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`lr`: Learning rate for the optimizer.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`K`: The number of negative examples to sample for each positive case (see
+    the explanation in the following section).'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Now let us train the model. For that, we need to cut the input into small batches.
+    Let us use a helper function for that:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE27]'
+  prefs: []
+  type: TYPE_PRE
+- en: This will turn one array into a list of arrays of specified size.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Recall that our dataset is based on implicit feedback, and the number positive
+    instances—interactions that did occur—is very small compared to the number of
+    negative instances—the interactions that did not occur. What do we do with it?
+    The solution is simple: we use **negative sampling**. The idea behind it is to
+    sample only a small fraction of negative examples. Typically, for each positive
+    example, we sample `K` negative examples, and `K` is a tunable parameter. And
+    this is exactly what we do here.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'So let us train the model:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE28]'
+  prefs: []
+  type: TYPE_PRE
+- en: We run the model for 10 epochs, then for each epoch we shuffle the data randomly
+    and cut it into batches of 5000 positive examples. Then for each batch, we generate
+    *K* * 5000 negative examples (*K* = 5 in our case) and put positive and negative
+    examples together in one array. Finally, we run the model, and at each update
+    step, we monitor the training loss using `tqdm`. The tqdm library provides a very
+    nice way to monitor the training progress.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'This is the output we produce when we use the tqdm jupyter notebook widgets:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/644abd40-c3a3-4467-b9e9-e2acaa128e09.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'At the end of each epoch, we calculate precision—to monitor how our model is
+    performing for our defined recommendation scenario. The `calculate_validation_precision`
+    function is used for that. It is implemented in a similar way to what we did previously
+    with implicit:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We first extract the matrices and the biases
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Then put them together to get the score for each (user, item) pair
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Finally, we sort these pairs and keep the top five ones
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'For this particular case we do not need the global bias as well as the user
+    bias: adding them will not change the order of items per user. This is how this
+    function can be implemented:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE29]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This is the output we get:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE30]'
+  prefs: []
+  type: TYPE_PRE
+- en: By the sixth epoch it beats the previous baseline, and by the tenth, it reaches
+    15.2%.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Matrix factorization techniques usually give a very strong baseline solution
+    for recommender systems. But with a small adjustment, the same technique can produce
+    even better results. Instead of optimizing a loss for binary classification, we
+    can use a different loss designed specifically for ranking problems. In the next
+    section, we will learn about this kind of loss and see how to make this adjustment.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Bayesian personalized ranking
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: We use Matrix factorization methods for making a personalized ranking of items
+    for each user. However, to solve this problem we use a binary classification optimization
+    criterion—the log loss. This loss works fine and optimizing it often produces
+    good ranking models. What if instead we could use a loss specifically designed
+    for training a ranking function?
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Of course, it is possible to use an objective that directly optimizes for ranking.
+    In the paper *BPR: Bayesian Personalized Ranking from Implicit Feedback* by Rendle
+    et al (2012), the authors propose an optimization criterion, which they call **BPR-Opt**.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Previously, we looked at individual items in separation from the other items.
+    That is, we tried to predict the rating of an item, or the probability that the
+    item *i* will be interesting to the user *u*. These kinds of ranking models are
+    usually called "point-wise": they use traditional supervised learning methods
+    such as regression or classification to learn the score, and then rank the items
+    according to this score. This is exactly what we did in the previous section.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: BPR-Opt is different. Instead, it looks at the pairs of items. If we know that
+    user *u* has bought item *i*, but never bought item *j*, then most likely *u*
+    is more interested in *i* than in *j*. Thus, when we train a model, the score ![](img/43327e8f-4905-4604-971c-45c3de06a735.png)
+    it produces for *i* should be higher than the score ![](img/0ca2d573-7670-4188-8ddd-627c36542b63.png)
+    for *j*. In other words, for the scoring model we want ![](img/fad30377-0328-4a81-b9cb-0c0a77824f44.png).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Therefore, for training this algorithm we need triples (user, positive item,
+    negative item). For such triple *(u, i, j)* we define the pair-wise difference
+    in scores as:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/5851cdb3-a518-41ab-be76-c642e8807b76.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: where ![](img/88e3b9c2-64cf-4b7b-a232-ad4de51eebbc.png) and ![](img/aa2877f6-ad11-4320-8576-2fd7a5eeb8a2.png)
+    is scores for *(u, i)* and *(u, j)*, respectively.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'When training, we adjust parameters of our model in such a way that at the
+    end item *i* does rank higher than item *j*. We do this by optimizing the following
+    objective:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/e916bafa-cb69-45c5-a673-53c1c81812a4.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Where ![](img/dc64fa1f-d229-4969-b574-2ce3bc7b1f29.png) are the differences, ![](img/4f026a47-c6e1-4384-a9db-d7b36e6fd6a6.png)
+    is the sigmoid function, and ![](img/ca1a0231-2db7-493a-ba7f-64ac9d5f4edf.png)
+    is all the parameters of the model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'It is straightforward to change our previous code to optimize this loss. The
+    way we compute the score for (*u, i*) and (*u, j*) is the same: we use the biases
+    and the inner product between the user and item vectors. Then we compute the difference
+    between the scores and feed the difference into the new objective.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The difference in the implementation is also not large:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: For BPR-Opt we do not have `place_y`, but instead, we will have `place_item_pos`
+    and `place_item_neg` for the positive and the negative items, respectively.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'We no longer need the user bias and the global bias: when we compute the difference,
+    these biases cancel each other out. What is more, they are not really important
+    for ranking—we have noted that previously when computing the predictions for the
+    validation data.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Another slight difference in implementation is that because we now have two
+    inputs items, and these items have to share the embeddings, we need to define
+    and create the embeddings slightly differently. For that we modify the `embed`
+    helper function, and separate the variable creation and the lookup layer:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE31]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Finally, let us see how it looks in the code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE32]'
+  prefs: []
+  type: TYPE_PRE
+- en: The way to train this model is also slightly different. The authors of the BPR-Opt
+    paper suggest using the bootstrap sampling instead of the usual full-pass over
+    all the data, that is, at each training step we uniformly sample the triples (user,
+    positive item, negative item) from the training dataset.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Luckily, this is even easier to implement than the full-pass:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE33]'
+  prefs: []
+  type: TYPE_PRE
+- en: After around 70 iterations it reaches the precision of around 15.4%. While it
+    is not significantly different from the previous model (it reached 15.2%), it
+    does open a lot of possibilities for optimizing directly for ranking. More importantly,
+    we show how easy it is to adjust the existent method such that instead of optimizing
+    the point-wise loss it optimizes a pair-wise objective.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the next section, we will go deeper and see how recurrent neural networks
+    can model user actions as sequences and how we can use them as recommender systems.
+  prefs: []
+  type: TYPE_NORMAL
+- en: RNN for recommender systems
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: A **recurrent neural networks** (**RNN**) is a special kind of neural network
+    for modeling sequences, and it is quite successful in a number applications. One
+    such application is sequence generation. In the article *The Unreasonable Effectiveness
+    of Recurrent Neural Networks*, Andrej Karpathy writes about multiple examples
+    where RNNs show very impressive results, including generation of Shakespeare,
+    Wikipedia articles, XML, Latex, and even C code!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Since they have proven useful in a few applications already, the natural question
+    to ask is whether we can apply RNNs to some other domains. What about recommender
+    systems, for example? This is the question the authors of the recurrent neural
+    networks *Based Subreddit Recommender System* report have asked themselves (see
+    [https://cole-maclean.github.io/blog/RNN-Based-Subreddit-Recommender-System/](https://cole-maclean.github.io/blog/RNN-Based-Subreddit-Recommender-System/)).
+    The answer is yes, we can use RNNs for that too!
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this section, we will try to answer this question as well. For this part
+    we consider a slightly different recommendation scenario than previously:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The user enters the website.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: We present five recommendations.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: After each purchase, we update the recommendations.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: This scenario needs a different way of evaluating the results. Each time the
+    user buys something, we can check whether this item was among the suggested ones
+    or not. If it was, then our recommendation is considered successful. So we can
+    calculate how many successful recommendations we have made. This way of evaluating
+    performance is called Top-5 accuracy and it is often used for evaluating classification
+    models with a large number of target classes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Historically RNNs are used for language models, that is, for predicting what
+    will be the most likely next word given in the sentence so far. And, of course,
+    there is already an implementation of such a language model in the TensorFlow
+    model repository located at [https://github.com/tensorflow/models](https://github.com/tensorflow/models)
+    (in the [`tutorials/rnn/ptb/`](https://github.com/tensorflow/models/tree/master/tutorials/rnn/ptb)
+    folder). Some of the code samples in the remaining of this chapter are heavily
+    inspired by this example.
+  prefs: []
+  type: TYPE_NORMAL
+- en: So let us get started.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Data preparation and baseline
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Like previously, we need to represent the items and users as integers. This
+    time, however, we need to have a special placeholder value for unknown users.
+    Additionally, we need a special placeholder for items to represent "no item" at
+    the beginning of each transaction. We will talk more about it later in this section,
+    but for now, we need to implement the encoding such that the `0` index is reserved
+    for special purposes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Previously we were using a dictionary, but this time let us implement a special
+    class, `LabelEncoder`, for this purpose:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE34]'
+  prefs: []
+  type: TYPE_PRE
+- en: The implementation is straightforward and it largely repeats the code we used
+    previously, but this time it is wrapped in a class, and also reserves `0` for
+    special needs—for example, for elements that are missing in the training data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let us use this encoder to convert the items to integers:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE35]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Then we perform the same train-validation-test split: first 10 months we use
+    for training, one for validation and the last one—for testing.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Next, we encode the user ids:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE36]'
+  prefs: []
+  type: TYPE_PRE
+- en: Like previously, we use the most frequently bought items for the baseline. However,
+    this time the scenario is different, which is why we also adjust the baseline
+    slightly. In particular, if one of the recommended items is bought by the user,
+    we remove it from the future recommendations.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Here is how we can implement it:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE37]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the preceding code, `indptr` is the array of pointers—the same one that we
+    used for implementing the `precision` function previously.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'So now we apply this to the validation data and produce the results:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE38]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The baseline looks as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE39]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now let us implement the top-k accuracy metric. We again use the `@njit` decorator
+    from numba to speed this function up:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE40]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'To evaluate the performance of the baseline, just invoke with the true labels
+    and the predictions:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE41]'
+  prefs: []
+  type: TYPE_PRE
+- en: It prints `0.012`, that is, only in 1.2% cases we make a successful recommendation.
+    Looks like there is a lot of room for improvement!
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The next step is breaking the long array of items into separate transactions.
+    We again can reuse the pointer array, which tells us where each transaction starts
+    and where it ends:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE42]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now we can unwrap the transactions and put them into a separate dataframe:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE43]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'To have a look at what we have at the end, use the `head` function:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE44]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This shows the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/fc729f2f-9cbd-4907-acfb-fa4ebb9aa61e.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: These sequences have varying lengths, and this is a problem for RNNs. So, we
+    need to convert them into fixed-length sequences, which we can easily feed to
+    the model later.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In case the original sequence is too short, we need to pad it with zeros. If
+    the sequence is too long, we need to cut it or split it into multiple sequences.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Lastly, we also need to represent the state when the user has entered the website
+    but has not bought anything yet. We can do this by inserting the dummy zero item—an
+    item with index `0`, which we reserved for special purposes, just like this one.
+    In addition to that, we can also use this dummy item to pad the sequences that
+    are too small.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We also need to prepare the labels for the RNN. Suppose we have the following
+    sequence:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/aace2f95-38d0-4b47-b07a-271275634b92.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'We want to produce a sequence of fixed length 5\. With padding in the beginning,
+    the sequence we use for training will look as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/eca12751-9e8d-4cbb-9b98-fa46a06d8349.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Here we pad the original sequence with zero at the beginning and do not include
+    the last element—the last element will only be included in the target sequence.
+    So the target sequence—the output we want to predict—should look as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/9162b799-a679-469a-8cc6-0503ddc9f8d2.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'It may look confusing at the beginning, but the idea is simple. We want to
+    construct the sequences in such a way that for the position *i* in *X*, the position
+    *i* in *Y* contains the element we want to predict. For the preceding example
+    we want to learn the following rules:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/24dceee9-e8c7-4c70-9892-42ca4fac0eb7.png)- both are at the position
+    `0` in *X* and *Y*'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '![](img/0dbaad9b-860b-4f49-b4e2-01c567e47fb2.png) —both are at the position
+    `1` in *X* and *Y*'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: and so on
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Now imagine we have a smaller sequence of length 2, which we need to pad to
+    a sequence of length 5:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/82115137-b47a-4a31-95ca-9b29c1f1bfa2.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'In this case, we again pad the input sequence with `0` in the beginning, and
+    also with some zeros at the end:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/3cc62b3d-1ed9-4aec-a82b-4985df4598b5.png).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We transform the target sequence Y similarly:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/eb8811f0-4462-409b-9bd7-3d17f9fcaaab.png).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'If the input is too long, for example ![](img/76c862e9-e9a1-4c19-a73e-bea827b054fa.png),
+    we can cut it into multiple sequences:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/e0c3b30d-b045-488b-830b-4f587f3b2c46.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'To perform such a transformation, we write a function `pad_seq`.  It adds the
+    needed amount of zeros at the beginning and at the end of the sequence. Then we
+    `pad_seq` in another function - `prepare_training_data`—the function that creates
+    the matrices *X* and *Y* for each sequence:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE45]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'What is left to do is invoking the `prepare_training_data` function for each
+    sequence in the training history, and then put the results together in `X_train`
+    and `Y_train` matrices:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE46]'
+  prefs: []
+  type: TYPE_PRE
+- en: At this point, we have finished data preparation. Now we are ready to finally
+    create an RNN model that can process this data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: RNN recommender system in TensorFlow
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The data preparation is done and now we take the produced matrices `X_train`
+    and `Y_train` and use them for training a model. But of course, we need to create
+    the model first. In this chapter, we will use a recurrent neural network with
+    LSTM cells (Long Short-Term Memory). LSTM cells are better than plain RNN cells
+    because they can capture long-term dependencies better.
+  prefs: []
+  type: TYPE_NORMAL
+- en: A great resource to learn more about LSTMs is the blog post "Understanding LSTM
+    Networks" by Christopher Olah, which is available at [https://colah.github.io/posts/2015-08-Understanding-LSTMs/](https://colah.github.io/posts/2015-08-Understanding-LSTMs/).
+    In this chapter, we do not go into theoretical details about how LSTM and RNN
+    work and only look at using them in TensorFow.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let us start with defining a special configuration class that holds all the
+    important training parameters:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE47]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Here the `Config` class defines the following parameters:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`num_steps`—This is the size of the fixed-length sequences'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`num_items`—The number of items in our training data (+1 for the dummy `0`
+    item)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`num_users`—The number of users (again +1 for the dummy `0` user)'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`init_scale`—Scale of the weights parameters, needed for the initialization'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`learning_rate`—The rate at which we update the weights'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`max_grad_norm`—The maximally allowed norm of the gradient, if the gradient
+    exceeds this value, we clip it'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`num_layers`—The number of LSTM layers in the network'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`hidden_size`—The size of the hidden dense layer that converts the output of
+    LSTM to output probabilities'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`embedding_size`—The dimensionality of the item embeddings'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`batch_size`—The number of sequences we feed into the net in a single training
+    step'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Now we finally implement the model. We start off by defining two useful helper
+    functions—we will use them for adding the RNN part to our model:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE48]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now we can use the `rnn_model` function to create our model:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE49]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In this model there are multiple parts, which is described as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: First, we specify the inputs. Like previously, these are IDs, which later we
+    convert to vectors by using the embeddings layer.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Second, we add the RNN layer followed by a dense layer. The LSTM layer learns
+    the temporary patters in purchase behavior, and the dense layer converts this
+    information into a probability distribution over all possible items.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Third, since our model is multi-class classification model, we optimize the
+    categorical cross-entropy loss.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Finally, LSTMs are known to have problems with exploding gradients, which is
+    why we perform gradient clipping when performing the optimization.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: The function returns all the important variables in a dictionary—so, later on,
+    we will be able to use them when training and validating the results.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The reason this time we create a function, and not just global variables like
+    previously, is to be able to change the parameters between training and testing
+    phases. During training, the `batch_size` and `num_steps` variables could take
+    any value, and, in fact, they are tunable parameters of the model. On the contrary,
+    during testing, these parameters could take only one possible value: `1`. The
+    reason is that when the user buys something, it is always one item at a time,
+    and not several, so `num_steps` is one. The `batch_size` is also one for the same
+    reason.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For this reason, we create two configs: one for training, and one for validation:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE50]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now let us define the computational graph for the model. Since we want to learn
+    the parameters during training, but then use them in a separate model with different
+    parameters during testing, we need to make the learned parameters shareable. These
+    parameters include embeddings, LSTM, and the weights of the dense layer. To make
+    both models share the parameters, we use a variable scope with `reuse=True`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE51]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The graph is ready. Now we can train the model, and for this purpose, we create
+    a `run_epoch` helper function:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE52]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The initial part of the function should already be familiar to us: it first
+    creates a dictionary of variables that we are interested to get from the model
+    and also shuffle the dataset.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The next part is different though: since this time we have an RNN model (LSTM
+    cell, to be exact), we need to keep its state across runs. To do it we first get
+    the initial state—which should be all zeros—and then make sure the model gets
+    exactly these values. After each step, we record the final step of the LSTM and
+    re-enter it to the model. This way the model can learn typical behavior patterns.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Again, like previously, we use `tqdm` to monitor progress, and we display both
+    how many steps we have already taken during the epoch and the current training
+    loss.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let us train this model for one epoch:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE53]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'One epoch is enough for the model to learn some patterns, so now we can see
+    whether it was actually able to do it. For that we first write another helper
+    function, which will emulate our recommendation scenario:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE54]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'What we do here is the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: First, we initialize the prediction matrix, its size like in the baseline, is
+    the number of items in the validation set times the number of recommendations.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Then we run the model for each transaction in the dataset.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Each time we start with the dummy zero item and the empty zero LSTM state.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Then one by one we predict the next possible item and put the actual item the
+    user bought as the previous item—which we will feed into the model on the next
+    step.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Finally, we take the output of the dense layer and get top-k most likely predictions
+    as our recommendation for this particular step.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Let us execute this function and look at its performance:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE55]'
+  prefs: []
+  type: TYPE_PRE
+- en: We see the output 7.1%, which is seven times better than the baseline.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'This is a very basic model, and there is definitely a lot of room for improvement:
+    we can tune the learning rate and train for a few more epochs with gradually decreasing
+    learning rate. We can change the `batch_size`, `num_steps`, as well as all other
+    parameters. We also do not use any regularization—neither weight decay nor dropout.
+    Adding it should be helpful.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'But most importantly, we did not use any user information here: the recommendations
+    were based solely on the patterns of items. We should be able to get additional
+    improvement by including the user context. After all, the recommender systems
+    should be personalized, that is, tailored for a particular user.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Right now our `X_train` matrix contains only items. We should include another
+    input, for example `U_train`, which contains the user IDs:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE56]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Let us change the model now. The easiest way to incorporate user features is
+    to stack together user vectors with item vectors and put the stacked matrix to
+    LSTM. It is quite easy to implement, we just need to modify a few lines of the
+    code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE57]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The changes between the new implementation and the previous model are shown
+    in bold. In particular, the differences are the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We add `place_u`—The placeholder that takes the user ID as input
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Rename `embeddings` to `item_embeddings`—not to confuse them with `user_embeddings`,
+    which we added a few lines after that
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Finally, we concatenate user features with item features
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The rest of the model code stays unchanged!
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Initialization is similar to the previous model:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE58]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The only difference here is that we invoke a different function when creating
+    the model. The code for training one epoch of the model is very similar to the
+    previous one. The only things that we change are the extra parameters of the function,
+    which we add into the `feed_dict` inside:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE59]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Let us train this new model for one epoch:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE60]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The way we use the model is also almost the same as previous:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE61]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Finally, we run this function to generate the predictions for the validation
+    set, and calculate the accuracy of these recommendations:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE62]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The output we see is 0.252, which is 25%. We naturally expect it to be better,
+    but the improvement was quite drastic: almost four times better than the previous
+    model, and 25 better than the naive baseline. Here we skip the model check on
+    the hold-out test set, but you can (and generally should) do it yourself to make
+    sure the model does not overfit.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this chapter, we covered recommender systems. We first looked at some background
+    theory, implemented simple methods with TensorFlow, and then discussed some improvements
+    such as the application of BPR-Opt to recommendations. These models are important
+    to know and very useful to have when implementing the actual recommender systems.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the second section, we tried to apply the novel techniques for building recommender
+    systems based on Recurrent Neural Nets and LSTMs. We looked at the user's purchase
+    history as a sequence and were able to use sequence models to make successful
+    recommendations.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In the next chapter, we will cover Reinforcement Learning. This is one of the
+    areas where the recent advances of Deep Learning have significantly changed the
+    state-of-the-art: the models now are able to beat humans in many games. We will
+    look at the advanced models that caused the change and we will also learn how
+    to use TensorFlow to implement real AI.'
+  prefs: []
+  type: TYPE_NORMAL

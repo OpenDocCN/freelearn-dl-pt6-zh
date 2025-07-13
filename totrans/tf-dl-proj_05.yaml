@@ -1,0 +1,819 @@
+- en: Stock Price Prediction with LSTM
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this chapter, you'll be introduced to how to predict a timeseries composed
+    of real values. Specifically, we will predict the stock price of a large company
+    listed on the NYSE stock exchange, given its historical performance.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this chapter we will look at:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: How to collect the historical stock price information
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: How to format the dataset for a timeseries prediction task
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: How to use regression to predict the future prices of a stock
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Long short-term memory (LSTM) 101
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: How LSTM will boost the predictive performance
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: How to visualize the performance on the Tensorboard
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Each of these bullet points is a section in this chapter. Moreover, to make
+    the chapter visually and intuitively easier to understand, we will first apply
+    each technique on a simpler signal: a cosine. A cosine is more deterministic than
+    a stock price and will help with the understanding and the potentiality of the
+    algorithm.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Note: we would like to point out that this project is just an experiment that
+    works on the simple data we have available. Please don''t use the code or the
+    same model in a real-world scenario, since it may not perform at the same level.
+    Remember: your capital is at risk, and there are no guarantees you''ll always
+    gain more.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Input datasets – cosine and stock price
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: As we claimed before, we will use two mono-dimensional signals as timeseries
+    for our experiment. The first is a cosine wave with some added uniform noise.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'This is the function to generate the cosine signal, given (as parameters) the
+    number of points, the frequency of the signal, and the absolute intensity of the
+    uniform generator for the noise. Also, in the body of the function, we''re making
+    sure to set the random seed, so we can make our experiments replicable:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'To print 10 points, one full oscillation of the cosine (therefore `frequency`
+    is `0.1`) with 0.1 magnitude noise, run:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The output is:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: In our analysis, we will pretend this is a stock price, where each point of
+    the timeseries is a mono-dimensional feature representing the price of the stock
+    itself for that day.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The second signal, instead, comes from the real financial world. Financial data
+    can be expensive and hard to extract, that's why in this experiment we use the
+    Python library `quandl` to obtain such information. The library has been chosen
+    since it's easy to use, cheap (XX free queries per day), and great for this exercise,
+    where we want to predict only the closing price of the stock. If you're into automatic
+    trading, you should look for more information, in the premium version of the library,
+    or in some other libraries or data sources.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Quandl is an API, and the Python library is a wrapper over the APIs. To see
+    what''s returned, run the following command in your prompt:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: The format is a CSV, and each line contains the date, the opening price, the
+    highest and the lowest of the day, the closing, the adjusted, and some volumes.
+    The lines are sorted from the most recent to the least. The column we're interested
+    in is the `Adj. Close`, that is, the closing price after adjustments.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The adjusted closing price is a stock closing price after it has been amended
+    to include any dividend, split, or merge.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Keep in mind that many online services show the unadjusted price or the opening
+    price, therefore the numbers may not match.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, let's build a Python function to extract the adjusted price using the Python
+    APIs. The full documentation of the APIs is available at [https://docs.quandl.com/v1.0/docs](https://docs.quandl.com/v1.0/docs),
+    but we will just use the `quandl.get` function. Note that the default sorting
+    is ascending, that is, from the oldest price to the newest one.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The function we''re looking for should be able to cache calls and specify an
+    initial and final timestamp to get the historical data beyond the symbol. Here''s
+    the code to do so:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: The returned object of the function `fetch_stock_price` is a mono-dimensional
+    array, containing the stock price for the requested symbol, ordered from the `from_date` to
+    the `to_date`. Caching is done within the function, that is, if there's a cache
+    miss, then the `quandl` API is called. The `date_obj_to_str` function is just
+    a helper function, to convert  `datetime.date` to the correct string format needed
+    for the API.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s print the adjusted price of the Google stock price (whose symbol is
+    GOOG) for January 2017:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The output is:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: To have all the preceding functions available for all the scripts, we suggest
+    you put them in a Python file, for example, in the code distributed within this
+    book, they are in the `tools.py` file.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Format the dataset
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Classic machine-learning algorithms are fed with multiple observations, where
+    each of them has a pre-defined size (that is, the feature size). While working
+    with timeseries, we don''t have a pre-defined length: we want to create something
+    that works for both 10 days look-back, but also for three years look-back. How
+    is this possible?'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'It''s very simple, instead of varying the number of features, we will change
+    the number of observations, maintaining a constant feature size. Each observation
+    represents a temporal window of the timeseries, and by sliding the window of one
+    position on the right we create another observation. In code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: Given the timeseries, and the feature size, the function creates a sliding window
+    which sweeps the timeseries, producing features and labels (that is, the value
+    following the end of the sliding window, at each iteration). Finally, all the
+    observations are piled up vertically, as well as the labels. The outcome is an
+    observation with a defined number of columns, and a label vector.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We suggest putting this function in the `tools.py` file, so it can be accessed
+    later.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Graphically, here''s the outcome of the operation. Starting with the cosine
+    signal, let''s first plot a couple of oscillations of it, in another Python script
+    (in the example, it''s named `1_visualization_data.py`):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The code is very simple; after a few imports, we plot a 20-point cosine timeseries
+    with period 10 (that is frequency 0.01):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/bd256b2d-8710-44ab-bdd4-a03181aef864.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Let''s now format the timeseries to be ingested by the machine learning algorithm,
+    creating an observation matrix with five columns:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: Starting from a timeseries with 20 points, the output will be an observation
+    matrix of size *15x5*, while the label vector will be 15 elements long. Of course,
+    by changing the feature size, the number of rows will also change.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s now visualize the operation, to make it simpler to understand. For example,
+    let''s plot the first five observations of the observation matrix. Let''s also
+    print the label of each feature (in red):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'And here''s the plot:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/0ee9e44f-03f1-4c47-b403-3d27354595cd.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: As you can see, the timeseries became an observation vector, each of them with
+    size five.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'So far, we haven''t shown what the stock prices look like, therefore let''s
+    print them here as a timeseries. We selected (cherry-picked) some of the best-known
+    companies in the United States; feel free to add your favorites to see the trend
+    in the last year. In this plot, we''ll just limit ourselves to two years: 2015
+    and 2016\. We will also use the very same data in this chapter, therefore the
+    next runs will have the timeseries cached:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'And this is the plot of the prices:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/388ea31d-f6a1-4faa-9497-e5b40b4ce14d.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Each of the lines is a timeseries, and as we did for the cosine signal, in this
+    chapter it will be transformed into an observation matrix (with the `format_dataset`
+    function).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Are you excited? The data is ready, now let's move on to the interesting data
+    science part of the project.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using regression to predict the future prices of a stock
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Given the observation matrix and a real value label, we are initially tempted
+    to approach the problem as a regression problem. In this case, the regression
+    is very simple: from a numerical vector, we want to predict a numerical value.
+    That''s not ideal. Treating the problem as a regression problem, we force the
+    algorithm to think that each feature is independent, while instead, they''re correlated,
+    since they''re windows of the same timeseries. Let''s start anyway with this simple
+    assumption (each feature is independent), and we will show in the next chapter
+    how performance can be increased by exploiting the temporal correlation.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: In order to evaluate the model, we now create a function that, given the observation
+    matrix, the true labels, and the predicted ones, will output the metrics (in terms
+    of **mean square error** (**MSE**) and **mean absolute error** (**MAE**) of the
+    predictions. It will also plot the training, testing, and predicted timeseries
+    one onto another, to visually check the performance. In order to compare the results,
+    we also include the metrics in case we don't do use any model, but we simply predict
+    the day-after value as the value of the present day (in the stock market, this
+    means that we will predict the price for tomorrow as the price the stock has today).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Before that, we need a helping function to reshape matrices to mono-dimensional
+    (1D) arrays. Please keep this function in the `tools.py` file, since it will be
+    used by multiple scripts:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now, time for the evaluation function. We decided to put this function into
+    the `evaluate_ts.py` file, so many other scripts can access it:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: Now, time to move to the modeling phase.
+  prefs: []
+  type: TYPE_NORMAL
+- en: As previously, we start first with the cosine signal and then we move to the
+    stock price prediction.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We also suggest you put the following code in another file, for example, in
+    `2_regression_cosine.py` (you can find the code in the code bundle under this
+    name).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s start with some imports and with the seed for `numpy` and `tensorflow`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Then, it''s time to create the cosine signal and to transform it into an observation
+    matrix. In this example, we will use 20 as feature size, since it''s roughly the
+    equivalent number of working days in a month. The regression problem has now shaped
+    this way: given the 20 values of the cosine in the past, forecast the next day
+    value.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'As training and testing, we will use datasets of `250` observation each, to
+    have the equivalent of one year of data (one year contains just under `250` working
+    days). In this example, we will generate just one cosine signal, and then it will
+    be broken into two pieces: the first half will contain the train data, and the
+    second half the testing. Feel free to change them, and observe how the performance
+    changes when these parameters are changed:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now, in this part of the script, we will define some parameters for Tensorflow.
+    More specifically: the learning rate, the type of optimizer to use, and the number
+    of `epoch` (that is, how many times the training dataset goes into the learner
+    during the training operation). These values are not the best, feel free to change
+    them to predict some better ones:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Finally, it''s time to prepare the observation matrices, for training and testing.
+    Keep in mind that to speed up the Tensorflow analysis, we will use `float32` (4
+    bytes long) in our analysis:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Given the datasets, let''s now define the placeholders for the observation
+    matrix and the labels. Since we''re building a generic script, we just set the
+    number of features, and not the number of observations:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Here''s the core of our project: the regression algorithm implemented in Tensorflow.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We opted for the most classic way of implementing it, that is, the multiplication
+    between the observation matrix with a weights array plus the bias. What''s coming
+    out (and the returned value of this function) is the array containing the predictions
+    for all the observations contained in `x`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: Now, let's define the trainable parameters of the regressor, which are the `tensorflow`
+    variables. The weights are a vector with as many values as the feature size, while
+    the bias is just a scalar.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Note that we initialized the weights using a truncated normal distribution,
+    to have values close to zero, but not too extreme (as a plain normal distribution
+    could output); for the bias we instead set it to zero.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Again, feel free to change the initializations, to see the changes in performance:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The last thing we need to define in the `tensorflow` graphs are how the predictions
+    are calculated (in our case, it''s simply the output of the function which defines
+    the model), the cost (in the example we use the MSE), and the training operator
+    (we want to minimize the MSE, using the optimizer with the learning rate set previously):'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: We're now ready to open a `tensorflow` session, and train the model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We will first initialize the variables, then, in a loop, we will feed the `training`
+    dataset into the `tensorflow` graph (using the placeholders). At each iteration,
+    we will print the training MSE:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs: []
+  type: TYPE_PRE
+- en: After the training, we evaluated the MSE on the testing dataset, and finally,
+    we printed and plotted the performance of the model.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'With the default values we provided in the scripts, performances are worse
+    than the non-modeling performance. With some tuning, the results improve. For
+    example, by setting the learning rate equal to 0.1 and the number of training
+    epoch to *1000*, the output of the script will be similar to this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs: []
+  type: TYPE_PRE
+- en: Training performance and testing performance are very similar (therefore we're
+    not overfitting the model), and both the MSE and the MAE are better than a no-modeling
+    prediction.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'That''s how the error looks for each timepoint. It seems that it''s contained
+    between +/-0.15, and doesn''t have any trend over time. Remember that the noise
+    we artificially introduced with the cosine had a magnitude of +/- 0.1 with a uniform
+    distribution:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/ee5cd709-ab16-4aa5-a7d8-a353f3cc155b.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Finally, the last graph shows both the training timeseries overlapped with the
+    predicted one. Not bad for a simple linear regression, right?
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/3b1dd72a-c931-4c0f-8097-f3e5ad94e9fd.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Let's now apply the same model on a stock price. We suggest you copy the content
+    of the current file to a new one, named `3_regression_stock_price.py`. Here we
+    will change only the data importing bit, leaving everything else as it is.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let''s use the Microsoft stock price in this example, whose symbol is `"MSFT"`.
+    It''s simple to load the prices for this symbol for 2015/16 and format them as
+    an observation matrix. Here''s the code, also containing the casting to float32
+    and the train/test split. In this example, we have one year of training data (2015)
+    which will be used to predict the stock price for the whole of 2016:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In this script, we found that the best performances have been obtained with
+    the following settings:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE25]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The output of the script should look like this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE26]'
+  prefs: []
+  type: TYPE_PRE
+- en: Even in this case, we're not overfitting, and the simple regressor performs
+    better than no model at all (we all would bet that). At the beginning, the cost
+    is really high, but iteration after iteration, it gets very close to zero. Also,
+    the `mae` score is easy to interpret in this case, they are dollars! With a learner,
+    we would have predicted on average half a dollar closer to the real price the
+    day after; without any learner, nine times more.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let's now visually evaluate the performance of the model, impressive isn't it?
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'This is the predicted value:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/e8c3f67c-a454-464a-8fdf-2c1e43f09f04.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'That''s the absolute error, with the trend line (dotted):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/ddf36606-4d53-4c9a-940a-8e6a1145cd2f.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'And finally, the real and predicted value in the train set:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/0dcb6a21-39e3-473b-9279-51027d939bc4.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Remember that those are the performances of a simple regression algorithm, without
+    exploiting the temporal correlation between features. How can we exploit it to
+    perform better?
+  prefs: []
+  type: TYPE_NORMAL
+- en: Long short-term memory – LSTM 101
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '**Long Short-Term Memory** (**LSTM**), models are a special case of RNNs, Recurrent
+    Neural Networks. A full, rigorous description of them is out of the scope of this
+    book; in this section, we will just provide the essence of them.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You can have a look at the following books published by Packt:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[https://www.packtpub.com/big-data-and-business-intelligence/neural-network-programming-tensorflow](https://www.packtpub.com/big-data-and-business-intelligence/neural-network-programming-tensorflow)
+    Also, you can have a look at this: [https://www.packtpub.com/big-data-and-business-intelligence/neural-networks-r](https://www.packtpub.com/big-data-and-business-intelligence/neural-networks-r)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Simply speaking, RNN works on sequences: they accept multidimensional signals
+    as input, and they produce a multidimensional output signal. In the following
+    figure, there''s an example of an RNN able to cope with a timeseries of five-time
+    steps (one input for each time step). The inputs are in the bottom part of the
+    RNN, with the outputs in the top. Remember that each input/output is an N-dimensional
+    feature:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/c1ca1ac2-3324-4279-ad66-4e41f073c3ca.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Inside, an RNN has multiple stages; each stage is connected to its input/output
+    and to the output of the previous stage. Thanks to this configuration, each output
+    is not just a function of the input of its own stage, but depends also on the
+    output of the previous stage (which, again, is a function of its input and the
+    previous output). This configuration ensures that each input influences all the
+    following outputs, or, from the other side, an output is a function of all the
+    previous and current stages inputs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note that not all the outputs are always used. Think about a sentiment analysis
+    task, in that case, given a sentence (the timeseries input signals), we just want
+    to get one class (positive/negative); therefore only the last output is considered
+    as output, all the others exist, but they're not used. Keep in mind that we just
+    use the last one because it's the only one with the full visibility of the sentence.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'LSTM models are an evolution of RNNs: with long RNNs, the training phase may
+    lead to very tiny or huge gradients back-propagated throughout the network, which
+    leads the weights to zero or to infinity: that''s a problem usually expressed
+    as a vanishing/exploding gradient. To mitigate this problem, LSTMs have two outputs
+    for each stage: one is the actual output of the model, and the other one, named
+    memory, is the internal state of the stage.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Both outputs are fed into the following stage, lowering the chances of having
+    vanishing or exploding gradients. Of course, this comes with a price: the complexity
+    (numbers of weights to tune) and the memory footprint of the model are larger,
+    that''s why we strongly suggest using GPU devices when training RNNs, the speed
+    up in terms of time is impressive!'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Unlike regression, RNNs need a three dimensional signal as input. Tensorflow
+    specifies the format as:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Samples
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Time steps
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Features
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: In the preceding example, the sentiment analysis, the training tensor will have
+    the sentences on the *x*-axis, the words composing the sentence on the *y*-axis,
+    and the bag of words with the dictionary on the *z*-axis. For example, for classifying
+    a 1 M corpora in English (with about 20,000 different words), whose sentences
+    are long, up to 50 words, the tensor dimension is 1 M x 50 x 20 K.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Stock price prediction with LSTM
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Thanks to LSTM, we can exploit the temporal redundancy contained in our signals.
+    From the previous section, we learned that the observation matrix should be reformatted
+    into a 3D tensor, with three axes:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The first containing the samples.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: The second containing the timeseries.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: The third containing the input features.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Since we're dealing with just a mono-dimensional signal, the input tensor for
+    the LSTM should have the size (None, `time_dimension`, 1), where `time_dimension`
+    is the length of the time window. Let's code now, starting with the cosine signal.
+    We suggest you name the file `4_rnn_cosine.py`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'First of all, some imports:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE27]'
+  prefs: []
+  type: TYPE_PRE
+- en: Then, we set the window size to chunk the signal. This operation is similar
+    to the observation matrix creation.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE28]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Then, some settings for Tensorflow. At this stage, let''s start with default
+    values:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE29]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now, it''s time to fetch the noisy cosine, and reshape it to have a 3D tensor
+    shape (None, `time_dimension`, 1). This is done here:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE30]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Exactly as in the previous script, let''s define the placeholders for Tensorflow:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE31]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Here, let''s define the model. We will use an LSTM with a variable number of
+    embeddings. Also, as described in the previous chapter, we will consider just
+    the last output of the cells through a linear regression (fully connected layer)
+    to get the prediction:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE32]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Let''s set the `trainable` variables (`weights`) as before, the `cost` function
+    and the training operator:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE33]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The output, after a hyperparameter optimization, is the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE34]'
+  prefs: []
+  type: TYPE_PRE
+- en: Performances are pretty similar to the ones we obtained with the simple linear
+    regression. Let's see if we can get better performance using a less predictable
+    signal as the stock price. We'll use the same timeseries we used in the previous
+    chapter, to compare the performance.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Modifying the previous program, let''s plug in the stock price timeseries instead
+    of the cosine. Modify some lines to load the stock price data:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE35]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Since the dynamic of this signal is wider, we''ll also need to modify the distribution
+    used to extract the initial weights. We suggest you set it to:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE36]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'After a few tests, we found we hit the maximum performance with these parameters:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE37]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The output, using these parameters is:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE38]'
+  prefs: []
+  type: TYPE_PRE
+- en: This is 8% better than the previous model (test MSE). Remember, it comes with
+    a price! More parameters to train also means the training time is much longer
+    than the previous example (on a laptop, a few minutes, using the GPU).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Finally, let''s check the Tensorboard. In order to write the logs, we should
+    add the following code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'At the beginning of the files, after the imports:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE39]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Also, the whole body of the `RNN` function should be inside the named-scope
+    LSTM, that is:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE40]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Similarly, the `cost` function should be wrapped in a Tensorflow scope. Also,
+    we will add the `mae` computation within the `tensorflow` graph:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE41]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Finally, the main function should look like this:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE42]'
+  prefs: []
+  type: TYPE_PRE
+- en: This way, we separate the scopes of each block, and write a summary report for
+    the trained variables.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now, let''s launch `tensorboard`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE43]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'After opening the browser at `localhost:6006`, from the first tab, we can observe
+    the behavior of the MSE and MAE:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/7ff19868-187c-486a-b6a4-fb7a31e6c0f8.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'The trend looks very nice, it goes down until it reaches a plateau. Also, let''s
+    check the `tensorflow` graph (in the tab GRAPH). Here we can see how things are
+    connected together, and how operators are influenced by each other. You can still
+    zoom in to see exactly how LSTMs are built in Tensorflow:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![](img/5d8d0039-ca3e-4b48-a0bf-d6b62244c8c2.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: And that's the end of the project.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Possible follow - up questions
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Replace the LSTM with an RNN, and then with a GRU. Who's the best performer?
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Instead of predicting the closing price, try predicting also the high/low the
+    day after. To do so, you can use the same features while training the model (or
+    you can just use the closing price as input).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Optimize the model for other stocks: is it better to have a generic model working
+    for all the stocks or one specific for each stock?'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Tune the retraining. In the example, we predicted a full year with the model.
+    Can you notice any improvement if you train the model once a month/week/day?
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: If you have some financial experience, try building a simple trading simulator
+    and feed it with the predictions. Starting the simulation with $100, will you
+    gain or lose money after a year?
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'In this chapter we''ve shown how to perform a prediction of a timeseries: specifically,
+    we observed how well RNN performs with real datasets as the stock prices. In the
+    next chapter, we will see another application of the RNN, for example, how to
+    perform an automatic machine translation for translating a sentence in another
+    language.'
+  prefs: []
+  type: TYPE_NORMAL
