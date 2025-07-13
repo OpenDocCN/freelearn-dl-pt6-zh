@@ -1,6 +1,6 @@
-# Github DevOps 加速指南
+# 自然语言处理的深度学习
 
-> 原文：[`annas-archive.org/md5/677f27c30764b3701bc2b6cf6de3a30e`](https://annas-archive.org/md5/677f27c30764b3701bc2b6cf6de3a30e)
+> 原文：[`annas-archive.org/md5/79edb699aa9642b682a3d7113b128c41`](https://annas-archive.org/md5/79edb699aa9642b682a3d7113b128c41)
 > 
 > 译者：[飞龙](https://github.com/wizardforcel)
 > 
