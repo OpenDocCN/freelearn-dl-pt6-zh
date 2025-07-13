@@ -1,6 +1,6 @@
-# Github DevOps 加速指南
+# Keras 神经网络秘籍
 
-> 原文：[`annas-archive.org/md5/677f27c30764b3701bc2b6cf6de3a30e`](https://annas-archive.org/md5/677f27c30764b3701bc2b6cf6de3a30e)
+> 原文：[`annas-archive.org/md5/b038bef44808c012b36120474e9e0841`](https://annas-archive.org/md5/b038bef44808c012b36120474e9e0841)
 > 
 > 译者：[飞龙](https://github.com/wizardforcel)
 > 

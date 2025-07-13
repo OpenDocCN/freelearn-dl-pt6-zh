@@ -1,6 +1,6 @@
-# Github DevOps 加速指南
+# 卷积神经网络实践指南
 
-> 原文：[`annas-archive.org/md5/677f27c30764b3701bc2b6cf6de3a30e`](https://annas-archive.org/md5/677f27c30764b3701bc2b6cf6de3a30e)
+> 原文：[`annas-archive.org/md5/b8bd6c69e42dba1814f4d08d925abff3`](https://annas-archive.org/md5/b8bd6c69e42dba1814f4d08d925abff3)
 > 
 > 译者：[飞龙](https://github.com/wizardforcel)
 > 

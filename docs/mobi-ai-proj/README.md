@@ -1,6 +1,6 @@
-# Github DevOps 加速指南
+# 移动人工智能项目
 
-> 原文：[`annas-archive.org/md5/677f27c30764b3701bc2b6cf6de3a30e`](https://annas-archive.org/md5/677f27c30764b3701bc2b6cf6de3a30e)
+> 原文：[`annas-archive.org/md5/24329c3bf9f3c672f8b5b2fa4cd1802e`](https://annas-archive.org/md5/24329c3bf9f3c672f8b5b2fa4cd1802e)
 > 
 > 译者：[飞龙](https://github.com/wizardforcel)
 > 
