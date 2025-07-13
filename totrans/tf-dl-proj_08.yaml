@@ -1,7 +1,9 @@
 - en: Detecting Duplicate Quora Questions
+  id: totrans-0
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 检测 Quora 重复问题
 - en: Quora ([www.quora.com](http://www.quora.com)) is a community-driven question
     and answer website where users, either anonymously or publicly, ask and answer
     questions. In January 2017, Quora first released a public dataset consisting of
@@ -16,46 +18,67 @@
     answered each day and a growing historical repository. In this case, an automation
     project based on **Natural Language Processing** (**NLP**) and deep learning could
     be the right solution for the task.
+  id: totrans-1
   prefs: []
   type: TYPE_NORMAL
+  zh: Quora ([www.quora.com](http://www.quora.com)) 是一个由社区驱动的问答网站，用户可以匿名或公开提问和回答问题。2017
+    年 1 月，Quora 首次发布了一个公共数据集，其中包含了问答对，可能是重复的，也可能不是。重复的问答对在语义上相似；换句话说，两道重复的问题表示相同的意思，尽管它们使用不同的措辞来表达相同的意图。对于
+    Quora 来说，为每个不同的问题提供单独的页面是至关重要的，这样可以为用户提供更好的服务，避免他们在查找答案时需要寻找其他来源。版主可以帮助避免网站上的重复内容，但随着每天回答问题的数量增加以及历史数据仓库的不断扩展，这种方法很难扩大规模。在这种情况下，基于**自然语言处理**（**NLP**）和深度学习的自动化项目可能是解决问题的最佳方案。
 - en: 'This chapter will deal with understanding how to build a project based on TensorFlow
     that explicates the semantic similarity between sentences using the Quora dataset.
     The chapter is based on the work of Abhishek Thakur ([https://www.linkedin.com/pulse/duplicate-quora-question-abhishek-thakur/](https://www.linkedin.com/pulse/duplicate-quora-question-abhishek-thakur/)),
     who originally developed a solution based on the Keras package. The presented
     techniques can also easily be applied to other problems that deal with semantic
     similarity. In this project, we will cover the following:'
+  id: totrans-2
   prefs: []
   type: TYPE_NORMAL
+  zh: 本章将介绍如何基于 TensorFlow 构建一个项目，使用 Quora 数据集来阐明句子之间的语义相似性。本章基于 Abhishek Thakur 的工作（[https://www.linkedin.com/pulse/duplicate-quora-question-abhishek-thakur/](https://www.linkedin.com/pulse/duplicate-quora-question-abhishek-thakur/)），他最初基于
+    Keras 包开发了一个解决方案。所展示的技术同样可以轻松应用于处理语义相似性问题的其他任务。在这个项目中，我们将涵盖以下内容：
 - en: Feature engineering on text data
+  id: totrans-3
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 文本数据的特征工程
 - en: TF-IDF and SVD
+  id: totrans-4
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: TF-IDF 和 SVD
 - en: Word2vec and GloVe based features
+  id: totrans-5
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 基于 Word2vec 和 GloVe 的特征
 - en: Traditional machine learning models such as logistic regression and gradient
     boosting using `xgboost`
+  id: totrans-6
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 传统机器学习模型，如逻辑回归和使用 `xgboost` 的梯度提升
 - en: Deep learning models including LSTM, GRU, and 1D-CNN
+  id: totrans-7
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 包括 LSTM、GRU 和 1D-CNN 的深度学习模型
 - en: By the end of the chapter, you will be able to train your own deep learning
     model on similar problems. To start with, let's have a quick look at the Quora
     dataset.
+  id: totrans-8
   prefs: []
   type: TYPE_NORMAL
+  zh: 到本章结束时，您将能够训练自己的深度学习模型来解决类似的问题。首先，让我们快速浏览一下 Quora 数据集。
 - en: Presenting the dataset
+  id: totrans-9
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 数据集展示
 - en: The data, made available for non-commercial purposes ([https://www.quora.com/about/tos](https://www.quora.com/about/tos))
     in a Kaggle competition ([https://www.kaggle.com/c/quora-question-pairs](https://www.kaggle.com/c/quora-question-pairs))
     and on Quora's blog ([https://data.quora.com/First-Quora-Dataset-Release-Question-Pairs](https://data.quora.com/First-Quora-Dataset-Release-Question-Pairs)),
@@ -67,69 +90,107 @@
     ones. In order to set up a more balanced dataset, the negative examples were upsampled
     by using pairs of related questions, that is, questions about the same topic that
     are actually not similar.
+  id: totrans-10
   prefs: []
   type: TYPE_NORMAL
+  zh: 该数据集为非商业用途提供（[https://www.quora.com/about/tos](https://www.quora.com/about/tos)），并在
+    Kaggle 比赛中发布（[https://www.kaggle.com/c/quora-question-pairs](https://www.kaggle.com/c/quora-question-pairs)）以及
+    Quora 的博客上发布（[https://data.quora.com/First-Quora-Dataset-Release-Question-Pairs](https://data.quora.com/First-Quora-Dataset-Release-Question-Pairs)），包含
+    404,351 对问题，其中 255,045 个为负样本（非重复问题），149,306 个为正样本（重复问题）。正样本约占 40%，这种轻微的不平衡无需特别修正。实际上，正如
+    Quora 博客所述，根据他们的原始抽样策略，数据集中的重复样本数量远高于非重复样本。为了建立一个更平衡的数据集，负样本通过使用相关问题对进行过上采样，即关于相同主题的、实际上不相似的问题。
 - en: Before starting work on this project, you can simply directly download the data,
     which is about 55 MB, from its Amazon S3 repository at this link: [http://qim.ec.quoracdn.net/quora_duplicate_questions.tsv](http://qim.ec.quoracdn.net/quora_duplicate_questions.tsv) into
     our working directory.
+  id: totrans-11
   prefs: []
   type: TYPE_NORMAL
+  zh: 在开始进行这个项目之前，你可以直接从其 Amazon S3 存储库下载大约 55 MB 的数据，下载链接为：[http://qim.ec.quoracdn.net/quora_duplicate_questions.tsv](http://qim.ec.quoracdn.net/quora_duplicate_questions.tsv)，并将其放入我们的工作目录中。
 - en: 'After loading it, we can start diving directly into the data by picking some
     example rows and examining them. The following diagram shows an actual snapshot
     of the few first rows from the dataset:'
+  id: totrans-12
   prefs: []
   type: TYPE_NORMAL
+  zh: 加载后，我们可以通过选择一些示例行并检查它们，直接开始深入数据。以下图表显示了数据集中前几行的实际快照：
 - en: '![](img/f3062b7c-9d99-40fa-b022-cf9a7c14e202.png)'
+  id: totrans-13
   prefs: []
   type: TYPE_IMG
+  zh: '![](img/f3062b7c-9d99-40fa-b022-cf9a7c14e202.png)'
 - en: First few rows of the Quora dataset
+  id: totrans-14
   prefs: []
   type: TYPE_NORMAL
+  zh: Quora 数据集的前几行
 - en: 'Exploring further into the data, we can find some examples of  question pairs
     that mean the same thing, that is, duplicates, as follows:'
+  id: totrans-15
   prefs: []
   type: TYPE_NORMAL
+  zh: 进一步探索数据，我们可以找到一些意思相同的问答对，即重复问题，如下所示：
 - en: '|  How does Quora quickly mark  questions as needing improvement? | Why does
     Quora mark my questions as needing improvement/clarification'
+  id: totrans-16
   prefs: []
   type: TYPE_NORMAL
+  zh: '| Quora 如何快速标记问题为需要改进？ | 为什么 Quora 标记我的问题为需要改进/澄清？ |'
 - en: before I have time to give it details?
+  id: totrans-17
   prefs: []
   type: TYPE_NORMAL
+  zh: 在我有时间详细说明之前？
 - en: Literally within seconds… |
+  id: totrans-18
   prefs: []
   type: TYPE_NORMAL
+  zh: 字面意思上，几秒钟内…… |
 - en: '| Why did Trump win the Presidency? | How did Donald Trump win the 2016 Presidential
     Election? |'
+  id: totrans-19
   prefs: []
   type: TYPE_TB
+  zh: '| 为什么特朗普赢得了总统选举？ | 唐纳德·特朗普是如何赢得 2016 年总统选举的？ |'
 - en: '| What practical applications might evolve from the discovery of the Higgs
     Boson? | What are some practical benefits of the discovery of the Higgs Boson?
     |'
+  id: totrans-20
   prefs: []
   type: TYPE_TB
+  zh: '| 希格斯玻色子的发现可能带来哪些实际应用？ | 希格斯玻色子的发现有什么实际的好处？ |'
 - en: At first sight, duplicated questions have quite a few words in common, but they
     could be very different in length.
+  id: totrans-21
   prefs: []
   type: TYPE_NORMAL
+  zh: 初看，重复问题有很多共同的词语，但它们的长度可能非常不同。
 - en: 'On the other hand, examples of non-duplicate questions are as follows:'
+  id: totrans-22
   prefs: []
   type: TYPE_NORMAL
+  zh: 另一方面，以下是一些非重复问题的示例：
 - en: '| Who should I address my cover letter to if I''m applying to a big company
     like Mozilla? | Which car is better from a safety persepctive? swift or grand
     i10\. My first priority is safety? |'
+  id: totrans-23
   prefs: []
   type: TYPE_TB
+  zh: '| 如果我申请像 Mozilla 这样的公司，我应该将求职信寄给谁？ | 从安全角度来看，哪款车更好？Swift 还是 Grand i10？我的首要考虑是安全性。
+    |'
 - en: '| Mr. Robot (TV series): Is Mr. Robot a good representation of real-life hacking
     and hacking culture? Is the depiction of hacker societies realistic? | What mistakes
     are made when depicting hacking in Mr. Robot compared to real-life cyber security
     breaches or just a regular use of technologies? |'
+  id: totrans-24
   prefs: []
   type: TYPE_TB
+  zh: '| 《黑客军团》（电视剧）：《黑客军团》是否真实地表现了现实生活中的黑客和黑客文化？黑客社会的描绘是否现实？ | 《黑客军团》中描绘的黑客与现实生活中的网络安全漏洞或普通技术使用相比，存在哪些错误？
+    |'
 - en: '| How can I start an online shopping (e-commerce) website? | Which web technology
     is best suited for building a big e-commerce website? |'
+  id: totrans-25
   prefs: []
   type: TYPE_TB
+  zh: '| 如何启动一个在线购物（电子商务）网站？ | 哪种网络技术最适合构建大型电子商务网站？ |'
 - en: Some questions from these examples are clearly not duplicated and have few words
     in common, but some others are more difficult to detect as unrelated. For instance,
     the second pair in the example might turn being appealing to some and leave even
@@ -140,54 +201,80 @@
     warned) but, given that the data is derived from a real-world problem, we can't
     do anything but deal with this kind of imperfection and strive to find a robust
     solution that works.
+  id: totrans-26
   prefs: []
   type: TYPE_NORMAL
+  zh: 这些例子中的一些问题显然没有重复，并且只有少量相同的词汇，但其他一些则更难以识别为不相关。例如，第二对问题可能对某些人来说具有吸引力，甚至让人类评判者也感到不确定。这两个问题可能意味着不同的事情：*为什么*和*如何*，或者它们可能在表面上看起来是相同的。深入分析，我们甚至可能会发现更多可疑的例子，甚至一些明显的数据错误；我们肯定在数据集中存在一些异常（正如数据集上的Quora帖子所警告的那样），但鉴于这些数据源自现实世界问题，我们无法做任何事情，只能应对这种不完美并努力找到一个有效的解决方案。
 - en: 'At this point, our exploration becomes more quantitative than qualitative and
     some statistics on the question pairs are provided here:'
+  id: totrans-27
   prefs: []
   type: TYPE_NORMAL
+  zh: 到此为止，我们的探索变得更加定量而非定性，这里提供了一些关于问题对的统计数据：
 - en: '| Average number of characters in question1 | 59.57 |'
+  id: totrans-28
   prefs: []
   type: TYPE_TB
+  zh: '| 问题1中字符的平均数 | 59.57 |'
 - en: '| Minimum number of characters in question1 | 1 |'
+  id: totrans-29
   prefs: []
   type: TYPE_TB
+  zh: '| 问题1中字符的最小数 | 1 |'
 - en: '| Maximum number of characters in question1 | 623 |'
+  id: totrans-30
   prefs: []
   type: TYPE_TB
+  zh: '| 问题1中字符的最大数 | 623 |'
 - en: '| Average number of characters in question2 | 60.14 |'
+  id: totrans-31
   prefs: []
   type: TYPE_TB
+  zh: '| 问题2中字符的平均数 | 60.14 |'
 - en: '| Minimum number of characters in question2 | 1 |'
+  id: totrans-32
   prefs: []
   type: TYPE_TB
+  zh: '| 问题2中字符的最小数 | 1 |'
 - en: '| Maximum number of characters in question2 | 1169 |'
+  id: totrans-33
   prefs: []
   type: TYPE_TB
+  zh: '| 问题2中字符的最大数 | 1169 |'
 - en: Question 1 and question 2 are roughly the same average characters, though we
     have more extremes in question 2\. There also must be some trash in the data,
     since we cannot figure out a question made up of a single character.
+  id: totrans-34
   prefs: []
   type: TYPE_NORMAL
+  zh: 问题1和问题2的平均字符数大致相同，尽管问题2有更多的极端值。数据中肯定也有一些垃圾数据，因为我们无法理解由单个字符组成的问题。
 - en: 'We can even get a completely different vision of our data by plotting it into
     a word cloud and highlighting the most common words present in the dataset:'
+  id: totrans-35
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们甚至可以通过将数据绘制成词云，突出显示数据集中最常见的词汇，从而获得完全不同的数据视角：
 - en: '![](img/7334f53b-df7f-41a3-8937-657d184d1165.png)'
+  id: totrans-36
   prefs: []
   type: TYPE_IMG
+  zh: '![](img/7334f53b-df7f-41a3-8937-657d184d1165.png)'
 - en: 'Figure 1: A word cloud made up of the most frequent words to be found in the
     Quora dataset'
+  id: totrans-37
   prefs: []
   type: TYPE_NORMAL
+  zh: 图1：由在Quora数据集中最常见的词汇构成的词云
 - en: The presence of word sequences such as Hillary Clinton and Donald Trump reminds
     us that the data was gathered at a certain historical moment, and that many questions
     we can find inside it are clearly ephemeral, reasonable only at the very time
     the dataset was collected. Other topics, such as programming language, World War,
     or earn money could be longer lasting, both in terms of interest and in the validity
     of the answers provided.
+  id: totrans-38
   prefs: []
   type: TYPE_NORMAL
+  zh: 词序列如“希拉里·克林顿”和“唐纳德·特朗普”的出现提醒我们，数据是在某个历史时刻收集的，我们可以在其中找到的许多问题显然是短暂的，仅在数据集收集时才是合理的。其他主题，如编程语言、世界大战或赚取金钱，可能会持续更长时间，无论是从兴趣的角度还是从提供的答案的有效性上来看。
 - en: After exploring the data a bit, it is now time to decide what target metric
     we will strive to optimize in our project. Throughout the chapter, we will be
     using accuracy as a metric to evaluate the performance of our models. Accuracy
@@ -203,136 +290,205 @@
     papers. In addition, in a real-world application, our work may simply be evaluated
     on the basis of how many times it is just right or wrong, regardless of other
     considerations.
+  id: totrans-39
   prefs: []
   type: TYPE_NORMAL
+  zh: 在稍微探索了一下数据后，现在是时候决定我们在项目中要优化的目标指标是什么了。在本章中，我们将使用准确度作为评估模型性能的指标。准确度作为衡量标准，单纯关注预测的有效性，可能会忽视一些替代模型之间的重要差异，例如辨别能力（模型是否更能识别重复项？）或概率分数的准确性（是否存在重复与非重复之间的明显差距？）。我们选择了准确度，基于这样一个事实：这是
+    Quora 的工程团队为该数据集创建基准时决定采用的指标（正如他们在这篇博客文章中所述：[https://engineering.quora.com/Semantic-Question-Matching-with-Deep-Learning](https://engineering.quora.com/Semantic-Question-Matching-with-Deep-Learning)）。使用准确度作为指标可以让我们更容易评估和比较我们的模型与
+    Quora 工程团队的模型，也可以与其他几篇研究论文进行比较。此外，在实际应用中，我们的工作可能仅根据其正确与错误的次数进行评估，而无需考虑其他因素。
 - en: We can now proceed furthermore in our projects with some very basic feature
     engineering to start with.
+  id: totrans-40
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们现在可以继续在项目中进行一些非常基础的特征工程，作为起点。
 - en: Starting with basic feature engineering
+  id: totrans-41
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 从基础特征工程开始
 - en: 'Before starting to code, we have to load the dataset in Python and also provide
     Python with all the necessary packages for our project. We will need to have these
     packages installed on our system (the latest versions should suffice, no need
     for any specific package version):'
+  id: totrans-42
   prefs: []
   type: TYPE_NORMAL
+  zh: 在开始编写代码之前，我们需要在 Python 中加载数据集，并为我们的项目提供所有必需的包。我们需要在系统上安装这些包（最新版本应该足够，不需要特定版本的包）：
 - en: '`Numpy`'
+  id: totrans-43
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '`Numpy`'
 - en: '`pandas`'
+  id: totrans-44
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '`pandas`'
 - en: '`fuzzywuzzy`'
+  id: totrans-45
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '`fuzzywuzzy`'
 - en: '`python-Levenshtein`'
+  id: totrans-46
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '`python-Levenshtein`'
 - en: '`scikit-learn`'
+  id: totrans-47
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '`scikit-learn`'
 - en: '`gensim`'
+  id: totrans-48
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '`gensim`'
 - en: '`pyemd`'
+  id: totrans-49
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '`pyemd`'
 - en: '`NLTK`'
+  id: totrans-50
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '`NLTK`'
 - en: As we will be using each one of these packages in the project, we will provide
     specific instructions and tips to install them.
+  id: totrans-51
   prefs: []
   type: TYPE_NORMAL
+  zh: 由于我们将在项目中使用这些包中的每一个，因此我们将提供安装它们的具体说明和提示。
 - en: 'For all dataset operations, we will be using pandas (and Numpy will come in
     handy, too). To install `numpy` and `pandas`:'
+  id: totrans-52
   prefs: []
   type: TYPE_NORMAL
+  zh: 对于所有的数据集操作，我们将使用 pandas（Numpy 也会派上用场）。要安装 `numpy` 和 `pandas`：
 - en: '[PRE0]'
+  id: totrans-53
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE0]'
 - en: 'The dataset can be loaded into memory easily by using pandas and a specialized
     data structure, the pandas dataframe (we expect the dataset to be in the same
     directory as your script or Jupyter notebook):'
+  id: totrans-54
   prefs: []
   type: TYPE_NORMAL
+  zh: 数据集可以通过 pandas 和一种专用的数据结构——pandas 数据框，轻松加载到内存中（我们期望数据集与您的脚本或 Jupyter notebook
+    在同一目录下）：
 - en: '[PRE1]'
+  id: totrans-55
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE1]'
 - en: We will be using the pandas dataframe denoted by `data` throughout this chapter,
     and also when we work with our TensorFlow model and provide input to it.
+  id: totrans-56
   prefs: []
   type: TYPE_NORMAL
+  zh: 在本章中，我们将使用名为 `data` 的 pandas 数据框，并且当我们使用 TensorFlow 模型并为其提供输入时，也会使用它。
 - en: 'We can now start by creating some very basic features. These basic features
     include length-based features and string-based features:'
+  id: totrans-57
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们现在可以开始创建一些非常基础的特征。这些基础特征包括基于长度的特征和基于字符串的特征：
 - en: Length of question1
+  id: totrans-58
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: question1 的长度
 - en: Length of question2
+  id: totrans-59
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: question2 的长度
 - en: Difference between the two lengths
+  id: totrans-60
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 两个长度之间的差异
 - en: Character length of question1 without spaces
+  id: totrans-61
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 不含空格的 question1 字符长度
 - en: Character length of question2 without spaces
+  id: totrans-62
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 不含空格的 question2 字符长度
 - en: Number of words in question1
+  id: totrans-63
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: question1 中的单词数
 - en: Number of words in question2
+  id: totrans-64
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: question2 中的单词数
 - en: Number of common words in question1 and question2
+  id: totrans-65
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: question1 和 question2 中的共同单词数
 - en: 'These features are dealt with one-liners transforming the original input using
     the pandas package in Python and its method `apply`:'
+  id: totrans-66
   prefs: []
   type: TYPE_NORMAL
+  zh: 这些特征通过单行代码处理，使用 pandas 包中的 `apply` 方法转换原始输入：
 - en: '[PRE2]'
+  id: totrans-67
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE2]'
 - en: 'For future reference, we will mark this set of features as feature set-1 or
     `fs_1`:'
+  id: totrans-68
   prefs: []
   type: TYPE_NORMAL
+  zh: 供日后参考，我们将这组特征标记为特征集-1 或 `fs_1`：
 - en: '[PRE3]'
+  id: totrans-69
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE3]'
 - en: This simple approach will help you to easily recall and combine a different
     set of features in the machine learning models we are going to build, turning
     comparing different models run by different feature sets into a piece of cake.
+  id: totrans-70
   prefs: []
   type: TYPE_NORMAL
+  zh: 这种简单的方法将帮助你轻松回忆并结合我们将在构建的机器学习模型中的不同特征集，从而使得比较不同特征集运行的不同模型变得轻而易举。
 - en: Creating fuzzy features
+  id: totrans-71
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 创建模糊特征
 - en: The next set of features are based on fuzzy string matching. Fuzzy string matching
     is also known as approximate string matching and is the process of finding strings
     that approximately match a given pattern. The closeness of a match is defined
@@ -340,137 +496,198 @@
     exact match. These primitive operations include insertion (to insert a character
     at a given position), deletion (to delete a particular character), and substitution
     (to replace a character with a new one).
+  id: totrans-72
   prefs: []
   type: TYPE_NORMAL
+  zh: 下一组特征基于模糊字符串匹配。模糊字符串匹配也称为近似字符串匹配，是寻找与给定模式大致匹配的字符串的过程。匹配的接近度由将字符串转换为完全匹配所需的原始操作数量来定义。这些原始操作包括插入（在给定位置插入一个字符）、删除（删除一个特定字符）和替代（将字符替换为新字符）。
 - en: Fuzzy string matching is typically used for spell checking, plagiarism detection,
     DNA sequence matching, spam filtering, and so on and it is part of the larger
     family of edit distances, distances based on the idea that a string can be transformed
     into another one. It is frequently used in natural language processing and other
     applications in order to ascertain the grade of difference between two strings
     of characters.
+  id: totrans-73
   prefs: []
   type: TYPE_NORMAL
+  zh: 模糊字符串匹配通常用于拼写检查、抄袭检测、DNA序列匹配、垃圾邮件过滤等，它是编辑距离更大范畴的一部分，编辑距离的思想是一个字符串可以转换成另一个字符串。它在自然语言处理和其他应用中经常被用来确定两个字符字符串之间的差异程度。
 - en: It is also known as Levenshtein distance, from the name of the Russian scientist,
     Vladimir Levenshtein, who introduced it in 1965.
+  id: totrans-74
   prefs: []
   type: TYPE_NORMAL
+  zh: 它也被称为Levenshtein距离，得名于俄罗斯科学家弗拉基米尔·列文斯坦，他于1965年提出了这一概念。
 - en: These features were created using the `fuzzywuzzy` package available for Python
     ([https://pypi.python.org/pypi/fuzzywuzzy](https://pypi.python.org/pypi/fuzzywuzzy)).
     This package uses Levenshtein distance to calculate the differences in two sequences,
     which in our case are the pair of questions.
+  id: totrans-75
   prefs: []
   type: TYPE_NORMAL
+  zh: 这些特征是使用`fuzzywuzzy`包创建的，该包可以在Python中使用（[https://pypi.python.org/pypi/fuzzywuzzy](https://pypi.python.org/pypi/fuzzywuzzy)）。该包使用Levenshtein距离来计算两个序列之间的差异，在我们的例子中是问题对。
 - en: 'The `fuzzywuzzy` package can be installed using pip3:'
+  id: totrans-76
   prefs: []
   type: TYPE_NORMAL
+  zh: '`fuzzywuzzy`包可以通过pip3进行安装：'
 - en: '[PRE4]'
+  id: totrans-77
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE4]'
 - en: 'As an important dependency, `fuzzywuzzy` requires the `Python-Levenshtein`
     package ([https://github.com/ztane/python-Levenshtein/](https://github.com/ztane/python-Levenshtein/)),
     which is a blazingly fast implementation of this classic algorithm, powered by
     compiled C code. To make the calculations much faster using `fuzzywuzzy`, we also
     need to install the `Python-Levenshtein` package:'
+  id: totrans-78
   prefs: []
   type: TYPE_NORMAL
+  zh: 作为一个重要的依赖，`fuzzywuzzy`需要`Python-Levenshtein`包（[https://github.com/ztane/python-Levenshtein/](https://github.com/ztane/python-Levenshtein/)），这是一个由编译的C代码驱动的经典算法的极其快速实现。为了使用`fuzzywuzzy`使计算变得更快，我们还需要安装`Python-Levenshtein`包：
 - en: '[PRE5]'
+  id: totrans-79
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE5]'
 - en: 'The `fuzzywuzzy` package offers many different types of ratio, but we will
     be using only the following:'
+  id: totrans-80
   prefs: []
   type: TYPE_NORMAL
+  zh: '`fuzzywuzzy`包提供了多种不同类型的比率，但我们将只使用以下几种：'
 - en: QRatio
+  id: totrans-81
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: QRatio
 - en: WRatio
+  id: totrans-82
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: WRatio
 - en: Partial ratio
+  id: totrans-83
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 部分比率
 - en: Partial token set ratio
+  id: totrans-84
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 部分令牌集比率
 - en: Partial token sort ratio
+  id: totrans-85
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 部分令牌排序比率
 - en: Token set ratio
+  id: totrans-86
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 令牌集比率
 - en: Token sort ratio
+  id: totrans-87
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 令牌排序比率
 - en: 'Examples of `fuzzywuzzy` features on Quora data:'
+  id: totrans-88
   prefs: []
   type: TYPE_NORMAL
+  zh: '`fuzzywuzzy`在Quora数据上的特征示例：'
 - en: '[PRE6]'
+  id: totrans-89
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE6]'
 - en: 'This code snippet will result in the value of 67 being returned:'
+  id: totrans-90
   prefs: []
   type: TYPE_NORMAL
+  zh: 这段代码将返回67的值：
 - en: '[PRE7]'
+  id: totrans-91
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE7]'
 - en: 'In this comparison, the returned value will be 60\. Given these examples, we
     notice that although the values of `QRatio` are close to each other, the value
     for the similar question pair from the dataset is higher than the pair with no
     similarity. Let''s take a look at another feature from fuzzywuzzy for these same
     pairs of questions:'
+  id: totrans-92
   prefs: []
   type: TYPE_NORMAL
+  zh: 在这个比较中，返回的值将是60。根据这些示例，我们注意到尽管`QRatio`的值彼此接近，但来自数据集中相似问题对的值要高于没有相似性的对。让我们来看一下`fuzzywuzzy`为这些相同问题对提供的另一个特征：
 - en: '[PRE8]'
+  id: totrans-93
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE8]'
 - en: 'In this case, the returned value is 73:'
+  id: totrans-94
   prefs: []
   type: TYPE_NORMAL
+  zh: 在这种情况下，返回的值为73：
 - en: '[PRE9]'
+  id: totrans-95
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE9]'
 - en: Now the returned value is 57.
+  id: totrans-96
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在返回的值是57。
 - en: Using the `partial_ratio` method, we can observe how the difference in scores
     for these two pairs of questions increases notably, allowing an easier discrimination
     between being a duplicate pair or not. We assume that these features might add
     value to our models.
+  id: totrans-97
   prefs: []
   type: TYPE_NORMAL
 - en: 'By using pandas and the `fuzzywuzzy` package in Python, we can again apply
     these features as simple one-liners:'
+  id: totrans-98
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE10]'
+  id: totrans-99
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE10]'
 - en: 'This set of features are henceforth denoted as feature set-2 or `fs_2`:'
+  id: totrans-100
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE11]'
+  id: totrans-101
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE11]'
 - en: Again, we will store our work and save it for later use when modeling.
+  id: totrans-102
   prefs: []
   type: TYPE_NORMAL
 - en: Resorting to TF-IDF and SVD features
+  id: totrans-103
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
 - en: 'The next few sets of features are based on TF-IDF and SVD. **Term Frequency-Inverse
     Document Frequency** (**TF-IDF**). Is one of the algorithms at the foundation
     of information retrieval. Here, the algorithm is explained using a formula:'
+  id: totrans-104
   prefs: []
   type: TYPE_NORMAL
 - en: '![](img/00c867d8-7952-404f-902f-526fb4b64e24.png)![](img/7aed5e97-3d58-4d51-9c8f-82108a7c1b94.png)'
+  id: totrans-105
   prefs: []
   type: TYPE_IMG
 - en: 'You can understand the formula using this notation: *C(t)* is the number of
@@ -480,176 +697,254 @@
     provides the **Inverse Document Frequency** (**IDF**).  TF-IDF for a term *t* is
     a multiplication of Term Frequency and Inverse Document Frequency for the given
     term *t*:'
+  id: totrans-106
   prefs: []
   type: TYPE_NORMAL
 - en: '![](img/a050f4da-3d8c-4dd6-bd2c-ddc3329d7fe3.png)'
+  id: totrans-107
   prefs: []
   type: TYPE_IMG
 - en: Without any prior knowledge, other than about the documents themselves, such
     a score will highlight all the terms that could easily discriminate a document
     from the others, down-weighting the common words that won't tell you much, such
     as the common parts of speech (such as articles, for instance).
+  id: totrans-108
   prefs: []
   type: TYPE_NORMAL
 - en: If you need a more hands-on explanation of TFIDF, this great online tutorial
     will help you try coding the algorithm yourself and testing it on some text data: [https://stevenloria.com/tf-idf/](https://stevenloria.com/tf-idf/)
+  id: totrans-109
   prefs: []
   type: TYPE_NORMAL
 - en: 'For convenience and speed of execution, we resorted to the `scikit-learn` implementation
     of TFIDF.  If you don''t already have `scikit-learn` installed, you can install
     it using pip:'
+  id: totrans-110
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE12]'
+  id: totrans-111
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE12]'
 - en: 'We create TFIDF features for both question1 and question2 separately (in order
     to type less, we just deep copy the question1 `TfidfVectorizer`):'
+  id: totrans-112
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE13]'
+  id: totrans-113
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE13]'
 - en: It must be noted that the parameters shown here have been selected after quite
     a lot of experiments. These parameters generally work pretty well with all other
     problems concerning natural language processing, specifically text classification.
     One might need to change the stop word list to the language in question.
+  id: totrans-114
   prefs: []
   type: TYPE_NORMAL
 - en: 'We can now obtain the TFIDF matrices for question1 and question2 separately:'
+  id: totrans-115
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE14]'
+  id: totrans-116
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE14]'
 - en: In our TFIDF processing, we computed the TFIDF matrices based on all the data
     available (we used the `fit_transform` method). This is quite a common approach
     in Kaggle competitions because it helps to score higher on the leaderboard. However,
     if you are working in a real setting, you may want to exclude a part of the data
     as a training or validation set in order to be sure that your TFIDF processing
     helps your model to generalize to a new, unseen dataset.
+  id: totrans-117
   prefs: []
   type: TYPE_NORMAL
+  zh: 在我们的TFIDF处理过程中，我们基于所有可用数据计算了TFIDF矩阵（我们使用了`fit_transform`方法）。这在Kaggle竞赛中是一种常见方法，因为它有助于在排行榜上获得更高的分数。然而，如果你在实际环境中工作，你可能希望将一部分数据作为训练集或验证集，以确保你的TFIDF处理有助于你的模型在新的、未见过的数据集上进行泛化。
 - en: After we have the TFIDF features, we move to SVD features. SVD is a feature
     decomposition method and it stands for singular value decomposition. It is largely
     used in NLP because of a technique called Latent Semantic Analysis (LSA).
+  id: totrans-118
   prefs: []
   type: TYPE_NORMAL
+  zh: 在获得TFIDF特征后，我们进入SVD特征的处理。SVD是一种特征分解方法，全称是奇异值分解（Singular Value Decomposition）。它在自然语言处理（NLP）中广泛应用，因为有一种叫做潜在语义分析（LSA）的方法。
 - en: A detailed discussion of SVD and LSA is beyond the scope of this chapter, but
     you can get an idea of their workings by trying these two approachable and clear
     online tutorials: [https://alyssaq.github.io/2015/singular-value-decomposition-visualisation/](https://alyssaq.github.io/2015/singular-value-decomposition-visualisation/)
     and [https://technowiki.wordpress.com/2011/08/27/latent-semantic-analysis-lsa-tutorial/](https://technowiki.wordpress.com/2011/08/27/latent-semantic-analysis-lsa-tutorial/)
+  id: totrans-119
   prefs: []
   type: TYPE_NORMAL
+  zh: 对SVD和LSA的详细讨论超出了本章的范围，但你可以通过尝试以下两个简明易懂的在线教程，了解它们的工作原理：[https://alyssaq.github.io/2015/singular-value-decomposition-visualisation/](https://alyssaq.github.io/2015/singular-value-decomposition-visualisation/)
+    和 [https://technowiki.wordpress.com/2011/08/27/latent-semantic-analysis-lsa-tutorial/](https://technowiki.wordpress.com/2011/08/27/latent-semantic-analysis-lsa-tutorial/)
 - en: To create the SVD features, we again use `scikit-learn` implementation. This
     implementation is a variation of traditional SVD and is known as `TruncatedSVD`.
+  id: totrans-120
   prefs: []
   type: TYPE_NORMAL
+  zh: 为了创建SVD特征，我们再次使用`scikit-learn`的实现。这种实现是传统SVD的变种，称为`TruncatedSVD`。
 - en: A `TruncatedSVD` is an approximate SVD method that can provide you with reliable
     yet computationally fast SVD matrix decomposition. You can find more hints about
     how this technique works and it can be applied by consulting this web page: [http://langvillea.people.cofc.edu/DISSECTION-LAB/Emmie'sLSI-SVDModule/p5module.html](http://langvillea.people.cofc.edu/DISSECTION-LAB/Emmie'sLSI-SVDModule/p5module.html)
+  id: totrans-121
   prefs: []
   type: TYPE_NORMAL
+  zh: '`TruncatedSVD`是一种近似的SVD方法，可以为你提供可靠且计算速度较快的SVD矩阵分解。你可以通过查阅以下网页，了解更多关于该技术的工作原理以及如何应用：[http://langvillea.people.cofc.edu/DISSECTION-LAB/Emmie''sLSI-SVDModule/p5module.html](http://langvillea.people.cofc.edu/DISSECTION-LAB/Emmie''sLSI-SVDModule/p5module.html)'
 - en: '[PRE15]'
+  id: totrans-122
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE15]'
 - en: 'We chose 180 components for SVD decomposition and these features are calculated
     on a TF-IDF matrix:'
+  id: totrans-123
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们选择了180个SVD分解组件，这些特征是基于TF-IDF矩阵计算的：
 - en: '[PRE16]'
+  id: totrans-124
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE16]'
 - en: Feature set-3 is derived from a combination of these TF-IDF and SVD features.
     For example, we can have only the TF-IDF features for the two questions separately
     going into the model, or we can have the TF-IDF of the two questions combined
     with an SVD on top of them, and then the model kicks in, and so on. These features
     are explained as follows.
+  id: totrans-125
   prefs: []
   type: TYPE_NORMAL
+  zh: 特征集-3是通过将这些TF-IDF和SVD特征组合而来的。例如，我们可以仅使用两个问题的TF-IDF特征单独输入模型，或者将两个问题的TF-IDF与其上的SVD结合起来，再输入模型，依此类推。以下是这些特征的详细说明。
 - en: 'Feature set-3(1) or `fs3_1` is created using two different TF-IDFs for the
     two questions, which are then stacked together horizontally and passed to a machine
     learning model:'
+  id: totrans-126
   prefs: []
   type: TYPE_NORMAL
+  zh: 特征集-3(1)或`fs3_1`是通过对两个问题使用不同的TF-IDF计算得到的，随后将它们水平堆叠并传递给机器学习模型：
 - en: '![](img/11f9f437-007c-421d-ae50-b7b76898dfce.png)'
+  id: totrans-127
   prefs: []
   type: TYPE_IMG
+  zh: '![](img/11f9f437-007c-421d-ae50-b7b76898dfce.png)'
 - en: 'This can be coded as:'
+  id: totrans-128
   prefs: []
   type: TYPE_NORMAL
+  zh: 这可以按如下方式编写代码：
 - en: '[PRE17]'
+  id: totrans-129
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE17]'
 - en: 'Feature set-3(2), or `fs3_2`, is created by combining the two questions and
     using a single TF-IDF:'
+  id: totrans-130
   prefs: []
   type: TYPE_NORMAL
+  zh: 特征集-3(2)或`fs3_2`是通过将两个问题合并并使用单一的TF-IDF来创建的：
 - en: '![](img/d77c673e-f76f-4638-9794-156f099d9116.png)'
+  id: totrans-131
   prefs: []
   type: TYPE_IMG
+  zh: '![](img/d77c673e-f76f-4638-9794-156f099d9116.png)'
 - en: '[PRE18]'
+  id: totrans-132
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE18]'
 - en: 'The next subset of features in this feature set, feature set-3(3) or `fs3_3`,
     consists of separate TF-IDFs and SVDs for both questions:'
+  id: totrans-133
   prefs: []
   type: TYPE_NORMAL
+  zh: 该特征集中的下一个特征子集，特征集-3(3)或`fs3_3`，包含两个问题分别计算的TF-IDF和SVD：
 - en: '![](img/d853fdf8-eb11-44d2-a33c-fdd9f67927d8.png)'
+  id: totrans-134
   prefs: []
   type: TYPE_IMG
+  zh: '![](img/d853fdf8-eb11-44d2-a33c-fdd9f67927d8.png)'
 - en: 'This can be coded as follows:'
+  id: totrans-135
   prefs: []
   type: TYPE_NORMAL
+  zh: 这可以按如下方式编写代码：
 - en: '[PRE19]'
+  id: totrans-136
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE19]'
 - en: We can similarly create a couple more combinations using TF-IDF and SVD, and
     call them `fs3-4` and `fs3-5`, respectively. These are depicted in the following
     diagrams, but the code is left as an exercise for the reader.
+  id: totrans-137
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们可以通过类似的方式，使用 TF-IDF 和 SVD 创建几个组合，并分别称之为 `fs3-4` 和 `fs3-5`。这些组合在以下图示中有所展示，但代码部分留给读者作为练习。
 - en: 'Feature set-3(4) or `fs3-4`:'
+  id: totrans-138
   prefs: []
   type: TYPE_NORMAL
+  zh: 特征集-3(4) 或 `fs3-4`：
 - en: '![](img/a7aa20c6-daf9-4107-b9d8-da3963587e68.png)'
+  id: totrans-139
   prefs: []
   type: TYPE_IMG
+  zh: '![](img/a7aa20c6-daf9-4107-b9d8-da3963587e68.png)'
 - en: 'Feature set-3(5) or `fs3-5`:'
+  id: totrans-140
   prefs: []
   type: TYPE_NORMAL
+  zh: 特征集-3(5) 或 `fs3-5`：
 - en: '![](img/76064d3b-aa91-4bb5-b004-a5f06bbb6d41.png)'
+  id: totrans-141
   prefs: []
   type: TYPE_IMG
+  zh: '![](img/76064d3b-aa91-4bb5-b004-a5f06bbb6d41.png)'
 - en: After the basic feature set and some TF-IDF and SVD features, we can now move
     to more complicated features before diving into the machine learning and deep
     learning models.
+  id: totrans-142
   prefs: []
   type: TYPE_NORMAL
+  zh: 在基本特征集以及一些 TF-IDF 和 SVD 特征之后，我们现在可以转向更复杂的特征，然后再深入到机器学习和深度学习模型中。
 - en: Mapping with Word2vec embeddings
+  id: totrans-143
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 使用 Word2vec 嵌入进行映射
 - en: Very broadly, Word2vec models are two-layer neural networks that take a text
     corpus as input and output a vector for every word in that corpus. After fitting,
     the words with similar meaning have their vectors close to each other, that is,
     the distance between them is small compared to the distance between the vectors
     for words that have very different meanings.
+  id: totrans-144
   prefs: []
   type: TYPE_NORMAL
+  zh: 从广义上讲，Word2vec 模型是两层神经网络，它们将文本语料库作为输入，并为语料库中的每个单词输出一个向量。训练完成后，意义相似的单词的向量会相互接近，也就是说，它们之间的距离比意义差异很大的单词向量之间的距离要小。
 - en: Nowadays, Word2vec has become a standard in natural language processing problems
     and often it provides very useful insights into information retrieval tasks. For
     this particular problem, we will be using the Google news vectors. This is a pretrained
     Word2vec model trained on the Google News corpus.
+  id: totrans-145
   prefs: []
   type: TYPE_NORMAL
+  zh: 目前，Word2vec 已成为自然语言处理问题中的标准，并且它通常能为信息检索任务提供非常有用的见解。对于这个特定问题，我们将使用 Google 新闻向量。这是一个在
+    Google 新闻语料库上训练的预训练 Word2vec 模型。
 - en: 'Every word, when represented by its Word2vec vector, gets a position in space,
     as depicted in the following diagram:'
+  id: totrans-146
   prefs: []
   type: TYPE_NORMAL
+  zh: 每个单词，当通过其 Word2vec 向量表示时，会在空间中获得一个位置，如下图所示：
 - en: '![](img/7324f13f-f14f-443e-b8e6-0cd4f1c58e96.png)'
+  id: totrans-147
   prefs: []
   type: TYPE_IMG
+  zh: '![](img/7324f13f-f14f-443e-b8e6-0cd4f1c58e96.png)'
 - en: All the words in this example, such as Germany, Berlin, France, and Paris, can
     be represented by a 300-dimensional vector, if we are using the pretrained vectors
     from the Google news corpus. When we use Word2vec representations for these words
@@ -657,39 +952,55 @@
     of France to it, we will get a vector that is very similar to the vector of Paris.
     The Word2vec model thus carries the meaning of words in the vectors. The information
     carried by these vectors constitutes a very useful feature for our task.
+  id: totrans-148
   prefs: []
   type: TYPE_NORMAL
+  zh: 这个示例中的所有单词，例如德国、柏林、法国和巴黎，如果我们使用来自 Google 新闻语料库的预训练向量，它们都可以用一个 300 维的向量来表示。当我们使用
+    Word2vec 表示这些单词时，若我们从柏林的向量中减去德国的向量，再加上法国的向量，我们将得到一个与巴黎向量非常相似的向量。因此，Word2vec 模型通过向量携带单词的含义。这些向量携带的信息构成了我们任务中非常有用的特征。
 - en: For a user-friendly, yet more in-depth, explanation and description of possible
     applications of Word2vec, we suggest reading [https://www.distilled.net/resources/a-beginners-guide-to-Word2vec-aka-whats-the-opposite-of-canada/](https://www.distilled.net/resources/a-beginners-guide-to-word2vec-aka-whats-the-opposite-of-canada/),
     or if you need a more mathematically defined explanation, we recommend reading
     this paper: [http://www.1-4-5.net/~dmm/ml/how_does_Word2vec_work.pdf](http://www.1-4-5.net/~dmm/ml/how_does_word2vec_work.pdf)
+  id: totrans-149
   prefs: []
   type: TYPE_NORMAL
+  zh: 为了提供一个更为用户友好且更深入的解释和描述 Word2vec 可能的应用，我们建议阅读 [https://www.distilled.net/resources/a-beginners-guide-to-Word2vec-aka-whats-the-opposite-of-canada/](https://www.distilled.net/resources/a-beginners-guide-to-word2vec-aka-whats-the-opposite-of-canada/)，或者如果你需要一个更具数学定义的解释，建议阅读这篇论文：[http://www.1-4-5.net/~dmm/ml/how_does_Word2vec_work.pdf](http://www.1-4-5.net/~dmm/ml/how_does_word2vec_work.pdf)
 - en: 'To load the Word2vec features, we will be using Gensim. If you don''t have
     Gensim, you can install it easily using pip. At this time, it is suggested you
     also install the pyemd package, which will be used by the WMD distance function,
     a function that will help us to relate two Word2vec vectors:'
+  id: totrans-150
   prefs: []
   type: TYPE_NORMAL
+  zh: 为了加载 Word2vec 特征，我们将使用 Gensim。如果你还没有安装 Gensim，可以通过 pip 轻松安装。在此时，建议你同时安装 pyemd
+    包，这个包将被 WMD 距离函数使用，这个函数将帮助我们关联两个 Word2vec 向量：
 - en: '[PRE20]'
+  id: totrans-151
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE20]'
 - en: 'To load the Word2vec model, we download the `GoogleNews-vectors-negative300.bin.gz`
     binary and use Gensim''s `load_Word2vec_format` function to load it into memory.
     You can easily download the binary from an Amazon AWS repository using the `wget`
     command from a shell:'
+  id: totrans-152
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE21]'
+  id: totrans-153
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE21]'
 - en: 'After downloading and decompressing the file, you can use it with the Gensim
     `KeyedVectors` functions:'
+  id: totrans-154
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE22]'
+  id: totrans-155
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE22]'
 - en: Now, we can easily get the vector of a word by calling model[word]. However,
     a problem arises when we are dealing with sentences instead of individual words.
     In our case, we need vectors for all of question1 and question2 in order to come
@@ -697,31 +1008,42 @@
     The snippet basically adds the vectors for all words in a sentence that are available
     in the Google news vectors and gives a normalized vector at the end. We can call
     this sentence to vector, or Sent2Vec.
+  id: totrans-156
   prefs: []
   type: TYPE_NORMAL
 - en: 'Make sure that you have **Natural Language Tool Kit** (**NLTK**) installed
     before running the preceding function:'
+  id: totrans-157
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE23]'
+  id: totrans-158
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE23]'
 - en: 'It is also suggested that you download the `punkt` and `stopwords` packages,
     as they are part of NLTK:'
+  id: totrans-159
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE24]'
+  id: totrans-160
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE24]'
 - en: 'If NLTK is now available, you just have to run the following snippet and define
     the `sent2vec` function:'
+  id: totrans-161
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE25]'
+  id: totrans-162
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE25]'
 - en: When the phrase is null, we arbitrarily decide to give back a standard vector
     of zero values.
+  id: totrans-163
   prefs: []
   type: TYPE_NORMAL
 - en: To calculate the similarity between the questions, another feature that we created
@@ -729,6 +1051,7 @@
     works on a principle similar to that of earth mover's distance to give a distance
     between two text documents. Simply put, word mover's distance provides the minimum
     distance needed to move all the words from one document to an other document.
+  id: totrans-164
   prefs: []
   type: TYPE_NORMAL
 - en: The WMD has been introduced by this paper: <q>KUSNER, Matt, et al. From word
@@ -736,107 +1059,138 @@
     2015\. p. 957-966</q> which can be found at [http://proceedings.mlr.press/v37/kusnerb15.pdf](http://proceedings.mlr.press/v37/kusnerb15.pdf).
     For a hands-on tutorial on the distance, you can also refer to this tutorial based
     on the Gensim implementation of the distance: [https://markroxor.github.io/gensim/static/notebooks/WMD_tutorial.html](https://markroxor.github.io/gensim/static/notebooks/WMD_tutorial.html)
+  id: totrans-165
   prefs: []
   type: TYPE_NORMAL
 - en: 'Final **Word2vec** (**w2v**) features also include other distances, more usual
     ones such as the Euclidean or cosine distance. We complete the sequence of features
     with some measurement of the distribution of the two document vectors:'
+  id: totrans-166
   prefs: []
   type: TYPE_NORMAL
 - en: Word mover distance
+  id: totrans-167
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: Normalized word mover distance
+  id: totrans-168
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: Cosine distance between vectors of question1 and question2
+  id: totrans-169
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: Manhattan distance between vectors of question1 and question2
+  id: totrans-170
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: Jaccard similarity between vectors of question1 and question2
+  id: totrans-171
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: Canberra distance between vectors of question1 and question2
+  id: totrans-172
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: Euclidean distance between vectors of question1 and question2
+  id: totrans-173
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: Minkowski distance between vectors of question1 and question2
+  id: totrans-174
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: Braycurtis distance between vectors of question1 and question2
+  id: totrans-175
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: The skew of the vector for question1
+  id: totrans-176
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: The skew of the vector for question2
+  id: totrans-177
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: The kurtosis of the vector for question1
+  id: totrans-178
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: The kurtosis of the vector for question2
+  id: totrans-179
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: All the Word2vec features are denoted by **fs4**.
+  id: totrans-180
   prefs: []
   type: TYPE_NORMAL
 - en: 'A separate set of w2v features consists in the matrices of Word2vec vectors
     themselves:'
+  id: totrans-181
   prefs: []
   type: TYPE_NORMAL
 - en: Word2vec vector for question1
+  id: totrans-182
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: Word2vec vector for question2
+  id: totrans-183
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: 'These will be represented by **fs5**:'
+  id: totrans-184
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE26]'
+  id: totrans-185
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE26]'
 - en: 'In order to easily implement all the different distance measures between the
     vectors of the Word2vec embeddings of the Quora questions, we use the implementations
     found in the `scipy.spatial.distance module`:'
+  id: totrans-186
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE27]'
+  id: totrans-187
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE27]'
 - en: 'All the features names related to distances are gathered under the list `fs4_1`:'
+  id: totrans-188
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE28]'
+  id: totrans-189
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE28]'
 - en: 'The Word2vec matrices for the two questions are instead horizontally stacked
     and stored away in the `w2v` variable for later usage:'
+  id: totrans-190
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE29]'
+  id: totrans-191
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE29]'
 - en: 'The Word Mover''s Distance is implemented using a function that returns the
     distance between two questions, after having transformed them into lowercase and
     after removing any stopwords. Moreover, we also calculate a normalized version
@@ -844,24 +1198,31 @@
     vectors (each vector is transformed to the unit norm, that is, if we squared each
     element in the vector and summed all of them, the result would be equal to one)
     using the `init_sims` method:'
+  id: totrans-192
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE30]'
+  id: totrans-193
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE30]'
 - en: 'After these last computations, we now have most of the important features that
     are needed to create some basic machine learning models, which will serve as a
     benchmark for our deep learning models. The following table displays a snapshot
     of the available features:'
+  id: totrans-194
   prefs: []
   type: TYPE_NORMAL
 - en: '![](img/daae71d5-e910-4ad6-994b-bca6afd52af9.png)'
+  id: totrans-195
   prefs: []
   type: TYPE_IMG
 - en: Let's train some machine learning models on these and other Word2vec based features.
+  id: totrans-196
   prefs: []
   type: TYPE_NORMAL
 - en: Testing machine learning models
+  id: totrans-197
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
@@ -870,49 +1231,62 @@
     This is done using `gc.collect`, after deleting any past variables not required
     anymore, and then checking the available memory by exact reporting from the `psutil.virtualmemory`
     function:'
+  id: totrans-198
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE31]'
+  id: totrans-199
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE31]'
 - en: 'At this point, we simply recap the different features created up to now, and
     their meaning in terms of generated features:'
+  id: totrans-200
   prefs: []
   type: TYPE_NORMAL
 - en: '`fs_1`: List of basic features'
+  id: totrans-201
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: '`fs_2`: List of fuzzy features'
+  id: totrans-202
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: '`fs3_1`: Sparse data matrix of TFIDF for separated questions'
+  id: totrans-203
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: '`fs3_2`: Sparse data matrix of TFIDF for combined questions'
+  id: totrans-204
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: '`fs3_3`: Sparse data matrix of SVD'
+  id: totrans-205
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: '`fs3_4`: List of SVD statistics'
+  id: totrans-206
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: '`fs4_1`: List of w2vec distances'
+  id: totrans-207
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: '`fs4_2`: List of wmd distances'
+  id: totrans-208
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: '`w2v`: A matrix of transformed phrase''s Word2vec vectors by means of the `Sent2Vec`
     function'
+  id: totrans-209
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
@@ -920,54 +1294,69 @@
     regression and gradient boosting using the `xgboost` package in Python. The following
     table provides the performance of the logistic regression and `xgboost` algorithms
     on different sets of features created earlier, as obtained during the Kaggle competition:'
+  id: totrans-210
   prefs: []
   type: TYPE_NORMAL
 - en: '| **Feature set** | **Logistic regression accuracy** | **xgboost accuracy**
     |'
+  id: totrans-211
   prefs: []
   type: TYPE_TB
 - en: '| Basic features (fs1) | 0.658 | 0.721 |'
+  id: totrans-212
   prefs: []
   type: TYPE_TB
 - en: '| Basic features + fuzzy features (fs1 + fs2) | 0.660 | 0.738 |'
+  id: totrans-213
   prefs: []
   type: TYPE_TB
 - en: '| Basic features + fuzzy features + w2v features (fs1 + fs2 + fs4) | 0.676
     | 0.766 |'
+  id: totrans-214
   prefs: []
   type: TYPE_TB
 - en: '| W2v vector features (fs5) | * | 0.78 |'
+  id: totrans-215
   prefs: []
   type: TYPE_TB
 - en: '| Basic features + fuzzy features + w2v features + w2v vector features (fs1
     + fs2 + fs4 + fs5) | * | **0.814** |'
+  id: totrans-216
   prefs: []
   type: TYPE_TB
 - en: '| TFIDF-SVD features (`fs3-1`) | 0.777 | 0.749 |'
+  id: totrans-217
   prefs: []
   type: TYPE_TB
 - en: '| TFIDF-SVD features (`fs3-2`) | 0.804 | 0.748 |'
+  id: totrans-218
   prefs: []
   type: TYPE_TB
 - en: '| TFIDF-SVD features (`fs3-3`) | 0.706 | 0.763 |'
+  id: totrans-219
   prefs: []
   type: TYPE_TB
 - en: '| TFIDF-SVD features (`fs3-4`) | 0.700 | 0.753 |'
+  id: totrans-220
   prefs: []
   type: TYPE_TB
 - en: '| TFIDF-SVD features (`fs3-5`) | 0.714 | 0.759 |'
+  id: totrans-221
   prefs: []
   type: TYPE_TB
 - en: '* = These models were not trained due to high memory requirements.'
+  id: totrans-222
   prefs: []
   type: TYPE_NORMAL
 - en: We can treat the performances achieved as benchmarks or baseline numbers before
     starting with deep learning models, but we won't limit ourselves to that and we
     will be trying to replicate some of them.
+  id: totrans-223
   prefs: []
   type: TYPE_NORMAL
 - en: We are going to start by importing all the necessary packages. As for as the
     logistic regression, we will be using the scikit-learn implementation.
+  id: totrans-224
   prefs: []
   type: TYPE_NORMAL
 - en: The xgboost is a scalable, portable, and distributed gradient boosting library
@@ -978,138 +1367,173 @@
     ). The xgboost is available for Python, R, Java, Scala, Julia, and C++, and it
     can work both on a single machine (leveraging multithreading) and in Hadoop and
     Spark clusters.
+  id: totrans-225
   prefs: []
   type: TYPE_NORMAL
 - en: 'Detailed instruction for installing xgboost on your system can be found on
     this page: [github.com/dmlc/xgboost/blob/master/doc/build.md](https://github.com/dmlc/xgboost/blob/master/doc/build.md)'
+  id: totrans-226
   prefs: []
   type: TYPE_NORMAL
 - en: The installation of xgboost on both Linux and macOS is quite straightforward,
     whereas it is a little bit trickier for Windows users.
+  id: totrans-227
   prefs: []
   type: TYPE_NORMAL
 - en: 'For this reason, we provide specific installation steps for having xgboost
     working on Windows:'
+  id: totrans-228
   prefs: []
   type: TYPE_NORMAL
 - en: First, download and install Git for Windows ([git-for-windows.github.io](https://git-for-windows.github.io/))
+  id: totrans-229
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: Then, you need a MINGW compiler present on your system. You can download it
     from [www.mingw.org](http://www.mingw.org/) according to the characteristics of
     your system
+  id: totrans-230
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: 'From the command line, execute:'
+  id: totrans-231
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: '`$> git clone --recursive [https://github.com/dmlc/xgboost](https://github.com/dmlc/xgboost)`'
+  id: totrans-232
   prefs:
   - PREF_IND
   type: TYPE_NORMAL
 - en: '`$> cd xgboost`'
+  id: totrans-233
   prefs:
   - PREF_IND
   type: TYPE_NORMAL
 - en: '`$> git submodule init`'
+  id: totrans-234
   prefs:
   - PREF_IND
   type: TYPE_NORMAL
 - en: '`$> git submodule update`'
+  id: totrans-235
   prefs:
   - PREF_IND
   type: TYPE_NORMAL
 - en: 'Then, always from the command line, you copy the configuration for 64-byte
     systems to be the default one:'
+  id: totrans-236
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: '`$> copy make\mingw64.mk config.mk`'
+  id: totrans-237
   prefs:
   - PREF_IND
   type: TYPE_NORMAL
 - en: 'Alternatively, you just copy the plain 32-byte version:'
+  id: totrans-238
   prefs:
   - PREF_IND
   type: TYPE_NORMAL
 - en: '`$> copy make\mingw.mk config.mk`'
+  id: totrans-239
   prefs:
   - PREF_IND
   type: TYPE_NORMAL
 - en: 'After copying the configuration file, you can run the compiler, setting it
     to use four threads in order to speed up the compiling process:'
+  id: totrans-240
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: '`$> mingw32-make -j4`'
+  id: totrans-241
   prefs:
   - PREF_IND
   type: TYPE_NORMAL
 - en: 'In MinGW, the `make` command comes with the name `mingw32-make`; if you are
     using a different compiler, the previous command may not work, but you can simply
     try:'
+  id: totrans-242
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: '`$> make -j4`'
+  id: totrans-243
   prefs:
   - PREF_IND
   type: TYPE_NORMAL
 - en: 'Finally, if the compiler completed its work without errors, you can install
     the package in Python with:'
+  id: totrans-244
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: '`$> cd python-package`'
+  id: totrans-245
   prefs:
   - PREF_IND
   type: TYPE_NORMAL
 - en: '`$> python setup.py install`'
+  id: totrans-246
   prefs:
   - PREF_IND
   type: TYPE_NORMAL
 - en: 'If xgboost has also been properly installed on your system, you can proceed
     with importing both machine learning algorithms:'
+  id: totrans-247
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE32]'
+  id: totrans-248
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE32]'
 - en: 'Since we will be using a logistic regression solver that is sensitive to the
     scale of the features (it is the `sag` solver from [https://github.com/EpistasisLab/tpot/issues/292](https://github.com/EpistasisLab/tpot/issues/292),
     which requires a linear computational time in respect to the size of the data),
     we will start by standardizing the data using the `scaler` function in scikit-learn:'
+  id: totrans-249
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE33]'
+  id: totrans-250
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE33]'
 - en: 'We also select the data for the training by first filtering the `fs_1`, `fs_2`,
     `fs3_4`, `fs4_1`, and `fs4_2` set of variables, and then stacking the `fs3_3` sparse
     SVD data matrix. We also provide a random split, separating 1/10 of the data for
     validation purposes (in order to effectively assess the quality of the created
     model):'
+  id: totrans-251
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE34]'
+  id: totrans-252
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE34]'
 - en: 'As a first model, we try logistic regression, setting the regularization l2
     parameter C to 0.1 (modest regularization). Once the model is ready, we test its
     efficacy on the validation set (`x_val` for the training matrix, `y_val` for the
     correct answers). The results are assessed on accuracy, that is the proportion
     of exact guesses on the validation set:'
+  id: totrans-253
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE35]'
+  id: totrans-254
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE35]'
 - en: After a while (the solver has a maximum of 1,000 iterations before giving up
     converging the results), the resulting accuracy on the validation set will be
     0.743, which will be our starting baseline.
+  id: totrans-255
   prefs: []
   type: TYPE_NORMAL
 - en: Now, we try to predict using the `xgboost` algorithm. Being a gradient boosting
@@ -1121,26 +1545,33 @@
     to grow many trees because the learning is a bit slow). We also set up a watchlist,
     keeping an eye on the validation set for an early stop if the expected error on
     the validation doesn't decrease for over 50 steps.
+  id: totrans-256
   prefs: []
   type: TYPE_NORMAL
 - en: It is not best practice to stop early on the same set (the validation set in
     our case) we use for reporting the final results. In a real-world setting, ideally,
     we should set up a validation set for tuning operations, such as early stopping,
     and a test set for reporting the expected results when generalizing to new data.
+  id: totrans-257
   prefs: []
   type: TYPE_NORMAL
 - en: 'After setting all this, we run the algorithm. This time, we will have to wait
     for longer than we when running the logistic regression:'
+  id: totrans-258
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE36]'
+  id: totrans-259
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE36]'
 - en: The final result reported by `xgboost` is `0.803` accuracy on the validation
     set.
+  id: totrans-260
   prefs: []
   type: TYPE_NORMAL
 - en: Building a TensorFlow model
+  id: totrans-261
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
@@ -1152,28 +1583,37 @@
     be converted to TensorFlow models. Keras enables the very fast prototyping and
     testing of deep learning models. In our project, we rewrote the solution entirely
     in TensorFlow from scratch anyway.
+  id: totrans-262
   prefs: []
   type: TYPE_NORMAL
 - en: 'To start, let''s import the necessary libraries, in particular TensorFlow,
     and let''s check its version by printing it:'
+  id: totrans-263
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE37]'
+  id: totrans-264
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE37]'
 - en: 'At this point, we simply load the data into the `df` pandas dataframe or we
     load it from disk. We replace the missing values with an empty string and we set
     the `y` variable containing the target answer encoded as 1 (duplicated) or 0 (not
     duplicated):'
+  id: totrans-265
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE38]'
+  id: totrans-266
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE38]'
 - en: We can now dive into deep neural network models for this dataset.
+  id: totrans-267
   prefs: []
   type: TYPE_NORMAL
 - en: Processing before deep neural networks
+  id: totrans-268
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
@@ -1182,33 +1622,44 @@
     provided with TensorFlow, setting it using a maximum number of words limit of
     200,000 and a maximum sequence length of 40\. Any sentence with more than 40 words
     is consequently cut off to its first 40 words:'
+  id: totrans-269
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE39]'
+  id: totrans-270
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE39]'
 - en: 'After setting the `Tokenizer`, `tk`, this is fitted on the concatenated list
     of the first and second questions, thus learning all the possible word terms present
     in the learning corpus:'
+  id: totrans-271
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE40]'
+  id: totrans-272
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE40]'
 - en: In order to keep track of the work of the tokenizer, `word_index` is a dictionary
     containing all the tokenized words paired with an index assigned to them.
+  id: totrans-273
   prefs: []
   type: TYPE_NORMAL
 - en: Using the GloVe embeddings, we must load them into memory, as previously seen
     when discussing how to get the Word2vec embeddings.
+  id: totrans-274
   prefs: []
   type: TYPE_NORMAL
 - en: 'The GloVe embeddings can be easily recovered using this command from a shell:'
+  id: totrans-275
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE41]'
+  id: totrans-276
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE41]'
 - en: 'The GloVe embeddings are similar to Word2vec in the sense that they encode
     words into a complex multidimensional space based on their co-occurrence. However,
     as explained by the paper [http://clic.cimec.unitn.it/marco/publications/acl2014/baroni-etal-countpredict-acl2014.pdf](http://clic.cimec.unitn.it/marco/publications/acl2014/baroni-etal-countpredict-acl2014.pdf) 
@@ -1216,6 +1667,7 @@
     A systematic comparison of context-counting vs. context-predicting semantic vectors.
     In: Proceedings of the 52nd Annual Meeting of the Association for Computational
     Linguistics (Volume 1: Long Papers)</q><q>. 2014\. p. 238-247</q>.'
+  id: totrans-277
   prefs: []
   type: TYPE_NORMAL
 - en: GloVe is not derived from a neural network optimization that strives to predict
@@ -1223,6 +1675,7 @@
     from a co-occurrence count matrix (where we count how many times a word in a row
     co-occurs with the words in the columns) that underwent a dimensionality reduction
     (a factorization just like SVD, as we mentioned before when preparing our data).
+  id: totrans-278
   prefs: []
   type: TYPE_NORMAL
 - en: Why are we now using GloVe instead of Word2vec? In practice, the main difference
@@ -1231,33 +1684,41 @@
     In our case, after experimenting, we found GloVe embeddings working better with
     deep learning algorithms. You can read more information about GloVe and its uses
     from its official page at Stanford University: [https://nlp.stanford.edu/projects/glove/](https://nlp.stanford.edu/projects/glove/)
+  id: totrans-279
   prefs: []
   type: TYPE_NORMAL
 - en: Having got a hold of the GloVe embeddings, we can now proceed to create an `embedding_matrix`
     by filling the rows of the `embedding_matrix` array with the embedding vectors
     (sized at 300 elements each) extracted from the GloVe file.
+  id: totrans-280
   prefs: []
   type: TYPE_NORMAL
 - en: 'The following code reads the glove embeddings file and stores them into our
     embedding matrix, which in the end will consist of all the tokenized words in
     the dataset with their respective vectors:'
+  id: totrans-281
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE42]'
+  id: totrans-282
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE42]'
 - en: Starting from an empty `embedding_matrix`, each row vector is placed on the
     precise row number of the matrix that is expected to represent its corresponding
     wording. Such correspondence between words and rows has previously been defined
     by the encoding process completed by the tokenizer and is now available for consultation
     in the `word_index` dictionary.
+  id: totrans-283
   prefs: []
   type: TYPE_NORMAL
 - en: After the `embedding_matrix` has completed loading the embeddings, it is time
     to start building some deep learning models.
+  id: totrans-284
   prefs: []
   type: TYPE_NORMAL
 - en: Deep neural networks building blocks
+  id: totrans-285
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
@@ -1265,35 +1726,43 @@
     deep learning project to work. Starting from batch feeding (providing chunks of
     data to learn to the deep neural network) we will prepare the building blocks
     of a complex LSTM architecture.
+  id: totrans-286
   prefs: []
   type: TYPE_NORMAL
 - en: The LSTM architecture is presented in a hands-on and detailed way in [Chapter
     7](95c80f98-b5f4-4e07-9054-0c968dae1e76.xhtml), *Stock Price Prediction with LSTM*,
     inside the *Long short-term memory – LSTM 101* section
+  id: totrans-287
   prefs: []
   type: TYPE_NORMAL
 - en: 'The first function we start working with is the `prepare_batches` one. This
     function takes the question sequences and based on a step value (the batch size),
     returns a list of lists, where the internal lists are the sequence batches to
     be learned:'
+  id: totrans-288
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE43]'
+  id: totrans-289
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE43]'
 - en: The dense function will create a dense layer of neurons based on the provided
     size and activate and initialize them with random normally distributed numbers
     that have a mean of zero, and as a standard deviation, the square root of 2 divided
     by the number of input features.
+  id: totrans-290
   prefs: []
   type: TYPE_NORMAL
 - en: 'A proper initialization helps back-propagating the input derivative deep inside
     the network. In fact:'
+  id: totrans-291
   prefs: []
   type: TYPE_NORMAL
 - en: If you initialize the weights in a network too small, then the derivative shrinks
     as it passes through each layer until it's too faint to trigger the activation
     functions.
+  id: totrans-292
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
@@ -1301,6 +1770,7 @@
     grows (the so-called exploding gradient problem) as it traverses through each
     layer, the network won't converge to a proper solution and it will break because
     of handling numbers that are too large.
+  id: totrans-293
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
@@ -1310,12 +1780,14 @@
     as Xavier by Glorot and Bengio (Xavier is Glorot's first name), and the one proposed
     by He, Rang, Zhen, and Sun, and built on the Glorot and Bengio one, which is commonly
     referred to as He.
+  id: totrans-294
   prefs: []
   type: TYPE_NORMAL
 - en: Weight initialization is quite a technical aspect of building a neural network
     architecture, yet a relevant one. If you want to know more about it, you can start
     by consulting this post, which also delves into more mathematical explanations
     of the topic: [http://deepdish.io/2015/02/24/network-initialization/](http://deepdish.io/2015/02/24/network-initialization/)
+  id: totrans-295
   prefs: []
   type: TYPE_NORMAL
 - en: 'In this project, we opted for the He initialization, since it works quite well
@@ -1329,12 +1801,16 @@
     human-level performance on imagenet classification. In: Proceedings of the IEEE
     international conference on computer vision.</q> 2015\. p. 1026-1034 which can
     be found and read at [https://arxiv.org/abs/1502.01852](https://arxiv.org/abs/1502.01852):'
+  id: totrans-296
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE44]'
+  id: totrans-297
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE44]'
 - en: Next, we work on another kind of layer, the time distributed dense layer.
+  id: totrans-298
   prefs: []
   type: TYPE_NORMAL
 - en: This kind of layer is used on recurrent neural networks in order to keep a one-to-one
@@ -1345,6 +1821,7 @@
     you feed it using the time distributed dense layer, its output will instead be
     dimensionality shaped as rows by columns by channels. In fact, it happens that
     a dense neural network is applied to timestamp (each column).
+  id: totrans-299
   prefs: []
   type: TYPE_NORMAL
 - en: A time distributed dense layer is commonly used when you have, for instance,
@@ -1353,6 +1830,7 @@
     multilabel classification or Part-Of-Speech tagging. In our project, we will be
     using it just after the GloVe embedding in order to process how each GloVe vector
     changes by passing from a word to another in the question sequence.
+  id: totrans-300
   prefs: []
   type: TYPE_NORMAL
 - en: As an example, let's say you have a sequence of two cases (a couple of question
@@ -1363,37 +1841,48 @@
     retains the sequences, but the embeddings are replaced by the result of the five
     hidden units. Passing them through a reduction on the 1 axis, we will simply have
     a tensor of size (2,5), that is a result vector for each since example.
+  id: totrans-301
   prefs: []
   type: TYPE_NORMAL
 - en: 'If you want to replicate the previous example:'
+  id: totrans-302
   prefs: []
   type: TYPE_NORMAL
 - en: '`print("Tensor''s shape:", X.shape)`'
+  id: totrans-303
   prefs: []
   type: TYPE_NORMAL
 - en: '`tensor = tf.convert_to_tensor(X, dtype=tf.float32)`'
+  id: totrans-304
   prefs: []
   type: TYPE_NORMAL
 - en: '`dense_size = 5 i = time_distributed_dense(tensor, dense_size)`'
+  id: totrans-305
   prefs: []
   type: TYPE_NORMAL
 - en: '`print("Shape of time distributed output:", i)`'
+  id: totrans-306
   prefs: []
   type: TYPE_NORMAL
 - en: '`j = tf.reduce_sum(i, axis=1)`'
+  id: totrans-307
   prefs: []
   type: TYPE_NORMAL
 - en: '`print("Shape of reduced output:", j)`'
+  id: totrans-308
   prefs: []
   type: TYPE_NORMAL
 - en: 'The concept of a time distributed dense layer could be a bit trickier to grasp
     than others and there is much discussion online about it. You can also read this
     thread from the Keras issues to get more insight into the topic: [https://github.com/keras-team/keras/issues/1029](https://github.com/keras-team/keras/issues/1029)'
+  id: totrans-309
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE45]'
+  id: totrans-310
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE45]'
 - en: 'The `conv1d` and `maxpool1d_global` functions are in the end wrappers of the
     TensorFlow functions `tf.layers.conv1d` ([https://www.tensorflow.org/api_docs/python/tf/layers/conv1d](https://www.tensorflow.org/api_docs/python/tf/layers/conv1d)),
     which is a convolution layer, and `tf.reduce_max` ([https://www.tensorflow.org/api_docs/python/tf/reduce_max](https://www.tensorflow.org/api_docs/python/tf/reduce_max)),
@@ -1405,44 +1894,56 @@
     global max pooling simply takes the maximum value of an input vector, whereas
     standard max pooling returns a new vector made of the maximum values found in
     different pools of the input vector given a certain pool size:'
+  id: totrans-311
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE46]'
+  id: totrans-312
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE46]'
 - en: Our core `lstm` function is initialized by a different scope at every run due
     to a random integer number generator, initialized by He initialization (as seen
     before), and it is a wrapper of the TensorFlow `tf.contrib.rnn.BasicLSTMCell`
     for the layer of Basic LSTM recurrent network cells ([https://www.tensorflow.org/api_docs/python/tf/contrib/rnn/BasicLSTMCell](https://www.tensorflow.org/api_docs/python/tf/contrib/rnn/BasicLSTMCell))
     and `tf.contrib.rnn.static_rnn` for creating a recurrent neural network specified
     by the layer of cells ([https://www.tensorflow.org/versions/r1.1/api_docs/python/tf/contrib/rnn/static_rnn](https://www.tensorflow.org/versions/r1.1/api_docs/python/tf/contrib/rnn/static_rnn)).
+  id: totrans-313
   prefs: []
   type: TYPE_NORMAL
 - en: The implementation of the Basic LSTM recurrent network cells is based on the
     paper <q>ZAREMBA, Wojciech; SUTSKEVER, Ilya; VINYALS, Oriol. Recurrent neural
     network regularization. arXiv preprint arXiv</q>:1409.2329, 2014 found at [https://arxiv.org/abs/1409.2329](https://arxiv.org/abs/1409.2329).
+  id: totrans-314
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE47]'
+  id: totrans-315
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE47]'
 - en: At this stage of our project, we have gathered all the building blocks necessary
     to define the architecture of the neural network that will be learning to distinguish
     duplicated questions.
+  id: totrans-316
   prefs: []
   type: TYPE_NORMAL
 - en: Designing the learning architecture
+  id: totrans-317
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
 - en: 'We start defining our architecture by fixing some parameters such as the number
     of features considered by the GloVe embeddings, the number and length of filters,
     the length of maxpools, and the learning rate:'
+  id: totrans-318
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE48]'
+  id: totrans-319
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE48]'
 - en: Managing to grasp the different semantic meanings of less or more different
     phrases in order to spot possible duplicated questions is indeed a hard task that
     requires a complex architecture. For this purpose, after various experimentation,
@@ -1450,12 +1951,15 @@
     1d-cnn. Such a model has six heads, which are merged into one by concatenation.
     After concatenation, the architecture is completed by five dense layers and an
     output layer with sigmoid activation.
+  id: totrans-320
   prefs: []
   type: TYPE_NORMAL
 - en: 'The full model is shown in the following diagram:'
+  id: totrans-321
   prefs: []
   type: TYPE_NORMAL
 - en: '![](img/7fc7c1e2-3bd3-4d71-a9e9-ffd0dda59a73.png)'
+  id: totrans-322
   prefs: []
   type: TYPE_IMG
 - en: The first head consists of an embedding layer initialized by GloVe embeddings,
@@ -1463,11 +1967,13 @@
     layers on top of embeddings initialized by the GloVe model, and the third head
     is an LSTM model on the embeddings learned from scratch. The other three heads
     follow the same pattern for the other question in the pair of questions.
+  id: totrans-323
   prefs: []
   type: TYPE_NORMAL
 - en: We start defining the six models and concatenating them. In the end, the models
     are merged by concatenation, that is, the vectors from the six models are stacked
     together horizontally.
+  id: totrans-324
   prefs: []
   type: TYPE_NORMAL
 - en: Even if the following code chunk is quite long, following it is straightforward.
@@ -1476,86 +1982,109 @@
     the target response respectively. The questions are embedded using GloVe (`q1_glove_lookup`
     and `q2_glove_lookup`) and a random uniform embedding. Both embeddings have 300
     dimensions.
+  id: totrans-325
   prefs: []
   type: TYPE_NORMAL
 - en: The first two models, `model_1` and `model_2`, acquire the GloVe embeddings
     and they apply a time distributed dense layer.
+  id: totrans-326
   prefs: []
   type: TYPE_NORMAL
 - en: The following two models, `model_3` and `model_4`, acquire the GloVe embeddings
     and process them by a series of convolutions, dropouts, and maxpools. The final
     output vector is batch normalized in order to keep stable variance between the
     produced batches.
+  id: totrans-327
   prefs: []
   type: TYPE_NORMAL
 - en: If you want to know about the nuts and bolts of batch normalization, this Quora
     answer by Abhishek Shivkumar clearly provides all the key points you need to know
     about what batch normalization is and why it is effective in neural network architecture: [https://www.quora.com/In-layman%E2%80%99s-terms-what-is-batch-normalisation-what-does-it-do-and-why-does-it-work-so-well/answer/Abhishek-Shivkumar](https://www.quora.com/In-layman%E2%80%99s-terms-what-is-batch-normalisation-what-does-it-do-and-why-does-it-work-so-well/answer/Abhishek-Shivkumar)
+  id: totrans-328
   prefs: []
   type: TYPE_NORMAL
 - en: 'Finally, `model_5` and `model_6` acquire the uniform random embedding and process
     it with an LSTM. The results of all six models are concatenated together and batch
     normalized:'
+  id: totrans-329
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE49]'
+  id: totrans-330
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE49]'
 - en: 'We then complete the architecture by adding five dense layers with dropout
     and batch normalization. Then, there is an output layer with sigmoid activation.
     The model is optimized using an `AdamOptimizer` based on log-loss:'
+  id: totrans-331
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE50]'
+  id: totrans-332
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE50]'
 - en: 'After defining the architecture, we initialize the sessions and we are ready
     for learning. As a good practice, we split the available data into a training
     part (9/10) and a testing one (1/10). Fixing a random seed allows replicability
     of the results:'
+  id: totrans-333
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE51]'
+  id: totrans-334
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE51]'
 - en: 'If you run the following code snippet, the training will start and you will
     notice that the model accuracy increases with the increase in the number of epochs.
     However, the model will take a lot of time to train, depending on the number of
     batches you decide to iterate through. On an NVIDIA Titan X, the model takes over
     300 seconds per epoch. As a good balance between obtained accuracy and training
     time, we opt for running 10 epochs:'
+  id: totrans-335
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE52]'
+  id: totrans-336
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE52]'
 - en: Trained for 10 epochs, the model produces an accuracy of  82.5%. This is much
     higher than the benchmarks we had before. Of course, the model could be improved
     further by using better preprocessing and tokenization. More epochs (up to 200)
     could also help raise the accuracy a bit more. Stemming and lemmatization may
     also definitely help to get near the state-of-the-art accuracy of 88% reported
     by Quora on its blog.
+  id: totrans-337
   prefs: []
   type: TYPE_NORMAL
 - en: Having completed the training, we can use the in-memory session to test some
     question evaluations. We try with two questions about the duplicated questions
     on Quora, but the procedure works with any pair of questions you would like to
     test the algorithm on.
+  id: totrans-338
   prefs: []
   type: TYPE_NORMAL
 - en: As with many machine learning algorithms, this one depends on the distribution
     that it has learned. Questions completely different from the ones it has been
     trained on could prove difficult for the algorithm to guess.
+  id: totrans-339
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE53]'
+  id: totrans-340
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE53]'
 - en: 'After running the code, the answer should reveal that the questions are duplicated
     (answer: 1.0).'
+  id: totrans-341
   prefs: []
   type: TYPE_NORMAL
 - en: Summary
+  id: totrans-342
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
@@ -1564,14 +2093,17 @@
     us to discuss, revise, and practice plenty of different topics previously seen
     in other chapters: TF-IDF, SVD, classic machine learning algorithms,  Word2vec
     and GloVe embeddings, and LSTM models.'
+  id: totrans-343
   prefs: []
   type: TYPE_NORMAL
 - en: In the end, we obtained a model whose achieved accuracy is about 82.5%, a figure
     that is higher than traditional machine learning approaches and is also near other
     state-of-the-art deep learning solutions, as reported by the Quora blog.
+  id: totrans-344
   prefs: []
   type: TYPE_NORMAL
 - en: It should also be noted that the models and approaches discussed in this chapter
     can easily be applied to any semantic matching problem.
+  id: totrans-345
   prefs: []
   type: TYPE_NORMAL
